@@ -25,6 +25,7 @@ import '../services/audio_edition_service.dart';
 import '../services/location_service.dart';
 import '../services/adhan_notification_service.dart';
 import '../services/prayer_times_cache_service.dart';
+import '../services/app_update_service.dart';
 
 final sl = GetIt.instance;
 
@@ -90,6 +91,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => OfflineAudioService(sl(), sl()));
   sl.registerLazySingleton(() => AyahAudioService(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AudioEditionService(sl(), sl(), sl()));
+  sl.registerLazySingleton(() => AppUpdateService(sl(), sl()));
 
   //! External
   final sharedPreferences = await SharedPreferences.getInstance();

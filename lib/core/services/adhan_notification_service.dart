@@ -8,6 +8,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../constants/prayer_calculation_constants.dart';
 import 'location_service.dart';
 import 'settings_service.dart';
 import 'prayer_times_cache_service.dart';
@@ -247,8 +248,14 @@ class AdhanNotificationService {
       // Use cached times (offline mode)
       prayerTimesMap = cachedTimes;
     } else {
-      // Fallback: calculate fresh times
-      final params = CalculationMethod.muslim_world_league.getParameters();
+      // Fallback: calculate fresh times with user's preferred method
+      final calculationMethod = _settings.getPrayerCalculationMethod();
+      final asrMethod = _settings.getPrayerAsrMethod();
+      final params = PrayerCalculationConstants.getCompleteParameters(
+        calculationMethod: calculationMethod,
+        asrMethod: asrMethod,
+      );
+      
       final prayerTimes = PrayerTimes(
         coordinates,
         DateComponents(date.year, date.month, date.day),
@@ -310,12 +317,17 @@ class AdhanNotificationService {
         _channelName,
         channelDescription: _channelDescription,
         importance: Importance.max,
-        priority: Priority.high,
+        priority: Priority.max,
         playSound: true,
         enableVibration: true,
         sound: _adhanSound,
         category: AndroidNotificationCategory.alarm,
         visibility: NotificationVisibility.public,
+        fullScreenIntent: true, // Show full screen for alarm-like behavior
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        ongoing: false,
+        autoCancel: true,
+        timeoutAfter: 60000, // Auto-dismiss after 1 minute
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,

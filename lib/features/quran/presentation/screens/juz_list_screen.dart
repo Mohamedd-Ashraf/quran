@@ -24,6 +24,19 @@ class JuzListScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(isArabicUi ? 'الأجزاء' : 'Juz (Parts)'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.gradientStart,
+                AppColors.gradientMid,
+                AppColors.gradientEnd,
+              ],
+            ),
+          ),
+        ),
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -52,49 +65,88 @@ class _JuzCardState extends State<_JuzCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                textDirection: widget.isArabicUi
-                    ? TextDirection.rtl
-                    : TextDirection.ltr,
-                children: [
-                  // Juz number badge
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withValues(alpha: 0.7),
+      elevation: 4,
+      shadowColor: AppColors.secondary.withValues(alpha: 0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: AppColors.secondary.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    AppColors.darkCard,
+                    AppColors.darkSurface,
+                  ]
+                : [
+                    Theme.of(context).cardColor,
+                    Theme.of(context).cardColor.withValues(alpha: 0.95),
+                  ],
+          ),
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  textDirection: widget.isArabicUi
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
+                  children: [
+                    // Juz number badge
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.gradientStart,
+                            AppColors.gradientEnd,
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.secondary,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.secondary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
                         ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${widget.juz.number}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      child: Center(
+                        child: Text(
+                          '${widget.juz.number}',
+                          style: const TextStyle(
+                            color: AppColors.onPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 16),
                   // Juz name and info
                   Expanded(
@@ -128,14 +180,26 @@ class _JuzCardState extends State<_JuzCard> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Expand indicator
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: AppColors.primary,
-                  ),
+                    const SizedBox(width: 8),
+                    // Expand indicator
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -157,85 +221,147 @@ class _JuzCardState extends State<_JuzCard> {
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [
+                              AppColors.darkSurface.withValues(alpha: 0.8),
+                              AppColors.darkCard.withValues(alpha: 0.6),
+                            ]
+                          : [
+                              AppColors.primary.withValues(alpha: 0.08),
+                              AppColors.surfaceVariant.withValues(alpha: 0.5),
+                            ],
+                    ),
                     borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    border: Border(
+                      top: BorderSide(
+                        color: AppColors.secondary.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
                     ),
                   ),
                   child: Column(
-                    children: surahs.map((surah) {
-                      return ListTile(
-                        dense: true,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SurahDetailScreen(
-                                surahNumber: surah.number,
-                                surahName: widget.isArabicUi
-                                    ? surah.name
-                                    : surah.englishName,
-                              ),
-                            ),
-                          );
-                        },
-                        leading: widget.isArabicUi
-                            ? null
-                            : CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.primary.withValues(
-                                  alpha: 0.2,
-                                ),
-                                child: Text(
-                                  '${surah.number}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                    children: surahs.asMap().entries.map((entry) {
+                      final surah = entry.value;
+                      final isLast = entry.key == surahs.length - 1;
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: !isLast
+                              ? Border(
+                                  bottom: BorderSide(
+                                    color: AppColors.divider.withValues(alpha: 0.3),
+                                    width: 1,
                                   ),
-                                ),
-                              ),
-                        trailing: widget.isArabicUi
-                            ? CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.primary.withValues(
-                                  alpha: 0.2,
-                                ),
-                                child: Text(
-                                  '${surah.number}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              )
-                            : null,
-                        title: Text(
-                          widget.isArabicUi ? surah.name : surah.englishName,
-                          textAlign: widget.isArabicUi
-                              ? TextAlign.right
-                              : TextAlign.left,
-                          style: widget.isArabicUi
-                              ? GoogleFonts.amiriQuran(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.6,
                                 )
-                              : Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              : null,
                         ),
-                        subtitle: Text(
-                          widget.isArabicUi
-                              ? '${surah.numberOfAyahs} آية'
-                              : '${surah.numberOfAyahs} Ayahs',
-                          textAlign: widget.isArabicUi
-                              ? TextAlign.right
-                              : TextAlign.left,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                        child: ListTile(
+                          dense: true,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SurahDetailScreen(
+                                  surahNumber: surah.number,
+                                  surahName: widget.isArabicUi
+                                      ? surah.name
+                                      : surah.englishName,
+                                ),
+                              ),
+                            );
+                          },
+                          leading: widget.isArabicUi
+                              ? null
+                              : Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        AppColors.primary.withValues(alpha: 0.15),
+                                        AppColors.primary.withValues(alpha: 0.08),
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${surah.number}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                          trailing: widget.isArabicUi
+                              ? Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        AppColors.primary.withValues(alpha: 0.15),
+                                        AppColors.primary.withValues(alpha: 0.08),
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${surah.number}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          title: Text(
+                            widget.isArabicUi ? surah.name : surah.englishName,
+                            textAlign: widget.isArabicUi
+                                ? TextAlign.right
+                                : TextAlign.left,
+                            style: widget.isArabicUi
+                                ? GoogleFonts.amiriQuran(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.6,
+                                  )
+                                : Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            widget.isArabicUi
+                                ? '${surah.numberOfAyahs} آية'
+                                : '${surah.numberOfAyahs} Ayahs',
+                            textAlign: widget.isArabicUi
+                                ? TextAlign.right
+                                : TextAlign.left,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
                       );
@@ -244,7 +370,8 @@ class _JuzCardState extends State<_JuzCard> {
                 );
               },
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

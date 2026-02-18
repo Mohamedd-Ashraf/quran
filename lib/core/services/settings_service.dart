@@ -21,6 +21,8 @@ class SettingsService {
   static const String _keyAdhanUseCustomSound = 'adhan_use_custom_sound';
   static const String _keyCachedPrayerTimes = 'cached_prayer_times';
   static const String _keyAdhanSchedulePreview = 'adhan_schedule_preview';
+  static const String _keyPrayerCalculationMethod = 'prayer_calculation_method';
+  static const String _keyPrayerAsrMethod = 'prayer_asr_method';
 
   final SharedPreferences _prefs;
 
@@ -173,5 +175,25 @@ class SettingsService {
 
   String? getAdhanSchedulePreview() {
     return _prefs.getString(_keyAdhanSchedulePreview);
+  }
+
+  // Prayer Calculation Method
+  Future<bool> setPrayerCalculationMethod(String method) async {
+    return await _prefs.setString(_keyPrayerCalculationMethod, method);
+  }
+
+  String getPrayerCalculationMethod() {
+    // Default: Muslim World League (widely used)
+    return _prefs.getString(_keyPrayerCalculationMethod) ?? 'muslim_world_league';
+  }
+
+  // Prayer Asr Calculation Method
+  Future<bool> setPrayerAsrMethod(String method) async {
+    return await _prefs.setString(_keyPrayerAsrMethod, method);
+  }
+
+  String getPrayerAsrMethod() {
+    // Default: Standard (Shafi, Maliki, Hanbali)
+    return _prefs.getString(_keyPrayerAsrMethod) ?? 'standard';
   }
 }

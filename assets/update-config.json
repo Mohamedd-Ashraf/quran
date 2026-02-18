@@ -1,0 +1,11 @@
+{
+  "latestVersion": "1.1.0",
+  "minimumVersion": "1.0.0",
+  "isMandatory": false,
+  "downloadUrl": "https://play.google.com/store/apps/details?id=com.yourcompany.quraan",
+  "releaseDate": "2026-02-18T00:00:00.000Z",
+  "changelog": {
+    "ar": "التحديثات الجديدة:\n• تحسينات في الأداء\n• إصلاح مشاكل الصوت\n• تحسين واجهة المستخدم\n• إضافة خاصية العلامات المرجعية المحسنة",
+    "en": "What's New:\n• Performance improvements\n• Audio playback fixes\n• Enhanced user interface\n• Improved bookmarks feature"
+  }
+}

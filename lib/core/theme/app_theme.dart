@@ -15,16 +15,19 @@ class AppTheme {
         onSecondary: AppColors.onSecondary,
         onSurface: AppColors.onSurface,
         onError: AppColors.onError,
+        surfaceContainerHighest: AppColors.surfaceVariant,
       ),
       scaffoldBackgroundColor: AppColors.background,
       appBarTheme: AppBarTheme(
-        elevation: 0,
+        elevation: 4,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.3),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
-        titleTextStyle: (isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins)(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: (isArabicUi ? GoogleFonts.amiri : GoogleFonts.cinzel)(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
           color: AppColors.onPrimary,
+          letterSpacing: isArabicUi ? 0 : 1.2,
         ),
       ),
       textTheme:
@@ -40,21 +43,38 @@ class AppTheme {
                     ),
               ),
       cardTheme: CardThemeData(
-        elevation: 2,
+        elevation: 3,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.15),
         color: AppColors.cardBackground,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppColors.cardBorder,
+            width: 1.5,
+          ),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: GoogleFonts.poppins(
+          elevation: 4,
+          shadowColor: AppColors.secondary.withValues(alpha: 0.4),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: (isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins)(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
           ),
         ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.divider,
+        thickness: 1,
+        space: 16,
       ),
     );
   }
@@ -65,22 +85,25 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        surface: Color(0xFF121212),
+        surface: AppColors.darkSurface,
         error: AppColors.error,
         onPrimary: AppColors.onPrimary,
         onSecondary: AppColors.onSecondary,
-        onSurface: Color(0xFFE0E0E0),
+        onSurface: Color(0xFFE8DCC8),
         onError: AppColors.onError,
+        surfaceContainerHighest: AppColors.darkCard,
       ),
-      scaffoldBackgroundColor: const Color(0xFF0F0F0F),
+      scaffoldBackgroundColor: AppColors.darkBackground,
       appBarTheme: AppBarTheme(
-        elevation: 0,
+        elevation: 4,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.2),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
-        titleTextStyle: (isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins)(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: (isArabicUi ? GoogleFonts.amiri : GoogleFonts.cinzel)(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
           color: AppColors.onPrimary,
+          letterSpacing: isArabicUi ? 0 : 1.2,
         ),
       ),
       textTheme:
@@ -96,21 +119,38 @@ class AppTheme {
                     ),
               ),
       cardTheme: CardThemeData(
-        elevation: 2,
-        color: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 3,
+        shadowColor: AppColors.secondary.withValues(alpha: 0.1),
+        color: AppColors.darkCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppColors.darkBorder,
+            width: 1.5,
+          ),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 4,
+          shadowColor: AppColors.secondary.withValues(alpha: 0.3),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: (isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins)(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
           ),
         ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: AppColors.darkBorder,
+        thickness: 1,
+        space: 16,
       ),
     );
   }

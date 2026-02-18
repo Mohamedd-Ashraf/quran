@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:adhan/adhan.dart';
+import '../constants/prayer_calculation_constants.dart';
 import 'settings_service.dart';
 
 /// Caches prayer times for an upcoming period to support offline use.
@@ -11,7 +12,15 @@ class PrayerTimesCacheService {
   /// Pre-calculate and store prayer times for the next 30 days.
   Future<void> cachePrayerTimes(double latitude, double longitude) async {
     final coords = Coordinates(latitude, longitude);
-    final params = CalculationMethod.muslim_world_league.getParameters();
+    
+    // Get user's preferred calculation method
+    final calculationMethod = _settings.getPrayerCalculationMethod();
+    final asrMethod = _settings.getPrayerAsrMethod();
+    final params = PrayerCalculationConstants.getCompleteParameters(
+      calculationMethod: calculationMethod,
+      asrMethod: asrMethod,
+    );
+    
     final now = DateTime.now();
 
     // Store prayer times for next 30 days

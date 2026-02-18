@@ -119,6 +119,19 @@ class _QiblahScreenState extends State<QiblahScreen> {
         foregroundColor: Colors.white,
         title: Text(isArabicUi ? 'القبلة' : 'Qiblah'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D5E3A),
+                Color(0xFF1E5C43),
+                Color(0xFF2E7D32),
+              ],
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             onPressed: _load,

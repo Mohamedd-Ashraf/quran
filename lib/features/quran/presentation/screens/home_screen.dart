@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,7 @@ import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../islamic/presentation/screens/duaa_screen.dart';
 import '../../../islamic/presentation/screens/prayer_times_screen.dart';
 import '../../../islamic/presentation/screens/qiblah_screen.dart';
+import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
 import 'surah_detail_screen.dart';
 import 'offline_audio_screen.dart';
 import 'settings_screen.dart';
@@ -122,25 +124,50 @@ class HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         title: Text(isArabicUi ? 'القرآن الكريم' : 'Quran'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.gradientStart,
+                AppColors.gradientMid,
+                AppColors.gradientEnd,
+              ],
+            ),
+          ),
+        ),
         actions: [
           // Dark mode toggle
-          IconButton(
-            icon: Icon(
-              context.watch<AppSettingsCubit>().state.darkMode
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.secondary.withValues(alpha: 0.3),
+                width: 1,
+              ),
             ),
-            tooltip: isArabicUi
-                ? (context.watch<AppSettingsCubit>().state.darkMode
-                      ? 'الوضع الفاتح'
-                      : 'الوضع الداكن')
-                : (context.watch<AppSettingsCubit>().state.darkMode
-                      ? 'Light Mode'
-                      : 'Dark Mode'),
-            onPressed: () {
-              final cubit = context.read<AppSettingsCubit>();
-              cubit.setDarkMode(!cubit.state.darkMode);
-            },
+            child: IconButton(
+              icon: Icon(
+                context.watch<AppSettingsCubit>().state.darkMode
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                color: AppColors.onPrimary,
+              ),
+              tooltip: isArabicUi
+                  ? (context.watch<AppSettingsCubit>().state.darkMode
+                        ? 'الوضع الفاتح'
+                        : 'الوضع الداكن')
+                  : (context.watch<AppSettingsCubit>().state.darkMode
+                        ? 'Light Mode'
+                        : 'Dark Mode'),
+              onPressed: () {
+                final cubit = context.read<AppSettingsCubit>();
+                cubit.setDarkMode(!cubit.state.darkMode);
+              },
+            ),
           ),
         ],
       ),
@@ -151,6 +178,9 @@ class HomeScreenState extends State<HomeScreen>
           } else if (state is SurahListLoaded) {
             return CustomScrollView(
               slivers: [
+                const SliverToBoxAdapter(
+                  child: NextPrayerCountdown(),
+                ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -185,59 +215,93 @@ class HomeScreenState extends State<HomeScreen>
                       ];
                       final detailsLine = detailsParts.join(' • ');
 
-                      final useUthmaniScript = context
-                          .watch<AppSettingsCubit>()
-                          .state
-                          .useUthmaniScript;
-
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SurahDetailScreen(
-                                  surahNumber: surah.number,
-                                  surahName: isArabicUi
-                                      ? surah.name
-                                      : surah.englishName,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
+                        elevation: 4,
+                        shadowColor: AppColors.secondary.withValues(alpha: 0.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: AppColors.secondary.withValues(alpha: 0.15),
+                            width: 1,
+                          ),
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Theme.of(context).cardColor,
+                                Theme.of(context).cardColor.withValues(alpha: 0.95),
+                              ],
                             ),
-                            child: Row(
-                              textDirection: isArabicUi
-                                  ? TextDirection.rtl
-                                  : TextDirection.ltr,
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${surah.number}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
+                          ),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SurahDetailScreen(
+                                    surahNumber: surah.number,
+                                    surahName: isArabicUi
+                                        ? surah.name
+                                        : surah.englishName,
                                   ),
                                 ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                textDirection: isArabicUi
+                                    ? TextDirection.rtl
+                                    : TextDirection.ltr,
+                                children: [
+                                  Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          AppColors.gradientStart,
+                                          AppColors.gradientEnd,
+                                        ],
+                                      ),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.secondary,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.secondary.withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${surah.number}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              color: AppColors.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
@@ -299,29 +363,47 @@ class HomeScreenState extends State<HomeScreen>
                                     ],
                                   ),
                                 ),
-                                if (useUthmaniScript) ...[
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.play_circle_outline,
-                                      color: AppColors.primary,
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      width: 1.5,
                                     ),
-                                    tooltip: isArabicUi
-                                        ? 'تشغيل السورة كاملة'
-                                        : 'Play full surah',
-                                    onPressed: () {
-                                      context
-                                          .read<AyahAudioCubit>()
-                                          .togglePlaySurah(
-                                            surahNumber: surah.number,
-                                            numberOfAyahs: surah.numberOfAyahs,
-                                          );
-                                    },
                                   ),
-                                ],
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () {
+                                        context
+                                            .read<AyahAudioCubit>()
+                                            .togglePlaySurah(
+                                              surahNumber: surah.number,
+                                              numberOfAyahs: surah.numberOfAyahs,
+                                            );
+                                      },
+                                      child: Tooltip(
+                                        message: isArabicUi
+                                            ? 'تشغيل السورة كاملة'
+                                            : 'Play full surah',
+                                        child: Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: AppColors.primary,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                        ),
                         ),
                       );
                     }, childCount: state.surahs.length),
@@ -368,93 +450,252 @@ class _CategoriesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleStyle = Theme.of(
       context,
-    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
+    ).textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: isDark ? AppColors.secondary : AppColors.primary,
+          letterSpacing: 0.5,
+        );
 
-    return Column(
-      crossAxisAlignment: isArabicUi
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Text(isArabicUi ? 'الأقسام' : 'Categories', style: titleStyle),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 3,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _CategoryTile(
-              label: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
-              icon: Icons.schedule,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PrayerTimesScreen()),
-                );
-              },
-            ),
-            _CategoryTile(
-              label: isArabicUi ? 'القبلة' : 'Qiblah',
-              icon: Icons.explore,
-              onTap: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const QiblahScreen()));
-              },
-            ),
-            _CategoryTile(
-              label: isArabicUi ? 'الأدعية' : 'Duaa',
-              icon: Icons.menu_book,
-              onTap: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const DuaaScreen()));
-              },
-            ),
-            _CategoryTile(
-              label: isArabicUi ? 'الصوت' : 'Audio',
-              icon: Icons.headphones,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
-                );
-              },
-            ),
-            _CategoryTile(
-              label: isArabicUi ? 'الإعدادات' : 'Settings',
-              icon: Icons.settings,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                );
-              },
-            ),
-            _CategoryTile(
-              label: isArabicUi ? 'الأجزاء' : 'Juz',
-              icon: Icons.menu_book_outlined,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const JuzListScreen()),
-                );
-              },
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.secondary.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 1.5,
         ),
-        const SizedBox(height: 8),
-        Text(
-          isArabicUi
-              ? 'يمكنك الوصول للسور من خلال الأجزاء أو من القائمة أدناه.'
-              : 'Access Surahs through Juz or the list below.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-          textAlign: isArabicUi ? TextAlign.right : TextAlign.left,
-        ),
-      ],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.secondary.withValues(alpha: isDark ? 0.15 : 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Islamic pattern background
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: CustomPaint(
+                painter: _IslamicPatternPainter(
+                  color: isDark 
+                    ? AppColors.secondary.withValues(alpha: 0.04)
+                    : AppColors.primary.withValues(alpha: 0.04),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [
+                        AppColors.darkCard,
+                        AppColors.darkSurface,
+                      ]
+                    : [
+                        AppColors.surfaceVariant,
+                        AppColors.surface,
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: isArabicUi
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+          Row(
+            mainAxisAlignment: isArabicUi
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              if (!isArabicUi) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: isDark ? 0.25 : 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.category_rounded,
+                    color: isDark ? AppColors.secondary : AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Text(
+                isArabicUi ? 'الأقسام' : 'Categories',
+                style: titleStyle,
+              ),
+              if (isArabicUi) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: isDark ? 0.25 : 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.category_rounded,
+                    color: isDark ? AppColors.secondary : AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: 3,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _CategoryTile(
+                label: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
+                icon: Icons.schedule_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PrayerTimesScreen()),
+                  );
+                },
+              ),
+              _CategoryTile(
+                label: isArabicUi ? 'القبلة' : 'Qiblah',
+                icon: Icons.explore_rounded,
+                onTap: () {
+                  Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const QiblahScreen()));
+                },
+              ),
+              _CategoryTile(
+                label: isArabicUi ? 'الأدعية' : 'Duaa',
+                icon: Icons.menu_book_rounded,
+                onTap: () {
+                  Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const DuaaScreen()));
+                },
+              ),
+              _CategoryTile(
+                label: isArabicUi ? 'الصوت' : 'Audio',
+                icon: Icons.headphones_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
+                  );
+                },
+              ),
+              _CategoryTile(
+                label: isArabicUi ? 'الإعدادات' : 'Settings',
+                icon: Icons.settings_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+              ),
+              _CategoryTile(
+                label: isArabicUi ? 'الأجزاء' : 'Juz',
+                icon: Icons.menu_book_outlined,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const JuzListScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.1),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              isArabicUi
+                  ? 'يمكنك الوصول للسور من خلال الأجزاء أو من القائمة أدناه.'
+                  : 'Access Surahs through Juz or the list below.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(
+                    color: isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+              textAlign: isArabicUi ? TextAlign.right : TextAlign.left,
+            ),
+          ),
+        ],
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+// Islamic geometric pattern painter
+class _IslamicPatternPainter extends CustomPainter {
+  final Color color;
+  
+  _IslamicPatternPainter({required this.color});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    
+    final spacing = 40.0;
+    
+    // Draw star pattern
+    for (double x = 0; x < size.width + spacing; x += spacing) {
+      for (double y = 0; y < size.height + spacing; y += spacing) {
+        _drawStar(canvas, Offset(x, y), 12, paint);
+      }
+    }
+  }
+  
+  void _drawStar(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path();
+    final points = 8;
+    final angle = (3.14159 * 2) / points;
+    
+    for (int i = 0; i < points; i++) {
+      final x = center.dx + radius * cos(angle * i - 3.14159 / 2);
+      final y = center.dy + radius * sin(angle * i - 3.14159 / 2);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+  
+  double cos(double angle) => math.cos(angle);
+  double sin(double angle) => math.sin(angle);
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CategoryTile extends StatelessWidget {
@@ -470,40 +711,89 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: Theme.of(context).cardColor,
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 20),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).cardColor,
+                Theme.of(context).cardColor.withValues(alpha: 0.9),
+              ],
+            ),
+            border: Border.all(
+              color: AppColors.secondary.withValues(alpha: 0.25),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.secondary.withValues(alpha: 0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                Flexible(
+                  child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.gradientStart,
+                      AppColors.gradientMid,
+                    ],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                    color: AppColors.secondary,
+                    width: 1.5,
+                    ),
+                    boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AppColors.onPrimary,
+                    size: 22,
+                  ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Flexible(
+                  child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

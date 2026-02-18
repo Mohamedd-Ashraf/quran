@@ -12,6 +12,7 @@ import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/services/adhan_notification_service.dart';
+import '../../../../core/constants/prayer_calculation_constants.dart';
 import 'offline_audio_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -86,250 +87,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = di.sl<SettingsService>();
     final adhanEnabled = prefs.getAdhanNotificationsEnabled();
     final includeFajr = prefs.getAdhanIncludeFajr();
-    final useCustomSound = prefs.getAdhanUseCustomSound();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isArabicUi ? 'الإعدادات' : 'Settings'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.gradientStart,
+                AppColors.gradientMid,
+                AppColors.gradientEnd,
+              ],
+            ),
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ExpansionPanelList.radio(
-            initialOpenPanelValue: 'prayer',
-            animationDuration: const Duration(milliseconds: 200),
-            children: [
-              ExpansionPanelRadio(
-                value: 'prayer',
-                headerBuilder: (context, isExpanded) => ListTile(
-                  leading: const Icon(
-                    Icons.notifications_active_outlined,
-                    color: AppColors.primary,
-                  ),
-                  title: Text(
-                    isArabicUi ? 'تنبيهات الصلاة' : 'Prayer Notifications',
-                  ),
-                ),
-                body: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: Card(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          title: Text(
-                            isArabicUi
-                                ? 'تفعيل تنبيهات الأذان'
-                                : 'Enable Adhan Reminders',
-                          ),
-                          subtitle: Text(
-                            isArabicUi
-                                ? 'تنبيه عند دخول وقت الصلاة'
-                                : 'Get a reminder when prayer time starts',
-                          ),
-                          value: adhanEnabled,
-                          onChanged: (value) async {
-                            if (value) {
-                              await _adhanNotifications.requestPermissions();
-                              await prefs.setAdhanNotificationsEnabled(true);
-                              if (!mounted) return;
-                              await _adhanNotifications.ensureScheduled();
-                            } else {
-                              await _adhanNotifications.disable();
-                            }
-                            if (!mounted) return;
-                            setState(() {});
-                          },
-                          activeColor: AppColors.primary,
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          title: Text(isArabicUi ? 'أذان الفجر' : 'Fajr Adhan'),
-                          subtitle: Text(
-                            isArabicUi
-                                ? 'تشغيل تنبيه الفجر'
-                                : 'Include the Fajr reminder',
-                          ),
-                          value: includeFajr,
-                          onChanged: adhanEnabled
-                              ? (value) async {
-                                  await prefs.setAdhanIncludeFajr(value);
-                                  if (!mounted) return;
-                                  await _adhanNotifications.ensureScheduled();
-                                  if (!mounted) return;
-                                  setState(() {});
-                                }
-                              : null,
-                          activeColor: AppColors.primary,
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          title: Text(
-                            isArabicUi ? 'صوت الأذان' : 'Adhan Sound',
-                          ),
-                          subtitle: Text(
-                            isArabicUi
-                                ? 'يستخدم التطبيق adhan.mp3 افتراضيًا'
-                                : 'The app uses adhan.mp3 by default',
-                          ),
-                          value: true,
-                          onChanged: null,
-                          activeColor: AppColors.primary,
-                        ),
-                        const Divider(height: 1),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await _adhanNotifications.testNow();
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isArabicUi
-                                            ? 'تم إرسال إشعار تجريبي'
-                                            : 'Test notification sent',
-                                      ),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.volume_up_outlined),
-                                label: Text(
-                                  isArabicUi ? 'اختبار الآن' : 'Test now',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await _adhanNotifications.scheduleTestIn(
-                                    const Duration(seconds: 10),
-                                  );
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isArabicUi
-                                            ? 'سيظهر إشعار تجريبي بعد 10 ثوانٍ (جرّب إغلاق التطبيق)'
-                                            : 'Test will fire in 10s (try closing the app)',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.timer_outlined),
-                                label: Text(
-                                  isArabicUi
-                                      ? 'اختبار بعد 10 ثوانٍ'
-                                      : 'Test in 10s',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await _showAdhanScheduleDialog(
-                                    isArabicUi: isArabicUi,
-                                  );
-                                },
-                                icon: const Icon(Icons.list_alt_outlined),
-                                label: Text(
-                                  isArabicUi
-                                      ? 'عرض الجدول الحالي'
-                                      : 'View current schedule',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed:
-                                    (defaultTargetPlatform ==
-                                        TargetPlatform.android)
-                                    ? () async {
-                                        await _adhanNotifications
-                                            .recreateAndroidChannels();
-                                        if (!mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              isArabicUi
-                                                  ? 'تمت إعادة ضبط القنوات'
-                                                  : 'Notification channels reset',
-                                            ),
-                                            duration: const Duration(
-                                              seconds: 1,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.restart_alt),
-                                label: Text(
-                                  isArabicUi
-                                      ? 'إعادة ضبط القنوات'
-                                      : 'Reset channels',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await _adhanNotifications
-                                      .requestPermissions();
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isArabicUi
-                                            ? 'تم طلب الصلاحيات'
-                                            : 'Permissions requested',
-                                      ),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.verified_user_outlined),
-                                label: Text(
-                                  isArabicUi
-                                      ? 'طلب الصلاحيات'
-                                      : 'Request permissions',
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: adhanEnabled
-                                    ? () async {
-                                        await _adhanNotifications
-                                            .ensureScheduled();
-                                        if (!mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              isArabicUi
-                                                  ? 'تمت إعادة الجدولة'
-                                                  : 'Rescheduled reminders',
-                                            ),
-                                            duration: const Duration(
-                                              seconds: 1,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.schedule_outlined),
-                                label: Text(
-                                  isArabicUi ? 'إعادة الجدولة' : 'Reschedule',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.secondary.withValues(alpha: 0.3),
+                width: 1.5,
               ),
-
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ExpansionPanelList.radio(
+              elevation: 0,
+              initialOpenPanelValue: 'display',
+              animationDuration: const Duration(milliseconds: 200),
+              children: [
+              // 1. Display Settings (الأهم - المظهر واللغة)
+              // 1. Display & Theme Settings (الأهم)
               ExpansionPanelRadio(
                 value: 'display',
                 headerBuilder: (context, isExpanded) => ListTile(
@@ -338,23 +133,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: AppColors.primary,
                   ),
                   title: Text(
-                    isArabicUi ? 'إعدادات العرض' : 'Display Settings',
+                    isArabicUi ? 'العرض والمظهر' : 'Display & Theme',
                   ),
                 ),
                 body: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   child: Column(
                     children: [
+                      // App Language
                       Card(
+                        elevation: 2,
+                        shadowColor: AppColors.primary.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: AppColors.secondary.withValues(alpha: 0.15),
+                            width: 1,
+                          ),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                isArabicUi ? 'لغة التطبيق' : 'App Language',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.language_rounded,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isArabicUi ? 'لغة التطبيق' : 'App Language',
+                                    style: Theme.of(context).textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 12),
                               DropdownButtonFormField<String>(
@@ -1007,6 +822,361 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
 
+              // 4. Prayer Notifications
+              ExpansionPanelRadio(
+                value: 'prayer',
+                headerBuilder: (context, isExpanded) => ListTile(
+                  leading: const Icon(
+                    Icons.notifications_active_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: Text(
+                    isArabicUi ? 'تنبيهات الصلاة' : 'Prayer Notifications',
+                  ),
+                ),
+                body: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Card(
+                    elevation: 2,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: AppColors.secondary.withValues(alpha: 0.15),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: Text(
+                            isArabicUi
+                                ? 'تفعيل تنبيهات الأذان'
+                                : 'Enable Adhan Reminders',
+                          ),
+                          subtitle: Text(
+                            isArabicUi
+                                ? 'تنبيه عند دخول وقت الصلاة'
+                                : 'Get a reminder when prayer time starts',
+                          ),
+                          value: adhanEnabled,
+                          onChanged: (value) async {
+                            if (value) {
+                              await _adhanNotifications.requestPermissions();
+                              await prefs.setAdhanNotificationsEnabled(true);
+                              if (!mounted) return;
+                              await _adhanNotifications.ensureScheduled();
+                            } else {
+                              await _adhanNotifications.disable();
+                            }
+                            if (!mounted) return;
+                            setState(() {});
+                          },
+                          activeColor: AppColors.primary,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: Text(isArabicUi ? 'أذان الفجر' : 'Fajr Adhan'),
+                          subtitle: Text(
+                            isArabicUi
+                                ? 'تشغيل تنبيه الفجر'
+                                : 'Include the Fajr reminder',
+                          ),
+                          value: includeFajr,
+                          onChanged: adhanEnabled
+                              ? (value) async {
+                                  await prefs.setAdhanIncludeFajr(value);
+                                  if (!mounted) return;
+                                  await _adhanNotifications.ensureScheduled();
+                                  if (!mounted) return;
+                                  setState(() {});
+                                }
+                              : null,
+                          activeColor: AppColors.primary,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: Text(
+                            isArabicUi ? 'صوت الأذان' : 'Adhan Sound',
+                          ),
+                          subtitle: Text(
+                            isArabicUi
+                                ? 'يستخدم التطبيق adhan.mp3 افتراضيًا'
+                                : 'The app uses adhan.mp3 by default',
+                          ),
+                          value: true,
+                          onChanged: null,
+                          activeColor: AppColors.primary,
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          title: Text(
+                            isArabicUi
+                                ? 'طريقة حساب الأوقات'
+                                : 'Calculation Method',
+                          ),
+                          subtitle: DropdownButton<String>(
+                            value: prefs.getPrayerCalculationMethod(),
+                            isExpanded: true,
+                            isDense: true,
+                            underline: const SizedBox(),
+                            items: PrayerCalculationConstants
+                                .calculationMethods.entries
+                                .map((entry) {
+                              final method = entry.value;
+                              return DropdownMenuItem<String>(
+                                value: entry.key,
+                                child: Text(
+                                  isArabicUi
+                                      ? method.nameAr
+                                      : method.nameEn,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: adhanEnabled
+                                ? (String? value) async {
+                                    if (value != null) {
+                                      await prefs.setPrayerCalculationMethod(value);
+                                      if (!mounted) return;
+                                      await _adhanNotifications.ensureScheduled();
+                                      if (!mounted) return;
+                                      setState(() {});
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          title: Text(
+                            isArabicUi
+                                ? 'طريقة حساب العصر'
+                                : 'Asr Calculation',
+                          ),
+                          subtitle: DropdownButton<String>(
+                            value: prefs.getPrayerAsrMethod(),
+                            isExpanded: true,
+                            isDense: true,
+                            underline: const SizedBox(),
+                            items: PrayerCalculationConstants
+                                .asrMethods.entries
+                                .map((entry) {
+                              final method = entry.value;
+                              return DropdownMenuItem<String>(
+                                value: entry.key,
+                                child: Text(
+                                  isArabicUi
+                                      ? method.nameAr
+                                      : method.nameEn,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: adhanEnabled
+                                ? (String? value) async {
+                                    if (value != null) {
+                                      await prefs.setPrayerAsrMethod(value);
+                                      if (!mounted) return;
+                                      await _adhanNotifications.ensureScheduled();
+                                      if (!mounted) return;
+                                      setState(() {});
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.primary.withValues(alpha: 0.03),
+                                AppColors.secondary.withValues(alpha: 0.03),
+                              ],
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              // Help text about Adhan sound file
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        isArabicUi
+                                            ? 'ملاحظة: إذا كان الأذان يتقطع، تأكد من أن ملف adhan.mp3 في android/app/src/main/res/raw/ قصير (10-30 ثانية فقط). Android له حد لطول الصوت في الإشعارات.'
+                                            : 'Note: If Adhan sound stutters, make sure adhan.mp3 in android/app/src/main/res/raw/ is short (10-30 seconds only). Android limits notification sound duration.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _StyledButton(
+                                    onPressed: () async {
+                                  await _adhanNotifications.testNow();
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isArabicUi
+                                            ? 'تم إرسال إشعار تجريبي'
+                                            : 'Test notification sent',
+                                      ),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                icon: Icons.volume_up_outlined,
+                                label: isArabicUi ? 'اختبار الآن' : 'Test now',
+                              ),
+                              _StyledButton(
+                                onPressed: () async {
+                                  await _adhanNotifications.scheduleTestIn(
+                                    const Duration(seconds: 10),
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isArabicUi
+                                            ? 'سيظهر إشعار تجريبي بعد 10 ثوانٍ (جرّب إغلاق التطبيق)'
+                                            : 'Test will fire in 10s (try closing the app)',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                icon: Icons.timer_outlined,
+                                label: isArabicUi
+                                    ? 'اختبار بعد 10 ثوانٍ'
+                                    : 'Test in 10s',
+                              ),
+                              _StyledButton(
+                                onPressed: () async {
+                                  await _showAdhanScheduleDialog(
+                                    isArabicUi: isArabicUi,
+                                  );
+                                },
+                                icon: Icons.list_alt_outlined,
+                                label: isArabicUi
+                                    ? 'عرض الجدول الحالي'
+                                    : 'View current schedule',
+                              ),
+                              _StyledButton(
+                                onPressed:
+                                    (defaultTargetPlatform ==
+                                        TargetPlatform.android)
+                                    ? () async {
+                                        await _adhanNotifications
+                                            .recreateAndroidChannels();
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              isArabicUi
+                                                  ? 'تمت إعادة ضبط القنوات'
+                                                  : 'Notification channels reset',
+                                            ),
+                                            duration: const Duration(
+                                              seconds: 1,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                icon: Icons.restart_alt,
+                                label: isArabicUi
+                                    ? 'إعادة ضبط القنوات'
+                                    : 'Reset channels',
+                              ),
+                              _StyledButton(
+                                onPressed: () async {
+                                  await _adhanNotifications
+                                      .requestPermissions();
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isArabicUi
+                                            ? 'تم طلب الصلاحيات'
+                                            : 'Permissions requested',
+                                      ),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                icon: Icons.verified_user_outlined,
+                                label: isArabicUi
+                                    ? 'طلب الصلاحيات'
+                                    : 'Request permissions',
+                              ),
+                              _StyledButton(
+                                onPressed: adhanEnabled
+                                    ? () async {
+                                        await _adhanNotifications
+                                            .ensureScheduled();
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              isArabicUi
+                                                  ? 'تمت إعادة الجدولة'
+                                                  : 'Rescheduled reminders',
+                                            ),
+                                            duration: const Duration(
+                                              seconds: 1,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                icon: Icons.schedule_outlined,
+                                label: isArabicUi ? 'إعادة الجدولة' : 'Reschedule',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+              // 5. About
               ExpansionPanelRadio(
                 value: 'about',
                 headerBuilder: (context, isExpanded) => ListTile(
@@ -1047,6 +1217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ],
       ),
@@ -1264,6 +1435,49 @@ class _NextPrayerCountdownState extends State<_NextPrayerCountdown> {
         '${widget.label} — ${MaterialLocalizations.of(context).formatFullDate(widget.target)}',
       ),
       subtitle: Text('Starts in ${_formatDuration(_remaining)}'),
+    );
+  }
+}
+
+class _StyledButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+
+  const _StyledButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(
+          color: onPressed != null
+              ? AppColors.primary.withValues(alpha: 0.5)
+              : AppColors.divider,
+          width: 1.5,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: Icon(
+        icon,
+        color: onPressed != null ? AppColors.primary : AppColors.textSecondary,
+        size: 20,
+      ),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: onPressed != null ? AppColors.primary : AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
