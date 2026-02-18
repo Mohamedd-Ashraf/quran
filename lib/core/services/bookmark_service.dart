@@ -14,10 +14,30 @@ class BookmarkService {
     if (bookmarksJson == null || bookmarksJson.isEmpty) {
       return [];
     }
-    
+
     try {
       final List<dynamic> decoded = json.decode(bookmarksJson);
-      return decoded.cast<Map<String, dynamic>>();
+      final bookmarks = decoded.cast<Map<String, dynamic>>();
+
+      // Sort by timestamp (newest first)
+      bookmarks.sort((a, b) {
+        final timestampA = a['timestamp'] as String?;
+        final timestampB = b['timestamp'] as String?;
+
+        if (timestampA == null && timestampB == null) return 0;
+        if (timestampA == null) return 1;
+        if (timestampB == null) return -1;
+
+        try {
+          final dateA = DateTime.parse(timestampA);
+          final dateB = DateTime.parse(timestampB);
+          return dateB.compareTo(dateA); // Descending order (newest first)
+        } catch (e) {
+          return 0;
+        }
+      });
+
+      return bookmarks;
     } catch (e) {
       return [];
     }
@@ -34,7 +54,7 @@ class BookmarkService {
     int? ayahNumber,
   }) async {
     final bookmarks = getBookmarks();
-    
+
     // Check if already bookmarked
     if (bookmarks.any((b) => b['id'] == id)) {
       return false;

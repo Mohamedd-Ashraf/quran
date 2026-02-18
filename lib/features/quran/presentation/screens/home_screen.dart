@@ -16,6 +16,8 @@ import '../../../islamic/presentation/screens/qiblah_screen.dart';
 import 'surah_detail_screen.dart';
 import 'offline_audio_screen.dart';
 import 'settings_screen.dart';
+import 'juz_list_screen.dart';
+import '../widgets/islamic_audio_player.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -120,6 +122,27 @@ class HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         title: Text(isArabicUi ? 'القرآن الكريم' : 'Quran'),
         centerTitle: true,
+        actions: [
+          // Dark mode toggle
+          IconButton(
+            icon: Icon(
+              context.watch<AppSettingsCubit>().state.darkMode
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            tooltip: isArabicUi
+                ? (context.watch<AppSettingsCubit>().state.darkMode
+                      ? 'الوضع الفاتح'
+                      : 'الوضع الداكن')
+                : (context.watch<AppSettingsCubit>().state.darkMode
+                      ? 'Light Mode'
+                      : 'Dark Mode'),
+            onPressed: () {
+              final cubit = context.read<AppSettingsCubit>();
+              cubit.setDarkMode(!cubit.state.darkMode);
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<SurahBloc, SurahState>(
         builder: (context, state) {
@@ -333,177 +356,8 @@ class HomeScreenState extends State<HomeScreen>
           return const SizedBox.shrink();
         },
       ),
-      bottomNavigationBar: BlocBuilder<SurahBloc, SurahState>(
-        builder: (context, surahState) {
-          return BlocBuilder<AyahAudioCubit, AyahAudioState>(
-            buildWhen: (prev, next) => prev != next,
-            builder: (context, audioState) {
-              final visible = audioState.status != AyahAudioStatus.idle;
-              if (!visible) return const SizedBox.shrink();
-
-              final isSurahMode = audioState.mode == AyahAudioMode.surah;
-              final surahName = _getSurahName(
-                surahState,
-                audioState.surahNumber,
-                isArabicUi: isArabicUi,
-              );
-              final title = isSurahMode
-                  ? '$surahName • ${isArabicUi ? 'الآية' : 'Ayah'} ${audioState.ayahNumber ?? '-'}'
-                  : '${isArabicUi ? 'الآية' : 'Ayah'} ${audioState.ayahNumber ?? '-'}';
-
-              final isPlaying = audioState.status == AyahAudioStatus.playing;
-              final isBuffering =
-                  audioState.status == AyahAudioStatus.buffering;
-
-              final cubit = context.read<AyahAudioCubit>();
-
-              return Material(
-                elevation: 10,
-                color: Theme.of(context).colorScheme.surface,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            if (isSurahMode)
-                              IconButton(
-                                tooltip: isArabicUi ? 'السابق' : 'Previous',
-                                onPressed: () => cubit.previous(),
-                                icon: const Icon(Icons.skip_previous),
-                              ),
-                            IconButton(
-                              tooltip: isPlaying
-                                  ? (isArabicUi ? 'إيقاف مؤقت' : 'Pause')
-                                  : (isBuffering
-                                        ? (isArabicUi
-                                              ? 'جاري التحميل…'
-                                              : 'Loading…')
-                                        : (isArabicUi ? 'تشغيل' : 'Play')),
-                              onPressed: () {
-                                if (isSurahMode) {
-                                  final surahNumber = audioState.surahNumber;
-                                  if (surahNumber != null) {
-                                    final numberOfAyahs = _getNumberOfAyahs(
-                                      surahState,
-                                      surahNumber,
-                                    );
-                                    if (numberOfAyahs != null) {
-                                      cubit.togglePlaySurah(
-                                        surahNumber: surahNumber,
-                                        numberOfAyahs: numberOfAyahs,
-                                      );
-                                    }
-                                  }
-                                } else {
-                                  if (audioState.surahNumber != null &&
-                                      audioState.ayahNumber != null) {
-                                    cubit.togglePlayAyah(
-                                      surahNumber: audioState.surahNumber!,
-                                      ayahNumber: audioState.ayahNumber!,
-                                    );
-                                  }
-                                }
-                              },
-                              icon: Icon(
-                                isBuffering
-                                    ? Icons.hourglass_top
-                                    : (isPlaying
-                                          ? Icons.pause
-                                          : Icons.play_arrow),
-                              ),
-                            ),
-                            if (isSurahMode)
-                              IconButton(
-                                tooltip: isArabicUi ? 'التالي' : 'Next',
-                                onPressed: () => cubit.next(),
-                                icon: const Icon(Icons.skip_next),
-                              ),
-                            IconButton(
-                              tooltip: isArabicUi ? 'إيقاف' : 'Stop',
-                              onPressed: () => cubit.stop(),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                        StreamBuilder<Duration>(
-                          stream: cubit.positionStream,
-                          builder: (context, posSnap) {
-                            return StreamBuilder<Duration?>(
-                              stream: cubit.durationStream,
-                              builder: (context, durSnap) {
-                                final pos = posSnap.data ?? Duration.zero;
-                                final dur = durSnap.data ?? Duration.zero;
-                                final maxMs = dur.inMilliseconds;
-                                final value = maxMs <= 0
-                                    ? 0.0
-                                    : (pos.inMilliseconds / maxMs).clamp(
-                                        0.0,
-                                        1.0,
-                                      );
-                                return LinearProgressIndicator(value: value);
-                              },
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+      bottomNavigationBar: IslamicAudioPlayer(isArabicUi: isArabicUi),
     );
-  }
-
-  String _getSurahName(
-    SurahState state,
-    int? surahNumber, {
-    required bool isArabicUi,
-  }) {
-    if (state is SurahListLoaded && surahNumber != null) {
-      try {
-        final surah = state.surahs.firstWhere((s) => s.number == surahNumber);
-        return isArabicUi ? surah.name : surah.englishName;
-      } catch (e) {
-        // If surah not found, use first surah or default
-        if (state.surahs.isNotEmpty) {
-          final surah = state.surahs.first;
-          return isArabicUi ? surah.name : surah.englishName;
-        }
-      }
-    }
-    return isArabicUi ? 'القرآن الكريم' : 'Quran';
-  }
-
-  int? _getNumberOfAyahs(SurahState state, int surahNumber) {
-    if (state is SurahListLoaded) {
-      try {
-        final surah = state.surahs.firstWhere((s) => s.number == surahNumber);
-        return surah.numberOfAyahs;
-      } catch (e) {
-        // If surah not found, return null
-        return null;
-      }
-    }
-    return null;
   }
 }
 
@@ -578,10 +432,12 @@ class _CategoriesSection extends StatelessWidget {
               },
             ),
             _CategoryTile(
-              label: isArabicUi ? 'القرآن' : 'Quran',
-              icon: Icons.book,
+              label: isArabicUi ? 'الأجزاء' : 'Juz',
+              icon: Icons.menu_book_outlined,
               onTap: () {
-                // Already on Quran list; just scroll stays.
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const JuzListScreen()),
+                );
               },
             ),
           ],
@@ -589,8 +445,8 @@ class _CategoriesSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isArabicUi
-              ? 'يمكنك الوصول لكل ميزات التطبيق من هنا.'
-              : 'Quick access to all app features.',
+              ? 'يمكنك الوصول للسور من خلال الأجزاء أو من القائمة أدناه.'
+              : 'Access Surahs through Juz or the list below.',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),

@@ -422,6 +422,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       Card(
+                        child: SwitchListTile(
+                          title: Text(
+                            isArabicUi
+                                ? 'اتجاه قلب الصفحات من اليمين لليسار'
+                                : 'Page Flip Direction (Right to Left)',
+                          ),
+                          subtitle: Text(
+                            isArabicUi
+                                ? 'قلب الصفحات من اليمين لليسار (مثل الكتب الورقية)'
+                                : 'Flip pages from right to left (like physical books)',
+                          ),
+                          value: settings.pageFlipRightToLeft,
+                          onChanged: (value) {
+                            context
+                                .read<AppSettingsCubit>()
+                                .setPageFlipRightToLeft(value);
+                          },
+                          activeColor: AppColors.primary,
+                        ),
+                      ),
+                      Card(
+                        child: Column(
+                          children: [
+                            ListTile(
+                              title: Text(
+                                isArabicUi ? 'لون التشكيل' : 'Diacritics Color',
+                              ),
+                              subtitle: Text(
+                                isArabicUi
+                                    ? 'اختر طريقة عرض ألوان الحركات والتشكيل'
+                                    : 'Choose how diacritics (tashkeel) are colored',
+                              ),
+                            ),
+                            RadioListTile<String>(
+                              title: Text(
+                                isArabicUi
+                                    ? 'التشكيل والنص بلون مختلف (الافتراضي)'
+                                    : 'Different color (Default)',
+                              ),
+                              subtitle: Text(
+                                isArabicUi
+                                    ? 'التشكيل بلون مميز واضح'
+                                    : 'Diacritics in clearly different color',
+                              ),
+                              value: 'different',
+                              groupValue: settings.diacriticsColorMode,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<AppSettingsCubit>()
+                                      .setDiacriticsColorMode(value);
+                                }
+                              },
+                              activeColor: AppColors.primary,
+                            ),
+                            RadioListTile<String>(
+                              title: Text(
+                                isArabicUi
+                                    ? 'التشكيل بلون أخف قليلاً'
+                                    : 'Subtle lighter color',
+                              ),
+                              subtitle: Text(
+                                isArabicUi
+                                    ? 'التشكيل أخف قليلاً من النص'
+                                    : 'Diacritics slightly lighter than text',
+                              ),
+                              value: 'subtle',
+                              groupValue: settings.diacriticsColorMode,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<AppSettingsCubit>()
+                                      .setDiacriticsColorMode(value);
+                                }
+                              },
+                              activeColor: AppColors.primary,
+                            ),
+                            RadioListTile<String>(
+                              title: Text(
+                                isArabicUi
+                                    ? 'نفس لون النص'
+                                    : 'Same as text color',
+                              ),
+                              subtitle: Text(
+                                isArabicUi
+                                    ? 'الحروف والتشكيل بنفس اللون تماماً'
+                                    : 'Text and diacritics in same color',
+                              ),
+                              value: 'same',
+                              groupValue: settings.diacriticsColorMode,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<AppSettingsCubit>()
+                                      .setDiacriticsColorMode(value);
+                                }
+                              },
+                              activeColor: AppColors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(

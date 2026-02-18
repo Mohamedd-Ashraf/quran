@@ -9,6 +9,7 @@ import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/utils/arabic_text_style_helper.dart';
 
 class MushafPageView extends StatefulWidget {
   final Surah surah;
@@ -30,19 +31,37 @@ class MushafPageView extends StatefulWidget {
   State<MushafPageView> createState() => _MushafPageViewState();
 }
 
-class _MushafPageViewState extends State<MushafPageView> {
+class _MushafPageViewState extends State<MushafPageView>
+    with SingleTickerProviderStateMixin {
   late PageController _pageController;
   late List<MushafPage> _pages;
   late final BookmarkService _bookmarkService;
   int? _highlightedAyahNumber;
   bool _isAnimating = false;
+  late AnimationController _highlightAnimationController;
+  late Animation<double> _highlightAnimation;
+  final Map<int, ScrollController> _pageScrollControllers = {};
 
   @override
   void initState() {
     super.initState();
     _bookmarkService = di.sl<BookmarkService>();
     _pages = _groupAyahsByPage();
-    final initialPage = _getInitialPageIndex();
+
+    // Initialize highlight animation
+    _highlightAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _highlightAnimation = CurvedAnimation(
+      parent: _highlightAnimationController,
+      curve: Curves.easeInOut,
+    );
+
+    // Always start from first page when we have a target
+    final hasTarget =
+        widget.initialAyahNumber != null || widget.initialPage != null;
+    final initialPage = hasTarget ? 0 : _getInitialPageIndex();
     _pageController = PageController(initialPage: initialPage);
 
     // Animate to target ayah if specified
@@ -50,12 +69,23 @@ class _MushafPageViewState extends State<MushafPageView> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _animateToAyah(widget.initialAyahNumber!);
       });
+    } else if (widget.initialPage != null) {
+      // Page bookmark: animate to page and highlight first ayah
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _animateToPage(widget.initialPage!);
+      });
     }
   }
 
   @override
   void dispose() {
+    _highlightAnimationController.dispose();
     _pageController.dispose();
+    // Dispose all page scroll controllers
+    for (final controller in _pageScrollControllers.values) {
+      controller.dispose();
+    }
+    _pageScrollControllers.clear();
     super.dispose();
   }
 
@@ -92,40 +122,211 @@ class _MushafPageViewState extends State<MushafPageView> {
 
     if (targetPageIndex == -1) return;
 
-    final currentPage = _pageController.page?.round() ?? 0;
-    final distance = (targetPageIndex - currentPage).abs();
+    // Always calculate distance from page 0 for realistic page-flipping
+    final distance = targetPageIndex;
 
     setState(() {
       _isAnimating = true;
     });
 
     // Calculate animation duration based on distance
-    // Max 3 seconds even for long distances
-    final baseDuration = 300; // milliseconds per page
-    final maxDuration = 3000; // max 3 seconds
+    // Faster animation: 150ms per page, max 2.5 seconds
+    final baseDuration = 150; // milliseconds per page
+    final maxDuration = 2500; // max 2.5 seconds
     final duration = (baseDuration * distance).clamp(300, maxDuration);
 
-    // Animate to the target page
+    // Animate to the target page from beginning
     await _pageController.animateToPage(
       targetPageIndex,
       duration: Duration(milliseconds: duration),
       curve: Curves.easeInOutCubic,
     );
 
-    // Highlight the ayah briefly
+    // Highlight the ayah briefly with animation
     setState(() {
       _highlightedAyahNumber = ayahNumber;
       _isAnimating = false;
     });
 
-    // Remove highlight after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () {
+    // Scroll to ayah within the page if it's in the lower half
+    _scrollToAyahInPage(ayahNumber, targetPageIndex);
+
+    // Start highlight animation
+    _highlightAnimationController.forward(from: 0.0);
+
+    // Remove highlight after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        setState(() {
-          _highlightedAyahNumber = null;
+        _highlightAnimationController.reverse().then((_) {
+          if (mounted) {
+            setState(() {
+              _highlightedAyahNumber = null;
+            });
+          }
         });
       }
     });
+  }
+
+  Future<void> _animateToPage(int pageNumber) async {
+    if (_isAnimating || _pages.isEmpty) return;
+
+    // Find the page index
+    final targetPageIndex = _pages.indexWhere(
+      (page) => page.pageNumber == pageNumber,
+    );
+
+    if (targetPageIndex == -1) return;
+
+    // Get first ayah in this page for highlighting
+    final firstAyahInPage = _pages[targetPageIndex].ayahs.isNotEmpty
+        ? _pages[targetPageIndex].ayahs.first.numberInSurah
+        : null;
+
+    // Always calculate distance from page 0 for realistic page-flipping
+    final distance = targetPageIndex;
+
+    setState(() {
+      _isAnimating = true;
+    });
+
+    // Calculate animation duration based on distance
+    final baseDuration = 150; // milliseconds per page
+    final maxDuration = 2500; // max 2.5 seconds
+    final duration = (baseDuration * distance).clamp(300, maxDuration);
+
+    // Animate to the target page from beginning
+    await _pageController.animateToPage(
+      targetPageIndex,
+      duration: Duration(milliseconds: duration),
+      curve: Curves.easeInOutCubic,
+    );
+
+    // Highlight the first ayah briefly with animation
+    if (firstAyahInPage != null) {
+      setState(() {
+        _highlightedAyahNumber = firstAyahInPage;
+        _isAnimating = false;
+      });
+
+      // Start highlight animation
+      _highlightAnimationController.forward(from: 0.0);
+
+      // Remove highlight after 2.5 seconds
+      Future.delayed(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          _highlightAnimationController.reverse().then((_) {
+            if (mounted) {
+              setState(() {
+                _highlightedAyahNumber = null;
+              });
+            }
+          });
+        }
+      });
+    } else {
+      setState(() {
+        _isAnimating = false;
+      });
+    }
+  }
+
+  void _scrollToAyahInPage(int ayahNumber, int pageIndex) {
+    if (pageIndex < 0 || pageIndex >= _pages.length) return;
+
+    final page = _pages[pageIndex];
+    final ayahIndex = page.ayahs.indexWhere(
+      (ayah) => ayah.numberInSurah == ayahNumber,
+    );
+
+    if (ayahIndex == -1) return;
+
+    // Get scroll controller for this page
+    final scrollController = _getScrollController(page.pageNumber);
+
+    // Retry scroll with multiple attempts to ensure scroll controller is ready
+    void attemptScroll(int retryCount) {
+      if (!mounted || retryCount > 5) return;
+
+      if (!scrollController.hasClients) {
+        // Retry after a delay
+        Future.delayed(const Duration(milliseconds: 300), () {
+          attemptScroll(retryCount + 1);
+        });
+        return;
+      }
+
+      final totalAyahs = page.ayahs.length;
+      final ayahPosition = ayahIndex / totalAyahs;
+
+      // If ayah is in the lower half of the page, scroll down
+      if (ayahPosition > 0.35) {
+        // Wait a bit more to ensure content is laid out
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (!mounted || !scrollController.hasClients) return;
+
+          final maxExtent = scrollController.position.maxScrollExtent;
+          if (maxExtent <= 0) return; // No scrolling needed
+
+          // Scroll proportionally based on ayah position
+          // Position 0.5 -> scroll to 30% of page
+          // Position 1.0 -> scroll to 80% of page
+          final targetScroll = maxExtent * ((ayahPosition - 0.35) / 0.65) * 0.8;
+
+          scrollController.animateTo(
+            targetScroll.clamp(0.0, maxExtent),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic,
+          );
+        });
+      }
+    }
+
+    // Start scroll attempts after page animation completes
+    Future.delayed(const Duration(milliseconds: 500), () {
+      attemptScroll(0);
+    });
+  }
+
+  ScrollController _getScrollController(int pageNumber) {
+    return _pageScrollControllers.putIfAbsent(
+      pageNumber,
+      () => ScrollController(),
+    );
+  }
+
+  String _removeBasmalaIfNeeded(String text, int ayahNumber) {
+    // Remove Basmala from first ayah of every surah except Al-Fatiha (surah 1)
+    // and At-Tawbah (surah 9) which doesn't have Basmala
+    if (ayahNumber == 1 && widget.surahNumber != 1 && widget.surahNumber != 9) {
+      // Use regex to match any form of Basmala with different diacritics
+      final basmalaRegex = RegExp(
+        r'^[\s]*ب[ِۡ]?س[ْۡ]?م[ِ]?\s*ا?لل[َّ]?ه[ِ]?\s*ا?لر[َّ]?ح[ْۡ]?م[َٰ]?ن[ِ]?\s*ا?لر[َّ]?ح[ِ]?ي[ۡ]?م[ِ]?[\s]*',
+        unicode: true,
+      );
+
+      if (basmalaRegex.hasMatch(text)) {
+        final result = text.replaceFirst(basmalaRegex, '').trim();
+        print(
+          '🔍 Removed Basmala from Surah ${widget.surahNumber}, Ayah $ayahNumber',
+        );
+        print(
+          '   Before: ${text.substring(0, text.length > 50 ? 50 : text.length)}...',
+        );
+        print(
+          '   After: ${result.substring(0, result.length > 50 ? 50 : result.length)}...',
+        );
+        return result;
+      } else {
+        print(
+          '⚠️ No Basmala pattern matched for Surah ${widget.surahNumber}, Ayah $ayahNumber',
+        );
+        print(
+          '   Text: ${text.substring(0, text.length > 80 ? 80 : text.length)}...',
+        );
+      }
+    }
+    return text;
   }
 
   @override
@@ -136,23 +337,32 @@ class _MushafPageViewState extends State<MushafPageView> {
       );
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: _pages.length,
-      physics: _isAnimating
-          ? const NeverScrollableScrollPhysics()
-          : const PageScrollPhysics(),
-      itemBuilder: (context, index) {
-        return AnimatedBuilder(
-          animation: _pageController,
-          builder: (context, child) {
-            return _buildPageWithTransition(
-              child: _buildMushafPage(_pages[index]),
-              pageIndex: index,
-            );
-          },
-        );
-      },
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: _pages.length,
+        reverse: context
+            .watch<AppSettingsCubit>()
+            .state
+            .pageFlipRightToLeft, // User-configurable page flip direction
+        padEnds: false, // Better swipe sensitivity
+        clipBehavior: Clip.none,
+        physics: _isAnimating
+            ? const NeverScrollableScrollPhysics()
+            : const PageScrollPhysics(),
+        itemBuilder: (context, index) {
+          return AnimatedBuilder(
+            animation: _pageController,
+            builder: (context, child) {
+              return _buildPageWithTransition(
+                child: _buildMushafPage(_pages[index]),
+                pageIndex: index,
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -188,16 +398,27 @@ class _MushafPageViewState extends State<MushafPageView> {
         widget.surah.number != 1 &&
         widget.surah.number != 9;
 
+    // Get theme colors for light/dark mode support
+    final isDarkMode = context.watch<AppSettingsCubit>().state.darkMode;
+
+    final backgroundGradientColors = isDarkMode
+        ? [
+            const Color(0xFF0D0D0D), // Much darker background
+            const Color(0xFF1A1A1A),
+            const Color(0xFF151515),
+          ]
+        : [
+            const Color(0xFFFFFBF0),
+            const Color(0xFFFFF8E7),
+            const Color(0xFFFFF5DE),
+          ];
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFFFBF0),
-            const Color(0xFFFFF8E7),
-            const Color(0xFFFFF5DE),
-          ],
+          colors: backgroundGradientColors,
           stops: const [0.0, 0.5, 1.0],
         ),
       ),
@@ -217,6 +438,7 @@ class _MushafPageViewState extends State<MushafPageView> {
           ),
           // Main content with CustomScrollView
           CustomScrollView(
+            controller: _getScrollController(page.pageNumber),
             slivers: [
               // Collapsible decorative header
               SliverAppBar(
@@ -523,135 +745,257 @@ class _MushafPageViewState extends State<MushafPageView> {
   Widget _buildContinuousText(List<Ayah> ayahs) {
     if (ayahs.isEmpty) return const SizedBox();
 
-    return BlocBuilder<AyahAudioCubit, AyahAudioState>(
-      builder: (context, audioState) {
-        // Get font size from settings
-        final arabicFontSize = context
-            .watch<AppSettingsCubit>()
-            .state
-            .arabicFontSize;
-        final textSpans = <InlineSpan>[];
+    // First BlocBuilder: Listen to AppSettingsCubit for settings changes
+    return BlocBuilder<AppSettingsCubit, AppSettingsState>(
+      builder: (context, settingsState) {
+        // Get all settings from state
+        final arabicFontSize = settingsState.arabicFontSize;
+        final isDarkMode = settingsState.darkMode;
+        final diacriticsColorMode = settingsState.diacriticsColorMode;
 
-        for (int i = 0; i < ayahs.length; i++) {
-          final ayah = ayahs[i];
-          final isCurrentAudio = audioState.isCurrent(
-            widget.surahNumber,
-            ayah.numberInSurah,
-          );
-          final isPlaying =
-              isCurrentAudio && audioState.status == AyahAudioStatus.playing;
+        // Debug: Print current settings
+        print('🎨 BlocBuilder rebuilt!');
+        print('   diacriticsColorMode: $diacriticsColorMode');
+        print('   isDarkMode: $isDarkMode');
 
-          // Check if this ayah should be highlighted
-          final isHighlighted = _highlightedAyahNumber == ayah.numberInSurah;
+        // Calculate colors based on settings
+        final useDifferentDiacriticsColor = diacriticsColorMode != 'same';
+        final baseTextColor = isDarkMode
+            ? const Color(0xFFE8E8E8) // Light gray for dark mode
+            : AppColors.arabicText;
 
-          // Add ayah text with tap gesture
-          textSpans.add(
-            TextSpan(
-              text: ayah.text,
-              style: GoogleFonts.amiriQuran(
-                fontSize: arabicFontSize,
-                height: 2.0,
-                color: AppColors.arabicText,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.2,
-                backgroundColor: isHighlighted
-                    ? AppColors.secondary.withValues(alpha: 0.35)
-                    : (isCurrentAudio
-                          ? (isPlaying
-                                ? AppColors.secondary.withValues(alpha: 0.2)
-                                : AppColors.primary.withValues(alpha: 0.15))
-                          : null),
-              ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  context.read<AyahAudioCubit>().togglePlayAyah(
-                    surahNumber: widget.surahNumber,
-                    ayahNumber: ayah.numberInSurah,
-                  );
-                },
-            ),
-          );
-
-          // Add space before ayah number
-          textSpans.add(const TextSpan(text: ' '));
-
-          // Add ayah number marker
-          textSpans.add(
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: _buildAyahNumberMarker(ayah.numberInSurah),
-              ),
-            ),
-          );
-
-          // Add space between ayahs
-          if (i < ayahs.length - 1) {
-            textSpans.add(const TextSpan(text: ' '));
-          }
+        // Define diacritics color based on mode
+        Color? diacriticsColor;
+        if (diacriticsColorMode == 'subtle') {
+          // Slightly lighter/transparent
+          diacriticsColor = isDarkMode
+              ? baseTextColor.withValues(alpha: 0.5)
+              : baseTextColor.withValues(alpha: 0.4);
+          print('   ✅ Using SUBTLE mode: $diacriticsColor');
+        } else if (diacriticsColorMode == 'different') {
+          // Clearly different color - using golden/orange for visibility
+          diacriticsColor = isDarkMode
+              ? const Color(0xFFFFB74D) // Light orange for dark mode
+              : const Color(0xFFFF6F00); // Dark orange for light mode
+          print('   ✅ Using DIFFERENT mode: $diacriticsColor');
+        } else {
+          print('   ✅ Using SAME mode (no diacritics color)');
         }
 
-        return RichText(
-          textAlign: TextAlign.justify,
-          textDirection: TextDirection.rtl,
-          text: TextSpan(children: textSpans),
+        // Second BlocBuilder: Listen to AyahAudioCubit for audio state
+        return BlocBuilder<AyahAudioCubit, AyahAudioState>(
+          builder: (context, audioState) {
+            return AnimatedBuilder(
+              animation: _highlightAnimation,
+              builder: (context, child) {
+                final textSpans = <InlineSpan>[];
+
+                for (int i = 0; i < ayahs.length; i++) {
+                  final ayah = ayahs[i];
+                  final isCurrentAudio = audioState.isCurrent(
+                    widget.surahNumber,
+                    ayah.numberInSurah,
+                  );
+                  final isPlaying =
+                      isCurrentAudio &&
+                      audioState.status == AyahAudioStatus.playing;
+
+                  // Check if this ayah should be highlighted
+                  final isHighlighted =
+                      _highlightedAyahNumber == ayah.numberInSurah;
+
+                  // Remove Basmala from first ayah if needed
+                  String ayahText = ayah.text;
+
+                  if (ayah.numberInSurah == 1 &&
+                      widget.surahNumber != 1 &&
+                      widget.surahNumber != 9) {
+                    // Split by spaces and remove first 4 words (Basmala)
+                    final words = ayahText.split(' ');
+                    if (words.length >= 5 && words[0] == 'بِسْمِ') {
+                      ayahText = words.sublist(4).join(' ').trim();
+                    }
+                  }
+
+                  // Base text style
+                  final baseTextStyle = GoogleFonts.amiriQuran(
+                    fontSize: arabicFontSize,
+                    height: 2.0,
+                    color: baseTextColor,
+                    fontWeight: isHighlighted
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    letterSpacing: isHighlighted ? 0.3 : 0.2,
+                    backgroundColor: isHighlighted
+                        ? (isDarkMode
+                              ? AppColors.secondary.withValues(
+                                  alpha:
+                                      0.4 + (0.3 * _highlightAnimation.value),
+                                ) // Brighter highlight for dark mode
+                              : AppColors.secondary.withValues(
+                                  alpha:
+                                      0.25 + (0.2 * _highlightAnimation.value),
+                                ))
+                        : (isCurrentAudio
+                              ? (isPlaying
+                                    ? AppColors.secondary.withValues(
+                                        alpha:
+                                            0.25 +
+                                            (0.15 *
+                                                (_highlightAnimation.value *
+                                                    0.5)),
+                                      )
+                                    : AppColors.primary.withValues(alpha: 0.2))
+                              : null),
+                    shadows: isHighlighted || (isCurrentAudio && isPlaying)
+                        ? [
+                            Shadow(
+                              color:
+                                  (isHighlighted
+                                          ? AppColors.secondary
+                                          : AppColors.secondary)
+                                      .withValues(
+                                        alpha:
+                                            0.5 *
+                                            (isHighlighted
+                                                ? _highlightAnimation.value
+                                                : 0.6),
+                                      ),
+                              blurRadius:
+                                  (isHighlighted ? 12 : 8) *
+                                  (isHighlighted
+                                      ? _highlightAnimation.value
+                                      : 1.0),
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                    decoration: isHighlighted ? TextDecoration.underline : null,
+                    decorationColor: isHighlighted
+                        ? AppColors.secondary.withValues(
+                            alpha: 0.4 + (0.3 * _highlightAnimation.value),
+                          )
+                        : null,
+                    decorationThickness: 2.5,
+                    decorationStyle: TextDecorationStyle.solid,
+                  );
+
+                  // Build the text span with optional different color for diacritics
+                  // and include tap gesture recognizer
+                  final textSpan = ArabicTextStyleHelper.buildTextSpan(
+                    text: ayahText,
+                    baseStyle: baseTextStyle,
+                    useDifferentColorForDiacritics: useDifferentDiacriticsColor,
+                    diacriticsColor: diacriticsColor,
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        context.read<AyahAudioCubit>().togglePlayAyah(
+                          surahNumber: widget.surahNumber,
+                          ayahNumber: ayah.numberInSurah,
+                        );
+                      },
+                  );
+
+                  // Add ayah text
+                  textSpans.add(textSpan);
+
+                  // Add ayah number marker after the ayah text
+                  textSpans.add(
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: _buildAyahNumberMarker(ayah.numberInSurah),
+                      ),
+                    ),
+                  );
+
+                  // Add space after ayah number
+                  textSpans.add(const TextSpan(text: ' '));
+                }
+
+                return RichText(
+                  textAlign: TextAlign.justify,
+                  textDirection: TextDirection.rtl,
+                  text: TextSpan(children: textSpans),
+                );
+              },
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildAyahNumberMarker(int number) {
-    return Container(
-      width: 36,
-      height: 36,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Outer star pattern using CustomPaint
-          CustomPaint(
-            size: const Size(36, 36),
-            painter: AyahNumberPainter(
-              color: AppColors.primary,
-              number: number,
-            ),
-          ),
-          // Main circle background with white color
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.6),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  blurRadius: 4,
+    return BlocBuilder<AppSettingsCubit, AppSettingsState>(
+      builder: (context, settingsState) {
+        final isDarkMode = settingsState.darkMode;
+
+        return Container(
+          width: 36,
+          height: 36,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer star pattern using CustomPaint
+              CustomPaint(
+                size: const Size(36, 36),
+                painter: AyahNumberPainter(
+                  color: isDarkMode
+                      ? AppColors.primary.withValues(alpha: 0.8)
+                      : AppColors.primary,
+                  number: number,
                 ),
-              ],
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 8.0),
-                child: Text(
-                  _toArabicNumerals(number),
-                  style: GoogleFonts.amiriQuran(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    height: 1.2,
+              ),
+              // Main circle background - adaptive for dark/light mode
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDarkMode
+                      ? const Color(0xFF2A2A2A) // Dark background for dark mode
+                      : Colors.white,
+                  border: Border.all(
+                    color: isDarkMode
+                        ? AppColors.primary.withValues(alpha: 0.8)
+                        : AppColors.primary.withValues(alpha: 0.6),
+                    width: 2,
                   ),
-                  textAlign: TextAlign.center,
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDarkMode
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : AppColors.primary.withValues(alpha: 0.15),
+                      blurRadius: isDarkMode ? 6 : 4,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 8.0),
+                    child: Text(
+                      _toArabicNumerals(number),
+                      style: GoogleFonts.amiriQuran(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDarkMode
+                            ? const Color(
+                                0xFFE8E8E8,
+                              ) // Light text for dark mode
+                            : AppColors.primary,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

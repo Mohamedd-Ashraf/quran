@@ -8,12 +8,16 @@ class SettingsService {
   static const String _keyShowTranslation = 'show_translation';
   static const String _keyAppLanguage = 'app_language';
   static const String _keyUseUthmaniScript = 'use_uthmani_script';
+  static const String _keyPageFlipRightToLeft = 'page_flip_right_to_left';
   static const String _keyOnboardingComplete = 'onboarding_complete';
-  static const String _keyAdhanNotificationsEnabled = 'adhan_notifications_enabled';
+  static const String _keyDiacriticsColorMode = 'diacritics_color_mode';
+  static const String _keyAdhanNotificationsEnabled =
+      'adhan_notifications_enabled';
   static const String _keyAdhanIncludeFajr = 'adhan_include_fajr';
   static const String _keyLastKnownLat = 'last_known_lat';
   static const String _keyLastKnownLng = 'last_known_lng';
-  static const String _keyLastAdhanScheduleDateIso = 'last_adhan_schedule_date_iso';
+  static const String _keyLastAdhanScheduleDateIso =
+      'last_adhan_schedule_date_iso';
   static const String _keyAdhanUseCustomSound = 'adhan_use_custom_sound';
   static const String _keyCachedPrayerTimes = 'cached_prayer_times';
   static const String _keyAdhanSchedulePreview = 'adhan_schedule_preview';
@@ -76,6 +80,16 @@ class SettingsService {
     return _prefs.getBool(_keyUseUthmaniScript) ?? true;
   }
 
+  // Page Flip Direction (RTL = true, LTR = false)
+  Future<bool> setPageFlipRightToLeft(bool rtl) async {
+    return await _prefs.setBool(_keyPageFlipRightToLeft, rtl);
+  }
+
+  bool getPageFlipRightToLeft() {
+    return _prefs.getBool(_keyPageFlipRightToLeft) ??
+        false; // Default: LTR (like physical books)
+  }
+
   // Onboarding
   Future<bool> setOnboardingComplete(bool complete) async {
     return await _prefs.setBool(_keyOnboardingComplete, complete);
@@ -83,6 +97,18 @@ class SettingsService {
 
   bool getOnboardingComplete() {
     return _prefs.getBool(_keyOnboardingComplete) ?? false;
+  }
+
+  // Diacritics Color Mode
+  // 'same' = all text same color (default)
+  // 'subtle' = diacritics slightly lighter
+  // 'different' = diacritics in clearly different color
+  Future<bool> setDiacriticsColorMode(String mode) async {
+    return await _prefs.setString(_keyDiacriticsColorMode, mode);
+  }
+
+  String getDiacriticsColorMode() {
+    return _prefs.getString(_keyDiacriticsColorMode) ?? 'different';
   }
 
   // Adhan notifications

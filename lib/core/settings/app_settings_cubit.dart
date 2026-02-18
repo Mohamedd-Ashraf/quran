@@ -10,6 +10,8 @@ class AppSettingsState extends Equatable {
   final bool showTranslation;
   final String appLanguageCode;
   final bool useUthmaniScript;
+  final bool pageFlipRightToLeft;
+  final String diacriticsColorMode; // 'same' or 'different'
 
   const AppSettingsState({
     required this.arabicFontSize,
@@ -18,6 +20,8 @@ class AppSettingsState extends Equatable {
     required this.showTranslation,
     required this.appLanguageCode,
     required this.useUthmaniScript,
+    required this.pageFlipRightToLeft,
+    required this.diacriticsColorMode,
   });
 
   factory AppSettingsState.initial(SettingsService service) {
@@ -28,6 +32,8 @@ class AppSettingsState extends Equatable {
       showTranslation: service.getShowTranslation(),
       appLanguageCode: service.getAppLanguage(),
       useUthmaniScript: service.getUseUthmaniScript(),
+      pageFlipRightToLeft: service.getPageFlipRightToLeft(),
+      diacriticsColorMode: service.getDiacriticsColorMode(),
     );
   }
 
@@ -38,6 +44,8 @@ class AppSettingsState extends Equatable {
     bool? showTranslation,
     String? appLanguageCode,
     bool? useUthmaniScript,
+    bool? pageFlipRightToLeft,
+    String? diacriticsColorMode,
   }) {
     return AppSettingsState(
       arabicFontSize: arabicFontSize ?? this.arabicFontSize,
@@ -46,6 +54,8 @@ class AppSettingsState extends Equatable {
       showTranslation: showTranslation ?? this.showTranslation,
       appLanguageCode: appLanguageCode ?? this.appLanguageCode,
       useUthmaniScript: useUthmaniScript ?? this.useUthmaniScript,
+      pageFlipRightToLeft: pageFlipRightToLeft ?? this.pageFlipRightToLeft,
+      diacriticsColorMode: diacriticsColorMode ?? this.diacriticsColorMode,
     );
   }
 
@@ -57,6 +67,8 @@ class AppSettingsState extends Equatable {
     showTranslation,
     appLanguageCode,
     useUthmaniScript,
+    pageFlipRightToLeft,
+    diacriticsColorMode,
   ];
 }
 
@@ -93,5 +105,18 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
   Future<void> setUseUthmaniScript(bool value) async {
     await _service.setUseUthmaniScript(value);
     emit(state.copyWith(useUthmaniScript: value));
+  }
+
+  Future<void> setPageFlipRightToLeft(bool value) async {
+    await _service.setPageFlipRightToLeft(value);
+    emit(state.copyWith(pageFlipRightToLeft: value));
+  }
+
+  Future<void> setDiacriticsColorMode(String mode) async {
+    print('⚙️ setDiacriticsColorMode called with: $mode');
+    await _service.setDiacriticsColorMode(mode);
+    print('⚙️ Emitting new state with diacriticsColorMode: $mode');
+    emit(state.copyWith(diacriticsColorMode: mode));
+    print('⚙️ State emitted. Current state: ${state.diacriticsColorMode}');
   }
 }

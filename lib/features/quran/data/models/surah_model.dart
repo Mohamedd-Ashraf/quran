@@ -53,10 +53,38 @@ class AyahModel extends Ayah {
     required super.sajda,
   });
 
+  /// Normalize Arabic text to handle API inconsistencies
+  static String _normalizeArabicText(String text) {
+    // Remove zero-width characters and normalize Unicode
+    String normalized = text
+        .replaceAll('\u200B', '') // Zero-width space
+        .replaceAll('\u200C', '') // Zero-width non-joiner
+        .replaceAll('\u200D', '') // Zero-width joiner
+        .replaceAll('\u200E', '') // Left-to-right mark
+        .replaceAll('\u200F', '') // Right-to-left mark
+        .replaceAll('\uFEFF', ''); // Zero-width no-break space (BOM)
+    
+    // Decode HTML entities if present
+    normalized = normalized
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+    
+    // Remove any leading BOM or special markers
+    if (normalized.startsWith('\uFEFF')) {
+      normalized = normalized.substring(1);
+    }
+    
+    return normalized.trim();
+  }
+
   factory AyahModel.fromJson(Map<String, dynamic> json) {
     return AyahModel(
       number: json['number'] as int,
-      text: json['text'] as String,
+      text: _normalizeArabicText(json['text'] as String),
       numberInSurah: json['numberInSurah'] as int,
       juz: json['juz'] as int,
       manzil: json['manzil'] as int,

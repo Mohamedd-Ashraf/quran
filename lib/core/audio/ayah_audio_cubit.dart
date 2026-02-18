@@ -98,8 +98,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       }
 
       if (processing == ProcessingState.completed) {
-        // Keep selection but mark as paused (play once).
-        emit(state.copyWith(status: AyahAudioStatus.paused, clearError: true));
+        // Auto-hide player by resetting to idle after completion
+        emit(const AyahAudioState.idle());
         return;
       }
 

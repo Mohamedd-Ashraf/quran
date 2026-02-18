@@ -5,6 +5,7 @@ import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_event.dart';
 import '../bloc/surah/surah_state.dart';
 import '../widgets/mushaf_page_view.dart';
+import '../widgets/islamic_audio_player.dart';
 import '../../domain/usecases/get_surah.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -36,9 +37,9 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   bool _showScrollToTop = false;
   late final BookmarkService _bookmarkService;
 
-  final GlobalKey _targetAyahKey = GlobalKey();
-  bool _didScrollToTarget = false;
-  static const double _estimatedAyahItemExtent = 240;
+  final Map<int, GlobalKey> _ayahKeys = {};
+  bool _hasScrolledToTarget = false;
+  bool _scrollCallbackScheduled = false;
 
   final Map<int, String> _translationByAyah = {};
   bool _isLoadingTranslation = false;
@@ -71,6 +72,33 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
         });
       }
     });
+    // Note: scroll will be triggered in build when SurahDetailLoaded state is ready
+  }
+
+  @override
+  void didUpdateWidget(SurahDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Reset scroll target flag if the target ayah/page changed
+    if (oldWidget.initialAyahNumber != widget.initialAyahNumber ||
+        oldWidget.initialPageNumber != widget.initialPageNumber) {
+      print('🔄 didUpdateWidget: Detected change in target');
+      print(
+        '   Old ayah: ${oldWidget.initialAyahNumber}, New ayah: ${widget.initialAyahNumber}',
+      );
+      print(
+        '   Old page: ${oldWidget.initialPageNumber}, New page: ${widget.initialPageNumber}',
+      );
+      setState(() {
+        _hasScrolledToTarget = false;
+        _scrollCallbackScheduled = false; // Reset to allow new callback
+      });
+      // Trigger scroll to new target
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        print('   🎯 Triggering scroll...');
+        _maybeScrollToInitialAyah();
+      });
+    }
   }
 
   @override
@@ -193,7 +221,14 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                     isThisSurahAudio &&
                     audioState.status == AyahAudioStatus.buffering;
 
-                _maybeScrollToInitialAyah();
+                // Trigger scroll once after the ListView is built
+                if (!_hasScrolledToTarget && !_scrollCallbackScheduled) {
+                  _scrollCallbackScheduled = true;
+                  print('📅 Scheduling scroll callback...');
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _maybeScrollToInitialAyah();
+                  });
+                }
 
                 return CustomScrollView(
                   controller: _scrollController,
@@ -654,16 +689,27 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                           );
 
                           final isTarget =
-                              widget.initialAyahNumber != null &&
-                              ayah.numberInSurah == widget.initialAyahNumber;
+                              (widget.initialAyahNumber != null &&
+                                  ayah.numberInSurah ==
+                                      widget.initialAyahNumber) ||
+                              (widget.initialPageNumber != null &&
+                                  widget.initialAyahNumber == null &&
+                                  ayah.page == widget.initialPageNumber &&
+                                  ayah.numberInSurah ==
+                                      _findFirstAyahInPage(
+                                        state.surah.ayahs,
+                                        widget.initialPageNumber!,
+                                      ));
 
-                          if (!isTarget) {
-                            return card;
-                          }
+                          // Always wrap every ayah with a key for scrolling
+                          final wrappedCard = KeyedSubtree(
+                            key: _getAyahKey(ayah.numberInSurah),
+                            child: card,
+                          );
 
-                          return KeyedSubtree(
-                            key: _targetAyahKey,
-                            child: DecoratedBox(
+                          // If this is the target ayah, add visual decoration
+                          if (isTarget) {
+                            return DecoratedBox(
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: AppColors.secondary.withValues(
@@ -673,9 +719,11 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: card,
-                            ),
-                          );
+                              child: wrappedCard,
+                            );
+                          }
+
+                          return wrappedCard;
                         }, childCount: surah.ayahs?.length ?? 0),
                       ),
                     ),
@@ -725,137 +773,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
               return const SizedBox.shrink();
             },
           ),
-          bottomNavigationBar: BlocBuilder<SurahBloc, SurahState>(
-            builder: (context, surahState) {
-              return BlocBuilder<AyahAudioCubit, AyahAudioState>(
-                buildWhen: (prev, next) => prev != next,
-                builder: (context, audioState) {
-                  final visible = audioState.status != AyahAudioStatus.idle;
-                  if (!visible) return const SizedBox.shrink();
-
-                  final isSurahMode = audioState.mode == AyahAudioMode.surah;
-                  final title = isSurahMode
-                      ? '${surahNameForBar(surahState, isArabicUi: isArabicUi)} • ${isArabicUi ? 'الآية' : 'Ayah'} ${audioState.ayahNumber ?? '-'}'
-                      : '${isArabicUi ? 'الآية' : 'Ayah'} ${audioState.ayahNumber ?? '-'}';
-
-                  final isPlaying =
-                      audioState.status == AyahAudioStatus.playing;
-                  final isBuffering =
-                      audioState.status == AyahAudioStatus.buffering;
-
-                  final cubit = context.read<AyahAudioCubit>();
-
-                  return Material(
-                    elevation: 10,
-                    color: Theme.of(context).colorScheme.surface,
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                if (isSurahMode)
-                                  IconButton(
-                                    tooltip: isArabicUi ? 'السابق' : 'Previous',
-                                    onPressed: () => cubit.previous(),
-                                    icon: const Icon(Icons.skip_previous),
-                                  ),
-                                IconButton(
-                                  tooltip: isPlaying
-                                      ? (isArabicUi ? 'إيقاف مؤقت' : 'Pause')
-                                      : (isBuffering
-                                            ? (isArabicUi
-                                                  ? 'جاري التحميل…'
-                                                  : 'Loading…')
-                                            : (isArabicUi ? 'تشغيل' : 'Play')),
-                                  onPressed: () {
-                                    if (isSurahMode) {
-                                      if (surahState is SurahDetailLoaded) {
-                                        cubit.togglePlaySurah(
-                                          surahNumber: widget.surahNumber,
-                                          numberOfAyahs:
-                                              surahState.surah.numberOfAyahs,
-                                        );
-                                      }
-                                    } else {
-                                      if (audioState.surahNumber != null &&
-                                          audioState.ayahNumber != null) {
-                                        cubit.togglePlayAyah(
-                                          surahNumber: audioState.surahNumber!,
-                                          ayahNumber: audioState.ayahNumber!,
-                                        );
-                                      }
-                                    }
-                                  },
-                                  icon: Icon(
-                                    isBuffering
-                                        ? Icons.hourglass_top
-                                        : (isPlaying
-                                              ? Icons.pause
-                                              : Icons.play_arrow),
-                                  ),
-                                ),
-                                if (isSurahMode)
-                                  IconButton(
-                                    tooltip: isArabicUi ? 'التالي' : 'Next',
-                                    onPressed: () => cubit.next(),
-                                    icon: const Icon(Icons.skip_next),
-                                  ),
-                                IconButton(
-                                  tooltip: isArabicUi ? 'إيقاف' : 'Stop',
-                                  onPressed: () => cubit.stop(),
-                                  icon: const Icon(Icons.close),
-                                ),
-                              ],
-                            ),
-                            StreamBuilder<Duration>(
-                              stream: cubit.positionStream,
-                              builder: (context, posSnap) {
-                                return StreamBuilder<Duration?>(
-                                  stream: cubit.durationStream,
-                                  builder: (context, durSnap) {
-                                    final pos = posSnap.data ?? Duration.zero;
-                                    final dur = durSnap.data ?? Duration.zero;
-                                    final maxMs = dur.inMilliseconds;
-                                    final value = maxMs <= 0
-                                        ? 0.0
-                                        : (pos.inMilliseconds / maxMs).clamp(
-                                            0.0,
-                                            1.0,
-                                          );
-                                    return LinearProgressIndicator(
-                                      value: value,
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          bottomNavigationBar: IslamicAudioPlayer(isArabicUi: isArabicUi),
           floatingActionButton: _showScrollToTop
               ? FloatingActionButton(
                   onPressed: () {
@@ -883,31 +801,166 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   }
 
   void _maybeScrollToInitialAyah() {
-    if (_didScrollToTarget) return;
-    if (widget.initialAyahNumber == null) return;
+    if (_hasScrolledToTarget) {
+      print('⏭️ Scroll already done, skipping');
+      return;
+    }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (!_scrollController.hasClients) return;
+    print('\n📍 _maybeScrollToInitialAyah started');
+    print('   initialAyahNumber: ${widget.initialAyahNumber}');
+    print('   initialPageNumber: ${widget.initialPageNumber}');
 
-      final approx = (widget.initialAyahNumber! - 1) * _estimatedAyahItemExtent;
-      final maxExtent = _scrollController.position.maxScrollExtent;
-      final target = approx.clamp(0.0, maxExtent);
+    // Determine which ayah to scroll to
+    int? targetAyahNumber = widget.initialAyahNumber;
 
-      _scrollController.jumpTo(target);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final ctx = _targetAyahKey.currentContext;
-        if (ctx == null) return;
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOut,
-          alignment: 0.12,
+    // If we have a page number but no ayah number (page bookmark),
+    // find the first ayah in that page
+    if (targetAyahNumber == null && widget.initialPageNumber != null) {
+      final state = context.read<SurahBloc>().state;
+      if (state is SurahDetailLoaded) {
+        targetAyahNumber = _findFirstAyahInPage(
+          state.surah.ayahs,
+          widget.initialPageNumber!,
         );
-        _didScrollToTarget = true;
+        print('   📄 Found first ayah in page: $targetAyahNumber');
+      }
+    }
+
+    if (targetAyahNumber == null) {
+      print('   ❌ No target ayah found');
+      return;
+    }
+
+    print('   🎯 Target ayah: $targetAyahNumber');
+    print('   📏 Total keys in map before scroll: ${_ayahKeys.length}');
+
+    // CRITICAL: Animate to approximate position FIRST to trigger ListView building
+    // This ensures the target ayah's widget gets built and key gets created
+    if (_scrollController.hasClients) {
+      final approximatePosition = (targetAyahNumber - 1) * 200.0;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final targetPosition = approximatePosition.clamp(0.0, maxScroll);
+
+      // Calculate smooth animation duration based on distance
+      final currentPosition = _scrollController.offset;
+      final distance = (targetPosition - currentPosition).abs();
+      final duration = (distance / 3).clamp(600, 1500).toInt(); // 600ms to 1.5s
+
+      print(
+        '   🎬 Animating to approximate position: $targetPosition (duration: ${duration}ms)',
+      );
+
+      // Animate smoothly to approximate position
+      _scrollController
+          .animateTo(
+            targetPosition,
+            duration: Duration(milliseconds: duration),
+            curve: Curves.easeInOutCubic,
+          )
+          .then((_) {
+            // After animation completes, wait a bit then search for the exact key
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (!mounted) return;
+              print('   🔍 Starting search for ayah key...');
+              print(
+                '   📏 Total keys in map after animation: ${_ayahKeys.length}',
+              );
+              _scrollToAyahWithRetry(targetAyahNumber!, 0);
+            });
+          });
+    } else {
+      print('   ⚠️ ScrollController has no clients!');
+    }
+  }
+
+  void _scrollToAyahWithRetry(int ayahNumber, int attemptCount) {
+    if (!mounted) return;
+    if (_hasScrolledToTarget) return;
+    if (attemptCount > 150) {
+      // Give up after 150 attempts (enough for longest surahs like Al-Baqarah)
+      print('   ❌ Failed after 150 attempts');
+      setState(() {
+        _hasScrolledToTarget = true;
       });
-    });
+      return;
+    }
+
+    print('   🔄 Attempt ${attemptCount + 1}: Looking for ayah $ayahNumber...');
+
+    final key = _ayahKeys[ayahNumber];
+    if (key == null) {
+      // Key doesn't exist yet - scroll forward smoothly to build more items
+      if (_scrollController.hasClients) {
+        final currentOffset = _scrollController.offset;
+        final maxExtent = _scrollController.position.maxScrollExtent;
+
+        // If we're at max extent, wait for ListView to build more items
+        if (currentOffset >= maxExtent - 10) {
+          print(
+            '      ⏸️ At max extent, waiting for ListView to build more...',
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (!mounted) return;
+            _scrollToAyahWithRetry(ayahNumber, attemptCount + 1);
+          });
+          return;
+        }
+
+        final nextOffset = (currentOffset + 500).clamp(0.0, maxExtent);
+        print('      📜 Scrolling forward from $currentOffset to $nextOffset');
+
+        // Animate smoothly and retry immediately after animation completes
+        _scrollController
+            .animateTo(
+              nextOffset,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+            )
+            .then((_) {
+              // Retry immediately after animation, no delay
+              if (!mounted) return;
+              _scrollToAyahWithRetry(ayahNumber, attemptCount + 1);
+            });
+      } else {
+        // No clients, retry with small delay
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          _scrollToAyahWithRetry(ayahNumber, attemptCount + 1);
+        });
+      }
+      return;
+    }
+
+    print('      ✅ Key found in map!');
+    final context = key.currentContext;
+    if (context != null) {
+      // Found it! Scroll to it smoothly with nice animation
+      print('   ✅ Context exists! Scrolling to it smoothly...');
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutCubic,
+        alignment:
+            0.2, // Position ayah at 20% from top (accounting for bottom player)
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ).then((_) {
+        if (mounted) {
+          print('   🎉 Scroll completed successfully!');
+          setState(() {
+            _hasScrolledToTarget = true;
+          });
+        }
+      });
+    } else {
+      // Context not ready, retry immediately
+      print('      ⏳ Context is null, retrying immediately...');
+
+      // Use microtask for immediate retry
+      Future.microtask(() {
+        if (!mounted) return;
+        _scrollToAyahWithRetry(ayahNumber, attemptCount + 1);
+      });
+    }
   }
 
   int? _findPageForAyah(List<dynamic>? ayahs, int ayahNumber) {
@@ -919,6 +972,24 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
       // If ayah not found, return first page
       return ayahs.first.page;
     }
+  }
+
+  int? _findFirstAyahInPage(List<dynamic>? ayahs, int pageNumber) {
+    if (ayahs == null || ayahs.isEmpty) return null;
+    try {
+      final ayah = ayahs.firstWhere((a) => a.page == pageNumber);
+      return ayah.numberInSurah;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  GlobalKey _getAyahKey(int ayahNumber) {
+    if (!_ayahKeys.containsKey(ayahNumber)) {
+      print('🔑 Creating key for ayah $ayahNumber');
+      _ayahKeys[ayahNumber] = GlobalKey();
+    }
+    return _ayahKeys[ayahNumber]!;
   }
 
   void _maybeLoadTranslation() {
