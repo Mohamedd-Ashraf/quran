@@ -279,15 +279,24 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                           return Stack(
                             fit: StackFit.expand,
                             children: [
+                              // dark mode header gradient uses deeper greens
                               Container(
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: [
-                                      AppColors.primary,
-                                      AppColors.secondary,
-                                    ],
+                                    colors: context
+                                            .watch<AppSettingsCubit>()
+                                            .state
+                                            .darkMode
+                                        ? [
+                                            AppColors.primaryDark,
+                                            AppColors.primary,
+                                          ]
+                                        : [
+                                            AppColors.primary,
+                                            AppColors.secondary,
+                                          ],
                                   ),
                                 ),
                               ),
@@ -400,7 +409,12 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
-                          color: AppColors.surface,
+                          color: context
+                                  .watch<AppSettingsCubit>()
+                                  .state
+                                  .darkMode
+                              ? AppColors.darkSurface
+                              : AppColors.surface,
                           child: Text(
                             'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
                             textAlign: TextAlign.center,
@@ -604,7 +618,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                                       textAlign: TextAlign.right,
                                       textDirection: TextDirection.rtl,
                                       style: GoogleFonts.amiriQuran(
-                                        color: AppColors.arabicText,
+                                        // adapt to dark mode: use light gray in dark theme
+                                        color: context
+                                                .watch<AppSettingsCubit>()
+                                                .state
+                                                .darkMode
+                                            ? const Color(0xFFE8E8E8)
+                                            : AppColors.arabicText,
                                         fontWeight: FontWeight.w500,
                                         height: 2,
                                         fontSize: arabicFontSize,

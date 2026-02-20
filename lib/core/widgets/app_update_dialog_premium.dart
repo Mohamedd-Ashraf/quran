@@ -78,6 +78,19 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
                 ),
               ),
             ),
+            // Close button for non-mandatory updates
+            if (!widget.updateInfo.isMandatory && !widget.updateInfo.isBelowMinimum)
+              IconButton(
+                onPressed: () async {
+                  await widget.updateService.skipVersion(widget.updateInfo.latestVersion);
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.close_rounded),
+                tooltip: isArabic ? 'إغلاق' : 'Close',
+                iconSize: 24,
+              ),
           ],
         ),
         content: SingleChildScrollView(

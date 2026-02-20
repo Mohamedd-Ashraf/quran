@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/widgets/coming_soon_screen.dart'; // Import the new screen (adjust path if needed)
 import '../../../../core/settings/app_settings_cubit.dart';
 
 class DuaaScreen extends StatelessWidget {
@@ -8,28 +9,10 @@ class DuaaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isArabicUi = context
-        .watch<AppSettingsCubit>()
-        .state
-        .appLanguageCode
-        .toLowerCase()
-        .startsWith('ar');
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isArabicUi ? 'الأدعية' : 'Duaa'),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          isArabicUi
-              ? 'صفحة الأدعية (مكان مخصص لك لإضافة الأدعية لاحقاً).'
-              : 'Duaa page placeholder (add your duaas here later).',
-          textAlign: isArabicUi ? TextAlign.right : TextAlign.left,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-      ),
+    return const ComingSoonScreen(
+      titleEn: 'Duaa',
+      titleAr: 'الأدعية',
+      icon: Icons.volunteer_activism_rounded, // Choose a suitable icon
     );
   }
 }

@@ -12,7 +12,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/widgets/islamic_logo.dart';
-import '../../../islamic/presentation/screens/duaa_screen.dart';
+import '../../../islamic/presentation/screens/adhan_settings_screen.dart';
 import '../../../islamic/presentation/screens/prayer_times_screen.dart';
 import '../../../islamic/presentation/screens/qiblah_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
@@ -588,12 +588,13 @@ class _CategoriesSection extends StatelessWidget {
                 },
               ),
               _CategoryTile(
-                label: isArabicUi ? 'الأدعية' : 'Duaa',
-                icon: Icons.menu_book_rounded,
+                label: isArabicUi ? 'الأذان' : 'Adhan',
+                icon: Icons.notifications_active_rounded,
                 onTap: () {
-                  Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => const DuaaScreen()));
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AdhanSettingsScreen()),
+                  );
                 },
               ),
               _CategoryTile(

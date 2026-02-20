@@ -130,11 +130,33 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     }
   }
 
+  String _getPrayerName(BuildContext context, Prayer prayer) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    switch (prayer) {
+      case Prayer.fajr:
+        return isArabic ? 'الفجر' : 'Fajr';
+      case Prayer.dhuhr:
+        return isArabic ? 'الظهر' : 'Dhuhr';
+      case Prayer.asr:
+        return isArabic ? 'العصر' : 'Asr';
+      case Prayer.maghrib:
+        return isArabic ? 'المغرب' : 'Maghrib';
+      case Prayer.isha:
+        return isArabic ? 'العشاء' : 'Isha';
+      case Prayer.sunrise:
+        return isArabic ? 'الشروق' : 'Sunrise';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_nextPrayer == null || _timeRemaining == null) {
       return const SizedBox.shrink();
     }
+
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -174,14 +196,14 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Next Prayer',
+                  isArabic ? 'الصلاة القادمة' : 'Next Prayer',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _nextPrayer!.label,
+                  _getPrayerName(context, _nextPrayer!.prayer),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,

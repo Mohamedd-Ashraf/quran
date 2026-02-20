@@ -26,6 +26,19 @@ class MoreScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(isArabicUi ? 'المزيد' : 'More'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.gradientStart,
+                AppColors.gradientMid,
+                AppColors.gradientEnd,
+              ],
+            ),
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -44,11 +57,18 @@ class MoreScreen extends StatelessWidget {
                     fontFamily: 'Amiri',
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  isArabicUi ? 'الخدمات الإسلامية' : 'Islamic Services',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
           const Divider(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           _NavCard(
             title: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
             subtitle: isArabicUi
@@ -64,8 +84,8 @@ class MoreScreen extends StatelessWidget {
           _NavCard(
             title: isArabicUi ? 'إعدادات الأذان' : 'Adhan Settings',
             subtitle: isArabicUi
-                ? 'اختر صوت الأذان وطريقة الحساب'
-                : 'Choose adhan sound & calculation method',
+                ? 'صوت الأذان وإشعارات أوقات الصلاة'
+                : 'Adhan sound & prayer time notifications',
             icon: Icons.volume_up_rounded,
             onTap: () {
               Navigator.of(context).push(
@@ -88,8 +108,8 @@ class MoreScreen extends StatelessWidget {
           _NavCard(
             title: isArabicUi ? 'الأدعية' : 'Duaa',
             subtitle: isArabicUi
-                ? 'صفحة أدعية (ستضيفها لاحقاً)'
-                : 'Duaa page (you will add content later)',
+                ? 'أدعية وأذكار إسلامية'
+                : 'Islamic supplications & remembrances',
             icon: Icons.menu_book,
             onTap: () {
               Navigator.of(context).push(

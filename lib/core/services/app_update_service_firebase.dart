@@ -6,6 +6,7 @@ import 'package:in_app_update/in_app_update.dart' as iap;
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/app_update_info.dart';
 
 /// Premium app update service using Firebase Remote Config and In-App Updates
@@ -97,6 +98,7 @@ class AppUpdateServiceFirebase {
       final releaseDateStr = _remoteConfig.getString(_keyReleaseDate);
 
       print('🆕 Latest version: $latestVersion');
+      print('📦 Minimum version: $minimumVersion');
       print('⚠️ Mandatory: $isMandatory');
       print('🔗 Download URL: $downloadUrl');
 
@@ -133,9 +135,15 @@ class AppUpdateServiceFirebase {
       }
 
       print('🎯 Update available!');
+      print('🔍 isBelowMinimum: ${updateInfo.isBelowMinimum}');
+      print('🔍 isMandatory from config: ${updateInfo.isMandatory}');
+      
+      // If current version is below minimum, it's mandatory
+      final shouldBeMandatory = updateInfo.isBelowMinimum || updateInfo.isMandatory;
+      print('🎯 Final mandatory status: $shouldBeMandatory');
       
       // If update is optional and user skipped this version, return null
-      if (!updateInfo.isMandatory && !updateInfo.isBelowMinimum) {
+      if (!shouldBeMandatory) {
         final skippedVersion = _prefs.getString(_keySkippedVersion);
         if (skippedVersion == updateInfo.latestVersion) {
           print('⏭️ User skipped this version');
@@ -143,20 +151,16 @@ class AppUpdateServiceFirebase {
         }
       }
 
-      // If current version is below minimum, it's mandatory
-      if (updateInfo.isBelowMinimum) {
-        return AppUpdateInfo(
-          latestVersion: updateInfo.latestVersion,
-          currentVersion: updateInfo.currentVersion,
-          minimumVersion: updateInfo.minimumVersion,
-          isMandatory: true, // Force mandatory
-          downloadUrl: updateInfo.downloadUrl,
-          changelogByLanguage: updateInfo.changelogByLanguage,
-          releaseDate: updateInfo.releaseDate,
-        );
-      }
-
-      return updateInfo;
+      // Return update info with correct mandatory status
+      return AppUpdateInfo(
+        latestVersion: updateInfo.latestVersion,
+        currentVersion: updateInfo.currentVersion,
+        minimumVersion: updateInfo.minimumVersion,
+        isMandatory: shouldBeMandatory,
+        downloadUrl: updateInfo.downloadUrl,
+        changelogByLanguage: updateInfo.changelogByLanguage,
+        releaseDate: updateInfo.releaseDate,
+      );
     } catch (e) {
       print('❌ Error checking for update: $e');
       return null;
@@ -332,7 +336,24 @@ class AppUpdateServiceFirebase {
     }
 
     try {
-      print('📦 Opening APK for installation: $filePath');
+      print('� Checking install packages permission...');
+      
+      // Request permission to install packages
+      var status = await Permission.requestInstallPackages.status;
+      print('📋 Current permission status: $status');
+      
+      if (!status.isGranted) {
+        print('🙏 Requesting install packages permission...');
+        status = await Permission.requestInstallPackages.request();
+        print('📋 New permission status: $status');
+      }
+      
+      if (!status.isGranted) {
+        print('❌ Install packages permission denied');
+        return false;
+      }
+      
+      print('✅ Permission granted, opening APK for installation: $filePath');
       
       final result = await OpenFile.open(filePath);
       

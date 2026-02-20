@@ -15,14 +15,31 @@ import '../../../../core/services/prayer_times_cache_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/di/injection_container.dart' as di;
 
-class QiblahScreen extends StatefulWidget {
+import '../../../../core/widgets/coming_soon_screen.dart';
+
+class QiblahScreen extends StatelessWidget {
   const QiblahScreen({super.key});
 
   @override
-  State<QiblahScreen> createState() => _QiblahScreenState();
+  Widget build(BuildContext context) {
+    return const ComingSoonScreen(
+      titleEn: 'Qiblah',
+      titleAr: 'القبلة',
+      icon: Icons.compass_calibration_rounded,
+    );
+  }
 }
 
-class _QiblahScreenState extends State<QiblahScreen> {
+// Keeping the original implementation below for future use
+/*
+class QiblahScreenOriginal extends StatefulWidget {
+  const QiblahScreenOriginal({super.key});
+
+  @override
+  State<QiblahScreenOriginal> createState() => _QiblahScreenState();
+}
+
+class _QiblahScreenState extends State<QiblahScreenOriginal> {
   final LocationService _location = const LocationService();
 
   bool _loading = true;
@@ -2060,3 +2077,4 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+*/

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -360,6 +361,82 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 8),
+
+          // ── Adhan Schedule Status ─────────────────────────────
+          _SectionHeader(title: isAr ? 'جدول الأذان' : 'Adhan Schedule'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.event_available_rounded,
+                              size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            isAr ? 'الجدولة: 30 يوماً قادمة' : '30 days scheduled ahead',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 10),
+                  Text(
+                    isAr
+                        ? 'بمجرد الحفظ، يُجدَّل الأذان تلقائياً لـ 30 يوماً قادمة.\nيعمل حتى عند إغلاق التطبيق.'
+                        : 'Once saved, adhan is automatically scheduled for the next 30 days.\nWorks even when the app is closed.',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        height: 1.5),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final prefs = di.sl<SettingsService>();
+                        final raw = prefs.getAdhanSchedulePreview();
+                        if (!context.mounted) return;
+                        await _showScheduleDialog(isAr: isAr, raw: raw);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.calendar_view_week_rounded,
+                          size: 18),
+                      label: Text(
+                        isAr ? 'عرض الجدول الحالي' : 'View Current Schedule',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 24),
 
           // ── Save Button ────────────────────────────────────────
@@ -393,6 +470,381 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  Future<void> _showScheduleDialog(
+      {required bool isAr, String? raw}) async {
+    List<Map<String, dynamic>> items = [];
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          items = decoded
+              .whereType<Map>()
+              .map((e) => e.cast<String, dynamic>())
+              .toList();
+        }
+      } catch (_) {}
+    }
+
+    String localizePrayer(String label) {
+      if (!isAr) return label;
+      switch (label.toLowerCase()) {
+        case 'fajr':
+          return '\u0627\u0644\u0641\u062c\u0631';
+        case 'dhuhr':
+          return '\u0627\u0644\u0638\u0647\u0631';
+        case 'asr':
+          return '\u0627\u0644\u0639\u0635\u0631';
+        case 'maghrib':
+          return '\u0627\u0644\u0645\u063a\u0631\u0628';
+        case 'isha':
+          return '\u0627\u0644\u0639\u0634\u0627\u0621';
+        default:
+          return label;
+      }
+    }
+
+    IconData prayerIcon(String label) {
+      switch (label.toLowerCase()) {
+        case 'fajr':
+          return Icons.nights_stay_rounded;
+        case 'dhuhr':
+          return Icons.wb_sunny_rounded;
+        case 'asr':
+          return Icons.wb_cloudy_rounded;
+        case 'maghrib':
+          return Icons.wb_twilight_rounded;
+        case 'isha':
+          return Icons.bedtime_rounded;
+        default:
+          return Icons.access_time_rounded;
+      }
+    }
+
+    Color prayerColor(String label) {
+      switch (label.toLowerCase()) {
+        case 'fajr':
+          return const Color(0xFF6A5ACD);
+        case 'dhuhr':
+          return const Color(0xFFF4B400);
+        case 'asr':
+          return AppColors.primary;
+        case 'maghrib':
+          return const Color(0xFFFF7043);
+        case 'isha':
+          return const Color(0xFF1565C0);
+        default:
+          return AppColors.primary;
+      }
+    }
+
+    final parsed = <({String label, DateTime time})>[];
+    for (final it in items) {
+      final label = (it['label'] as String?) ?? '';
+      final timeStr = it['time'] as String?;
+      final dt = timeStr == null ? null : DateTime.tryParse(timeStr);
+      if (dt == null) continue;
+      parsed.add((label: label, time: dt));
+    }
+    parsed.sort((a, b) => a.time.compareTo(b.time));
+
+    final now = DateTime.now();
+
+    final byDate = <String, List<({String label, DateTime time})>>{};
+    for (final item in parsed) {
+      final key =
+          '${item.time.year}-${item.time.month.toString().padLeft(2, '0')}-${item.time.day.toString().padLeft(2, '0')}';
+      byDate.putIfAbsent(key, () => []).add(item);
+    }
+
+    ({String label, DateTime time})? nextPrayer;
+    for (final item in parsed) {
+      if (item.time.isAfter(now)) {
+        nextPrayer = item;
+        break;
+      }
+    }
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        String fmtTime(DateTime dt) {
+          final tod = TimeOfDay.fromDateTime(dt.toLocal());
+          final h = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+          final m = tod.minute.toString().padLeft(2, '0');
+          final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+          return '$h:$m $period';
+        }
+
+        String fmtDate(DateTime dt) {
+          final months = isAr
+              ? ['\u064a\u0646\u0627\u064a\u0631', '\u0641\u0628\u0631\u0627\u064a\u0631', '\u0645\u0627\u0631\u0633', '\u0623\u0628\u0631\u064a\u0644', '\u0645\u0627\u064a\u0648', '\u064a\u0648\u0646\u064a\u0648', '\u064a\u0648\u0644\u064a\u0648', '\u0623\u063a\u0633\u0637\u0633', '\u0633\u0628\u062a\u0645\u0628\u0631', '\u0623\u0643\u062a\u0648\u0628\u0631', '\u0646\u0648\u0641\u0645\u0628\u0631', '\u062f\u064a\u0633\u0645\u0628\u0631']
+              : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return '${dt.day} ${months[dt.month - 1]}';
+        }
+
+        return AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          contentPadding: EdgeInsets.zero,
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.calendar_month_rounded,
+                  color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAr ? '\u062c\u062f\u0648\u0644 \u0627\u0644\u0623\u0630\u0627\u0646' : 'Adhan Schedule',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  isAr
+                      ? '${parsed.length} \u0635\u0644\u0627\u0629 \u00b7 30 \u064a\u0648\u0645\u0627\u064b'
+                      : '${parsed.length} prayers \u00b7 30 days',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.normal),
+                ),
+              ],
+            ),
+          ]),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 480,
+            child: parsed.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_busy_rounded,
+                            size: 48,
+                            color: AppColors.textSecondary
+                                .withValues(alpha: 0.4)),
+                        const SizedBox(height: 14),
+                        Text(
+                          isAr
+                              ? '\u0644\u0627 \u064a\u0648\u062c\u062f \u062c\u062f\u0648\u0644 \u0628\u0639\u062f.\n\u0627\u062d\u0641\u0638 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0623\u0648\u0644\u0627\u064b.'
+                              : 'No schedule yet.\nSave settings first.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(children: [
+                    if (nextPrayer != null) ...[  
+                      Container(
+                        margin:
+                            const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: prayerColor(nextPrayer.label)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: prayerColor(nextPrayer.label)
+                                  .withValues(alpha: 0.4)),
+                        ),
+                        child: Row(children: [
+                          Icon(prayerIcon(nextPrayer.label),
+                              size: 20,
+                              color: prayerColor(nextPrayer.label)),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isAr
+                                    ? '\u0627\u0644\u062a\u0627\u0644\u064a: ${localizePrayer(nextPrayer.label)}'
+                                    : 'Next: ${localizePrayer(nextPrayer.label)}',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: prayerColor(nextPrayer.label)),
+                              ),
+                              Text(
+                                '${fmtDate(nextPrayer.time)} — ${fmtTime(nextPrayer.time)}',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: prayerColor(nextPrayer.label)
+                                        .withValues(alpha: 0.8)),
+                              ),
+                            ],
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        itemCount: byDate.length,
+                        itemBuilder: (ctx2, index) {
+                          final dateKey =
+                              byDate.keys.elementAt(index);
+                          final dayItems = byDate[dateKey]!;
+                          final dt = dayItems.first.time;
+                          final today = DateTime(
+                              now.year, now.month, now.day);
+                          final isToday = dt.year == now.year &&
+                              dt.month == now.month &&
+                              dt.day == now.day;
+                          final isTomorrow =
+                              DateTime(dt.year, dt.month, dt.day)
+                                      .difference(today)
+                                      .inDays ==
+                                  1;
+                          String dayLabel = fmtDate(dt);
+                          if (isToday) {
+                            dayLabel = isAr ? '\u0627\u0644\u064a\u0648\u0645' : 'Today';
+                          }
+                          if (isTomorrow) {
+                            dayLabel = isAr ? '\u063a\u062f\u0627\u064b' : 'Tomorrow';
+                          }
+
+                          return Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    6, 10, 6, 6),
+                                child: Row(children: [
+                                  Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: isToday
+                                          ? AppColors.primary
+                                              .withValues(alpha: 0.12)
+                                          : Colors.transparent,
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      dayLabel,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: isToday
+                                            ? AppColors.primary
+                                            : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Expanded(
+                                      child: Divider(
+                                          color: AppColors.divider,
+                                          height: 1)),
+                                ]),
+                              ),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: dayItems.map((item) {
+                                  final color = prayerColor(item.label);
+                                  final isPast =
+                                      item.time.isBefore(now);
+                                  return Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isPast
+                                          ? Colors.transparent
+                                          : color.withValues(alpha: 0.1),
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isPast
+                                            ? AppColors.divider
+                                            : color
+                                                .withValues(alpha: 0.35),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(prayerIcon(item.label),
+                                            size: 14,
+                                            color: isPast
+                                                ? AppColors.textSecondary
+                                                : color),
+                                        const SizedBox(width: 5),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              localizePrayer(item.label),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight:
+                                                    FontWeight.w700,
+                                                color: isPast
+                                                    ? AppColors
+                                                        .textSecondary
+                                                    : color,
+                                              ),
+                                            ),
+                                            Text(
+                                              fmtTime(item.time),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isPast
+                                                    ? AppColors
+                                                        .textSecondary
+                                                    : color.withValues(
+                                                        alpha: 0.8),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ]),
+          ),
+          actionsPadding:
+              const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(isAr ? '\u0625\u063a\u0644\u0627\u0642' : 'Close',
+                  style:
+                      const TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

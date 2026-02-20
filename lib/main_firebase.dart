@@ -49,33 +49,54 @@ class MyApp extends StatelessWidget {
 
   /// Check for app updates in the background
   Future<void> _checkForUpdates(BuildContext context, String languageCode) async {
-    print('🔍 _checkForUpdates called');
-    final updateService = di.sl<AppUpdateServiceFirebase>();
+    print('🔍 _checkForUpdates called - languageCode: $languageCode');
     
-    // Force check for testing (remove shouldCheckForUpdate check temporarily)
-    // final shouldCheck = await updateService.shouldCheckForUpdate();
-    // print('⏰ Should check: $shouldCheck');
-    // if (!shouldCheck) return;
+    try {
+      final updateService = di.sl<AppUpdateServiceFirebase>();
+      print('✅ Update service retrieved');
+      
+      // Force check for testing (remove shouldCheckForUpdate check temporarily)
+      // final shouldCheck = await updateService.shouldCheckForUpdate();
+      // print('⏰ Should check: $shouldCheck');
+      // if (!shouldCheck) return;
 
-    // Check for updates
-    final updateInfo = await updateService.checkForUpdate();
-    print('📦 Update info: $updateInfo');
-    
-    // Show dialog if update is available
-    if (updateInfo != null && context.mounted) {
-      print('🎉 Showing update dialog');
-      // Delay slightly to ensure UI is ready
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (context.mounted) {
-        showPremiumUpdateDialog(
-          context: context,
-          updateInfo: updateInfo,
-          updateService: updateService,
-          languageCode: languageCode,
-        );
+      // Check for updates
+      print('🔄 Calling checkForUpdate...');
+      final updateInfo = await updateService.checkForUpdate();
+      print('📦 Update info received: ${updateInfo != null ? "YES" : "NO"}');
+      
+      if (updateInfo != null) {
+        print('   - Current: ${updateInfo.currentVersion}');
+        print('   - Latest: ${updateInfo.latestVersion}');
+        print('   - Has update: ${updateInfo.hasUpdate}');
+        print('   - Mandatory: ${updateInfo.isMandatory}');
+        print('   - Download URL: ${updateInfo.downloadUrl}');
       }
-    } else {
-      print('⚠️ No update to show (updateInfo: $updateInfo, mounted: ${context.mounted})');
+      
+      // Show dialog if update is available
+      if (updateInfo != null && context.mounted) {
+        print('🎉 Showing update dialog NOW!');
+        // Delay slightly to ensure UI is ready
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          showPremiumUpdateDialog(
+            context: context,
+            updateInfo: updateInfo,
+            updateService: updateService,
+            languageCode: languageCode,
+          );
+          print('✅ Dialog shown successfully');
+        } else {
+          print('❌ Context not mounted after delay');
+        }
+      } else {
+        print('⚠️ No update to show');
+        print('   - updateInfo null: ${updateInfo == null}');
+        print('   - context mounted: ${context.mounted}');
+      }
+    } catch (e, stack) {
+      print('❌ Error in _checkForUpdates: $e');
+      print('Stack trace: $stack');
     }
   }
 

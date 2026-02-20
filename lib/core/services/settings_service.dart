@@ -72,7 +72,9 @@ class SettingsService {
   }
 
   String getAppLanguage() {
-    return _prefs.getString(_keyAppLanguage) ?? 'en';
+    // default to Arabic so that the primary language of the app is Arabic
+    // users can still change it via settings if they prefer English.
+    return _prefs.getString(_keyAppLanguage) ?? 'ar';
   }
 
   // Use Uthmani Script
