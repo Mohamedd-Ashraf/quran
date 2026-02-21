@@ -54,6 +54,16 @@ class OfflineAudioProgress {
   }
 }
 
+/// Thrown when the download is interrupted due to a network outage.
+class DownloadNetworkException implements Exception {
+  final String message;
+  const DownloadNetworkException(this.message);
+  @override
+  String toString() => message;
+}
+
+enum _DownloadOutcome { success, networkError, serverError, cancelled }
+
 class _DownloadTask {
   final int surahNumber;
   final int ayahNumber;
@@ -77,6 +87,23 @@ class OfflineAudioService {
 
   static const int _totalQuranFiles = 6236;
   static const int _minValidAudioBytes = 8 * 1024;
+
+  // Authoritative ayah count per surah (index 0 = Surah 1 = Al-Fatiha).
+  // Sum = 6236 – used to determine whether a surah is *fully* downloaded.
+  static const List<int> _surahAyahCounts = [
+     7, 286, 200, 176, 120, 165, 206,  75, 129, 109, // 1-10
+   123, 111,  43,  52,  99, 128, 111, 110,  98, 135, // 11-20
+   112,  78, 118,  64,  77, 227,  93,  88,  69,  60, // 21-30
+    34,  30,  73,  54,  45,  83, 182,  88,  75,  85, // 31-40
+    54,  53,  89,  59,  37,  35,  38,  29,  18,  45, // 41-50
+    60,  49,  62,  55,  78,  96,  29,  22,  24,  13, // 51-60
+    14,  11,  11,  18,  12,  12,  30,  52,  52,  44, // 61-70
+    28,  28,  20,  56,  40,  31,  50,  40,  46,  42, // 71-80
+    29,  19,  36,  25,  22,  17,  19,  26,  30,  20, // 81-90
+    15,  21,  11,   8,   8,  19,   5,   8,   8,  11, // 91-100
+    11,   8,   3,   9,   5,   4,   7,   3,   6,   3, // 101-110
+     5,   4,   5,   6,                               // 111-114
+  ];
 
   OfflineAudioService(this._prefs, this._client);
 
@@ -147,22 +174,48 @@ class OfflineAudioService {
     }
   }
 
-  /// Get list of downloaded surahs
+  /// Returns the list of surahs that are **fully** downloaded.
+  /// A surah is considered fully downloaded only when the number of valid
+  /// `.mp3` files on disk equals the known ayah count for that surah.
+  /// This method never creates directories as a side-effect.
   Future<List<int>> getDownloadedSurahs() async {
-    final root = await _audioRootDir();
+    final base = await getApplicationDocumentsDirectory();
+    final sep = Platform.pathSeparator;
+    final rootPath = '${base.path}${sep}offline_audio${sep}$edition';
+    final root = Directory(rootPath);
     if (!root.existsSync()) return [];
 
     final downloaded = <int>[];
     for (int i = 1; i <= 114; i++) {
-      final dir = await _surahDir(i);
-      if (dir.existsSync()) {
-        final files = dir.listSync().where((e) => e is File && e.path.endsWith('.mp3')).toList();
-        if (files.isNotEmpty) {
-          downloaded.add(i);
-        }
-      }
+      final dir = Directory('$rootPath${sep}surah_$i');
+      if (!dir.existsSync()) continue;
+      final expected = _surahAyahCounts[i - 1];
+      final count = dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.mp3') && f.lengthSync() >= _minValidAudioBytes)
+          .length;
+      if (count >= expected) downloaded.add(i);
     }
     return downloaded;
+  }
+
+  /// Returns `true` iff all expected ayah files for [surahNumber] are on disk.
+  /// Never creates directories as a side-effect.
+  Future<bool> isSurahFullyDownloaded(int surahNumber) async {
+    final base = await getApplicationDocumentsDirectory();
+    final sep = Platform.pathSeparator;
+    final dir = Directory(
+      '${base.path}${sep}offline_audio${sep}$edition${sep}surah_$surahNumber',
+    );
+    if (!dir.existsSync()) return false;
+    final expected = _surahAyahCounts[surahNumber - 1];
+    final count = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.mp3') && f.lengthSync() >= _minValidAudioBytes)
+        .length;
+    return count >= expected;
   }
 
   /// Get download statistics
@@ -309,8 +362,32 @@ class OfflineAudioService {
     }
   }
 
-  String _force64KbpsUrl(String url) {
-    return url.replaceFirst(RegExp(r'/audio/\d+/'), '/audio/64/');
+  /// Maps alquran.cloud edition IDs → everyayah.com folder names.
+  /// When a folder is available, we download from everyayah.com (128 kbps)
+  /// instead of cdn.islamic.network, which returns HTTP 200 + 0 bytes for
+  /// many files at the 64 kbps path.
+  static const Map<String, String> _everyAyahFolders = {
+    'ar.alafasy'            : 'Alafasy_128kbps',
+    'ar.abdurrahmaansudais' : 'Abdurrahmaan_As-Sudais_192kbps',
+    'ar.husary'             : 'Husary_128kbps',
+    'ar.husarymujawwad'     : 'Husary_Mujawwad_128kbps',
+    'ar.minshawi'           : 'Minshawy_Murattal_128kbps',
+    'ar.minshawimujawwad'   : 'Minshawy_Mujawwad_128kbps',
+    'ar.muhammadayyoub'     : 'Muhammad_Ayyoub_128kbps',
+    'ar.muhammadjibreel'    : 'muhammad_jibreel_128kbps',
+    'ar.saoodshuraym'       : 'Saood_ash-Shuraym_128kbps',
+    'ar.shaatree'           : 'Abu_Bakr_Ash-Shaatree_128kbps',
+    'ar.parhizgar'          : 'Parhizgar_48kbps',
+  };
+
+  /// Builds a direct everyayah.com URL (no API call needed).
+  /// Returns null if the edition is not in [_everyAyahFolders].
+  String? _buildEveryAyahUrl(int surahNumber, int ayahNumber) {
+    final folder = _everyAyahFolders[edition];
+    if (folder == null) return null;
+    final s = surahNumber.toString().padLeft(3, '0');
+    final a = ayahNumber.toString().padLeft(3, '0');
+    return 'https://everyayah.com/data/$folder/$s$a.mp3';
   }
 
   int? _detectMp3BitrateFromBytes(Uint8List bytes) {
@@ -436,6 +513,25 @@ class OfflineAudioService {
   }
 
   Future<Map<String, dynamic>> inspectCurrentEditionDownloadPlan() async {
+    final everyAyahFolder = _everyAyahFolders[edition];
+
+    if (everyAyahFolder != null) {
+      // Derive display bitrate from folder name (e.g. "Alafasy_128kbps" → 128).
+      final bitrateMatch = RegExp(r'_(\d+)kbps$').firstMatch(everyAyahFolder);
+      final bitrate = int.tryParse(bitrateMatch?.group(1) ?? '') ?? 128;
+      final sampleUrl = _buildEveryAyahUrl(1, 1) ?? '';
+      return {
+        'edition'           : edition,
+        'sourceBitrate'     : bitrate,
+        'downloadBitrate'   : bitrate,
+        'sampleUrl'         : sampleUrl,
+        'optimizedSampleUrl': sampleUrl,
+        'status'            : 'ok',
+        'source'            : 'everyayah.com',
+      };
+    }
+
+    // Fall back to querying alquran.cloud for non-everyayah editions.
     try {
       final uri = Uri.parse(
         '${ApiConstants.baseUrl}${ApiConstants.surahEndpoint}/1/$edition',
@@ -445,7 +541,7 @@ class OfflineAudioService {
         return {
           'edition': edition,
           'sourceBitrate': 0,
-          'downloadBitrate': 64,
+          'downloadBitrate': 0,
           'status': 'unavailable',
         };
       }
@@ -457,7 +553,7 @@ class OfflineAudioService {
         return {
           'edition': edition,
           'sourceBitrate': 0,
-          'downloadBitrate': 64,
+          'downloadBitrate': 0,
           'status': 'empty',
         };
       }
@@ -467,30 +563,43 @@ class OfflineAudioService {
       final sourceBitrate = int.tryParse(match?.group(1) ?? '') ?? 0;
 
       return {
-        'edition': edition,
-        'sourceBitrate': sourceBitrate,
-        'downloadBitrate': 64,
-        'sampleUrl': sampleUrl,
-        'optimizedSampleUrl': sampleUrl.isNotEmpty
-            ? _force64KbpsUrl(sampleUrl)
-            : '',
-        'status': 'ok',
+        'edition'         : edition,
+        'sourceBitrate'   : sourceBitrate,
+        'downloadBitrate' : sourceBitrate,
+        'sampleUrl'       : sampleUrl,
+        'status'          : 'ok',
+        'source'          : 'cdn.islamic.network',
       };
     } catch (_) {
       return {
         'edition': edition,
         'sourceBitrate': 0,
-        'downloadBitrate': 64,
+        'downloadBitrate': 0,
         'status': 'error',
       };
     }
   }
 
   Future<List<String>> _fetchAyahAudioUrls(int surahNumber) async {
+    // ── Fast path: build everyayah.com URLs without any API call ──────────
+    // cdn.islamic.network returns HTTP 200 + 0 bytes for many 64 kbps files,
+    // causing persistent download failures. everyayah.com is reliable.
+    final ayahCount = _surahAyahCounts[surahNumber - 1];
+    final directFolder = _everyAyahFolders[edition];
+    if (directFolder != null) {
+      return List.generate(
+        ayahCount,
+        (i) => _buildEveryAyahUrl(surahNumber, i + 1)!,
+      );
+    }
+
+    // ── Slow path: alquran.cloud API (editions not on everyayah.com) ──────
+    // Use the URL bitrate the API returns — do NOT force 64 kbps because
+    // that path is absent for many files on the CDN.
     final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.surahEndpoint}/$surahNumber/$edition');
     final res = await _client.get(uri);
     if (res.statusCode != 200) {
-      throw Exception('Failed to fetch audio URLs');
+      throw Exception('Failed to fetch audio URLs for surah $surahNumber');
     }
 
     final decoded = json.decode(res.body) as Map<String, dynamic>;
@@ -501,15 +610,11 @@ class OfflineAudioService {
     for (final a in ayahs) {
       final url = a['audio'];
       if (url is String && url.isNotEmpty) {
-        // Force 64kbps for any source bitrate (128/192/etc)
-        // Example: /audio/192/ar.alafasy/1.mp3 -> /audio/64/ar.alafasy/1.mp3
-        final optimizedUrl = _force64KbpsUrl(url);
-        urls.add(optimizedUrl);
+        urls.add(url); // keep original bitrate
       } else {
         urls.add('');
       }
     }
-
     return urls;
   }
 
@@ -527,6 +632,161 @@ class OfflineAudioService {
       shouldCancel: shouldCancel,
       specificSurahs: surahNumbers,
     );
+  }
+
+  /// Download surahs with per-surah completion callbacks.
+  /// Used by [DownloadManagerCubit] for resumable, state-persisted downloads.
+  ///
+  /// Downloads each surah's ayahs concurrently (up to [concurrentDownloads]
+  /// within a surah), fires [onSurahCompleted] once all ayahs for a surah are
+  /// done, then moves to the next surah.
+  Future<void> downloadSurahsWithCallbacks({
+    required List<int> surahNumbers,
+    required void Function(OfflineAudioProgress progress) onProgress,
+    required Future<void> Function(int surahNumber) onSurahCompleted,
+    required bool Function() shouldCancel,
+  }) async {
+    const concurrentDownloads = 20;
+    final totalSurahs = surahNumbers.length;
+
+    // Compute the exact expected file count for the selected surahs so that
+    // the progress percentage reflects ONLY the chosen download scope.
+    final estimatedTotalFiles = surahNumbers.fold<int>(
+      0, (sum, sn) => sum + _surahAyahCounts[sn - 1],
+    );
+    int globalCompleted = 0;
+
+    // --- Step 1: Pre-count total tasks so we can show a real % early ------
+    // We compute this lazily per-surah to avoid waiting for all API calls.
+
+    for (var surahIdx = 0; surahIdx < surahNumbers.length; surahIdx++) {
+      if (shouldCancel()) return;
+
+      final surahNumber = surahNumbers[surahIdx];
+
+      // Announce "preparing surah N" while we fetch its URL list.
+      onProgress(OfflineAudioProgress.create(
+        currentSurah: surahNumber,
+        totalSurahs: totalSurahs,
+        currentAyah: 0,
+        totalAyahs: 0,
+        completedFiles: globalCompleted,
+        totalFiles: estimatedTotalFiles,
+        message: 'Preparing surah $surahNumber…',
+      ));
+
+      // Fetch URLs for this surah.
+      List<String> urls;
+      try {
+        urls = await _fetchAyahAudioUrls(surahNumber);
+      } catch (e) {
+        print('⚠️ [Callbacks] Failed to fetch URLs for surah $surahNumber: $e');
+        // Skip this surah on error (don't crash the whole session).
+        continue;
+      }
+
+      final dir = await _surahDir(surahNumber);
+      final tasks = <_DownloadTask>[];
+
+      for (var i = 0; i < urls.length; i++) {
+        if (shouldCancel()) return;
+        final url = urls[i];
+        final ayah = i + 1;
+        final file =
+            File('${dir.path}${Platform.pathSeparator}ayah_$ayah.mp3');
+
+        if (url.isEmpty) continue;
+
+        // Skip valid existing files (resume support).
+        if (file.existsSync() && file.lengthSync() >= _minValidAudioBytes) {
+          globalCompleted++;
+          continue;
+        }
+
+        try {
+          file.deleteSync();
+        } catch (_) {}
+
+        tasks.add(_DownloadTask(
+          surahNumber: surahNumber,
+          ayahNumber: ayah,
+          url: url,
+          file: file,
+        ));
+      }
+
+      // --- Step 2: Download this surah's tasks in parallel batches ----------
+      int surahCompleted = 0;
+      final totalAyahs = urls.length;
+      int consecutiveNetworkErrors = 0;
+
+      for (var i = 0; i < tasks.length; i += concurrentDownloads) {
+        if (shouldCancel()) return;
+
+        final batch = tasks.skip(i).take(concurrentDownloads).toList();
+
+        // Download all files in this batch concurrently.
+        final outcomes = await Future.wait(batch.map((task) async {
+          if (shouldCancel()) return _DownloadOutcome.cancelled;
+          return await _downloadTaskWithRetries(task, shouldCancel: shouldCancel);
+        }));
+
+        // Tally results — Dart is single-threaded so this is safe.
+        for (final outcome in outcomes) {
+          if (outcome == _DownloadOutcome.success) {
+            globalCompleted++;
+            surahCompleted++;
+            consecutiveNetworkErrors = 0;
+          } else if (outcome == _DownloadOutcome.networkError) {
+            consecutiveNetworkErrors++;
+          }
+        }
+
+        // Yield to the event loop so Flutter can schedule a frame, then
+        // emit exactly ONE progress update per batch.
+        await Future.delayed(Duration.zero);
+        onProgress(OfflineAudioProgress.create(
+          currentSurah: batch.last.surahNumber,
+          totalSurahs: totalSurahs,
+          currentAyah: batch.last.ayahNumber,
+          totalAyahs: totalAyahs,
+          completedFiles: globalCompleted,
+          totalFiles: estimatedTotalFiles,
+          message: 'Surah ${batch.last.surahNumber}…',
+        ));
+
+        // If too many consecutive network failures, the connection is lost.
+        if (consecutiveNetworkErrors >= 10) {
+          throw const DownloadNetworkException(
+            'انقطع الاتصال بالإنترنت أثناء التحميل',
+          );
+        }
+      }
+
+      // --- Step 3: Surah is done -------------------------------------------
+      // Only checkpoint a surah as completed when ALL expected ayahs are
+      // actually on disk. If network dropped mid-surah, leave it in
+      // pendingSurahs so it is retried on the next resume.
+      final isFullyDone = await isSurahFullyDownloaded(surahNumber);
+      if (isFullyDone) {
+        await onSurahCompleted(surahNumber);
+      }
+      print(
+          '${isFullyDone ? '✅' : '⚠️'} [Callbacks] Surah $surahNumber '
+          '${isFullyDone ? 'fully downloaded' : 'partial – will retry on resume'} '
+          '($surahCompleted/${urls.length} new ayahs)');
+    }
+
+    // Final progress ping.
+    onProgress(OfflineAudioProgress.create(
+      currentSurah: totalSurahs,
+      totalSurahs: totalSurahs,
+      currentAyah: 0,
+      totalAyahs: 0,
+      completedFiles: globalCompleted,
+      totalFiles: estimatedTotalFiles,
+      message: 'Download complete!',
+    ));
   }
 
   Future<void> downloadAllQuranAudio({
@@ -658,12 +918,12 @@ class OfflineAudioService {
             ),
           );
 
-          final success = await _downloadTaskWithRetries(
+          final outcome = await _downloadTaskWithRetries(
             task,
             shouldCancel: shouldCancel,
           );
 
-          if (success) {
+          if (outcome == _DownloadOutcome.success) {
             successfulCount++;
           } else {
             failedCount++;
@@ -693,16 +953,19 @@ class OfflineAudioService {
     );
   }
 
-  Future<bool> _downloadTaskWithRetries(
+  Future<_DownloadOutcome> _downloadTaskWithRetries(
     _DownloadTask task, {
     required bool Function() shouldCancel,
     int maxAttempts = 3,
   }) async {
+    bool lastWasNetworkError = false;
+
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (shouldCancel()) return false;
+      if (shouldCancel()) return _DownloadOutcome.cancelled;
 
       try {
         final resp = await _client.get(Uri.parse(task.url));
+        lastWasNetworkError = false;
         if (resp.statusCode == 200 && resp.bodyBytes.length >= _minValidAudioBytes) {
           await task.file.writeAsBytes(resp.bodyBytes, flush: true);
           final bitrate = _detectMp3BitrateFromBytes(resp.bodyBytes);
@@ -711,7 +974,7 @@ class OfflineAudioService {
             '=> ${bitrate != null ? '${bitrate}kbps' : 'unknown'} '
             '(bytes=${resp.bodyBytes.length})',
           );
-          return true;
+          return _DownloadOutcome.success;
         }
 
         print(
@@ -720,6 +983,7 @@ class OfflineAudioService {
           '(HTTP ${resp.statusCode}, bytes=${resp.bodyBytes.length})',
         );
       } catch (e) {
+        lastWasNetworkError = _isNetworkError(e);
         print(
           '❌ [Verse-by-Verse] Attempt $attempt/$maxAttempts error '
           'for Surah ${task.surahNumber}:${task.ayahNumber}: $e',
@@ -737,16 +1001,39 @@ class OfflineAudioService {
       }
     }
 
+    return lastWasNetworkError
+        ? _DownloadOutcome.networkError
+        : _DownloadOutcome.serverError;
+  }
+
+  /// Returns true when the exception looks like a network / DNS failure.
+  bool _isNetworkError(Object e) {
+    if (e is SocketException) return true;
+    if (e is http.ClientException) {
+      final msg = e.message.toLowerCase();
+      return msg.contains('socketexception') ||
+          msg.contains('failed host lookup') ||
+          msg.contains('connection refused') ||
+          msg.contains('network is unreachable') ||
+          msg.contains('errno = 7') ||
+          msg.contains('no address associated');
+    }
     return false;
   }
 
+  /// Returns the local audio file for an ayah if it exists and is valid.
+  /// Never creates directories as a side-effect.
   Future<File?> getLocalAyahAudioFile({
     required int surahNumber,
     required int ayahNumber,
   }) async {
-    final dir = await _surahDir(surahNumber);
-    final file = File('${dir.path}${Platform.pathSeparator}ayah_$ayahNumber.mp3');
-    if (file.existsSync() && file.lengthSync() > 0) {
+    final base = await getApplicationDocumentsDirectory();
+    final sep = Platform.pathSeparator;
+    final file = File(
+      '${base.path}${sep}offline_audio${sep}$edition'
+      '${sep}surah_$surahNumber${sep}ayah_$ayahNumber.mp3',
+    );
+    if (file.existsSync() && file.lengthSync() >= _minValidAudioBytes) {
       return file;
     }
     return null;

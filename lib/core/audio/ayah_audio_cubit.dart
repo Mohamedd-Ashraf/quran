@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../services/ayah_audio_service.dart';
+import '../services/adhan_notification_service.dart';
 
 enum AyahAudioMode { ayah, surah }
 
@@ -62,12 +63,13 @@ class AyahAudioState extends Equatable {
 class AyahAudioCubit extends Cubit<AyahAudioState> {
   final AyahAudioService _service;
   final AudioPlayer _player;
+  final AdhanNotificationService _adhanService;
 
   StreamSubscription<PlayerState>? _playerSub;
   StreamSubscription<int?>? _indexSub;
   bool _initialized = false;
 
-  AyahAudioCubit(this._service)
+  AyahAudioCubit(this._service, this._adhanService)
     : _player = AudioPlayer(),
       super(const AyahAudioState.idle()) {
     _init();
@@ -185,6 +187,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int ayahNumber,
   }) async {
+    // Stop Adhan (await so native stop completes before audio starts).
+    await _adhanService.stopCurrentAdhan();
     if (!_initialized) {
       // Best-effort: allow _init() to finish.
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -247,6 +251,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int numberOfAyahs,
   }) async {
+    // Stop Adhan (await so native stop completes before audio starts).
+    await _adhanService.stopCurrentAdhan();
     if (!_initialized) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
@@ -304,6 +310,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int startAyah,
     required int endAyah,
   }) async {
+    // Stop Adhan (await so native stop completes before audio starts).
+    await _adhanService.stopCurrentAdhan();
     if (!_initialized) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }

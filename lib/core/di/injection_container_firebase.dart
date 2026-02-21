@@ -23,10 +23,13 @@ import '../services/bookmark_service.dart';
 import '../services/offline_audio_service.dart';
 import '../services/ayah_audio_service.dart';
 import '../services/audio_edition_service.dart';
+import '../services/audio_download_state_service.dart';
+import '../services/audio_download_notification_service.dart';
 import '../services/location_service.dart';
 import '../services/adhan_notification_service.dart';
 import '../services/prayer_times_cache_service.dart';
 import '../services/app_update_service_firebase.dart';
+import '../audio/download_manager_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -47,7 +50,7 @@ Future<void> init() async {
   );
 
   sl.registerFactory(
-    () => AyahAudioCubit(sl()),
+    () => AyahAudioCubit(sl(), sl()),
   );
 
   // Use cases
@@ -92,6 +95,18 @@ Future<void> init() async {
   sl.registerLazySingleton(() => OfflineAudioService(sl(), sl()));
   sl.registerLazySingleton(() => AyahAudioService(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AudioEditionService(sl(), sl(), sl()));
+  sl.registerLazySingleton(() => AudioDownloadStateService(sl()));
+  sl.registerLazySingleton(
+    () => AudioDownloadNotificationService(sl()),
+  );
+  sl.registerFactory(
+    () => DownloadManagerCubit(
+      audioService: sl(),
+      stateService: sl(),
+      notifService: sl(),
+      editionService: sl(),
+    ),
+  );
   
   // Firebase-based update service
   sl.registerLazySingleton(() => AppUpdateServiceFirebase(sl(), sl()));

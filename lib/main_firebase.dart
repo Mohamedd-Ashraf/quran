@@ -11,6 +11,7 @@ import 'core/widgets/app_update_dialog_premium.dart';
 import 'core/theme/app_theme.dart';
 import 'core/settings/app_settings_cubit.dart';
 import 'core/audio/ayah_audio_cubit.dart';
+import 'core/audio/download_manager_cubit.dart';
 import 'core/widgets/onboarding_gate.dart';
 import 'features/quran/presentation/bloc/surah/surah_bloc.dart';
 import 'features/quran/presentation/bloc/ayah/ayah_bloc.dart';
@@ -108,6 +109,13 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<AyahBloc>()),
         BlocProvider(create: (_) => di.sl<AyahAudioCubit>()),
         BlocProvider(create: (_) => AppSettingsCubit(di.sl())),
+        BlocProvider(
+          create: (_) {
+            final cubit = di.sl<DownloadManagerCubit>();
+            cubit.checkForResumableSession();
+            return cubit;
+          },
+        ),
       ],
       child: BlocBuilder<AppSettingsCubit, AppSettingsState>(
         builder: (context, settings) {

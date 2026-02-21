@@ -47,7 +47,7 @@ class AdhanNotificationService {
   final PrayerTimesCacheService _cache;
 
   final List<Timer> _inAppTimers = [];
-  bool _isAdhanPlaying = false;
+  // _isAdhanPlaying removed — AdhanPlayerService manages its own concurrency.
   DateTime? _lastAdhanStartedAt;
   String? _lastInAppScheduleSignature;
   DateTime? _lastInAppScheduleAt;
@@ -68,7 +68,7 @@ class AdhanNotificationService {
       // Fallback: tz.local will still work on many platforms.
     }
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
     const iosInit = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
@@ -89,43 +89,86 @@ class AdhanNotificationService {
   Future<void> _playFullAdhanAudio() async {
     try {
       final now = DateTime.now();
-      if (_isAdhanPlaying) {
-        debugPrint('🔇 [Adhan] Ignored duplicate trigger while already playing');
-        return;
-      }
+      // 35-second cooldown guard prevents double-triggers from overlapping timers.
       final lastStart = _lastAdhanStartedAt;
       if (lastStart != null && now.difference(lastStart) < const Duration(seconds: 35)) {
         debugPrint('🔇 [Adhan] Ignored duplicate trigger within cooldown window');
         return;
       }
-
-      _isAdhanPlaying = true;
       _lastAdhanStartedAt = now;
 
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final soundId = _settings.getSelectedAdhanSound();
+        // Use the foreground service so audio plays even when the app is in the background.
         final ok = await _androidAdhanPlayerChannel.invokeMethod<bool>(
-          'playAdhan',
+          'startAdhanService',
           {'soundName': soundId},
         );
         if (ok == true) {
-          debugPrint('🔊 [Adhan] Native adhan started: $soundId');
+          debugPrint('🔊 [Adhan] AdhanPlayerService started: $soundId');
           return;
         }
       }
 
-      // Fallback: trigger immediate notification sound if native playback is unavailable.
+      // Fallback for non-Android / service failure.
       await _plugin.show(
         999003,
-        'Prayer Time',
-        'Adhan is playing',
+        'وقت الصلاة',
+        'حان وقت الصلاة',
         _notificationDetails(),
       );
-      debugPrint('🔔 [Adhan] Fallback notification sound triggered');
+      debugPrint('🔔 [Adhan] Fallback notification shown');
     } catch (e) {
       debugPrint('Adhan playback error: $e');
-    } finally {
-      _isAdhanPlaying = false;
+    }
+  }
+
+  // ── Native AlarmManager scheduling ──────────────────────────────
+
+  /// Pushes all future prayer-time alarms to the Android AlarmManager.
+  /// These alarms survive the app being killed and fire AdhanPlayerService.
+  Future<void> _scheduleNativeAlarms(List<Map<String, dynamic>> preview) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final soundId = _settings.getSelectedAdhanSound();
+      final alarms = preview.map((item) {
+        final timeStr = item['time'] as String?;
+        if (timeStr == null) return null;
+        final dt = DateTime.tryParse(timeStr);
+        if (dt == null) return null;
+        return <String, dynamic>{
+          'id': item['id'] as int,
+          'timeMs': dt.millisecondsSinceEpoch,
+        };
+      }).whereType<Map<String, dynamic>>().toList();
+
+      await _androidAdhanPlayerChannel.invokeMethod('scheduleAdhanAlarms', {
+        'alarms': alarms,
+        'soundName': soundId,
+      });
+      debugPrint('🔔 [Adhan] AlarmManager: scheduled ${alarms.length} alarm(s)');
+    } catch (e) {
+      debugPrint('Native alarm scheduling error: $e');
+    }
+  }
+
+  /// Cancels all previously scheduled AlarmManager alarms using the stored IDs.
+  Future<void> _cancelAllNativeAlarms() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final raw = _settings.getAdhanSchedulePreview();
+      if (raw == null || raw.isEmpty) return;
+      final list = jsonDecode(raw) as List;
+      final ids = list
+          .whereType<Map>()
+          .map((e) => e['id'])
+          .whereType<int>()
+          .toList();
+      if (ids.isEmpty) return;
+      await _androidAdhanPlayerChannel.invokeMethod('cancelAdhanAlarms', {'ids': ids});
+      debugPrint('🔔 [Adhan] AlarmManager: cancelled ${ids.length} alarm(s)');
+    } catch (e) {
+      debugPrint('Native alarm cancel error: $e');
     }
   }
 
@@ -245,13 +288,24 @@ class AdhanNotificationService {
   Future<void> disable() async {
     await _settings.setAdhanNotificationsEnabled(false);
     _clearInAppTimers();
-    _isAdhanPlaying = false;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
         await _androidAdhanPlayerChannel.invokeMethod<void>('stopAdhan');
       } catch (_) {}
     }
     await cancelAll();
+    await _cancelAllNativeAlarms();
+  }
+
+  /// Stops the currently playing Adhan without disabling future scheduled notifications.
+  /// Call this when the user starts Quran audio so the two don't overlap.
+  Future<void> stopCurrentAdhan() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _androidAdhanPlayerChannel.invokeMethod<void>('stopAdhan');
+      } catch (_) {}
+    }
   }
 
   Future<void> enableAndSchedule() async {
@@ -296,8 +350,9 @@ class AdhanNotificationService {
       });
       await _settings.setAdhanSchedulePreview(jsonEncode(preview));
       _scheduleInAppAdhanFromPreview(preview);
+      await _scheduleNativeAlarms(preview);
     } catch (_) {
-      // Ignore preview persistence failures.
+      // Ignore preview/schedule failures.
     }
   }
 
@@ -313,15 +368,28 @@ class AdhanNotificationService {
 
   Future<void> scheduleTestIn(Duration delay) async {
     final when = tz.TZDateTime.now(tz.local).add(delay);
+    final whenLocal = DateTime.now().add(delay);
 
+    // In-app timer (fires if app stays open)
     Timer(delay, () async {
       await _playFullAdhanAudio();
     });
 
+    // Native AlarmManager alarm (fires even when app is killed)
+    await _scheduleNativeAlarms([
+      {
+        'id': 999002,
+        'time': whenLocal.toIso8601String(),
+        'prayer': 'test',
+        'label': 'Test',
+      }
+    ]);
+
+    // Silent OS notification as a companion reminder
     await _plugin.zonedSchedule(
       999002,
-      'Adhan Test (Scheduled)',
-      'This should play Adhan even if the app is closed.',
+      'اختبار الأذان',
+      'إذا سمعت الأذان، فالتطبيق يعمل بشكل صحيح ✓',
       when,
       _notificationDetails(),
       androidScheduleMode: await _androidScheduleMode(),
@@ -443,6 +511,7 @@ class AdhanNotificationService {
         audioAttributesUsage: AudioAttributesUsage.alarm,
         ongoing: false,
         autoCancel: true,
+        icon: '@drawable/ic_notification',
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,

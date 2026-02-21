@@ -21,7 +21,8 @@ class AdhanSettingsScreen extends StatefulWidget {
   State<AdhanSettingsScreen> createState() => _AdhanSettingsScreenState();
 }
 
-class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
+class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
+    with WidgetsBindingObserver {
   static const MethodChannel _adhanChannel = MethodChannel('quraan/adhan_player');
 
   late final SettingsService _settings;
@@ -38,13 +39,21 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
   String? _previewingId;
 
   bool _isSaving = false;
+  bool _isTesting = false;
+  bool _schedulingTest = false;
+
+  /// true  = user already whitelisted the app → hide the battery card
+  /// false = not yet whitelisted → show the card
+  bool _batteryUnrestricted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _settings = di.sl<SettingsService>();
     _adhanService = di.sl<AdhanNotificationService>();
     _load();
+    _checkBatteryStatus();
   }
 
   void _load() {
@@ -59,7 +68,28 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    // Re-check when the user returns from battery settings.
+    if (s == AppLifecycleState.resumed) _checkBatteryStatus();
+  }
+
+  /// Queries native side to see if battery optimisation is already disabled.
+  /// Only works on Android; on other platforms we always hide the card.
+  Future<void> _checkBatteryStatus() async {
+    if (defaultTargetPlatform != TargetPlatform.android || kIsWeb) {
+      if (mounted) setState(() => _batteryUnrestricted = true);
+      return;
+    }
+    try {
+      final disabled = await _adhanChannel
+          .invokeMethod<bool>('isBatteryOptimizationDisabled') ?? false;
+      if (mounted) setState(() => _batteryUnrestricted = disabled);
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopPreview();
     super.dispose();
   }
@@ -439,7 +469,170 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // ── Save Button ────────────────────────────────────────
+          // ── Battery optimization tip ───────────────────────────
+          if (!_batteryUnrestricted)
+          Card(
+            color: Colors.amber.withValues(alpha: 0.1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.battery_alert_rounded, color: Colors.amber, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isAr
+                              ? 'لضمان سماع الأذان دائماً حتى عند إغلاق التطبيق، اضغط الزر أدناه واختر "غير مقيَّد".'
+                              : 'For reliable Adhan even when the app is closed, tap below and select "Unrestricted".',
+                          style: const TextStyle(fontSize: 12, height: 1.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        try {
+                          await _adhanChannel.invokeMethod('openBatterySettings');
+                        } catch (e) {
+                          debugPrint('Battery settings error: $e');
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.amber.shade700,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      icon: const Icon(Icons.battery_charging_full_rounded,
+                          color: Colors.white, size: 18),
+                      label: Text(
+                        isAr
+                            ? 'افتح إعدادات البطارية'
+                            : 'Open Battery Settings',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── Test Section ────────────────────────────────────────
+          _SectionHeader(title: isAr ? 'اختبار الأذان' : 'Test Adhan'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAr
+                        ? 'تحقق من عمل الأذان. اضغط "بعد دقيقة" ثم أغلق التطبيق لمعرفة إن كان يعمل في الخلفية.'
+                        : 'Verify Adhan works. Tap “In 1 Minute” then close the app to test background delivery.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _isTesting
+                              ? null
+                              : () async {
+                                  setState(() => _isTesting = true);
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  try {
+                                    await _adhanService.testNow();
+                                    if (mounted) {
+                                      messenger.showSnackBar(SnackBar(
+                                        content: Text(isAr ? 'يعمل الأذان الآن 🔊' : 'Adhan playing now 🔊'),
+                                        backgroundColor: AppColors.success,
+                                        duration: const Duration(seconds: 3),
+                                      ));
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isTesting = false);
+                                  }
+                                },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: _isTesting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.volume_up_rounded, color: Colors.white),
+                          label: Text(
+                            isAr ? 'اختبار الآن' : 'Test Now',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _schedulingTest
+                              ? null
+                              : () async {
+                                  setState(() => _schedulingTest = true);
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  try {
+                                    await _adhanService.scheduleTestIn(const Duration(minutes: 1));
+                                    if (mounted) {
+                                      messenger.showSnackBar(SnackBar(
+                                        content: Text(isAr
+                                            ? 'سيعمل الأذان بعد دقيقة — جرب إغلاق التطبيق ✔️'
+                                            : 'Adhan in 1 min — try closing the app ✔️'),
+                                        backgroundColor: AppColors.success,
+                                        duration: const Duration(seconds: 4),
+                                      ));
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _schedulingTest = false);
+                                  }
+                                },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: _schedulingTest
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.access_alarm_rounded),
+                          label: Text(
+                            isAr ? 'بعد دقيقة' : 'In 1 Minute',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _isSaving ? null : _save,
             style: FilledButton.styleFrom(

@@ -99,15 +99,15 @@ class AyahAudioService {
     required int surahNumber,
     required int ayahNumber,
   }) async {
-    // Prefer local audio if enabled and present.
-    if (_offlineAudio.enabled) {
-      final local = await _offlineAudio.getLocalAyahAudioFile(
-        surahNumber: surahNumber,
-        ayahNumber: ayahNumber,
-      );
-      if (local != null) {
-        return AyahAudioSource.local(local.path);
-      }
+    // Always prefer a local file when it exists – regardless of the
+    // 'enabled' flag so that downloaded audio is used even if the user
+    // hasn't explicitly toggled offline mode in settings.
+    final local = await _offlineAudio.getLocalAyahAudioFile(
+      surahNumber: surahNumber,
+      ayahNumber: ayahNumber,
+    );
+    if (local != null) {
+      return AyahAudioSource.local(local.path);
     }
 
     // Fallback to streaming.
@@ -164,18 +164,17 @@ class AyahAudioService {
   }) async {
     final edition = _offlineAudio.edition;
 
-    // 1) Try local (if enabled).
+    // 1) Always prefer local files when available – the 'enabled' flag only
+    //    controls the UI, not whether we serve files that are already on disk.
     final sources = List<AyahAudioSource?>.filled(numberOfAyahs, null);
-    if (_offlineAudio.enabled) {
-      for (var i = 0; i < numberOfAyahs; i++) {
-        final ayahNumber = i + 1;
-        final local = await _offlineAudio.getLocalAyahAudioFile(
-          surahNumber: surahNumber,
-          ayahNumber: ayahNumber,
-        );
-        if (local != null) {
-          sources[i] = AyahAudioSource.local(local.path);
-        }
+    for (var i = 0; i < numberOfAyahs; i++) {
+      final ayahNumber = i + 1;
+      final local = await _offlineAudio.getLocalAyahAudioFile(
+        surahNumber: surahNumber,
+        ayahNumber: ayahNumber,
+      );
+      if (local != null) {
+        sources[i] = AyahAudioSource.local(local.path);
       }
     }
 

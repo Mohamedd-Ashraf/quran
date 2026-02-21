@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Required on Android 14+ for download progress notifications -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
     <application
@@ -38,6 +44,25 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Adhan foreground service — plays audio when app is closed -->
+        <service
+            android:name=".AdhanPlayerService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
+        <!-- Adhan alarm receiver — wakes app at prayer time + reschedules after reboot -->
+        <receiver
+            android:name=".AdhanAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.quraan.ADHAN_FIRE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <!-- flutter_local_notifications scheduled notification receivers -->
         <receiver
