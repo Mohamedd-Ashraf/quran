@@ -81,14 +81,11 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
             // Close button for non-mandatory updates
             if (!widget.updateInfo.isMandatory && !widget.updateInfo.isBelowMinimum)
               IconButton(
-                onPressed: () async {
-                  await widget.updateService.skipVersion(widget.updateInfo.latestVersion);
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                  }
+                onPressed: () {
+                  Navigator.of(context).pop();
                 },
                 icon: const Icon(Icons.close_rounded),
-                tooltip: isArabic ? 'إغلاق' : 'Close',
+                tooltip: isArabic ? 'تذكيرى لاحقاً' : 'Remind me later',
                 iconSize: 24,
               ),
           ],
@@ -262,12 +259,8 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
                 if (!widget.updateInfo.isMandatory &&
                     !widget.updateInfo.isBelowMinimum)
                   TextButton.icon(
-                    onPressed: () async {
-                      await widget.updateService
-                          .skipVersion(widget.updateInfo.latestVersion);
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                      }
+                    onPressed: () {
+                      Navigator.of(context).pop();
                     },
                     icon: const Icon(Icons.schedule_rounded),
                     label: Text(isArabic ? 'لاحقاً' : 'Later'),
