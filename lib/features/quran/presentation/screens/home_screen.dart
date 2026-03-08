@@ -17,6 +17,7 @@ import '../../../../core/widgets/islamic_logo.dart';
 import '../../../islamic/presentation/screens/adhan_settings_screen.dart';
 import '../../../islamic/presentation/screens/prayer_times_screen.dart';
 import '../../../adhkar/presentation/screens/adhkar_categories_screen.dart';
+import '../../../adhkar/presentation/screens/tasbeeh_screen.dart';
 import 'offline_audio_screen.dart';
 import 'juz_list_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
@@ -713,11 +714,22 @@ class _CategoriesSection extends StatelessWidget {
                       label: isArabicUi ? 'القبلة' : 'Qibla',
                       imagePath: 'assets/logo/button icons/qibla.png',
                       imagePadding: 0,
-
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const QiblahScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _CategoryTile(
+                      label: isArabicUi ? 'السبحة' : 'Tasbeeh',
+                      imagePath: 'assets/logo/button icons/praying.png',
+                      imagePadding: 6,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const TasbeehScreen(),
                           ),
                         );
                       },

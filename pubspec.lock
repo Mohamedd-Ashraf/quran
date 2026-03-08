@@ -944,10 +944,9 @@ packages:
   qcf_quran_lite:
     dependency: "direct main"
     description:
-      name: qcf_quran_lite
-      sha256: b65b5d3d3a812c69ff90414841d02458b07f59659fa649427fe620470149c4b3
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/qcf_quran_lite"
+      relative: true
+    source: path
     version: "0.0.1"
   rxdart:
     dependency: transitive

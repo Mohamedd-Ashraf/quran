@@ -360,8 +360,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             fontKey: settings.quranFont,
             editionId: settings.quranEdition,
             useUthmani: settings.useUthmaniScript,
+            useQcfFont: settings.useQcfFont,
             onToggleMushaf: (v) =>
                 context.read<AppSettingsCubit>().setUseUthmaniScript(v),
+            onToggleQcf: (v) =>
+                context.read<AppSettingsCubit>().setUseQcfFont(v),
             onOpenSettings: () => Navigator.of(context).push(
               MaterialPageRoute(
                   builder: (_) => const MushafSettingsScreen()),
@@ -1160,7 +1163,9 @@ class _MushafEntryCard extends StatelessWidget {
   final String fontKey;
   final String editionId;
   final bool useUthmani;
+  final bool useQcfFont;
   final ValueChanged<bool> onToggleMushaf;
+  final ValueChanged<bool> onToggleQcf;
   final VoidCallback onOpenSettings;
 
   const _MushafEntryCard({
@@ -1168,7 +1173,9 @@ class _MushafEntryCard extends StatelessWidget {
     required this.fontKey,
     required this.editionId,
     required this.useUthmani,
+    required this.useQcfFont,
     required this.onToggleMushaf,
+    required this.onToggleQcf,
     required this.onOpenSettings,
   });
 
@@ -1201,19 +1208,39 @@ class _MushafEntryCard extends StatelessWidget {
       clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
-          // ── Mushaf toggle ─────────────────────────────────────
+          // ── Mushaf-view toggle ────────────────────────────────
           SwitchListTile(
             secondary: const Icon(Icons.auto_stories_rounded,
                 color: AppColors.primary),
             title: _TileTitle(
                 isAr ? 'عرض المصحف الشريف' : 'Mushaf View'),
             subtitle: _TileSubtitle(isAr
-                ? 'خط عثماني مع صفحات قابلة للتقليب'
-                : 'Uthmani script with flippable pages'),
+                ? 'صفحات المصحف القابلة للتقليب'
+                : 'Flippable Mushaf pages'),
             value: useUthmani,
             activeColor: AppColors.primary,
             onChanged: onToggleMushaf,
           ),
+          // ── QCF sub-toggle (only when Mushaf view is ON) ──────
+          if (useUthmani) ...
+            [
+              const Divider(height: 1, indent: 56, endIndent: 16),
+              SwitchListTile(
+                secondary: const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.draw_rounded,
+                      color: AppColors.secondary, size: 22),
+                ),
+                title: _TileTitle(
+                    isAr ? 'رسم المصحف QCF' : 'QCF Font Rendering'),
+                subtitle: _TileSubtitle(isAr
+                    ? 'خط QCF الرقمي الدقيق — أغلق للخط الكلاسيكي'
+                    : 'Precise QCF digital font — disable for classic font'),
+                value: useQcfFont,
+                activeColor: AppColors.secondary,
+                onChanged: onToggleQcf,
+              ),
+            ],
           const Divider(height: 1, indent: 56, endIndent: 16),
           // ── Navigate to full Mushaf settings ──────────────────
           InkWell(

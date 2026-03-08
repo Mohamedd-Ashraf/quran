@@ -48,15 +48,21 @@ class _MainNavigatorState extends State<MainNavigator> {
   Widget build(BuildContext context) {
     final isArabicUi = context.watch<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar');
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
+      body: Stack(
         children: [
-          IslamicAudioPlayer(isArabicUi: isArabicUi),
-          Container(
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IslamicAudioPlayer(isArabicUi: isArabicUi),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
@@ -113,8 +119,6 @@ class _MainNavigatorState extends State<MainNavigator> {
             ),
           ],
         ),
-      ),
-        ],
       ),
     );
   }

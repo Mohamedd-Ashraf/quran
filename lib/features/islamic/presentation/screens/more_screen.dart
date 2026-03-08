@@ -14,6 +14,7 @@ import 'adhan_settings_screen.dart';
 import 'duaa_screen.dart';
 import 'prayer_times_screen.dart';
 import 'qiblah_screen.dart';
+import '../../../adhkar/presentation/screens/tasbeeh_screen.dart';
 import '../../../quran/presentation/screens/feedback_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -225,6 +226,18 @@ class MoreScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+              );
+            },
+          ),
+          _NavCard(
+            title: isArabicUi ? 'السبحة الإلكترونية' : 'Digital Tasbeeh',
+            subtitle: isArabicUi
+                ? 'عداد التسبيح مع حفظ العدد وخيارات متعددة'
+                : 'Dhikr counter with multiple presets',
+            icon: Icons.apps_rounded,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TasbeehScreen()),
               );
             },
           ),

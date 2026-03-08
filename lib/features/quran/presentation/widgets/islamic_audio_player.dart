@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
@@ -14,10 +15,19 @@ import '../bloc/surah/surah_state.dart';
 /// - Time display handles durations > 1 hour (H:MM:SS)
 /// - Pause/resume without restarting from the beginning
 /// - RTL-aware skip prev/next icons
+/// - Starts collapsed (mini pill) every time audio begins
 class IslamicAudioPlayer extends StatefulWidget {
   final bool isArabicUi;
 
-  const IslamicAudioPlayer({super.key, required this.isArabicUi});
+  /// Optional notifier that mirrors the player's collapsed state so
+  /// parent widgets can shrink/grow their content area accordingly.
+  final ValueNotifier<bool>? collapsedNotifier;
+
+  const IslamicAudioPlayer({
+    super.key,
+    required this.isArabicUi,
+    this.collapsedNotifier,
+  });
 
   @override
   State<IslamicAudioPlayer> createState() => _IslamicAudioPlayerState();
@@ -29,8 +39,18 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
   // BlocBuilder tree is NOT rebuilt mid-drag → gesture stays alive.
   final _dragNotifier = ValueNotifier<double?>(null);
 
+  // Whether the player is collapsed into the mini pill.
+  // Starts true so the player always appears as a mini pill first.
+  bool _collapsed = true;
+
   Duration _lastPos = Duration.zero;
   Duration _lastDur = Duration.zero;
+
+  void _setCollapsed(bool value) {
+    if (_collapsed == value) return;
+    setState(() => _collapsed = value);
+    widget.collapsedNotifier?.value = value;
+  }
 
   @override
   void dispose() {
@@ -94,7 +114,12 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
   Widget build(BuildContext context) {
     final isArabicUi = widget.isArabicUi;
 
-    return BlocBuilder<AyahAudioCubit, AyahAudioState>(
+    return BlocConsumer<AyahAudioCubit, AyahAudioState>(
+      // Auto-collapse whenever audio starts from idle (new session begins).
+      listenWhen: (prev, curr) =>
+          prev.status == AyahAudioStatus.idle &&
+          curr.status != AyahAudioStatus.idle,
+      listener: (ctx, newState) => _setCollapsed(true),
       builder: (context, audioState) {
         if (audioState.status == AyahAudioStatus.idle) {
           return const SizedBox.shrink();
@@ -145,11 +170,128 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
             : '';
         final titleText = '$surahName$queueSuffix$ayahLabel';
 
+        // ── Collapsed mini pill ──────────────────────────────────────────
+        if (_collapsed) {
+          return GestureDetector(
+            onTap: () => _setCollapsed(false),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryDark.withValues(alpha: 0.22),
+                    blurRadius: 14,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      color: isDark
+                          ? const Color(0xFF1A1F25).withValues(alpha: 0.70)
+                          : Colors.white.withValues(alpha: 0.68),
+                      border: Border.all(
+                        color: AppColors.secondary.withValues(alpha: 0.30),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Expand chevron
+                  Icon(Icons.expand_less_rounded,
+                      size: 20,
+                      color: AppColors.secondary.withValues(alpha: 0.8)),
+                  const SizedBox(width: 8),
+                  // Mini play/pause button
+                  GestureDetector(
+                    onTap: () => _onPlayPauseTap(
+                      context, cubit, audioState,
+                      isSurahMode, isPlaying, playingSurahNumber,
+                    ),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary.withValues(alpha: 0.9),
+                      ),
+                      child: Icon(
+                        isBuffering
+                            ? Icons.hourglass_empty_rounded
+                            : (isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded),
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Mini stop button
+                  GestureDetector(
+                    onTap: () => cubit.stop(),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.error.withValues(alpha: 0.12),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.55),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.stop_rounded,
+                        color: AppColors.error.withValues(alpha: 0.85),
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Surah/ayah label
+                  Flexible(
+                    child: Text(
+                      titleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? const Color(0xFFCCCCCC)
+                            : AppColors.primary.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Decorative top edge ─────────────────────────────────────────────
-            const _TopEdgeOrnament(),
+            // ── Decorative top edge — tap anywhere on bar to collapse ───────────
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _setCollapsed(true),
+              child: const _TopEdgeOrnament(),
+            ),
 
             // ── Main player body ─────────────────────────────────────────────
             Container(
@@ -223,10 +365,24 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // ── Title row ──────────────────────────────────────
+                          // ── Title row with collapse button ─────────────────
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              // Collapse button — also tappable via top ornament bar above
+                              GestureDetector(
+                                onTap: () => _setCollapsed(true),
+                                child: SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: Icon(
+                                    Icons.expand_more_rounded,
+                                    size: 26,
+                                    color: AppColors.secondary
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              ),
                               const _OrnamentRow(mirrored: false),
                               const SizedBox(width: 8),
                               Flexible(

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../domain/entities/surah.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
+import 'islamic_audio_player.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MushafPageView
@@ -65,6 +67,10 @@ class _MushafPageViewState extends State<MushafPageView>
 
   // 1-based mushaf page currently visible – tracked via onPageChanged.
   int _currentPage = 1;
+
+  // Mirrors the audio player's collapsed state so the page content
+  // can shrink/grow to stay visible above the player.
+  final ValueNotifier<bool> _playerCollapsed = ValueNotifier(true);
 
   // Navigation highlight (jumps to ayah) – separate from audio highlight.
   HighlightVerse? _navHighlight;
@@ -124,6 +130,7 @@ class _MushafPageViewState extends State<MushafPageView>
     _highlightAnimationController.dispose();
     _pageController.dispose();
     _highlightsNotifier.dispose();
+    _playerCollapsed.dispose();
     super.dispose();
   }
 
@@ -192,13 +199,49 @@ class _MushafPageViewState extends State<MushafPageView>
 
   // ── Long-press → Tafsir ────────────────────────────────────────────────────
 
-  void _onLongPress(int surah, int verse, LongPressStartDetails _) {
+  /// Single tap → play the tapped ayah (or toggle play/pause if already playing).
+  void _onTap(int surah, int verse) {
+    HapticFeedback.selectionClick();
+    final cubit = context.read<AyahAudioCubit>();
+    final state = cubit.state;
+    if (state.isCurrent(surah, verse)) {
+      // Already playing/paused this ayah – toggle.
+      if (state.status == AyahAudioStatus.playing) {
+        cubit.pause();
+      } else if (state.status == AyahAudioStatus.paused) {
+        cubit.resume();
+      } else {
+        cubit.playAyah(surahNumber: surah, ayahNumber: verse);
+      }
+    } else {
+      cubit.playAyah(surahNumber: surah, ayahNumber: verse);
+    }
+    // Highlight the tapped ayah.
+    _highlightAyah(surah, verse);
+  }
+
+  /// Long press → open tafsir for the tapped ayah.
+  void _onLongPress(int surah, int verse, LongPressStartDetails _) async {
     HapticFeedback.mediumImpact();
+
+    // Load plain Arabic text from the offline asset bundle so the Tafsir
+    // screen always receives proper Unicode text (not QCF-encoded glyph IDs).
     String arabicText = '';
     try {
-      arabicText = getVerse(surah, verse);
+      final raw = await rootBundle
+          .loadString('assets/offline/surah_$surah.json');
+      final data  = jsonDecode(raw) as Map<String, dynamic>;
+      final ayahs = data['ayahs'] as List<dynamic>;
+      for (final a in ayahs) {
+        if ((a as Map<dynamic, dynamic>)['numberInSurah'] == verse) {
+          arabicText = (a['text'] as String?) ?? '';
+          break;
+        }
+      }
     } catch (_) {}
-    if (!context.mounted) return;
+
+    if (!mounted) return;
+    // ignore: use_build_context_synchronously
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BlocProvider(
@@ -223,6 +266,15 @@ class _MushafPageViewState extends State<MushafPageView>
     final isDark = settings.darkMode;
     final isAr = widget.isArabicUi;
 
+    // When the audio player is visible it overlays the bottom of the page.
+    // We shrink the QuranPageView's Positioned area by the player's height so
+    // the Quran text is never hidden under the player.
+    final playerVisible = context.select<AyahAudioCubit, bool>(
+      (c) => c.state.status != AyahAudioStatus.idle,
+    );
+    const double kPlayerHeight = 220.0;
+    // kPlayerCollapsedHeight removed — minimized player now floats over content.
+
     final bgColor =
         isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
     final textColor =
@@ -240,34 +292,6 @@ class _MushafPageViewState extends State<MushafPageView>
           ),
           centerTitle: true,
           actions: [
-            // Word-by-word toggle (setting preserved but QCF renders full lines)
-            BlocBuilder<AppSettingsCubit, AppSettingsState>(
-              buildWhen: (p, n) => p.wordByWordAudio != n.wordByWordAudio,
-              builder: (context, s) {
-                final wbw = s.wordByWordAudio;
-                return IconButton(
-                  tooltip: wbw
-                      ? (isAr
-                          ? 'إيقاف التلاوة كلمة بكلمة'
-                          : 'Disable word-by-word')
-                      : (isAr
-                          ? 'تفعيل التلاوة كلمة بكلمة'
-                          : 'Enable word-by-word'),
-                  icon: Icon(
-                    wbw
-                        ? Icons.record_voice_over_rounded
-                        : Icons.voice_over_off_rounded,
-                    color: wbw ? AppColors.secondary : Colors.white54,
-                  ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    context
-                        .read<AppSettingsCubit>()
-                        .setWordByWordAudio(!wbw);
-                  },
-                );
-              },
-            ),
             // Bookmark + Play for the current page
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -292,25 +316,65 @@ class _MushafPageViewState extends State<MushafPageView>
                   painter: BorderOrnamentPainter(color: AppColors.primary),
                 ),
               ),
-              QuranPageView(
-                pageController: _pageController,
-                scaffoldKey: _scaffoldKey,
-                highlightsNotifier: _highlightsNotifier,
-                onLongPress: _onLongPress,
-                pageBackgroundColor: Colors.transparent,
-                onPageChanged: (pageNum) {
-                  if (mounted) setState(() => _currentPage = pageNum);
-                },
-                ayahStyle: TextStyle(
-                  color: textColor,
-                  fontSize: settings.arabicFontSize,
+              // ── Quran page – always fills the full body area ──────
+              // Using Positioned.fill guarantees the page occupies the
+              // entire available space regardless of any overlay widgets.
+              // When the audio player is visible, shrink from the bottom
+              // so the page content is never covered by the player.
+              ValueListenableBuilder<bool>(
+                valueListenable: _playerCollapsed,
+                builder: (ctx, isCollapsed, child) => Positioned.fill(
+                  // When minimized the pill floats over the content.
+                  // Only push content up when the full player is expanded.
+                  bottom: playerVisible
+                      ? (isCollapsed ? 0.0 : kPlayerHeight)
+                      : 0.0,
+                  child: QuranPageView(
+                  pageController: _pageController,
+                  scaffoldKey: _scaffoldKey,
+                  highlightsNotifier: _highlightsNotifier,
+                  onTap: _onTap,
+                  onLongPress: _onLongPress,
+                  pageBackgroundColor: Colors.transparent,
+                  onPageChanged: (pageNum) {
+                    if (mounted) setState(() => _currentPage = pageNum);
+                  },
+                  // Only pass color – not fontSize. The QCF FittedBox
+                  // scales every line to fill the page width uniformly;
+                  // overriding fontSize here would produce inconsistent
+                  // word/character sizes between lines.
+                  ayahStyle: TextStyle(color: textColor),
+                  basmallahBuilder: (context, surahNumber) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: Text(
+                      'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ',
+                      textAlign: TextAlign.center,
+                      textDirection: TextDirection.rtl,
+                      style: GoogleFonts.amiriQuran(
+                        fontSize: 26,
+                        color: textColor,
+                        height: 2.0,
+                      ),
+                    ),
+                  ),
+                  topBar: _buildTopBar(isDark),
+                  bottomBar: _buildDecorativeFooter(
+                      _currentPage, isDarkMode: isDark),
                 ),
-                topBar: _buildTopBar(isDark),
-                bottomBar: _buildDecorativeFooter(_currentPage,
-                    isDarkMode: isDark),
-                surahHeaderBuilder: (ctx, surahNum) =>
-                    _buildSurahHeader(surahNum, isDark),
-                basmallahBuilder: (ctx, surahNum) => _buildBasmalah(),
+              ),
+              ),
+              // ── Floating audio player ──────────────────────────────
+              // Positioned at the bottom so it never participates in
+              // layout and never compresses the Quran page above it.
+              // Returns SizedBox.shrink() when audio is idle.
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: IslamicAudioPlayer(
+                  isArabicUi: widget.isArabicUi,
+                  collapsedNotifier: _playerCollapsed,
+                ),
               ),
             ],
           ),
@@ -395,24 +459,36 @@ class _MushafPageViewState extends State<MushafPageView>
         final startAyah = int.parse(range['start'].toString());
         final endAyah = int.parse(range['end'].toString());
 
-        final isPagePlaying =
+        final isPageActive =
             audioState.surahNumber == surahNum &&
             audioState.ayahNumber != null &&
             audioState.ayahNumber! >= startAyah &&
-            audioState.ayahNumber! <= endAyah &&
-            audioState.status == AyahAudioStatus.playing;
+            audioState.ayahNumber! <= endAyah;
+        final isPagePlaying =
+            isPageActive && audioState.status == AyahAudioStatus.playing;
+        final isPagePaused =
+            isPageActive && audioState.status == AyahAudioStatus.paused;
 
         return IconButton(
           onPressed: () {
-            context.read<AyahAudioCubit>().playAyahRange(
-                  surahNumber: surahNum,
-                  startAyah: startAyah,
-                  endAyah: endAyah,
-                );
+            final cubit = context.read<AyahAudioCubit>();
+            if (isPagePlaying) {
+              cubit.pause();
+            } else if (isPagePaused) {
+              cubit.resume();
+            } else {
+              cubit.playAyahRange(
+                surahNumber: surahNum,
+                startAyah: startAyah,
+                endAyah: endAyah,
+              );
+            }
           },
           icon: Icon(
             isPagePlaying ? Icons.pause_circle : Icons.play_circle,
-            color: isPagePlaying ? AppColors.secondary : Colors.white54,
+            color: (isPagePlaying || isPagePaused)
+                ? AppColors.secondary
+                : Colors.white54,
             size: 28,
           ),
           tooltip: widget.isArabicUi ? 'تشغيل الصفحة' : 'Play page',
@@ -423,159 +499,73 @@ class _MushafPageViewState extends State<MushafPageView>
 
   // ── Decorative widgets ─────────────────────────────────────────────────────
 
+  // ── Juz approximation (standard 20-page/juz Medina layout) ──────────────
+  int _juzForPage(int page) =>
+      ((page - 1) ~/ 20).clamp(0, 29) + 1;
+
+  static const _kJuzNames = [
+    'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس',
+    'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر',
+    'الحادي عشر', 'الثاني عشر', 'الثالث عشر', 'الرابع عشر', 'الخامس عشر',
+    'السادس عشر', 'السابع عشر', 'الثامن عشر', 'التاسع عشر', 'العشرون',
+    'الحادي والعشرون', 'الثاني والعشرون', 'الثالث والعشرون', 'الرابع والعشرون', 'الخامس والعشرون',
+    'السادس والعشرون', 'السابع والعشرون', 'الثامن والعشرون', 'التاسع والعشرون', 'الثلاثون',
+  ];
+
+  String _juzName(int juz) =>
+      juz >= 1 && juz <= 30 ? _kJuzNames[juz - 1] : _toArabicNumerals(juz);
+
+  String _pageLabel(int page) {
+    try {
+      final ranges = getPageData(page);
+      if (ranges.isNotEmpty) {
+        final m = ranges.first as Map<dynamic, dynamic>;
+        return SurahNames.getArabicName(
+            int.parse(m['surah'].toString()));
+      }
+    } catch (_) {}
+    return widget.surah.name;
+  }
+
   Widget _buildTopBar(bool isDark) {
+    final textColor = isDark
+        ? Colors.white.withValues(alpha: 0.88)
+        : const Color(0xFF3D1C00);
+    final dividerColor = isDark
+        ? Colors.white.withValues(alpha: 0.18)
+        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
+    final labelStyle = GoogleFonts.amiriQuran(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      color: textColor,
+    );
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.08),
-            AppColors.primary.withValues(alpha: 0.02),
-            Colors.transparent,
-          ],
-        ),
+        border: Border(bottom: BorderSide(color: dividerColor, width: 0.8)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildOrnamentalLine(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Icon(
-              Icons.auto_awesome,
-              size: 12,
-              color: AppColors.primary.withValues(alpha: 0.5),
+          Text(
+            'الجزء ${_juzName(_juzForPage(_currentPage))}',
+            style: labelStyle,
+            textDirection: TextDirection.rtl,
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                '❧',
+                style: TextStyle(
+                    color: dividerColor, fontSize: 14, height: 1),
+              ),
             ),
           ),
-          _buildOrnamentalLine(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSurahHeader(int surahNumber, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
-            AppColors.primary.withValues(alpha: isDark ? 0.1 : 0.05),
-          ],
-        ),
-        border: Border.all(
-          color: AppColors.secondary.withValues(alpha: 0.45),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        SurahNames.getArabicName(surahNumber),
-        textAlign: TextAlign.center,
-        style: GoogleFonts.amiriQuran(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: isDark ? AppColors.secondary : AppColors.primary,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBasmalah() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: RadialGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.12),
-            AppColors.primary.withValues(alpha: 0.04),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.7, 1.0],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(top: 0, left: 0, child: _buildCornerOrnament()),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Transform.rotate(
-                angle: math.pi / 2, child: _buildCornerOrnament()),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Transform.rotate(
-                angle: -math.pi / 2, child: _buildCornerOrnament()),
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Transform.rotate(
-                angle: math.pi, child: _buildCornerOrnament()),
-          ),
-          Center(
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSmallOrnament(),
-                    const SizedBox(width: 12),
-                    Icon(Icons.auto_awesome,
-                        size: 14,
-                        color: AppColors.primary.withValues(alpha: 0.6)),
-                    const SizedBox(width: 12),
-                    _buildSmallOrnament(),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary.withValues(alpha: 0.08),
-                        AppColors.primary.withValues(alpha: 0.15),
-                        AppColors.primary.withValues(alpha: 0.08),
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.amiriQuran(
-                      fontSize: 28,
-                      height: 1.8,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSmallOrnament(),
-                    const SizedBox(width: 12),
-                    Icon(Icons.auto_awesome,
-                        size: 14,
-                        color: AppColors.primary.withValues(alpha: 0.6)),
-                    const SizedBox(width: 12),
-                    _buildSmallOrnament(),
-                  ],
-                ),
-              ],
-            ),
+          Text(
+            _pageLabel(_currentPage),
+            style: labelStyle,
+            textDirection: TextDirection.rtl,
           ),
         ],
       ),
@@ -584,147 +574,46 @@ class _MushafPageViewState extends State<MushafPageView>
 
   Widget _buildDecorativeFooter(int pageNumber, {required bool isDarkMode}) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.03),
-            AppColors.primary.withValues(alpha: 0.06),
-            AppColors.primary.withValues(alpha: 0.03),
-          ],
-        ),
-        border: Border(
-          top: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.35),
-            width: 1.5,
+    final dividerColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.18)
+        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 36,
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
           ),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildSmallOrnament(),
-          const SizedBox(width: 12),
-          Stack(
+          alignment: Alignment.center,
+          child: Stack(
             alignment: Alignment.center,
             children: [
               Image.asset(
                 'assets/logo/files/transparent/label.png',
-                height: 30,
+                height: 28,
                 color: isDarkMode
-                    ? Colors.white.withValues(alpha: 0.85)
+                    ? Colors.white.withValues(alpha: 0.80)
                     : null,
               ),
               Text(
                 _toArabicNumerals(pageNumber),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.amiriQuran(
-                  fontSize: 18,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: isDarkMode ? Colors.white : AppColors.primary,
-                  height: 2,
+                  color: isDarkMode ? Colors.white : const Color(0xFF3D1C00),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 12),
-          _buildSmallOrnament(),
-        ],
-      ),
+        ),
+        if (bottomInset > 0) SizedBox(height: bottomInset),
+      ],
     );
   }
 
   // ── Ornament helpers ───────────────────────────────────────────────────────
-
-  Widget _buildOrnamentalLine({double width = 60}) {
-    return Container(
-      width: width,
-      height: 3,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0),
-            AppColors.primary.withValues(alpha: 0.6),
-            AppColors.primary.withValues(alpha: 0.3),
-            AppColors.primary.withValues(alpha: 0.6),
-            AppColors.primary.withValues(alpha: 0),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(2),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmallOrnament() {
-    return Container(
-      width: 30,
-      height: 1.5,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0),
-            AppColors.primary.withValues(alpha: 0.6),
-            AppColors.primary.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCornerOrnament() {
-    return SizedBox(
-      width: 30,
-      height: 30,
-      child: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Container(
-              width: 15,
-              height: 15,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(15),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    width: 2,
-                  ),
-                  left: BorderSide(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 5,
-            left: 5,
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   String _toArabicNumerals(int number) {
     const arabicDigits = [
@@ -782,41 +671,76 @@ class BorderOrnamentPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.25)
+    final strokeColor = color.withValues(alpha: 0.30);
+    final outerPaint = Paint()
+      ..color = strokeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
+      ..strokeWidth = 1.5;
+    final innerPaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final fillPaint = Paint()
+      ..color = strokeColor.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
 
-    final rect = Rect.fromLTWH(8, 8, size.width - 16, size.height - 16);
-    canvas.drawRect(rect, paint);
+    const margin = 9.0;
+    const innerMargin = 14.0;
 
-    const cornerSize = 20.0;
+    // Double-line border
+    canvas.drawRect(
+        Rect.fromLTWH(margin, margin, size.width - margin * 2, size.height - margin * 2),
+        outerPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(innerMargin, innerMargin, size.width - innerMargin * 2,
+            size.height - innerMargin * 2),
+        innerPaint);
+
+    // Medallion ornaments at every corner
+    const medallionR = 14.0;
     final corners = [
-      Offset(10, 10),
-      Offset(size.width - 10, 10),
-      Offset(10, size.height - 10),
-      Offset(size.width - 10, size.height - 10),
+      Offset(margin, margin),
+      Offset(size.width - margin, margin),
+      Offset(margin, size.height - margin),
+      Offset(size.width - margin, size.height - margin),
     ];
     for (final c in corners) {
-      _drawCornerOrnament(canvas, c, cornerSize, paint);
+      _drawMedallion(canvas, c, medallionR, outerPaint, innerPaint, fillPaint);
     }
   }
 
-  void _drawCornerOrnament(
-      Canvas canvas, Offset center, double size, Paint paint) {
-    final path = Path();
-    for (int i = 0; i < 8; i++) {
-      final angle = i * math.pi / 4;
-      final x = center.dx + math.cos(angle) * size / 2;
-      final y = center.dy + math.sin(angle) * size / 2;
+  /// Draws a circular medallion with an 8-pointed star — classical Islamic manuscript style.
+  void _drawMedallion(Canvas canvas, Offset center, double r, Paint outer,
+      Paint inner, Paint fill) {
+    // Filled background circle
+    canvas.drawCircle(center, r, fill);
+    // Outer ring
+    canvas.drawCircle(center, r, outer);
+    // Inner ring
+    canvas.drawCircle(center, r * 0.55, inner);
+
+    // 8-pointed star (alternating long/short ray tips)
+    final starPath = Path();
+    const n = 8;
+    for (int i = 0; i < n; i++) {
+      final outerAngle = i * math.pi * 2 / n - math.pi / 2;
+      final innerAngle = outerAngle + math.pi / n;
+      final ox = center.dx + math.cos(outerAngle) * r * 0.85;
+      final oy = center.dy + math.sin(outerAngle) * r * 0.85;
+      final ix = center.dx + math.cos(innerAngle) * r * 0.42;
+      final iy = center.dy + math.sin(innerAngle) * r * 0.42;
       if (i == 0) {
-        path.moveTo(x, y);
+        starPath.moveTo(ox, oy);
       } else {
-        path.lineTo(x, y);
+        starPath.lineTo(ox, oy);
       }
+      starPath.lineTo(ix, iy);
     }
-    path.close();
-    canvas.drawPath(path, paint);
+    starPath.close();
+    canvas.drawPath(starPath, inner);
+
+    // Central dot
+    canvas.drawCircle(center, r * 0.18, outer);
   }
 
   @override

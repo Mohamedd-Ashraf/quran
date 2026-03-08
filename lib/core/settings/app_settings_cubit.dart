@@ -18,6 +18,7 @@ class AppSettingsState extends Equatable {
   final String quranFont;   // font key e.g. 'amiri_quran'
   final bool scrollMode;    // vertical scroll mode for reading pages
   final bool wordByWordAudio; // tap a single word to hear it
+  final bool useQcfFont;    // use QCF bitmap font within the Mushaf view
 
   const AppSettingsState({
     required this.arabicFontSize,
@@ -32,6 +33,7 @@ class AppSettingsState extends Equatable {
     required this.quranFont,
     required this.scrollMode,
     required this.wordByWordAudio,
+    required this.useQcfFont,
   });
 
   factory AppSettingsState.initial(SettingsService service) {
@@ -48,6 +50,7 @@ class AppSettingsState extends Equatable {
       quranFont: service.getQuranFont(),
       scrollMode: service.getScrollMode(),
       wordByWordAudio: service.getWordByWordAudio(),
+      useQcfFont: service.getUseQcfFont(),
     );
   }
 
@@ -64,6 +67,7 @@ class AppSettingsState extends Equatable {
     String? quranFont,
     bool? scrollMode,
     bool? wordByWordAudio,
+    bool? useQcfFont,
   }) {
     return AppSettingsState(
       arabicFontSize: arabicFontSize ?? this.arabicFontSize,
@@ -78,6 +82,7 @@ class AppSettingsState extends Equatable {
       quranFont: quranFont ?? this.quranFont,
       scrollMode: scrollMode ?? this.scrollMode,
       wordByWordAudio: wordByWordAudio ?? this.wordByWordAudio,
+      useQcfFont: useQcfFont ?? this.useQcfFont,
     );
   }
 
@@ -95,6 +100,7 @@ class AppSettingsState extends Equatable {
     quranFont,
     scrollMode,
     wordByWordAudio,
+    useQcfFont,
   ];
 }
 
@@ -109,6 +115,15 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
       _service.setArabicFontSize(18.0);
       emit(state.copyWith(arabicFontSize: 18.0));
       _service.setFontSizeMigratedV18();
+    }
+
+    // Force-migration: ensure both Mushaf view and QCF font are enabled
+    // for all users upgrading from older versions.
+    if (!_service.getMushafMigratedV1()) {
+      _service.setUseUthmaniScript(true);
+      _service.setUseQcfFont(true);
+      _service.setMushafMigratedV1();
+      emit(state.copyWith(useUthmaniScript: true, useQcfFont: true));
     }
 
     // First-launch: mirror the device system theme so the app never starts
@@ -188,5 +203,10 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
   Future<void> setWordByWordAudio(bool value) async {
     await _service.setWordByWordAudio(value);
     emit(state.copyWith(wordByWordAudio: value));
+  }
+
+  Future<void> setUseQcfFont(bool value) async {
+    await _service.setUseQcfFont(value);
+    emit(state.copyWith(useQcfFont: value));
   }
 }

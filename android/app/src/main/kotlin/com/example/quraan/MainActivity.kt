@@ -8,6 +8,9 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
@@ -223,6 +226,30 @@ class MainActivity : AudioServiceFragmentActivity() {
                             startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
                         } catch (e: Exception) {
                             Log.w("MainActivity", "Cannot open sound settings: ${e.message}")
+                        }
+                        result.success(null)
+                    }
+
+                    // ── Direct vibration (for Tasbeeh counter) ───────────────
+                    "vibrate" -> {
+                        val duration  = (call.argument<Int>("duration")  ?: 40).toLong()
+                        val amplitude = call.argument<Int>("amplitude") ?: VibrationEffect.DEFAULT_AMPLITUDE
+                        try {
+                            val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                val vm = getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                                vm.defaultVibrator
+                            } else {
+                                @Suppress("DEPRECATION")
+                                getSystemService(VIBRATOR_SERVICE) as Vibrator
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude))
+                            } else {
+                                @Suppress("DEPRECATION")
+                                vibrator.vibrate(duration)
+                            }
+                        } catch (e: Exception) {
+                            Log.w("MainActivity", "Vibrate failed: ${e.message}")
                         }
                         result.success(null)
                     }

@@ -8,6 +8,8 @@ class SettingsService {
   static const String _keyShowTranslation = 'show_translation';
   static const String _keyAppLanguage = 'app_language';
   static const String _keyUseUthmaniScript = 'use_uthmani_script';
+  static const String _keyUseQcfFont        = 'use_qcf_font';
+  static const String _keyMushafMigratedV1  = 'mushaf_migrated_v1';
   static const String _keyPageFlipRightToLeft = 'page_flip_right_to_left';
   static const String _keyOnboardingComplete = 'onboarding_complete';
   static const String _keyDiacriticsColorMode = 'diacritics_color_mode';
@@ -141,6 +143,19 @@ class SettingsService {
   bool getUseUthmaniScript() {
     return _prefs.getBool(_keyUseUthmaniScript) ?? true;
   }
+
+  // Use QCF font (sub-option of Mushaf view)
+  Future<bool> setUseQcfFont(bool enabled) async {
+    return await _prefs.setBool(_keyUseQcfFont, enabled);
+  }
+
+  bool getUseQcfFont() {
+    return _prefs.getBool(_keyUseQcfFont) ?? true;
+  }
+
+  // Mushaf view + QCF migration flag
+  bool getMushafMigratedV1() => _prefs.getBool(_keyMushafMigratedV1) ?? false;
+  Future<bool> setMushafMigratedV1() => _prefs.setBool(_keyMushafMigratedV1, true);
 
   // Page Flip Direction (RTL = true, LTR = false)
   Future<bool> setPageFlipRightToLeft(bool rtl) async {

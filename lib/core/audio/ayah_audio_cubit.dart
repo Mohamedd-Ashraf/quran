@@ -154,7 +154,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           usage: AndroidAudioUsage.media,
         ),
         androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: true,
+        androidWillPauseWhenDucked: false,
       ));
     } catch (e) {
       // audio_session may fail on desktop platforms — not fatal.
@@ -333,10 +333,14 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       Future(() => _playSurahQueueItem(next));
       return;
     }
-    // Queue exhausted or no queue — go idle.
+    // Queue exhausted or no queue — fully stop the player.
+    // Calling stop() sets just_audio's internal playing flag to false so
+    // just_audio_background will not try to auto-resume when audio focus
+    // returns after a transient interruption (e.g. a notification sound).
     _surahQueue = [];
     _surahQueueIndex = 0;
     emit(const AyahAudioState.idle());
+    _player.stop(); // intentionally not awaited — fire-and-forget
   }
 
   Future<void> _playSurahQueueItem(int index) async {
