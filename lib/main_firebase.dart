@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'firebase_options.dart';
 import 'core/di/injection_container_firebase.dart' as di;
 import 'core/services/adhan_notification_service.dart';
@@ -64,6 +65,16 @@ void main() async {
   // scheduleForPlan() re-registers BOTH the main daily reminder AND follow-ups
   // on every app start (covers device reboots that clear scheduled alarms).
   unawaited(wirdNotifService.scheduleForPlan());
+
+  // Enable background audio playback (foreground service + lock-screen controls).
+  // Must be called before runApp so AyahAudioCubit's AudioPlayer can connect
+  // to the MediaBrowserServiceCompat when the widget tree is built.
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.example.quraan.channel.audio',
+    androidNotificationChannelName: 'تلاوة القرآن الكريم',
+    androidNotificationOngoing: true,
+    androidStopForegroundOnPause: true,
+  );
 
   runApp(const MyApp());
 }

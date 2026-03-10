@@ -22,6 +22,10 @@ class BookmarksScreenState extends State<BookmarksScreen> {
   late final BookmarkService _bookmarkService;
   List<Map<String, dynamic>> _bookmarks = [];
 
+  // ── Selection-mode state ──────────────────────────────────────────────────
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   String _surahDisplayName({
     required int surahNumber,
     required bool isArabicUi,
@@ -81,19 +85,123 @@ class BookmarksScreenState extends State<BookmarksScreen> {
         .startsWith('ar');
     return Scaffold(
       appBar: AppBar(
-        title: Text(isArabicUi ? 'الإشارات' : 'Bookmarks'),
+        title: Text(
+          _isSelectionMode
+              ? (isArabicUi
+                  ? 'تحديد (${_selectedIds.length})'
+                  : 'Select (${_selectedIds.length})')
+              : (isArabicUi ? 'الإشارات' : 'Bookmarks'),
+        ),
         centerTitle: true,
-        actions: [
-          if (_bookmarks.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep),
-              tooltip: isArabicUi ? 'حذف الكل' : 'Clear All',
-              onPressed: _showClearAllDialog,
-            ),
-        ],
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: isArabicUi ? 'إلغاء' : 'Cancel',
+                onPressed: _exitSelectionMode,
+              )
+            : null,
+        actions: _isSelectionMode
+            ? [
+                // Select-all / deselect-all toggle
+                IconButton(
+                  icon: Icon(
+                    _selectedIds.length == _bookmarks.length
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                  ),
+                  tooltip: isArabicUi
+                      ? (_selectedIds.length == _bookmarks.length
+                          ? 'إلغاء تحديد الكل'
+                          : 'تحديد الكل')
+                      : (_selectedIds.length == _bookmarks.length
+                          ? 'Deselect All'
+                          : 'Select All'),
+                  onPressed: _toggleSelectAll,
+                ),
+                // Delete selected
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  tooltip: isArabicUi ? 'حذف المحددة' : 'Delete Selected',
+                  onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+                ),
+              ]
+            : [
+                if (_bookmarks.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.delete_sweep),
+                    tooltip: isArabicUi ? 'حذف إشارات' : 'Delete Bookmarks',
+                    onPressed: _enterSelectionMode,
+                  ),
+              ],
       ),
       body: _bookmarks.isEmpty ? _buildEmptyState() : _buildBookmarksList(),
     );
+  }
+
+  // ── Selection-mode helpers ────────────────────────────────────────────────
+
+  void _enterSelectionMode() {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedIds.clear();
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_selectedIds.length == _bookmarks.length) {
+        _selectedIds.clear();
+      } else {
+        _selectedIds
+          ..clear()
+          ..addAll(_bookmarks.map((b) => b['id'].toString()));
+      }
+    });
+  }
+
+  void _toggleItem(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final isArabicUi = context
+        .read<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
+
+    final count = _selectedIds.length;
+    for (final id in _selectedIds) {
+      await _bookmarkService.removeBookmark(id);
+    }
+    setState(() {
+      _bookmarks.removeWhere((b) => _selectedIds.contains(b['id'].toString()));
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabicUi ? 'تم حذف $count إشارة' : '$count bookmark(s) removed',
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildEmptyState() {
@@ -155,6 +263,130 @@ class BookmarksScreenState extends State<BookmarksScreen> {
       itemCount: _bookmarks.length,
       itemBuilder: (context, index) {
         final bookmark = _bookmarks[index];
+        final bookmarkId = bookmark['id'].toString();
+        final isSelected = _selectedIds.contains(bookmarkId);
+
+        // ── Selection-mode card ─────────────────────────────────────────────
+        if (_isSelectionMode) {
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.07)
+                : null,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: isSelected
+                  ? BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                      width: 1.5,
+                    )
+                  : BorderSide.none,
+            ),
+            child: InkWell(
+              onTap: () => _toggleItem(bookmarkId),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // ── Header row: label chip (right) + checkbox (left) ───
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Checkbox replaces bookmark icon — on the LEFT in RTL
+                        Checkbox(
+                          value: isSelected,
+                          activeColor: AppColors.primary,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          onChanged: (_) => _toggleItem(bookmarkId),
+                        ),
+                        // Chip label — on the RIGHT in RTL (matches normal card)
+                        Builder(builder: (ctx) {
+                          final isAr = ctx
+                              .read<AppSettingsCubit>()
+                              .state
+                              .appLanguageCode
+                              .toLowerCase()
+                              .startsWith('ar');
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _formatBookmarkLabel(bookmark),
+                              textDirection: isAr
+                                  ? TextDirection.rtl
+                                  : TextDirection.ltr,
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // ── Arabic text ────────────────────────────────────────
+                    Builder(builder: (ctx) {
+                      final isDark = ctx
+                          .read<AppSettingsCubit>()
+                          .state
+                          .darkMode;
+                      return Text(
+                        bookmark['arabicText'] ??
+                            'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.amiriQuran(
+                          fontSize: 20,
+                          color: isDark
+                              ? const Color(0xFFE8E8E8)
+                              : AppColors.arabicText,
+                          height: 2.2,
+                        ),
+                      );
+                    }),
+                    if (bookmark['note'] != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          bookmark['note'],
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // ── Normal card (swipe-to-delete) ───────────────────────────────────
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: Dismissible(
@@ -304,6 +536,10 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                     const SizedBox(height: 16),
                     Builder(builder: (context) {
+                      final isDark = context
+                          .read<AppSettingsCubit>()
+                          .state
+                          .darkMode;
                       return Text(
                         bookmark['arabicText'] ??
                             'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
@@ -313,7 +549,9 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.amiriQuran(
                           fontSize: 20,
-                          color: AppColors.arabicText,
+                          color: isDark
+                              ? const Color(0xFFE8E8E8)
+                              : AppColors.arabicText,
                           height: 2.2,
                         ),
                       );
@@ -344,83 +582,6 @@ class BookmarksScreenState extends State<BookmarksScreen> {
           ),
         );
       },
-    );
-  }
-
-  void _showClearAllDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          context
-                  .read<AppSettingsCubit>()
-                  .state
-                  .appLanguageCode
-                  .toLowerCase()
-                  .startsWith('ar')
-              ? 'حذف كل الإشارات؟'
-              : 'Clear All Bookmarks?',
-        ),
-        content: Text(
-          context
-                  .read<AppSettingsCubit>()
-                  .state
-                  .appLanguageCode
-                  .toLowerCase()
-                  .startsWith('ar')
-              ? 'هل أنت متأكد من حذف جميع الإشارات؟ لا يمكن التراجع عن هذا الإجراء.'
-              : 'Are you sure you want to remove all bookmarks? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              context
-                      .read<AppSettingsCubit>()
-                      .state
-                      .appLanguageCode
-                      .toLowerCase()
-                      .startsWith('ar')
-                  ? 'إلغاء'
-                  : 'Cancel',
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              _bookmarkService.clearAllBookmarks();
-              setState(() {
-                _bookmarks.clear();
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    context
-                            .read<AppSettingsCubit>()
-                            .state
-                            .appLanguageCode
-                            .toLowerCase()
-                            .startsWith('ar')
-                        ? 'تم حذف جميع الإشارات'
-                        : 'All bookmarks cleared',
-                  ),
-                ),
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: Text(
-              context
-                      .read<AppSettingsCubit>()
-                      .state
-                      .appLanguageCode
-                      .toLowerCase()
-                      .startsWith('ar')
-                  ? 'حذف الكل'
-                  : 'Clear All',
-            ),
-          ),
-        ],
-      ),
     );
   }
 

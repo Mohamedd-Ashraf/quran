@@ -239,9 +239,11 @@ class SearchCubit extends Cubit<SearchState> {
   /// Strip diacritics, tatweel, and normalise Alef variants so that
   /// e.g. "رحمن" matches "ٱلرَّحْمَٰنِ".
   String _normalize(String s) {
-    // Remove diacritics (harakat) and other Arabic combining marks
+    // Remove diacritics (harakat), tatweel, Alef superscript, and Quranic
+    // annotation marks (U+06D6–U+06ED, e.g. the ۡ sukun variant U+06E1 that
+    // appears in stored surah names like "السَّجۡدَة").
     String result = s.replaceAll(
-      RegExp(r'[\u064B-\u065F\u0670\u0640]'),
+      RegExp(r'[\u0610-\u061A\u064B-\u065F\u0670\u0640\u06D6-\u06ED]'),
       '',
     );
     // Normalise Alef variants → bare Alef ا

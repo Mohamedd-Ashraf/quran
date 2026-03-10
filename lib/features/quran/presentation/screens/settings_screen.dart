@@ -1475,11 +1475,22 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     final isAr = widget.isAr;
     final languages = _languages;
     final filtered = _filtered;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1A1F25) : Colors.white;
+    final handleColor = isDark ? Colors.white24 : Colors.grey.shade300;
+    final closeColor = isDark ? Colors.white54 : Colors.grey.shade600;
+    final searchFill = isDark ? const Color(0xFF242B33) : const Color(0xFFF5F8F5);
+    final dividerColor = isDark ? Colors.white12 : Colors.grey.shade200;
+    final dividerItemColor = isDark ? Colors.white10 : Colors.grey.shade100;
+    final nameColor = isDark ? const Color(0xFFE8E8E8) : Colors.black87;
+    final subColor = isDark ? Colors.white38 : Colors.grey.shade500;
+    final emptyIconColor = isDark ? Colors.white24 : Colors.grey.shade300;
+    final emptyTextColor = isDark ? Colors.white38 : Colors.grey.shade500;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1490,7 +1501,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: handleColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1524,7 +1535,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                 IconButton(
                   icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.pop(context),
-                  color: Colors.grey.shade600,
+                  color: closeColor,
                 ),
               ],
             ),
@@ -1536,10 +1547,12 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
             child: TextField(
               controller: _searchCtrl,
               textDirection: TextDirection.rtl,
+              style: TextStyle(color: nameColor),
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
                 isDense: true,
                 hintText: isAr ? 'ابحث عن القارئ...' : 'Search reciter...',
+                hintStyle: TextStyle(color: subColor),
                 prefixIcon:
                     const Icon(Icons.search_rounded, color: AppColors.primary),
                 suffixIcon: _query.isNotEmpty
@@ -1552,7 +1565,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF5F8F5),
+                fillColor: searchFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide:
@@ -1596,7 +1609,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
           ),
 
           const SizedBox(height: 6),
-          Divider(height: 1, color: Colors.grey.shade200),
+          Divider(height: 1, color: dividerColor),
 
           // ── Reciter list ──────────────────────────────────────
           Flexible(
@@ -1608,11 +1621,11 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       children: [
                         Icon(Icons.search_off_rounded,
                             size: 48,
-                            color: Colors.grey.shade300),
+                            color: emptyIconColor),
                         const SizedBox(height: 12),
                         Text(
                           isAr ? 'لا توجد نتائج' : 'No results',
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: TextStyle(color: emptyTextColor),
                         ),
                       ],
                     ),
@@ -1621,7 +1634,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) =>
-                        Divider(height: 1, indent: 70, color: Colors.grey.shade100),
+                        Divider(height: 1, indent: 70, color: dividerItemColor),
                     itemBuilder: (context, i) {
                       final ed = filtered[i];
                       final isSelected = ed.identifier == _currentSelected;
@@ -1678,7 +1691,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                                         fontSize: 14,
                                         color: isSelected
                                             ? AppColors.primary
-                                            : Colors.black87,
+                                            : nameColor,
                                       ),
                                     ),
                                     if (langStr.isNotEmpty)
@@ -1686,7 +1699,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                                         langStr,
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey.shade500,
+                                          color: subColor,
                                         ),
                                       ),
                                   ],

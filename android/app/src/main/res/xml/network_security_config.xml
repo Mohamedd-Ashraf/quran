@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext (HTTP) traffic for Egyptian Quran Radio streaming domains -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">sec.gov.eg</domain>
+        <domain includeSubdomains="true">quranradio.eg</domain>
+        <domain includeSubdomains="true">radiojar.com</domain>
+        <domain includeSubdomains="true">radioways.com</domain>
+    </domain-config>
+</network-security-config>

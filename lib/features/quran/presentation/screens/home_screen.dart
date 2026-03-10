@@ -19,6 +19,7 @@ import '../../../islamic/presentation/screens/prayer_times_screen.dart';
 import '../../../adhkar/presentation/screens/adhkar_categories_screen.dart';
 import '../../../adhkar/presentation/screens/tasbeeh_screen.dart';
 import 'offline_audio_screen.dart';
+import 'quran_radio_screen.dart';
 import 'juz_list_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
 import 'surah_detail_screen.dart';
@@ -532,24 +533,24 @@ class _CategoriesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      fontWeight: FontWeight.w800,
-      color: isDark ? AppColors.secondary : AppColors.primary,
-      letterSpacing: 0.5,
-    );
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.secondary.withValues(alpha: isDark ? 0.3 : 0.2),
+          color: AppColors.secondary.withValues(alpha: isDark ? 0.35 : 0.28),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.secondary.withValues(alpha: isDark ? 0.15 : 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppColors.secondary.withValues(alpha: isDark ? 0.14 : 0.09),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.04),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -558,7 +559,7 @@ class _CategoriesSection extends StatelessWidget {
           // Islamic pattern background
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               child: CustomPaint(
                 painter: _IslamicPatternPainter(
                   color: isDark
@@ -569,201 +570,181 @@ class _CategoriesSection extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: isDark
                     ? [AppColors.darkCard, AppColors.darkSurface]
-                    : [AppColors.surfaceVariant, AppColors.surface],
+                    : [const Color(0xFFFBF9F6), const Color(0xFFF5EFE6)],
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
-              crossAxisAlignment: isArabicUi
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
-                  mainAxisAlignment: isArabicUi
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.start,
                   children: [
-                    if (!isArabicUi) ...[
-                      Container(
-                        padding: const EdgeInsets.all(8),
+                    Expanded(
+                      child: Container(
+                        height: 1.0,
                         decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(
-                            alpha: isDark ? 0.25 : 0.15,
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.secondary.withValues(alpha: 0.0),
+                              AppColors.secondary.withValues(
+                                  alpha: isDark ? 0.45 : 0.32),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.category_rounded,
-                          color: isDark
-                              ? AppColors.secondary
-                              : AppColors.primary,
-                          size: 24,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                    ],
-                    Text(
-                      isArabicUi ? 'الأقسام' : 'Categories',
-                      style: titleStyle,
                     ),
-                    if (isArabicUi) ...[
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(
-                            alpha: isDark ? 0.25 : 0.15,
+                    const SizedBox(width: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(
+                                alpha: isDark ? 0.65 : 0.45),
+                            shape: BoxShape.circle,
                           ),
-                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
-                          Icons.category_rounded,
-                          color: isDark
-                              ? AppColors.secondary
-                              : AppColors.primary,
-                          size: 24,
+                        const SizedBox(width: 10),
+                        Text(
+                          isArabicUi ? 'الأقسام' : 'Sections',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.secondary : AppColors.primary,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(
+                                alpha: isDark ? 0.65 : 0.45),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        height: 1.0,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.secondary.withValues(
+                                  alpha: isDark ? 0.45 : 0.32),
+                              AppColors.secondary.withValues(alpha: 0.0),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                GridView.count(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.80,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _CategoryTile(
-                      label: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
-                      imagePath: 'assets/logo/button icons/moon.png',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const PrayerTimesScreen(),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const gap = 10.0;
+                    final w = (constraints.maxWidth - gap * 2) / 3;
+                    Widget wrap(Widget child) => SizedBox(
+                      width: w,
+                      child: AspectRatio(aspectRatio: 0.90, child: child),
+                    );
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
+                          imagePath: 'assets/logo/button icons/moon.png',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const PrayerTimesScreen()),
                           ),
-                        );
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'الأذكار والأدعية' : 'Adhkar',
-                      imagePath: 'assets/logo/button icons/praying.png',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AdhkarCategoriesScreen(),
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'الأذكار والأدعية' : 'Adhkar',
+                          imagePath: 'assets/logo/button icons/praying.png',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const AdhkarCategoriesScreen()),
                           ),
-                        );
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'الأذان' : 'Adhan',
-                      imagePath: 'assets/logo/button icons/nabawi-mosque.png',
-                      imagePadding: 3,
-                      showDisabledBadge:
-                          !di.sl<SettingsService>().getAdhanNotificationsEnabled() ||
-                          !batteryUnrestricted,
-                      disabledTooltip: !di.sl<SettingsService>().getAdhanNotificationsEnabled()
-                          ? (isArabicUi ? 'الأذان معطَّل' : 'Adhan disabled')
-                          : (isArabicUi ? 'لضمان سماع الأذان افتح إعدادات البطارية' : 'Open battery settings for reliable Adhan'),
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AdhanSettingsScreen(),
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'الأذان' : 'Adhan',
+                          imagePath: 'assets/logo/button icons/nabawi-mosque.png',
+                          imagePadding: 3,
+                          showDisabledBadge:
+                              !di.sl<SettingsService>().getAdhanNotificationsEnabled() ||
+                              !batteryUnrestricted,
+                          disabledTooltip: !di.sl<SettingsService>().getAdhanNotificationsEnabled()
+                              ? (isArabicUi ? 'الأذان معطَّل' : 'Adhan disabled')
+                              : (isArabicUi
+                                  ? 'لضمان سماع الأذان افتح إعدادات البطارية'
+                                  : 'Open battery settings for reliable Adhan'),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AdhanSettingsScreen()),
+                            );
+                            onBatteryCheck();
+                          },
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'الصوت' : 'Audio',
+                          imagePath: 'assets/logo/button icons/microphone.png',
+                          imagePadding: 2,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
                           ),
-                        );
-                        // Recheck battery state after returning from settings
-                        onBatteryCheck();
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'الصوت' : 'Audio',
-                      imagePath: 'assets/logo/button icons/microphone.png',
-                      // imageTint: Colors.white,
-                      imagePadding: 2,
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'الأجزاء' : 'Juz',
+                          imagePath: 'assets/logo/button icons/quran.png',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const JuzListScreen()),
+                          ),
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'القبلة' : 'Qibla',
+                          imagePath: 'assets/logo/button icons/qibla.png',
+                          imagePadding: 0,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const QiblahScreen()),
+                          ),
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'السبحة' : 'Tasbeeh',
+                          imagePath: 'assets/logo/button icons/beads.png',
+                          imagePadding: 3,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const TasbeehScreen()),
+                          ),
+                        )),
+                        wrap(_CategoryTile(
+                          label: isArabicUi ? 'الإذاعة' : 'Radio',
+                          imagePath: 'assets/logo/button icons/radio.png',
+                                                    imagePadding: 3,
 
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const OfflineAudioScreen(),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const QuranRadioScreen()),
                           ),
-                        );
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'الأجزاء' : 'Juz',
-                      imagePath: 'assets/logo/button icons/quran.png',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const JuzListScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'القبلة' : 'Qibla',
-                      imagePath: 'assets/logo/button icons/qibla.png',
-                      imagePadding: 0,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const QiblahScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _CategoryTile(
-                      label: isArabicUi ? 'السبحة' : 'Tasbeeh',
-                      imagePath: 'assets/logo/button icons/praying.png',
-                      imagePadding: 6,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const TasbeehScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                        )),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(
-                      alpha: isDark ? 0.15 : 0.05,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(
-                        alpha: isDark ? 0.25 : 0.1,
-                      ),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    isArabicUi
-                        ? 'يمكنك الوصول للسور من خلال الأجزاء أو من القائمة أدناه.'
-                        : 'Access Surahs through Juz or the list below.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark
-                          ? const Color(0xFFB0B0B0)
-                          : AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: isArabicUi ? TextAlign.right : TextAlign.left,
-                  ),
-                ),
+
               ],
             ),
           ),
@@ -826,7 +807,8 @@ class _IslamicPatternPainter extends CustomPainter {
 
 class _CategoryTile extends StatelessWidget {
   final String label;
-  final String imagePath;
+  final String? imagePath;
+  final IconData? iconData;
   final VoidCallback onTap;
   final double imagePadding;
   final bool showDisabledBadge;
@@ -834,126 +816,149 @@ class _CategoryTile extends StatelessWidget {
 
   const _CategoryTile({
     required this.label,
-    required this.imagePath,
     required this.onTap,
+    this.imagePath,
+    this.iconData,
     this.imagePadding = 4,
     this.showDisabledBadge = false,
     this.disabledTooltip,
-  });
+  }) : assert(imagePath != null || iconData != null, 'Provide imagePath or iconData');
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
+        splashColor: AppColors.secondary.withValues(alpha: 0.10),
+        highlightColor: AppColors.secondary.withValues(alpha: 0.05),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Theme.of(context).cardColor,
-                Theme.of(context).cardColor.withValues(alpha: 0.9),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(16),
+            color: isDark ? AppColors.darkCard : Colors.white,
             border: Border.all(
-              color: AppColors.secondary.withValues(alpha: 0.25),
-              width: 1.5,
+              color: AppColors.secondary.withValues(alpha: isDark ? 0.20 : 0.15),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.secondary.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: AppColors.secondary.withValues(alpha: isDark ? 0.08 : 0.10),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
               children: [
-                Flexible(
-                  child: Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.gradientStart,
-                          AppColors.gradientMid,
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.secondary,
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(imagePadding),
-                          child: Image.asset(
-                            imagePath,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        if (showDisabledBadge)
-                          Positioned(
-                            top: 2,
-                            right: 2,
-                            child: Tooltip(
-                              message: disabledTooltip ?? '',
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: Colors.white, width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.orange.withValues(alpha: 0.6),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                // Thin gold top accent strip
+                Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.secondary.withValues(alpha: isDark ? 0.55 : 0.40),
+                        AppColors.goldGradientEnd.withValues(alpha: isDark ? 0.75 : 0.60),
+                        AppColors.secondary.withValues(alpha: isDark ? 0.55 : 0.40),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
+                // Content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Icon circle with green gradient
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [AppColors.gradientStart, AppColors.gradientEnd],
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.secondary.withValues(alpha: 0.50),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.22),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              if (iconData != null)
+                                Icon(
+                                  iconData,
+                                  color: AppColors.onPrimary,
+                                  size: 30,
+                                )
+                              else
+                                Padding(
+                                  padding: EdgeInsets.all(imagePadding),
+                                  child: Image.asset(imagePath!, fit: BoxFit.contain),
+                                ),
+                              if (showDisabledBadge)
+                                Positioned(
+                                  top: 1,
+                                  right: 1,
+                                  child: Tooltip(
+                                    message: disabledTooltip ?? '',
+                                    child: Container(
+                                      width: 11,
+                                      height: 11,
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.orange
+                                                .withValues(alpha: 0.6),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Label
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFFE8E0D0)
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

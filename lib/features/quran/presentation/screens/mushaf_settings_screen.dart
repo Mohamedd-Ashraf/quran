@@ -7,6 +7,7 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import 'qcf_pageview_demo_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MushafSettingsScreen
@@ -301,6 +302,48 @@ class _MushafSettingsScreenState extends State<MushafSettingsScreen>
                   isAr: isAr,
                   onChanged: (m) =>
                       context.read<AppSettingsCubit>().setDiacriticsColorMode(m),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 7. QCF Mushaf full-screen preview button
+                _SectionHeader(
+                  isAr ? 'معاينة المصحف بخطوط QCF' : 'QCF Mushaf Preview',
+                  Icons.menu_book_rounded,
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: Text(
+                      isAr
+                          ? 'فتح المصحف الشريف — سورة البقرة'
+                          : 'Open QCF Mushaf — Al-Baqarah',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const QcfPageviewDemoScreen(initialPage: 2),
+                        ),
+                      );
+                    },
+                  ),
                 ),
 
                 const SizedBox(height: 32),

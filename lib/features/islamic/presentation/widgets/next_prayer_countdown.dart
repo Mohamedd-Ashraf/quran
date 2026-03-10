@@ -64,11 +64,12 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     // Find next prayer from today's times
     final now = DateTime.now();
     final prayers = [
-      (prayer: Prayer.fajr, label: 'Fajr', time: cachedTimes['fajr']!),
-      (prayer: Prayer.dhuhr, label: 'Dhuhr', time: cachedTimes['dhuhr']!),
-      (prayer: Prayer.asr, label: 'Asr', time: cachedTimes['asr']!),
+      (prayer: Prayer.fajr,    label: 'Fajr',    time: cachedTimes['fajr']!),
+      (prayer: Prayer.sunrise, label: 'Sunrise', time: cachedTimes['sunrise']!),
+      (prayer: Prayer.dhuhr,   label: 'Dhuhr',   time: cachedTimes['dhuhr']!),
+      (prayer: Prayer.asr,     label: 'Asr',     time: cachedTimes['asr']!),
       (prayer: Prayer.maghrib, label: 'Maghrib', time: cachedTimes['maghrib']!),
-      (prayer: Prayer.isha, label: 'Isha', time: cachedTimes['isha']!),
+      (prayer: Prayer.isha,    label: 'Isha',    time: cachedTimes['isha']!),
     ];
 
     for (final p in prayers) {
@@ -117,6 +118,8 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     switch (prayer) {
       case Prayer.fajr:
         return Icons.wb_twilight;
+      case Prayer.sunrise:
+        return Icons.wb_twilight_rounded;
       case Prayer.dhuhr:
         return Icons.wb_sunny;
       case Prayer.asr:
@@ -157,22 +160,34 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     }
 
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isSunrise = _nextPrayer!.prayer == Prayer.sunrise;
+
+    // Sunrise uses a warm amber palette; prayers use the default green.
+    const sunGold   = Color(0xFFF59E0B);
+    const sunOrange = Color(0xFFFB923C);
+    final activeColor  = isSunrise ? sunGold   : AppColors.primary;
+    final activeBorder = isSunrise ? sunOrange : AppColors.primary;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.1),
-            AppColors.secondary.withValues(alpha: 0.05),
-          ],
+          colors: isSunrise
+              ? [
+                  sunGold.withValues(alpha: 0.10),
+                  sunOrange.withValues(alpha: 0.05),
+                ]
+              : [
+                  AppColors.primary.withValues(alpha: 0.1),
+                  AppColors.secondary.withValues(alpha: 0.05),
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
+          color: activeBorder.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -181,12 +196,12 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
+              color: activeColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               _getPrayerIcon(_nextPrayer!.prayer),
-              color: AppColors.primary,
+              color: activeColor,
               size: 28,
             ),
           ),
@@ -196,17 +211,23 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isArabic ? 'الصلاة القادمة' : 'Next Prayer',
+                  isSunrise
+                      ? (isArabic ? 'وقت الشروق' : 'Sunrise')
+                      : (isArabic ? 'الصلاة القادمة' : 'Next Prayer'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: isSunrise
+                            ? sunGold.withValues(alpha: 0.80)
+                            : AppColors.textSecondary,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _getPrayerName(context, _nextPrayer!.prayer),
+                  isSunrise
+                      ? (isArabic ? 'الشروق' : 'Sunrise')
+                      : _getPrayerName(context, _nextPrayer!.prayer),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        color: activeColor,
                       ),
                 ),
               ],
@@ -220,7 +241,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: AppColors.primary,
+                      color: activeColor,
                     ),
               ),
               const SizedBox(height: 2),
@@ -235,7 +256,9 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
                   return '${hour12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
                 }(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: isSunrise
+                          ? sunGold.withValues(alpha: 0.70)
+                          : AppColors.textSecondary,
                     ),
               ),
             ],

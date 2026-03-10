@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/location_service.dart';
+import '../../../../core/services/reverse_geocoding_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import 'qiblah_map_widget.dart';
@@ -37,6 +38,7 @@ class _QiblahScreenState extends State<QiblahScreen>
   double? _lng;
   bool _locationFromCache = false;
   bool _updatingLocation = false;
+  String? _placeName;
 
   // ── Compass sensor state ───────────────────────────────────────────────────
   double _heading = 0; // Current phone heading from North (degrees, 0–360)
@@ -262,6 +264,8 @@ class _QiblahScreenState extends State<QiblahScreen>
         _loading = false;
         _showingLocationChoice = true;
       });
+      // Pre-fetch place name so it's ready when the user decides.
+      _fetchPlaceName(cached.latitude, cached.longitude);
       return;
     }
     // No cached coordinates – go straight to GPS
@@ -338,7 +342,7 @@ class _QiblahScreenState extends State<QiblahScreen>
       _lng = coords.longitude;
       _locationFromCache = fromCache;
     });
-
+    _fetchPlaceName(coords.latitude, coords.longitude);
     // If a poor-accuracy reading already arrived while the location-choice
     // screen was showing, trigger the calibration dialog now.
     if (!_calibrationDialogShown &&
@@ -349,6 +353,19 @@ class _QiblahScreenState extends State<QiblahScreen>
         if (mounted) _showCalibrationDialog();
       });
     }
+  }
+
+  Future<void> _fetchPlaceName(double lat, double lng) async {
+    final isAr = context
+        .read<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
+    final name = await ReverseGeocodingService.getPlaceName(
+      lat, lng, arabic: isAr,
+    );
+    if (mounted && name != null) setState(() => _placeName = name);
   }
 
   String _permissionMessage(LocationPermissionState s) {
@@ -540,7 +557,7 @@ class _QiblahScreenState extends State<QiblahScreen>
                   _LocationChoiceButton(
                     icon: Icons.history_rounded,
                     title: isAr ? 'استخدام الموقع المحفوظ' : 'Use Saved Location',
-                    subtitle: '$latStr°,  $lngStr°',
+                    subtitle: _placeName ?? '$latStr°,  $lngStr°',
                     isPrimary: true,
                     onTap: _useCachedLocation,
                   ),
@@ -785,8 +802,11 @@ class _QiblahScreenState extends State<QiblahScreen>
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        '${_lat!.toStringAsFixed(4)}°, ${_lng!.toStringAsFixed(4)}°'
-                        '${_locationFromCache ? '  ·  ${isAr ? 'من الذاكرة' : 'cached'}' : ''}',
+                        _placeName != null
+                            ? '$_placeName'
+                                '${_locationFromCache ? '  ·  ${isAr ? 'من الذاكرة' : 'cached'}' : ''}'
+                            : '${_lat!.toStringAsFixed(4)}°, ${_lng!.toStringAsFixed(4)}°'
+                                '${_locationFromCache ? '  ·  ${isAr ? 'من الذاكرة' : 'cached'}' : ''}',
                         style: TextStyle(
                           color: AppColors.secondary.withValues(alpha: 0.50),
                           fontSize: 11,

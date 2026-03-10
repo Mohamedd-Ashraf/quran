@@ -851,9 +851,11 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     await _playerSub?.cancel();
     await _indexSub?.cancel();
     await _durationCacheSub?.cancel();
-    try {
-      await _player.stop();
-    } catch (_) {}
+    // Pause before dispose so ExoPlayer doesn't need to flush the codec
+    // during release. Flushing from a PLAYING state on some devices causes
+    // FLUSHING→RESUMING→RUNNING→RELEASING race → LegacyMessageQueue dead thread.
+    // Pause keeps the codec in RUNNING (no flush) so release is clean.
+    try { await _player.pause(); } catch (_) {}
     await _player.dispose();
     return super.close();
   }

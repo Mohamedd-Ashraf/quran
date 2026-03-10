@@ -101,6 +101,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   bool _isPreviewPlaying = false;
   String? _previewingId;
   AudioPlayer? _onlinePlayer;
+  StreamSubscription<PlayerState>? _onlinePlayerSub;
   Timer? _shortModeTimer;
 
   // ── Per-sound cache state ──────────────────────────────────────────────
@@ -202,9 +203,22 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   void dispose() {
     _debounce?.cancel();
     _shortModeTimer?.cancel();
+    _shortModeTimer = null;
     WidgetsBinding.instance.removeObserver(this);
     _adhanChannel.setMethodCallHandler(null);
-    _stopPreview();
+    // Cancel subscription synchronously so the listener never fires again.
+    _onlinePlayerSub?.cancel();
+    _onlinePlayerSub = null;
+    // Pause before dispose so ExoPlayer doesn't flush the codec during release.
+    // Flushing from PLAYING state causes FLUSHING→RESUMING→dead thread crash.
+    final playerToDispose = _onlinePlayer;
+    _onlinePlayer = null;
+    playerToDispose?.pause().ignore();
+    playerToDispose?.dispose().ignore();
+    // Stop the native adhan player fire-and-forget.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _adhanChannel.invokeMethod<void>('stopAdhan').ignore();
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -507,7 +521,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             end: Duration(seconds: sound.shortDurationSeconds),
           );
         }
-        _onlinePlayer!.playerStateStream.listen((s) {
+        _onlinePlayerSub = _onlinePlayer!.playerStateStream.listen((s) {
           if (s.processingState == ProcessingState.completed && mounted) {
             setState(() {
               _isPreviewPlaying = false;
@@ -556,6 +570,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     _shortModeTimer?.cancel();
     _shortModeTimer = null;
     try {
+      await _onlinePlayerSub?.cancel();
+      _onlinePlayerSub = null;
       await _onlinePlayer?.stop();
       await _onlinePlayer?.dispose();
       _onlinePlayer = null;
@@ -2636,23 +2652,29 @@ class _BatteryWarningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg     = isDark ? const Color(0xFF2A1F00) : Colors.amber.shade50;
+    final titleColor = isDark ? Colors.amber.shade200   : null; // null = inherit from theme
+    final iconColor  = isDark ? Colors.amber.shade300   : Colors.amber;
+    final btnBg      = isDark ? Colors.amber.shade800   : Colors.amber.shade700;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
+        border: Border.all(color: Colors.amber.withValues(alpha: isDark ? 0.35 : 0.4), width: 1.5),
         boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.battery_alert_rounded, color: Colors.amber, size: 20)),
+            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.2), borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.battery_alert_rounded, color: iconColor, size: 20)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(isAr ? 'تحسين استهلاك البطارية' : 'Battery Optimization',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: titleColor)),
             const SizedBox(height: 4),
             Text(
               isAr ? 'لضمان سماع الأذان دائماً، اضغط أدناه واختر "غير مقيَّد"'
@@ -2665,7 +2687,7 @@ class _BatteryWarningCard extends StatelessWidget {
         SizedBox(width: double.infinity, child: ElevatedButton.icon(
           onPressed: onTap,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber.shade700, foregroundColor: Colors.white,
+            backgroundColor: btnBg, foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 11), elevation: 0),
           icon: const Icon(Icons.battery_charging_full_rounded, size: 18),
