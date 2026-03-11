@@ -2,22 +2,32 @@
 
 ---
 
-## [1.0.9] – 2026-03-04
+## [1.0.9] – 2026-03-10
 
 ### عربي
 - **شاشة القبلة:** تحديد اتجاه القبلة بدقة ببوصلة حية وخريطة تفاعلية، مع تنبيه فوري عند استقبال القبلة.
-- **إصلاح جدولة الأذان والإشعارات:** تم إصلاح جدولة الأذان والإشعارات بشكل كامل — التنبيهات تصلك أخيراً في الوقت الصحيح دون انقطاع.
-- **تنبيه معايرة البوصلة:** يظهر تنبيه تلقائي عند انخفاض دقة بوصلة جهازك مع خطوات واضحة لإعادة المعايرة.
-- **إصلاحات عامة:** حذف البسملة المكررة من بداية السور، ورقم الصفحة لم يعد يختبئ خلف شريط تنقل الأندرويد، وتحسينات في الوضع الليلي.
-- **الشيخ علي عبدالله جابر القارئ الافتراضي:** صوت الشيخ علي عبدالله جابر العذب أصبح القارئ الافتراضي للتطبيق — يمكن للمستخدم تغييره في أي وقت من الإعدادات.
+- **خريطة القبلة التفاعلية:** شاهد اتجاه القبلة على خريطة حية بجانب البوصلة مع خط رسومي واضح من موقعك إلى مكة المكرمة.
+- **إذاعة القرآن الكريم:** استمع لبث القرآن الكريم المباشر من إذاعة القرآن الكريم المصرية بجودة عالية ومنخفضة داخل التطبيق.
+- **السبحة الإلكترونية:** سبّح واذكر الله بسهولة مع سبحة تدعم الاهتزاز وتنبّه عند 33 و100، مع إمكانية الضبط اليدوي.
+- **مشاركة الآيات كبطاقات جميلة:** شارك أي آية كصورة بطاقة أنيقة من شاشة التفسير.
+- **التلاوة تعمل في الخلفية:** استمر في الاستماع للتلاوة أثناء استخدام تطبيقات أخرى مع إشعار التشغيل.
+- **إصلاح جدولة الأذان والإشعارات:** التنبيهات تصلك الآن في الوقت الصحيح دون انقطاع.
+- **تنبيه معايرة البوصلة:** تنبيه تلقائي عند انخفاض دقة البوصلة مع خطوات إعادة المعايرة.
+- **الشيخ علي عبدالله جابر القارئ الافتراضي:** صوته العذب أصبح القارئ الافتراضي — يمكن تغييره في أي وقت.
+- **إصلاحات عامة:** حذف البسملة المكررة، ورقم الصفحة لم يعد يختبئ خلف شريط التنقل، وتحسينات في الوضع الليلي.
 - تحديث رقم الإصدار إلى **1.0.9**.
 
 ### English
 - **Qiblah Compass:** Find the Qibla direction with a live compass and interactive map, with instant haptic feedback when aligned.
-- **Fixed Adhan & Notification Scheduling:** Adhan and notification scheduling is now fully fixed — alerts arrive on time, every time.
-- **Compass Calibration Alert:** An automatic prompt appears when compass accuracy is low, with step-by-step calibration instructions.
-- **General Fixes:** Duplicate Basmala removed from verse 1, page numbers no longer hidden on 3-button nav devices, and dark mode improvements.
-- **Ali Abdullah Jaber — New Default Reciter:** Sheikh Ali Abdullah Jaber's beautiful voice is now the app's default reciter — users can change it anytime in Settings.
+- **Interactive Qiblah Map:** View Qibla on a live map with a visual line from your location to Mecca, alongside the compass.
+- **Quran Radio:** Stream live Quran radio from the Egyptian Quran Broadcasting station in high or low quality.
+- **Digital Tasbeeh Counter:** Count your dhikr with a digital tasbih — vibrates, alerts at 33 & 100, with manual adjustment.
+- **Share Ayahs as Image Cards:** Share any verse as a beautiful card from the Tafsir screen, with surah name and number.
+- **Background Audio Playback:** Keep listening to recitation while using other apps, with a notification control.
+- **Fixed Adhan & Notification Scheduling:** Alerts now arrive on time, every time, without interruption.
+- **Compass Calibration Alert:** Automatic prompt when compass accuracy is low, with step-by-step recalibration.
+- **Ali Abdullah Jaber — New Default Reciter:** His beautiful recitation is now the default — change it anytime in Settings.
+- **General Fixes:** Duplicate Basmala removed, page numbers no longer hidden behind 3-button nav, dark mode improvements.
 - Version bumped to **1.0.9**.
 
 ---

@@ -10,7 +10,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import '../services/ayah_audio_service.dart';
 import '../services/adhan_notification_service.dart';
 
-enum AyahAudioMode { ayah, surah, word }
+enum AyahAudioMode { ayah, surah, word, radio }
 
 enum AyahAudioStatus { idle, buffering, playing, paused, error }
 
@@ -26,6 +26,9 @@ class AyahAudioState extends Equatable {
   final int queueTotal;
   /// 1-based word index within the ayah (only set in word mode).
   final int? wordIndex;
+  final String? liveStreamUrl;
+  final String? mediaTitle;
+  final String? mediaSubtitle;
 
   const AyahAudioState({
     required this.status,
@@ -36,6 +39,9 @@ class AyahAudioState extends Equatable {
     this.queueIndex = 0,
     this.queueTotal = 0,
     this.wordIndex,
+    this.liveStreamUrl,
+    this.mediaTitle,
+    this.mediaSubtitle,
   });
 
   const AyahAudioState.idle()
@@ -46,9 +52,14 @@ class AyahAudioState extends Equatable {
         errorMessage = null,
         queueIndex = 0,
         queueTotal = 0,
-        wordIndex = null;
+          wordIndex = null,
+          liveStreamUrl = null,
+          mediaTitle = null,
+          mediaSubtitle = null;
 
   bool get hasTarget => surahNumber != null && ayahNumber != null;
+        bool get isLiveStream => mode == AyahAudioMode.radio && liveStreamUrl != null;
+        bool get hasPlayableTarget => hasTarget || isLiveStream;
   bool get isQueueMode => queueTotal > 1;
 
   bool isCurrent(int s, int a) => surahNumber == s && ayahNumber == a;
@@ -65,6 +76,9 @@ class AyahAudioState extends Equatable {
     queueIndex,
     queueTotal,
     wordIndex,
+    liveStreamUrl,
+    mediaTitle,
+    mediaSubtitle,
   ];
 
   AyahAudioState copyWith({
@@ -78,6 +92,10 @@ class AyahAudioState extends Equatable {
     int? queueTotal,
     int? wordIndex,
     bool clearWordIndex = false,
+    String? liveStreamUrl,
+    String? mediaTitle,
+    String? mediaSubtitle,
+    bool clearLiveStream = false,
   }) {
     return AyahAudioState(
       status: status ?? this.status,
@@ -88,6 +106,9 @@ class AyahAudioState extends Equatable {
       queueIndex: queueIndex ?? this.queueIndex,
       queueTotal: queueTotal ?? this.queueTotal,
       wordIndex: clearWordIndex ? null : (wordIndex ?? this.wordIndex),
+      liveStreamUrl: clearLiveStream ? null : (liveStreamUrl ?? this.liveStreamUrl),
+      mediaTitle: clearLiveStream ? null : (mediaTitle ?? this.mediaTitle),
+      mediaSubtitle: clearLiveStream ? null : (mediaSubtitle ?? this.mediaSubtitle),
     );
   }
 }
@@ -97,10 +118,48 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   final AudioPlayer _player;
   final AdhanNotificationService _adhanService;
 
+  // Arabic names for all 114 surahs (1-indexed: use surahNumber - 1).
+  static const _kSurahNames = [
+    'الفاتحة',   'البقرة',     'آل عمران',  'النساء',    'المائدة',
+    'الأنعام',   'الأعراف',   'الأنفال',   'التوبة',    'يونس',
+    'هود',       'يوسف',      'الرعد',     'إبراهيم',   'الحجر',
+    'النحل',     'الإسراء',   'الكهف',     'مريم',      'طه',
+    'الأنبياء',  'الحج',      'المؤمنون',  'النور',     'الفرقان',
+    'الشعراء',   'النمل',     'القصص',     'العنكبوت',  'الروم',
+    'لقمان',     'السجدة',    'الأحزاب',   'سبأ',       'فاطر',
+    'يس',        'الصافات',   'ص',         'الزمر',     'غافر',
+    'فصلت',      'الشورى',    'الزخرف',    'الدخان',    'الجاثية',
+    'الأحقاف',   'محمد',      'الفتح',     'الحجرات',   'ق',
+    'الذاريات',  'الطور',     'النجم',     'القمر',     'الرحمن',
+    'الواقعة',   'الحديد',    'المجادلة',  'الحشر',     'الممتحنة',
+    'الصف',      'الجمعة',    'المنافقون', 'التغابن',   'الطلاق',
+    'التحريم',   'الملك',     'القلم',     'الحاقة',    'المعارج',
+    'نوح',       'الجن',      'المزمل',    'المدثر',    'القيامة',
+    'الإنسان',   'المرسلات',  'النبأ',     'النازعات',  'عبس',
+    'التكوير',   'الانفطار',  'المطففين',  'الانشقاق',  'البروج',
+    'الطارق',    'الأعلى',    'الغاشية',   'الفجر',     'البلد',
+    'الشمس',     'الليل',     'الضحى',     'الشرح',     'التين',
+    'العلق',     'القدر',     'البينة',    'الزلزلة',   'العاديات',
+    'القارعة',   'التكاثر',   'العصر',     'الهمزة',    'الفيل',
+    'قريش',      'الماعون',   'الكوثر',    'الكافرون',  'النصر',
+    'المسد',     'الإخلاص',   'الفلق',     'الناس',
+  ];
+
+  static String _surahName(int n) =>
+      (n >= 1 && n <= _kSurahNames.length) ? _kSurahNames[n - 1] : 'سورة $n';
+
+  static final _kTilawaArtUri =
+      Uri.parse('android.resource://com.example.quraan/drawable/tilawa_art');
+  static final _kRadioArtUri =
+      Uri.parse('android.resource://com.example.quraan/drawable/radio_art');
+
   StreamSubscription<PlayerState>? _playerSub;
   StreamSubscription<int?>? _indexSub;
   StreamSubscription<Duration?>? _durationCacheSub;
+  StreamSubscription<Duration>? _positionAyahSub;
   bool _initialized = false;
+  bool _usingMergedSurahSource = false;
+  List<Duration> _mergedAyahEnds = const [];
 
   // ── Surah queue ───────────────────────────────────────────────────────────
   /// Items waiting to be played.  Each item is a surah + ayah-count pair.
@@ -176,6 +235,26 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       _itemDurations[_currentItemIndex] = dur;
     });
 
+    _positionAyahSub = _player.positionStream.listen((pos) {
+      if (isClosed || !_usingMergedSurahSource || state.mode != AyahAudioMode.surah) {
+        return;
+      }
+      if (_mergedAyahEnds.isEmpty) return;
+      for (var i = 0; i < _mergedAyahEnds.length; i++) {
+        if (pos < _mergedAyahEnds[i]) {
+          final ayah = _firstAyahNumber + i;
+          if (state.ayahNumber != ayah) {
+            emit(state.copyWith(ayahNumber: ayah));
+          }
+          return;
+        }
+      }
+      final lastAyah = _firstAyahNumber + _mergedAyahEnds.length - 1;
+      if (state.ayahNumber != lastAyah) {
+        emit(state.copyWith(ayahNumber: lastAyah));
+      }
+    });
+
     _playerSub = _player.playerStateStream.listen(
       (ps) {
       if (isClosed) return;
@@ -202,7 +281,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         // If we have a target, treat as paused; otherwise idle.
         emit(
           state.copyWith(
-            status: state.hasTarget
+            status: state.hasPlayableTarget
                 ? AyahAudioStatus.paused
                 : AyahAudioStatus.idle,
             clearError: true,
@@ -240,7 +319,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       }
       _currentItemIndex = idx;
 
-      if (state.mode != AyahAudioMode.surah) return;
+      if (state.mode != AyahAudioMode.surah || _usingMergedSurahSource) return;
 
       // Get the ayah number from the audio source tag
       final sequence = _player.sequenceState;
@@ -286,6 +365,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Compute the effective total duration synchronously so both the stream
   /// and [seekToAbsolute] can call it without duplicating logic.
   Duration? _computeEffectiveDuration() {
+    if (_usingMergedSurahSource) return _player.duration;
     if (_ayahCount <= 1) return _player.duration;
 
     // Fixed total silence duration is always known.
@@ -407,6 +487,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   void _resetPlaylistTracking(int ayahCount, {int firstAyahNumber = 1}) {
     _ayahCount = ayahCount;
     _firstAyahNumber = firstAyahNumber;
+    _usingMergedSurahSource = false;
+    _mergedAyahEnds = const [];
     // When gap > 0: N ayahs + (N-1) silences = 2N-1 items.
     // When gap == 0: no silence items inserted, so exactly N items.
     final hasGap = _ayahGap > Duration.zero;
@@ -451,11 +533,15 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         ayahNumber: ayahNumber,
       );
 
+      final surahName = _surahName(surahNumber);
       final mediaItem = MediaItem(
         id: '${surahNumber}_$ayahNumber',
-        title: 'الآية $ayahNumber',
-        album: 'سورة $surahNumber',
+        title: surahName,
+        album: 'القرآن الكريم',
         artist: 'القرآن الكريم',
+        displayTitle: surahName,
+        displaySubtitle: 'القرآن الكريم',
+        artUri: _kTilawaArtUri,
       );
       if (source.isLocal) {
         await _player.setAudioSource(
@@ -476,6 +562,59 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           mode: AyahAudioMode.ayah,
           surahNumber: surahNumber,
           ayahNumber: ayahNumber,
+          errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        ),
+      );
+    }
+  }
+
+  Future<void> playLiveStream({
+    required String url,
+    required String title,
+    required String subtitle,
+  }) async {
+    _surahQueue = [];
+    _surahQueueIndex = 0;
+    await _adhanService.stopCurrentAdhan();
+    if (!_initialized) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    _resetPlaylistTracking(1);
+    emit(
+      AyahAudioState(
+        status: AyahAudioStatus.buffering,
+        mode: AyahAudioMode.radio,
+        liveStreamUrl: url,
+        mediaTitle: title,
+        mediaSubtitle: subtitle,
+      ),
+    );
+
+    try {
+      final mediaItem = MediaItem(
+        id: 'radio_${url.hashCode}',
+        title: title,
+        album: 'بث مباشر',
+        artist: 'القرآن الكريم',
+        displayTitle: title,
+        displaySubtitle: 'بث مباشر',
+        artUri: _kRadioArtUri,
+        extras: const {'isLive': true},
+      );
+      await _player.setAudioSource(
+        AudioSource.uri(Uri.parse(url), tag: mediaItem),
+      );
+      await _player.setLoopMode(LoopMode.off);
+      await _player.setShuffleModeEnabled(false);
+      unawaited(_player.play());
+    } catch (e) {
+      emit(
+        AyahAudioState(
+          status: AyahAudioStatus.error,
+          mode: AyahAudioMode.radio,
+          liveStreamUrl: url,
+          mediaTitle: title,
+          mediaSubtitle: subtitle,
           errorMessage: e.toString().replaceFirst('Exception: ', ''),
         ),
       );
@@ -521,11 +660,15 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      final surahNameW = _surahName(surahNumber);
       final mediaItem = MediaItem(
         id: 'word_${surahNumber}_${ayahNumber}_$wordIndex',
-        title: 'الآية $ayahNumber - كلمة $wordIndex',
-        album: 'سورة $surahNumber',
+        title: surahNameW,
+        album: 'القرآن الكريم',
         artist: 'القرآن الكريم',
+        displayTitle: surahNameW,
+        displaySubtitle: 'القرآن الكريم',
+        artUri: _kTilawaArtUri,
       );
       await _player.setAudioSource(AudioSource.uri(uri, tag: mediaItem));
       await _player.setLoopMode(LoopMode.off);
@@ -608,15 +751,51 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         numberOfAyahs: numberOfAyahs,
       );
 
+      final merged = await _service.prepareMergedSurahAudio(
+        surahNumber: surahNumber,
+        numberOfAyahs: numberOfAyahs,
+        sources: sources,
+      );
+
+      final surahNameS = _surahName(surahNumber);
+      if (merged != null) {
+        _usingMergedSurahSource = true;
+        Duration cumulative = Duration.zero;
+        _mergedAyahEnds = merged.ayahDurations.map((d) {
+          cumulative += d;
+          return cumulative;
+        }).toList(growable: false);
+
+        final mediaItem = MediaItem(
+          id: 'surah_$surahNumber',
+          title: surahNameS,
+          album: 'القرآن الكريم',
+          artist: 'تلاوة كاملة',
+          displayTitle: surahNameS,
+          displaySubtitle: 'تلاوة كاملة',
+          artUri: _kTilawaArtUri,
+        );
+        await _player.setAudioSource(
+          AudioSource.file(merged.filePath, tag: mediaItem),
+        );
+        await _player.setLoopMode(LoopMode.off);
+        await _player.setShuffleModeEnabled(false);
+        await _player.play();
+        return;
+      }
+
       final children = <AudioSource>[];
       for (var i = 0; i < sources.length; i++) {
         final ayahNumber = i + 1;
         final s = sources[i];
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
-          title: 'الآية $ayahNumber',
-          album: 'سورة $surahNumber',
+          title: surahNameS,
+          album: 'القرآن الكريم',
           artist: 'القرآن الكريم',
+          displayTitle: surahNameS,
+          displaySubtitle: 'القرآن الكريم',
+          artUri: _kTilawaArtUri,
         );
         if (s.isLocal) {
           children.add(AudioSource.file(s.localFilePath!, tag: mediaItem));
@@ -678,6 +857,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     try {
       final children = <AudioSource>[];
+      final surahNameR = _surahName(surahNumber);
       for (var ayahNumber = startAyah; ayahNumber <= endAyah; ayahNumber++) {
         final source = await _service.resolveAyahAudio(
           surahNumber: surahNumber,
@@ -686,9 +866,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
-          title: 'الآية $ayahNumber',
-          album: 'سورة $surahNumber',
+          title: surahNameR,
+          album: 'القرآن الكريم',
           artist: 'القرآن الكريم',
+          displayTitle: surahNameR,
+          displaySubtitle: 'القرآن الكريم',
+          artUri: _kTilawaArtUri,
         );
         if (source.isLocal) {
           children.add(
@@ -733,9 +916,17 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// For playlist (surah) mode it walks the accumulated item durations to
   /// find the correct playlist index + in-item offset.
   Future<void> seekToAbsolute(Duration position) async {
+    if (state.mode == AyahAudioMode.radio) return;
     if (position < Duration.zero) position = Duration.zero;
     _isSeeking = true;
     try {
+      if (_usingMergedSurahSource) {
+        final dur = _player.duration;
+        if (dur != null && position > dur) position = dur;
+        await _player.seek(position);
+        return;
+      }
+
       // Single-item: just seek directly.
       if (_ayahCount <= 1) {
         final dur = _player.duration;
@@ -818,23 +1009,56 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   }
 
   Future<void> pause() async {
+    if (state.mode == AyahAudioMode.radio) {
+      await _player.stop();
+      emit(state.copyWith(status: AyahAudioStatus.paused, clearError: true));
+      return;
+    }
     await _player.pause();
     emit(state.copyWith(status: AyahAudioStatus.paused));
   }
 
   Future<void> resume() async {
+    if (state.mode == AyahAudioMode.radio) {
+      final url = state.liveStreamUrl;
+      final title = state.mediaTitle;
+      final subtitle = state.mediaSubtitle;
+      if (url == null || title == null || subtitle == null) return;
+      await playLiveStream(url: url, title: title, subtitle: subtitle);
+      return;
+    }
     await _player.play();
     emit(state.copyWith(status: AyahAudioStatus.playing));
   }
 
   Future<void> next() async {
     if (state.mode != AyahAudioMode.surah) return;
+    if (_usingMergedSurahSource) {
+      final currentAyah = state.ayahNumber ?? _firstAyahNumber;
+      final nextAyahIndex = currentAyah - _firstAyahNumber + 1;
+      if (nextAyahIndex >= _mergedAyahEnds.length) return;
+      final targetStart = nextAyahIndex == 0
+          ? Duration.zero
+          : _mergedAyahEnds[nextAyahIndex - 1];
+      await _player.seek(targetStart);
+      return;
+    }
     if (!_player.hasNext) return;
     await _player.seekToNext();
   }
 
   Future<void> previous() async {
     if (state.mode != AyahAudioMode.surah) return;
+    if (_usingMergedSurahSource) {
+      final currentAyah = state.ayahNumber ?? _firstAyahNumber;
+      final currentIndex = currentAyah - _firstAyahNumber;
+      final prevIndex = (currentIndex - 1).clamp(0, _mergedAyahEnds.length - 1);
+      final targetStart = prevIndex <= 0
+          ? Duration.zero
+          : _mergedAyahEnds[prevIndex - 1];
+      await _player.seek(targetStart);
+      return;
+    }
     if (!_player.hasPrevious) return;
     await _player.seekToPrevious();
   }
@@ -851,6 +1075,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     await _playerSub?.cancel();
     await _indexSub?.cancel();
     await _durationCacheSub?.cancel();
+    await _positionAyahSub?.cancel();
     // Pause before dispose so ExoPlayer doesn't need to flush the codec
     // during release. Flushing from a PLAYING state on some devices causes
     // FLUSHING→RESUMING→RUNNING→RELEASING race → LegacyMessageQueue dead thread.

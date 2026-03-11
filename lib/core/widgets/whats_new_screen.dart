@@ -282,6 +282,46 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       descEn: 'Sheikh Ali Abdullah Jaber\'s beautiful voice is now the app\'s default reciter — change it anytime in Settings.',
       color: const Color(0xFF6A1B9A),
     ),
+    _WhatsNewEntry(
+      icon: Icons.radio_rounded,
+      titleAr: 'إذاعة القرآن الكريم',
+      titleEn: 'Quran Radio',
+      descAr: 'استمع لبث القرآن الكريم المباشر من إذاعة القرآن الكريم المصرية بجودة عالية ومنخفضة داخل التطبيق.',
+      descEn: 'Stream live Quran radio from the Egyptian Quran Broadcasting station in high or low quality, right inside the app.',
+      color: const Color(0xFF00838F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.scatter_plot_rounded,
+      titleAr: 'السبحة الإلكترونية',
+      titleEn: 'Digital Tasbeeh Counter',
+      descAr: 'سبّح واذكر الله بسهولة مع سبحة إلكترونية تدعم الاهتزاز، وتنبّه عند الوصول لـ 33 و100، مع إمكانية الضبط اليدوي.',
+      descEn: 'Count your dhikr effortlessly with a digital tasbih that vibrates, alerts at 33 & 100 counts, with manual adjustment.',
+      color: AppColors.secondary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.map_rounded,
+      titleAr: 'خريطة القبلة التفاعلية',
+      titleEn: 'Interactive Qiblah Map',
+      descAr: 'شاهد اتجاه القبلة على خريطة تفاعلية حية بجانب البوصلة — مع خط رسومي واضح من موقعك إلى مكة المكرمة.',
+      descEn: 'View the Qibla direction on a live interactive map alongside the compass — with a clear visual line from your location to Mecca.',
+      color: AppColors.primary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.share_rounded,
+      titleAr: 'مشاركة الآيات كبطاقات جميلة',
+      titleEn: 'Share Ayahs as Beautiful Cards',
+      descAr: 'شارك أي آية كصورة بطاقة أنيقة من شاشة التفسير — تتضمن النص والسورة والرقم تلقائياً.',
+      descEn: 'Share any verse as a beautiful image card from the Tafsir screen — with text, surah name, and number included automatically.',
+      color: const Color(0xFFAD1457),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.headphones_rounded,
+      titleAr: 'التلاوة تعمل في الخلفية',
+      titleEn: 'Audio Plays in Background',
+      descAr: 'استمر في الاستماع للتلاوة حتى وأنت تستخدم تطبيقات أخرى — مع إشعار التشغيل في شريط الإشعارات.',
+      descEn: 'Keep listening to recitation even while using other apps — with a playback notification in the status bar.',
+      color: const Color(0xFF1565C0),
+    ),
   ],
 };
 
@@ -306,8 +346,8 @@ class WhatsNewScreen extends StatefulWidget {
 
 class _WhatsNewScreenState extends State<WhatsNewScreen>
     with SingleTickerProviderStateMixin {
-  // Total = 300ms base + 5 cards × 100ms stagger + 500ms card window = 1700ms (v1.0.9)
-  static const int _totalMs = 1700;
+  // Total = 300ms base + 10 cards × 100ms stagger + 500ms card window = 2100ms (v1.0.9)
+  static const int _totalMs = 2100;
 
   late final AnimationController _animController;
 

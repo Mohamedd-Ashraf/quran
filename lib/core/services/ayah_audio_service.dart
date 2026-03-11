@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import '../constants/api_constants.dart';
 import '../network/network_info.dart';
@@ -37,6 +39,31 @@ const Map<String, String> _everyAyahFolders = {
   'ar.alijaber': 'Ali_Jaber_64kbps',                    // علي عبد الله جابر
 };
 
+const Map<String, int> _everyAyahBitratesKbps = {
+  'ar.alafasy': 128,
+  'ar.abdurrahmaansudais': 192,
+  'ar.husary': 128,
+  'ar.husarymujawwad': 128,
+  'ar.minshawi': 128,
+  'ar.minshawimujawwad': 128,
+  'ar.muhammadayyoub': 128,
+  'ar.muhammadjibreel': 128,
+  'ar.saoodshuraym': 128,
+  'ar.shaatree': 128,
+  'ar.parhizgar': 48,
+  'ar.alijaber': 64,
+};
+
+class MergedSurahAudio {
+  final String filePath;
+  final List<Duration> ayahDurations;
+
+  const MergedSurahAudio({
+    required this.filePath,
+    required this.ayahDurations,
+  });
+}
+
 class AyahAudioService {
   final http.Client _client;
   final NetworkInfo _networkInfo;
@@ -46,6 +73,10 @@ class AyahAudioService {
   final Map<String, List<Uri>> _surahUrlCache = {};
 
   AyahAudioService(this._client, this._networkInfo, this._offlineAudio);
+
+  String get currentEdition => _offlineAudio.edition;
+
+  int? get currentEditionBitrateKbps => _everyAyahBitratesKbps[currentEdition];
 
   String _key(int surahNumber, int ayahNumber, String edition) => '$edition:$surahNumber:$ayahNumber';
 
@@ -213,5 +244,80 @@ class AyahAudioService {
     }
 
     return sources.cast<AyahAudioSource>();
+  }
+
+  Future<MergedSurahAudio?> prepareMergedSurahAudio({
+    required int surahNumber,
+    required int numberOfAyahs,
+    required List<AyahAudioSource> sources,
+  }) async {
+    final bitrateKbps = currentEditionBitrateKbps;
+    if (bitrateKbps == null || sources.length != numberOfAyahs) return null;
+
+    final tmpDir = await getTemporaryDirectory();
+    final mergedDir = Directory('${tmpDir.path}/merged_surahs');
+    if (!mergedDir.existsSync()) mergedDir.createSync(recursive: true);
+
+    final editionSafe = currentEdition.replaceAll('.', '_');
+    final baseName = '${editionSafe}_${surahNumber}_$numberOfAyahs';
+    final mergedFile = File('${mergedDir.path}/$baseName.mp3');
+    final metaFile = File('${mergedDir.path}/$baseName.json');
+
+    if (mergedFile.existsSync() && metaFile.existsSync()) {
+      try {
+        final raw = jsonDecode(await metaFile.readAsString()) as List;
+        return MergedSurahAudio(
+          filePath: mergedFile.path,
+          ayahDurations: raw
+              .whereType<num>()
+              .map((ms) => Duration(milliseconds: ms.toInt()))
+              .toList(),
+        );
+      } catch (_) {}
+    }
+
+    final tmpFile = File('${mergedFile.path}.tmp');
+    final sink = tmpFile.openWrite();
+    final ayahDurations = <Duration>[];
+
+    try {
+      for (final source in sources) {
+        int byteCount = 0;
+        if (source.isLocal) {
+          final file = File(source.localFilePath!);
+          byteCount = file.lengthSync();
+          await sink.addStream(file.openRead());
+        } else {
+          final request = http.Request('GET', source.remoteUri!);
+          final response = await _client.send(request);
+          if (response.statusCode != 200) {
+            throw Exception('Failed to download surah segment');
+          }
+          await for (final chunk in response.stream) {
+            byteCount += chunk.length;
+            sink.add(chunk);
+          }
+        }
+
+        final durationMs = ((byteCount * 8) / (bitrateKbps * 1000) * 1000).round();
+        ayahDurations.add(Duration(milliseconds: durationMs.clamp(1, 3600000)));
+      }
+
+      await sink.close();
+      if (mergedFile.existsSync()) mergedFile.deleteSync();
+      await tmpFile.rename(mergedFile.path);
+      await metaFile.writeAsString(jsonEncode(
+        ayahDurations.map((d) => d.inMilliseconds).toList(),
+      ));
+
+      return MergedSurahAudio(
+        filePath: mergedFile.path,
+        ayahDurations: ayahDurations,
+      );
+    } catch (_) {
+      try { await sink.close(); } catch (_) {}
+      try { if (tmpFile.existsSync()) tmpFile.deleteSync(); } catch (_) {}
+      return null;
+    }
   }
 }

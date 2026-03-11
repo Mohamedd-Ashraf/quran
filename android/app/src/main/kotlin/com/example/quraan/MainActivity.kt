@@ -51,6 +51,9 @@ class MainActivity : AudioServiceFragmentActivity() {
                         val shortCutoffSeconds = call.argument<Int>("shortCutoffSeconds") ?: 15
                         val useAlarmStream     = call.argument<Boolean>("useAlarmStream") ?: false
                         val onlineUrl          = call.argument<String>("onlineUrl")
+                        val notifTitle         = call.argument<String>("notifTitle")
+                        val notifBody          = call.argument<String>("notifBody")
+                        val stopLabel          = call.argument<String>("stopLabel")
                         // Persist shortMode immediately so AlarmReceiver reads the latest value
                         // even if Flutter's own SharedPreferences haven’t flushed yet.
                         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
@@ -58,7 +61,16 @@ class MainActivity : AudioServiceFragmentActivity() {
                             .putBoolean("flutter.adhan_short_mode", shortMode)
                             .putString("flutter.adhan_online_url", onlineUrl ?: "")
                             .apply()
-                        startAdhanService(soundName, shortMode, shortCutoffSeconds, useAlarmStream, onlineUrl)
+                        startAdhanService(
+                            soundName,
+                            shortMode,
+                            shortCutoffSeconds,
+                            useAlarmStream,
+                            onlineUrl,
+                            notifTitle,
+                            notifBody,
+                            stopLabel
+                        )
                         result.success(true)
                     }
 
@@ -347,13 +359,25 @@ class MainActivity : AudioServiceFragmentActivity() {
 
     // ── Full adhan via foreground service ─────────────────────────────────────
 
-    private fun startAdhanService(soundName: String, shortMode: Boolean = false, shortCutoffSeconds: Int = 15, useAlarmStream: Boolean = false, onlineUrl: String? = null) {
+    private fun startAdhanService(
+        soundName: String,
+        shortMode: Boolean = false,
+        shortCutoffSeconds: Int = 15,
+        useAlarmStream: Boolean = false,
+        onlineUrl: String? = null,
+        notifTitle: String? = null,
+        notifBody: String? = null,
+        stopLabel: String? = null
+    ) {
         val intent = Intent(this, AdhanPlayerService::class.java).apply {
             putExtra(AdhanPlayerService.EXTRA_SOUND, soundName)
             putExtra(AdhanPlayerService.EXTRA_SHORT_MODE, shortMode)
             putExtra(AdhanPlayerService.EXTRA_SHORT_CUTOFF_SECONDS, shortCutoffSeconds)
             putExtra(AdhanPlayerService.EXTRA_USE_ALARM_STREAM, useAlarmStream)
             if (!onlineUrl.isNullOrBlank()) putExtra(AdhanPlayerService.EXTRA_ONLINE_URL, onlineUrl)
+            if (!notifTitle.isNullOrBlank()) putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, notifTitle)
+            if (!notifBody.isNullOrBlank()) putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, notifBody)
+            if (!stopLabel.isNullOrBlank()) putExtra(AdhanPlayerService.EXTRA_STOP_LABEL, stopLabel)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)

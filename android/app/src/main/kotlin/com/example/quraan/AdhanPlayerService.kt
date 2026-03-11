@@ -6,9 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaMetadata
 import android.media.MediaPlayer
 import android.media.VolumeProvider
 import android.media.session.MediaSession
@@ -173,7 +177,7 @@ class AdhanPlayerService : Service() {
         // Must call startForeground() within 5 s of startForegroundService().
         // Create MediaSession FIRST so the notification can embed the session token
         // (enables lock-screen controls and activates VolumeProvider routing).
-        createAdhanMediaSession(disableVolumeStopper)
+        createAdhanMediaSession(disableVolumeStopper, notifTitle)
         startForeground(NOTIF_ID, buildNotification(notifTitle, notifBody, stopLabel))
         playAdhan(soundName, isShortMode, shortCutoffSeconds, useAlarmStream, onlineUrl, volumeKey, disableVolumeStopper)
         return START_NOT_STICKY
@@ -492,9 +496,25 @@ class AdhanPlayerService : Service() {
      * When [disableVolumeStopper] is true (iqama / salawat / approaching alerts),
      * we create the session WITHOUT a VolumeProvider so volume keys work normally.
      */
-    private fun createAdhanMediaSession(disableVolumeStopper: Boolean) {
+    private fun createAdhanMediaSession(disableVolumeStopper: Boolean, title: String? = null) {
         releaseAdhanMediaSession()
         val session = MediaSession(this, "quraan_adhan")
+
+        // Set MediaMetadata so the OS compact-player widget and lock screen
+        // show the correct prayer name and artwork instead of a blank card.
+        val artBitmap = getDrawableBitmap(R.drawable.adhan_art)
+        val meta = MediaMetadata.Builder()
+            .putString(MediaMetadata.METADATA_KEY_TITLE,            title ?: "الأذان")
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,    title ?: "الأذان")
+            .putString(MediaMetadata.METADATA_KEY_ARTIST,           "حان الآن موعد الصلاة")
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, "اضغط لإيقاف الأذان")
+            .putString(MediaMetadata.METADATA_KEY_ALBUM,            "أوقات الصلاة")
+            .also { b -> if (artBitmap != null) {
+                b.putBitmap(MediaMetadata.METADATA_KEY_ART,       artBitmap)
+                b.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, artBitmap)
+            }}
+            .build()
+        session.setMetadata(meta)
 
         // Required: without these flags the session does NOT receive media button
         // or volume key events from the system. Many OEMs require this to route
@@ -742,6 +762,17 @@ class AdhanPlayerService : Service() {
 
     // Notification
 
+    /** Renders any drawable resource to a 512×512 Bitmap for media artwork. */
+    private fun getDrawableBitmap(resId: Int): Bitmap? = try {
+        val size = 256
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val drawable = resources.getDrawable(resId, theme)
+        drawable.setBounds(0, 0, size, size)
+        drawable.draw(canvas)
+        bmp
+    } catch (_: Exception) { null }
+
     private fun buildNotification(
         title: String? = null,
         body: String? = null,
@@ -759,6 +790,8 @@ class AdhanPlayerService : Service() {
         val iconRes = resources.getIdentifier("ic_notification", "drawable", packageName)
             .takeIf { it != 0 } ?: R.mipmap.ic_launcher
 
+        val largeIcon = getDrawableBitmap(R.drawable.adhan_art)
+
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
         } else {
@@ -766,10 +799,14 @@ class AdhanPlayerService : Service() {
             Notification.Builder(this)
         }
 
+        if (largeIcon != null) builder.setLargeIcon(largeIcon)
+
         return builder
             .setSmallIcon(iconRes)
+            .setColor(0xFF1B5E20.toInt()) // Islamic dark green accent
+            .setColorized(true)
             .setContentTitle(title ?: "الأذان")
-            .setContentText(body ?: "اضغط لوقف الأذان")
+            .setContentText(body ?: "اضغط لإيقاف الأذان")
             .setContentIntent(openPi)
             .setOngoing(true)
             .setStyle(
@@ -781,7 +818,7 @@ class AdhanPlayerService : Service() {
             .addAction(
                 Notification.Action.Builder(
                     null,
-                    stopLabel ?: "ايقاف الاذان",
+                    stopLabel ?: "إيقاف الأذان",
                     stopPi
                 ).build()
             )

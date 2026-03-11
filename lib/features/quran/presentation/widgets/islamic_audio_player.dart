@@ -75,9 +75,19 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
     AyahAudioCubit cubit,
     AyahAudioState audioState,
     bool isSurahMode,
+    bool isRadioMode,
     bool isPlaying,
     int? playingSurahNumber,
   ) {
+    if (isRadioMode) {
+      if (isPlaying) {
+        cubit.pause();
+      } else {
+        cubit.resume();
+      }
+      return;
+    }
+
     if (isSurahMode) {
       if (isPlaying) {
         cubit.pause();
@@ -126,6 +136,7 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
         }
 
         final isSurahMode = audioState.mode == AyahAudioMode.surah;
+        final isRadioMode = audioState.mode == AyahAudioMode.radio;
         final isPlaying = audioState.status == AyahAudioStatus.playing;
         final isBuffering = audioState.status == AyahAudioStatus.buffering;
         final cubit = context.read<AyahAudioCubit>();
@@ -154,7 +165,9 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
 
         // Build title string
         String surahName = '';
-        if (playingSurahNumber != null) {
+        if (isRadioMode) {
+          surahName = isArabicUi ? 'إذاعة القرآن الكريم' : 'Quran Radio';
+        } else if (playingSurahNumber != null) {
           surahName = SurahNames.getName(playingSurahNumber, isArabicUi);
           if (surahName.isEmpty) {
             surahName = isArabicUi ? '\u0627\u0644\u0642\u0631\u0622\u0646 \u0627\u0644\u0643\u0631\u064a\u0645' : 'Quran';
@@ -165,10 +178,15 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
         final queueSuffix = audioState.isQueueMode
             ? ' (${audioState.queueIndex + 1}/${audioState.queueTotal})'
             : '';
-        final ayahLabel = playingAyahNumber != null
+        final ayahLabel = !isRadioMode && playingAyahNumber != null
             ? ' \u2022 ${isArabicUi ? '\u0622\u064a\u0629 $playingAyahNumber' : 'Ayah $playingAyahNumber'}'
             : '';
-        final titleText = '$surahName$queueSuffix$ayahLabel';
+        final radioSuffix = isRadioMode
+          ? ' \u2022 ${isArabicUi ? 'بث مباشر' : 'Live Stream'}'
+          : '';
+        final titleText = isRadioMode
+          ? '$surahName$radioSuffix'
+          : '$surahName$queueSuffix$ayahLabel';
 
         // ── Collapsed mini pill ──────────────────────────────────────────
         if (_collapsed) {
@@ -216,7 +234,7 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                   GestureDetector(
                     onTap: () => _onPlayPauseTap(
                       context, cubit, audioState,
-                      isSurahMode, isPlaying, playingSurahNumber,
+                      isSurahMode, isRadioMode, isPlaying, playingSurahNumber,
                     ),
                     child: Container(
                       width: 32,
@@ -446,6 +464,7 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                                   cubit,
                                   audioState,
                                   isSurahMode,
+                                  isRadioMode,
                                   isPlaying,
                                   playingSurahNumber,
                                 ),
@@ -518,10 +537,35 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
 
                           const SizedBox(height: 4),
 
-                          // Seek bar — position stream drives labels & slider;
-                          // drag state lives in _dragNotifier (ValueNotifier) so
-                          // onChanged never rebuilds the BlocBuilder tree mid-drag.
-                          StreamBuilder<Duration>(
+                          if (isRadioMode)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, bottom: 6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: AppColors.secondary.withValues(alpha: 0.10),
+                                  border: Border.all(
+                                    color: AppColors.secondary.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Text(
+                                  isArabicUi
+                                      ? 'بث مباشر من المشغل العام للتطبيق'
+                                      : 'Live stream in the app media player',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary.withValues(alpha: 0.80),
+                                      ),
+                                ),
+                              ),
+                            )
+                          else
+                            StreamBuilder<Duration>(
                             stream: cubit.effectivePositionStream,
                             builder: (context, posSnap) {
                               return StreamBuilder<Duration?>(

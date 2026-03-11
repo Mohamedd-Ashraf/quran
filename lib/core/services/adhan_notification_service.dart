@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:adhan/adhan.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -133,7 +136,7 @@ class AdhanNotificationService {
     // Android playback is handled natively via MethodChannel.
   }
 
-  Future<void> _playFullAdhanAudio() async {
+  Future<void> _playFullAdhanAudio({String? prayerArabicName}) async {
     try {
       final now = DateTime.now();
       // 35-second cooldown guard prevents double-triggers from overlapping timers.
@@ -147,10 +150,6 @@ class AdhanNotificationService {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final soundId = _settings.getSelectedAdhanSound();
         final sound = AdhanSounds.findById(soundId);
-        // Use the foreground service so audio plays even when the app is in the background.
-        // For online sounds: pass URL so native service can stream it directly without
-        // requiring a pre-downloaded file. If streaming fails, native falls back to
-        // the offline fallback sound (adhan_1).
         final ok = await _androidAdhanPlayerChannel.invokeMethod<bool>(
           'startAdhanService',
           {
@@ -160,6 +159,10 @@ class AdhanNotificationService {
             'onlineUrl': sound.isOnline ? sound.url : null,
             'fallbackSoundName': AdhanSounds.offlineFallback.id,
             'useAlarmStream': _settings.getAdhanAudioStream() == 'alarm',
+            if (prayerArabicName != null && prayerArabicName.isNotEmpty) ...{
+              'notifTitle': 'أذان ${prayerArabicName}',
+              'notifBody': 'اضغط لإيقاف الأذان',
+            },
           },
         );
         if (ok == true) {
@@ -187,6 +190,13 @@ class AdhanNotificationService {
   /// These alarms survive the app being killed and fire AdhanPlayerService.
   Future<void> _scheduleNativeAlarms(List<Map<String, dynamic>> preview) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    const _arabicPrayerNames = {
+      'fajr': 'الفجر',
+      'dhuhr': 'الظهر',
+      'asr': 'العصر',
+      'maghrib': 'المغرب',
+      'isha': 'العشاء',
+    };
     try {
       final soundId = _settings.getSelectedAdhanSound();
       final sound = AdhanSounds.findById(soundId);
@@ -195,9 +205,12 @@ class AdhanNotificationService {
         if (timeStr == null) return null;
         final dt = DateTime.tryParse(timeStr);
         if (dt == null) return null;
+        final prayer = item['prayer'] as String? ?? '';
+        final arabicName = _arabicPrayerNames[prayer] ?? (item['label'] as String? ?? '');
         return <String, dynamic>{
           'id': item['id'] as int,
           'timeMs': dt.millisecondsSinceEpoch,
+          'arabicName': arabicName,
         };
       }).whereType<Map<String, dynamic>>().toList();
 
@@ -477,6 +490,65 @@ class AdhanNotificationService {
     await ensureScheduled();
   }
 
+  // ── Offline cache for selected online sound ─────────────────────────────────
+
+  /// Returns the local cache directory shared with AdhanPlayerService.kt.
+  /// Must match: filesDir/adhan_cache in native code.
+  Future<Directory> _adhanCacheDir() async {
+    final base = await getApplicationSupportDirectory();
+    final dir = Directory('${base.path}/adhan_cache');
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir;
+  }
+
+  /// Returns the expected cache file path for an online sound.
+  Future<File> _adhanCacheFile(AdhanSoundInfo sound) async {
+    final dir = await _adhanCacheDir();
+    return File('${dir.path}/${sound.id}.mp3');
+  }
+
+  /// Downloads and caches the given online adhan sound.
+  /// Safe to call multiple times — skips if file is already cached.
+  Future<void> _downloadAdhanSound(AdhanSoundInfo sound) async {
+    if (!sound.isOnline || sound.url == null) return;
+    try {
+      final file = await _adhanCacheFile(sound);
+      if (file.existsSync() && file.lengthSync() > 1024) {
+        debugPrint('[AdhanCache] Already cached: ${sound.id}');
+        return;
+      }
+      debugPrint('[AdhanCache] Downloading: ${sound.id} — ${sound.url}');
+      final request = http.Request('GET', Uri.parse(sound.url!));
+      final response = await request.send();
+      if (response.statusCode != 200) {
+        debugPrint('[AdhanCache] HTTP ${response.statusCode} for ${sound.id}');
+        return;
+      }
+      final tmpFile = File('${file.path}.tmp');
+      final sink = tmpFile.openWrite();
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+      }
+      await sink.close();
+      // Atomic rename: only replace the cache file once the download is complete.
+      await tmpFile.rename(file.path);
+      debugPrint('[AdhanCache] Cached successfully: ${sound.id}');
+    } catch (e) {
+      debugPrint('[AdhanCache] Download failed for ${sound.id}: $e');
+    }
+  }
+
+  /// Called once on app startup.
+  /// If the user has selected an online adhan sound that is not yet cached,
+  /// downloads it silently in the background so it plays offline at prayer time.
+  Future<void> ensureSelectedSoundCached() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    final soundId = _settings.getSelectedAdhanSound();
+    final sound = AdhanSounds.findById(soundId);
+    if (!sound.isOnline) return; // bundled sounds need no caching
+    await _downloadAdhanSound(sound);
+  }
+
   Future<void> ensureScheduled() async {
     // If a scheduling is already in progress, just flag that another run is
     // needed after it finishes. This prevents concurrent calls from racing
@@ -611,7 +683,7 @@ class AdhanNotificationService {
   }
 
   Future<void> testNow() async {
-    await _playFullAdhanAudio();
+    await _playFullAdhanAudio(prayerArabicName: 'الأذان');
     final isArabic = _settings.getAppLanguage() == 'ar';
     await _plugin.show(
       999001,
@@ -627,7 +699,7 @@ class AdhanNotificationService {
 
     // In-app timer (fires if app stays open)
     Timer(delay, () async {
-      await _playFullAdhanAudio();
+      await _playFullAdhanAudio(prayerArabicName: 'الأذان');
     });
 
     // Native AlarmManager alarm (fires even when app is killed)

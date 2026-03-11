@@ -10,6 +10,7 @@ class SettingsService {
   static const String _keyUseUthmaniScript = 'use_uthmani_script';
   static const String _keyUseQcfFont        = 'use_qcf_font';
   static const String _keyMushafMigratedV1  = 'mushaf_migrated_v1';
+  static const String _keyQcfForcedV2       = 'qcf_forced_v2';
   static const String _keyPageFlipRightToLeft = 'page_flip_right_to_left';
   static const String _keyOnboardingComplete = 'onboarding_complete';
   static const String _keyDiacriticsColorMode = 'diacritics_color_mode';
@@ -43,6 +44,7 @@ class SettingsService {
   /// 'ringtone' (default) or 'alarm' — controls which Android audio stream
   /// is used for adhan playback and which system volume is displayed.
   static const String _keyAdhanAudioStream        = 'adhan_audio_stream';
+  static const String _keyAdhanBannerShown        = 'adhan_banner_shown';
 
   // ── Salawat sound selection ────────────────────────────────────────────────
   static const String _keySalawatSound        = 'salawat_sound';
@@ -156,6 +158,12 @@ class SettingsService {
   // Mushaf view + QCF migration flag
   bool getMushafMigratedV1() => _prefs.getBool(_keyMushafMigratedV1) ?? false;
   Future<bool> setMushafMigratedV1() => _prefs.setBool(_keyMushafMigratedV1, true);
+
+  // One-time QCF force-on migration (v2): ensures QCF is enabled for all users
+  // after the update that ships the QCF renderer.  Runs once; thereafter the
+  // user may disable QCF and the preference is respected as-is.
+  bool getQcfForcedV2() => _prefs.getBool(_keyQcfForcedV2) ?? false;
+  Future<bool> setQcfForcedV2() => _prefs.setBool(_keyQcfForcedV2, true);
 
   // Page Flip Direction (RTL = true, LTR = false)
   Future<bool> setPageFlipRightToLeft(bool rtl) async {
@@ -299,14 +307,19 @@ class SettingsService {
     return _prefs.getDouble(_keyAdhanVolume) ?? 1.0;
   }
 
-  // Adhan Audio Stream: 'ringtone' (default) or 'alarm'
+  // Adhan Audio Stream: 'ringtone' or 'alarm' (default: alarm for audible sound)
   Future<bool> setAdhanAudioStream(String stream) async {
     return await _prefs.setString(_keyAdhanAudioStream, stream);
   }
 
   String getAdhanAudioStream() {
-    return _prefs.getString(_keyAdhanAudioStream) ?? 'ringtone';
+    // Default to 'alarm' so the adhan plays at alarm volume (louder, bypasses DND).
+    return _prefs.getString(_keyAdhanAudioStream) ?? 'alarm';
   }
+
+  // ── First-launch adhan info banner ──────────────────────────────────────────
+  bool hasAdhanBannerShown() => _prefs.getBool(_keyAdhanBannerShown) ?? false;
+  Future<bool> setAdhanBannerShown() => _prefs.setBool(_keyAdhanBannerShown, true);
 
   // ─── Quran Display Edition ────────────────────────────────────────────────
   /// The API edition identifier used when fetching Quran text.

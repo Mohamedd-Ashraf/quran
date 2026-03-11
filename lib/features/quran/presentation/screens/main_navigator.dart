@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../widgets/islamic_audio_player.dart';
 import 'home_screen.dart';
@@ -8,6 +10,7 @@ import 'bookmarks_screen.dart';
 import 'settings_screen.dart';
 import '../../../wird/presentation/screens/wird_screen.dart';
 import '../../../islamic/presentation/screens/more_screen.dart';
+import '../../../islamic/presentation/screens/adhan_settings_screen.dart';
 
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
@@ -42,6 +45,44 @@ class _MainNavigatorState extends State<MainNavigator> {
       const MoreScreen(),
       const SettingsScreen(),
     ];
+
+    // Show a one-time first-launch banner informing the user that prayer
+    // time notifications (adhan) are enabled by default and can be adjusted.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showAdhanBannerIfNeeded());
+  }
+
+  Future<void> _showAdhanBannerIfNeeded() async {
+    final settings = di.sl<SettingsService>();
+    if (settings.hasAdhanBannerShown()) return;
+    await settings.setAdhanBannerShown();
+    if (!mounted) return;
+
+    final isAr = context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 8),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Text(
+          isAr
+              ? '🕌 تم تفعيل إشعارات أوقات الصلاة تلقائياً'
+              : '🕌 Prayer time notifications enabled automatically',
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        action: SnackBarAction(
+          label: isAr ? 'الإعدادات' : 'Settings',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const AdhanSettingsScreen()),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override

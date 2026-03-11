@@ -242,6 +242,49 @@ class AdhanSounds {
       // measured via adhan_analyzer.py: silence after 2nd Takbeer at 13.40s
       shortDurationSeconds: 13,
     ),
+
+    // ── أذانات مشهورة — شائعة في مصر ────────────────────────────────────────
+    // Source: archive.org — Public Domain (no copyright stated)
+
+    AdhanSoundInfo(
+      id: 'online_hadhrawi',
+      nameAr: 'أذان الشيخ فاروق الحضراوي',
+      nameEn: 'Sheikh Farouq Al-Hadhrawi Adhan',
+      muezzinAr: 'الشيخ فاروق الحضراوي',
+      muezzinEn: 'Sheikh Farouq Al-Hadhrawi',
+      mosqueAr: 'المسجد الحرام، مكة المكرمة',
+      mosqueEn: 'Al-Masjid Al-Haram, Makkah',
+      isOnline: true,
+      url: 'https://archive.org/download/February42012FajrAdhanAudios/SheikhHadhrawi_Fajr_2-4-12.mp3',
+      // waveform estimate: ~8s after 2nd Takbeer
+      shortDurationSeconds: 8,
+    ),
+    AdhanSoundInfo(
+      id: 'online_afeefi',
+      nameAr: 'أذان الشيخ أشرف عفيفي',
+      nameEn: 'Sheikh Ashraf Afeefi Adhan',
+      muezzinAr: 'الشيخ أشرف عفيفي',
+      muezzinEn: 'Sheikh Ashraf Afeefi',
+      mosqueAr: 'المسجد الحرام، مكة المكرمة',
+      mosqueEn: 'Al-Masjid Al-Haram, Makkah',
+      isOnline: true,
+      url: 'https://archive.org/download/August82012Adhan/SheikhAfeefi_Asr_8-7-12_32kbps.mp3',
+      // waveform estimate: ~7s after 2nd Takbeer
+      shortDurationSeconds: 7,
+    ),
+    AdhanSoundInfo(
+      id: 'online_umar_kamal',
+      nameAr: 'أذان الشيخ عمر كامل',
+      nameEn: 'Sheikh Umar Kamal Adhan',
+      muezzinAr: 'الشيخ عمر كامل',
+      muezzinEn: 'Sheikh Umar Kamal',
+      mosqueAr: 'المسجد الحرام، مكة المكرمة',
+      mosqueEn: 'Al-Masjid Al-Haram, Makkah',
+      isOnline: true,
+      url: 'https://archive.org/download/August82012Adhan/SheikhKamal_Maghrib_8-8-12_32kbps.mp3',
+      // waveform estimate: ~6s after 2nd Takbeer
+      shortDurationSeconds: 6,
+    ),
   ];
 
   /// The single offline-fallback sound (always available without internet).

@@ -126,6 +126,15 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
       emit(state.copyWith(useUthmaniScript: true, useQcfFont: true));
     }
 
+    // QCF force-on v2: on first launch after this update every user gets QCF
+    // enabled regardless of their previous preference.  After this one-time
+    // migration they can turn QCF off from Settings and it will stay off.
+    if (!_service.getQcfForcedV2()) {
+      _service.setUseQcfFont(true);
+      _service.setQcfForcedV2();
+      emit(state.copyWith(useQcfFont: true));
+    }
+
     // First-launch: mirror the device system theme so the app never starts
     // in the "wrong" mode.  Once the user flips the switch manually the saved
     // value is respected on every subsequent launch (hasDarkModeBeenSet == true).

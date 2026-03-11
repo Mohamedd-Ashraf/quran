@@ -16,7 +16,9 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../domain/entities/surah.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
+import 'app_qcf_page.dart';
 import 'ayah_share_card.dart';
+import 'qcf_fallback_page.dart';
 import 'islamic_audio_player.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,6 +462,15 @@ class _MushafPageViewState extends State<MushafPageView>
                     itemCount: 604,
                     itemBuilder: (ctx, index) {
                       final pageNum = index + 1;
+                      // Use regular-font fallback for pages whose QCF glyph
+                      // calibration is known to overflow the container.
+                      if (kEnableQcfFallback &&
+                          kQcfProblematicPages.contains(pageNum)) {
+                        return QcfFallbackPage(
+                          key: ValueKey('fb_$pageNum'),
+                          pageNumber: pageNum,
+                        );
+                      }
                       return Column(
                         children: [
                           Directionality(
@@ -504,19 +515,46 @@ class _MushafPageViewState extends State<MushafPageView>
                                 builder: (_, highlights, child) =>
                                     LayoutBuilder(
                                   builder: (lbCtx, constraints) {
-                                    // Use the same formula as the reference app
-                                    // (flutter_screenutil 1.sp / 1.h):
-                                    //   sp = screenWidth  / designWidth
-                                    //   h  = screenHeight / designHeight
-                                    // Using full MediaQuery dimensions (not
-                                    // constraints) intentionally matches the
-                                    // reference app and makes the 15-line grid
-                                    // fill the visible page naturally.
-                                    const double kDesignWidth  = 392.72727272727275;
-                                    const double kDesignHeight = 800.7272727272727;
+                                  // Use the same formula as the reference app
+                                  // (flutter_screenutil 1.sp / 1.h):
+                                  //   sp = screenWidth  / designWidth
+                                  //   h  = screenHeight / designHeight
+                                  // Using full MediaQuery dimensions (not
+                                  // constraints) intentionally matches the
+                                  // reference app and makes the 15-line grid
+                                  // fill the visible page naturally.
+                                  const double kDesignWidth  = 392.72727272727275;
+                                  const double kDesignHeight = 800.7272727272727;
                                     final Size screen = MediaQuery.of(lbCtx).size;
-                                    final double sp = screen.width  / kDesignWidth;
-                                    final double h  = screen.height / kDesignHeight;
+                                  final double effectiveWidth =
+                                      constraints.maxWidth.isFinite && constraints.maxWidth > 0
+                                          ? constraints.maxWidth
+                                          : screen.width;
+                                  // ---------- sp / font-size safety explanation ----------
+                                  // The qcf_quran package calibrates its page fonts for a
+                                  // reference device of ≈393 dp width.  Some pages (e.g.
+                                  // 387, 504, 579 …) were accidentally omitted from
+                                  // getFontSize()'s special-case list and get the default
+                                  // 23.1 px, which is too large – their QCF glyphs were
+                                  // designed for a slightly smaller size.  On a 393 dp
+                                  // phone sp ≈ 1.0 so capping at 1.0 does nothing; the
+                                  // overflow is baked into the font calibration itself.
+                                  //
+                                  // Fix: add a 20 dp safety margin to the design width
+                                  // denominator. This gives sp ≈ 0.952 on a 393 dp phone,
+                                  // reducing every font size by ~4.8 %.  Lines that exactly
+                                  // filled the container now span ~374 dp and sit centred
+                                  // with 9-10 dp breathing room each side – visually
+                                  // identical to a printed Mushaf page which also has
+                                  // slight margins.  For tablets (≥ 600 dp) getFontSize
+                                  // already returns 15 and needs sp > 1, so the margin is
+                                  // not applied there.
+                                  const double kSafeMargin = 20.0;
+                                  final bool isPhone = effectiveWidth < 600;
+                                  final double rawSp = effectiveWidth /
+                                      (isPhone ? kDesignWidth + kSafeMargin : kDesignWidth);
+                                  final double sp = rawSp;
+                                  final double h  = screen.height / kDesignHeight;
                                     // Wrap in MediaQuery to neutralise the
                                     // system font-size setting (the user may
                                     // have Samsung font set to Large/Huge).
@@ -528,7 +566,7 @@ class _MushafPageViewState extends State<MushafPageView>
                                       data: MediaQuery.of(lbCtx).copyWith(
                                         textScaler: TextScaler.linear(1.0),
                                       ),
-                                      child: QcfPage(
+                                      child: AppQcfPage(
                                       pageNumber: pageNum,
                                       sp: sp,
                                       h: h,
@@ -645,7 +683,20 @@ class _MushafPageViewState extends State<MushafPageView>
   }
 
   Widget _buildPageBookmarkButton(int pageNumber) {
-    final pageId = '${widget.surahNumber}:page:$pageNumber';
+    // Resolve the actual surah that owns this page, which may differ from
+    // widget.surahNumber when the user has navigated across surah boundaries.
+    int actualSurahNumber = widget.surahNumber;
+    String actualSurahName = widget.surah.name;
+    try {
+      final ranges = getPageData(pageNumber);
+      if (ranges.isNotEmpty) {
+        final m = ranges.first as Map<dynamic, dynamic>;
+        actualSurahNumber = int.parse(m['surah'].toString());
+        actualSurahName = SurahNames.getArabicName(actualSurahNumber);
+      }
+    } catch (_) {}
+
+    final pageId = '$actualSurahNumber:page:$pageNumber';
 
     return StatefulBuilder(
       builder: (context, setLocalState) {
@@ -665,8 +716,8 @@ class _MushafPageViewState extends State<MushafPageView>
                 id: pageId,
                 reference: pageId,
                 arabicText: 'صفحة $pageNumber',
-                surahName: widget.surah.name,
-                surahNumber: widget.surahNumber,
+                surahName: actualSurahName,
+                surahNumber: actualSurahNumber,
                 ayahNumber: null,
               );
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(

@@ -48,8 +48,8 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 val id     = (alarm["id"]     as? Number)?.toInt()  ?: continue
                 val timeMs = (alarm["timeMs"] as? Number)?.toLong() ?: continue
                 if (timeMs <= now) continue
-
-                val pi = pendingIntentFor(context, id, soundName)
+                val arabicName = alarm["arabicName"] as? String ?: ""
+                val pi = pendingIntentFor(context, id, soundName, arabicName)
                 setExactAlarm(am, timeMs, pi)
                 count++
             }
@@ -80,10 +80,12 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        private fun pendingIntentFor(context: Context, id: Int, soundName: String): PendingIntent {
+        private fun pendingIntentFor(context: Context, id: Int, soundName: String,
+                                       arabicName: String = ""): PendingIntent {
             val intent = Intent(context, AdhanAlarmReceiver::class.java).apply {
                 action = ACTION_FIRE
                 putExtra("soundName", soundName)
+                if (arabicName.isNotEmpty()) putExtra("arabicName", arabicName)
             }
             return PendingIntent.getBroadcast(
                 context, id, intent,
@@ -140,6 +142,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             return
         }
         val soundName   = intent.getStringExtra("soundName") ?: "adhan_1"
+        val arabicName  = intent.getStringExtra("arabicName") ?: ""
         val shortMode   = prefs.getBoolean(KEY_SHORT_MODE, false)
         val shortCutoff = prefs.getInt(KEY_SHORT_CUTOFF, 15)
         val useAlarm    = prefs.getString(KEY_AUDIO_STREAM, "ringtone") == "alarm"
@@ -151,6 +154,11 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             putExtra(AdhanPlayerService.EXTRA_SHORT_CUTOFF_SECONDS, shortCutoff)
             putExtra(AdhanPlayerService.EXTRA_USE_ALARM_STREAM, useAlarm)
             if (onlineUrl != null) putExtra(AdhanPlayerService.EXTRA_ONLINE_URL, onlineUrl)
+            if (arabicName.isNotEmpty()) {
+                putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, "أذان $arabicName")
+                putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, "اضغط لإيقاف الأذان")
+                putExtra(AdhanPlayerService.EXTRA_STOP_LABEL, "إيقاف الأذان")
+            }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
@@ -187,7 +195,16 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 if (id < 0 || timeStr.isEmpty()) continue
                 val timeMs = parseIsoToMillis(timeStr) ?: continue
                 if (timeMs <= now) continue
-                alarms.add(mapOf("id" to id, "timeMs" to timeMs))
+                val prayer = item.optString("prayer", "")
+                val arabicName = when (prayer) {
+                    "fajr"    -> "الفجر"
+                    "dhuhr"   -> "الظهر"
+                    "asr"     -> "العصر"
+                    "maghrib" -> "المغرب"
+                    "isha"    -> "العشاء"
+                    else      -> item.optString("label", "")
+                }
+                alarms.add(mapOf("id" to id, "timeMs" to timeMs, "arabicName" to arabicName))
             }
 
             scheduleAlarms(context, alarms, soundName)

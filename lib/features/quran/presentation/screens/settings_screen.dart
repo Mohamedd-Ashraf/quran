@@ -1232,10 +1232,10 @@ class _MushafEntryCard extends StatelessWidget {
                       color: AppColors.secondary, size: 22),
                 ),
                 title: _TileTitle(
-                    isAr ? 'رسم المصحف QCF' : 'QCF Font Rendering'),
+                    isAr ? 'رسم المصحف الشريف' : 'Mushaf Script Font'),
                 subtitle: _TileSubtitle(isAr
-                    ? 'خط QCF الرقمي الدقيق — أغلق للخط الكلاسيكي'
-                    : 'Precise QCF digital font — disable for classic font'),
+                    ? 'يعرض القرآن بالرسم العثماني كما في المصحف المطبوع — أوقفه إن ظهرت الحروف غريبة على جهازك'
+                    : 'Displays Quran in printed-Mushaf (Uthmani) script — disable if letters look incorrect on your device'),
                 value: useQcfFont,
                 activeColor: AppColors.secondary,
                 onChanged: onToggleQcf,

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/mushaf_page_map.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
@@ -14,6 +16,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import 'tafsir_screen.dart';
+import 'package:qcf_quran/qcf_quran.dart';
 import '../widgets/ayah_share_card.dart';
 import '../widgets/mushaf_page_view.dart' show IslamicPatternPainter, BorderOrnamentPainter;
 
@@ -145,8 +148,81 @@ class _Verse {
   });
 }
 
-// ─── Network ──────────────────────────────────────────────────────────────────
+// ─── Persistent page cache ────────────────────────────────────────────────────
+const String _mushafCachePrefix = 'mushaf_page_v1_';
+
+Future<List<_Verse>?> _loadPageFromDiskCache(int page) async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString('$_mushafCachePrefix$page');
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(raw) as List;
+    return decoded.map((v) {
+      final key = v['verseKey'] as String;
+      final sp  = key.split(':');
+      return _Verse(
+        verseKey: key,
+        surah:    int.parse(sp[0]),
+        ayah:     int.parse(sp[1]),
+        text:     (v['text'] as String?) ?? '',
+      );
+    }).toList();
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _savePageToDiskCache(int page, List<_Verse> verses) async {
+  final prefs = await SharedPreferences.getInstance();
+  final encoded = jsonEncode(
+    verses.map((v) => {'verseKey': v.verseKey, 'text': v.text}).toList(),
+  );
+  await prefs.setString('$_mushafCachePrefix$page', encoded);
+}
+
+/// Load verses for [page] from the bundled offline JSON assets (always available).
+Future<List<_Verse>> _fetchPageFromBundledAssets(int page) async {
+  final surahNumbers = kMushafPageToSurahs[page];
+  if (surahNumbers == null || surahNumbers.isEmpty) return [];
+
+  final results = <_Verse>[];
+  for (final surahNum in surahNumbers) {
+    try {
+      final raw = await rootBundle.loadString('assets/offline/surah_$surahNum.json');
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final ayahs = data['ayahs'] as List;
+      for (final ayah in ayahs) {
+        if ((ayah['page'] as int?) == page) {
+          results.add(_Verse(
+            verseKey: '$surahNum:${ayah["numberInSurah"]}',
+            surah:    surahNum,
+            ayah:     ayah['numberInSurah'] as int,
+            text:     (ayah['text'] as String?) ?? '',
+          ));
+        }
+      }
+    } catch (_) {
+      // skip if asset missing
+    }
+  }
+  return results;
+}
+
+// ─── Network / cache orchestration ───────────────────────────────────────────
 Future<List<_Verse>> _fetchPage(int page) async {
+  // 1. Try persistent disk cache first (fastest, works fully offline)
+  final cached = await _loadPageFromDiskCache(page);
+  if (cached != null && cached.isNotEmpty) return cached;
+
+  // 2. Fall back to bundled offline assets (always available, no internet needed)
+  final bundled = await _fetchPageFromBundledAssets(page);
+  if (bundled.isNotEmpty) {
+    // Persist to disk so next read is instant
+    _savePageToDiskCache(page, bundled);
+    return bundled;
+  }
+
+  // 3. Last resort: fetch from network (requires internet)
   final uri = Uri.parse(
     'https://api.quran.com/api/v4/verses/by_page/$page'
     '?fields=text_uthmani&per_page=50',
@@ -157,7 +233,7 @@ Future<List<_Verse>> _fetchPage(int page) async {
   final data  = jsonDecode(res.body) as Map<String, dynamic>;
   final vList = data['verses'] as List;
 
-  return vList.map((v) {
+  final verses = vList.map((v) {
     final key  = v['verse_key'] as String;
     final sp   = key.split(':');
     return _Verse(
@@ -167,11 +243,17 @@ Future<List<_Verse>> _fetchPage(int page) async {
       text:     (v['text_uthmani'] as String?) ?? '',
     );
   }).toList();
+
+  // Save to disk cache
+  _savePageToDiskCache(page, verses);
+  return verses;
 }
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MushafPageScreen extends StatefulWidget {
   final int initialPage;
+  final int? focusSurahNumber;
+  final int? focusAyahNumber;
 
   /// Optional notifier that mirrors the audio player's collapsed state
   /// so the page content can adapt its bottom padding accordingly.
@@ -180,6 +262,8 @@ class MushafPageScreen extends StatefulWidget {
   const MushafPageScreen({
     super.key,
     this.initialPage = 1,
+    this.focusSurahNumber,
+    this.focusAyahNumber,
     this.playerCollapsedNotifier,
   });
 
@@ -268,6 +352,10 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
                         isLoading: _loading[page] == true,
                         error:     _errors[page],
                         onRetry:   () => _load(page),
+                        trimBeforeSurahNumber:
+                            page == widget.initialPage ? widget.focusSurahNumber : null,
+                        trimBeforeAyahNumber:
+                            page == widget.initialPage ? widget.focusAyahNumber : null,
                         playerCollapsedNotifier: widget.playerCollapsedNotifier,
                       );
                     },
@@ -289,6 +377,8 @@ class _MushafPage extends StatelessWidget {
   final bool          isLoading;
   final Object?       error;
   final VoidCallback  onRetry;
+  final int?          trimBeforeSurahNumber;
+  final int?          trimBeforeAyahNumber;
   final ValueNotifier<bool>? playerCollapsedNotifier;
 
   const _MushafPage({
@@ -297,16 +387,34 @@ class _MushafPage extends StatelessWidget {
     required this.isLoading,
     required this.error,
     required this.onRetry,
+    this.trimBeforeSurahNumber,
+    this.trimBeforeAyahNumber,
     this.playerCollapsedNotifier,
   });
+
+  List<_Verse> _effectiveVerses(List<_Verse> source) {
+    final surahNumber = trimBeforeSurahNumber;
+    if (surahNumber == null) return source;
+
+    final ayahNumber = trimBeforeAyahNumber ?? 1;
+    final startIndex = source.indexWhere(
+      (verse) =>
+          verse.surah == surahNumber &&
+          verse.ayah >= ayahNumber,
+    );
+
+    if (startIndex <= 0) return source;
+    return source.sublist(startIndex);
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = context.select<AppSettingsCubit, bool>(
       (c) => c.state.darkMode);
     final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFF5F0E4);
+    final visibleVerses = verses == null ? null : _effectiveVerses(verses!);
 
-    if (isLoading || (verses == null && error == null)) {
+    if (isLoading || (visibleVerses == null && error == null)) {
       return Container(
         color: bgColor,
         child: Center(
@@ -326,7 +434,7 @@ class _MushafPage extends StatelessWidget {
       );
     }
 
-    if (error != null || verses == null || verses!.isEmpty) {
+    if (error != null || visibleVerses == null || visibleVerses.isEmpty) {
       return Container(
         color: bgColor,
         child: Center(
@@ -356,7 +464,7 @@ class _MushafPage extends StatelessWidget {
 
     return Column(
       children: [
-        _MushafTopBar(page: page, verses: verses!, isDark: isDark),
+        _MushafTopBar(page: page, verses: visibleVerses, isDark: isDark),
         Expanded(
           child: BlocBuilder<AyahAudioCubit, AyahAudioState>(
             builder: (ctx, audioState) {
@@ -368,7 +476,7 @@ class _MushafPage extends StatelessWidget {
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
-                child: _PageText(verses: verses!),
+                child: _PageText(verses: visibleVerses),
               );
               if (notifier != null) {
                 return ValueListenableBuilder<bool>(
@@ -736,6 +844,14 @@ class _PageTextState extends State<_PageText> {
 
             final children = <Widget>[];
             for (final section in sections) {
+              // Show decorative surah header whenever ayah 1 appears.
+              if (section.entries.isNotEmpty &&
+                  section.entries.first.verse.ayah == 1) {
+                children.add(_SurahHeader(
+                  surahNum: section.surahNum,
+                  isDark: isDark,
+                ));
+              }
               // Show Basmala before ayah 1 of every surah except Al-Fatiha (1)
               // and At-Tawba (9) which has no Basmala.
               if (section.entries.isNotEmpty &&
@@ -744,6 +860,13 @@ class _PageTextState extends State<_PageText> {
                   section.surahNum != 9) {
                 children.add(_Basmala(isDark: isDark));
               }
+
+              // Whether we showed a basmala header for this section.
+              // If yes, strip the embedded basmala from verse 1's text.
+              final bool hasBasmalaHeader = section.entries.isNotEmpty &&
+                  section.entries.first.verse.ayah == 1 &&
+                  section.surahNum != 1 &&
+                  section.surahNum != 9;
 
               // All verses in this section flow as a single justified RichText
               // so that text wraps naturally across the full line width —
@@ -769,8 +892,12 @@ class _PageTextState extends State<_PageText> {
                   };
                 _recognizers.add(tapRec);
 
+                final displayText = (hasBasmalaHeader && v.ayah == 1)
+                    ? _stripBasmalaPrefix(v.text)
+                    : v.text;
+
                 spans.add(TextSpan(
-                  text: '${v.text} ',
+                  text: '$displayText ',
                   style: baseStyle.copyWith(
                     backgroundColor: isActive ? highlightColor : null,
                   ),
@@ -843,6 +970,132 @@ class _VerseEntry {
   final int    idx;
   final _Verse verse;
   const _VerseEntry({required this.idx, required this.verse});
+}
+
+// ─── Basmala prefix stripper ────────────────────────────────────────────────
+// The Uthmani text in the offline JSON (and quran.com API) prepends the Basmala
+// to verse 1 of every surah except Al-Fatiha (1) and At-Tawbah (9).
+// Strip it to avoid showing it twice alongside the rendered _Basmala widget.
+
+/// Strips the Basmala from the beginning of [text] if present.
+///
+/// Comparison is done after removing all Arabic diacritics (tashkeel) and
+/// normalising Alef-wasla (ٱ → ا), so it is immune to encoding differences
+/// across data sources (offline JSON, quran.com API, cached data, etc.).
+String _stripBasmalaPrefix(String text) {
+  // Basmala in bare consonants only – no diacritics, standard Alef.
+  const String kBasmalaBase = 'بسم الله الرحمن الرحيم';
+
+  // Remove all Arabic diacritical marks and normalise Alef-wasla → Alef.
+  String normalise(String s) => s
+      .replaceAll(
+        RegExp(
+          r'[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]',
+        ),
+        '',
+      )
+      .replaceAll('\u0671', '\u0627'); // Alef-wasla → Alef
+
+  if (!normalise(text).startsWith(kBasmalaBase)) return text;
+
+  // Walk the *original* text to find the index corresponding to
+  // kBasmalaBase.length normalised (non-diacritic) characters.
+  int origIdx = 0;
+  int normCount = 0;
+  final basLen = kBasmalaBase.length;
+
+  while (origIdx < text.length && normCount < basLen) {
+    final cp = text.codeUnitAt(origIdx);
+    final isDiacritic = (cp >= 0x064B && cp <= 0x065F) ||
+        cp == 0x0670 ||
+        (cp >= 0x06D6 && cp <= 0x06DC) ||
+        (cp >= 0x06DF && cp <= 0x06E4) ||
+        cp == 0x06E7 ||
+        cp == 0x06E8 ||
+        (cp >= 0x06EA && cp <= 0x06ED);
+    if (!isDiacritic) normCount++;
+    origIdx++;
+  }
+
+  // Skip any diacritics attached to the last Basmala consonant (e.g. kasra
+  // on مِ in الرَّحِيمِ). The main loop stops after counting the م itself, leaving
+  // its trailing harakat at origIdx.
+  while (origIdx < text.length) {
+    final cp2 = text.codeUnitAt(origIdx);
+    final trailing = (cp2 >= 0x064B && cp2 <= 0x065F) ||
+        cp2 == 0x0670 ||
+        (cp2 >= 0x06D6 && cp2 <= 0x06DC) ||
+        (cp2 >= 0x06DF && cp2 <= 0x06E4) ||
+        cp2 == 0x06E7 ||
+        cp2 == 0x06E8 ||
+        (cp2 >= 0x06EA && cp2 <= 0x06ED);
+    if (!trailing) break;
+    origIdx++;
+  }
+
+  return text.substring(origIdx).trimLeft();
+}
+
+// ─── Decorative surah header ──────────────────────────────────────────────────
+class _SurahHeader extends StatelessWidget {
+  final int surahNum;
+  final bool isDark;
+  const _SurahHeader({required this.surahNum, required this.isDark});
+
+  Widget _darkFrame(int num) {
+    const Color nameColor = Color(0xFFE8C46A);
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final bool portrait =
+            MediaQuery.of(ctx).orientation == Orientation.portrait;
+        final double w =
+            portrait ? constraints.maxWidth * 0.95 : constraints.maxWidth * 0.8;
+        final double fs =
+            portrait ? w * 0.075 : constraints.maxWidth * 0.05;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Image.asset(
+                'assets/mainframe.png',
+                package: 'qcf_quran',
+                width: w,
+                fit: BoxFit.contain,
+                color: const Color.fromARGB(255, 43, 63, 48),
+                colorBlendMode: BlendMode.color,
+              ),
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  text: 'surah${num.toString().padLeft(3, '0')}',
+                  style: TextStyle(
+                    fontFamily: SurahFontHelper.fontFamily,
+                    package: 'qcf_quran',
+                    color: nameColor,
+                    fontSize: fs,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color nameColor =
+        isDark ? const Color(0xFFE8C46A) : const Color(0xFF3D2000);
+    return HeaderWidget(
+      suraNumber: surahNum,
+      theme: QcfThemeData(
+        headerTextColor: nameColor,
+        customHeaderBuilder: isDark ? _darkFrame : null,
+      ),
+    );
+  }
 }
 
 // ─── Basmala separator ────────────────────────────────────────────────────────

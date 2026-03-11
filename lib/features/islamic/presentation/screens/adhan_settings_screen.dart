@@ -36,6 +36,8 @@ class AdhanSettingsScreen extends StatefulWidget {
 class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   static const MethodChannel _adhanChannel = MethodChannel('quraan/adhan_player');
+    static final Uri _kPreviewArtUri =
+      Uri.parse('android.resource://com.example.quraan/drawable/adhan_art');
 
   late final SettingsService _settings;
   late final AdhanNotificationService _adhanService;
@@ -90,8 +92,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   double _approachingVolume = 0.8;
 
   // ── Audio stream setting ───────────────────────────────────────────────
-  /// 'ringtone' → ring stream (default). 'alarm' → bypasses silent mode.
-  String _adhanAudioStream = 'ringtone';
+  /// 'ringtone' → ring stream. 'alarm' → bypasses silent mode (default).
+  String _adhanAudioStream = 'alarm';
 
   // ── System alarm info ──────────────────────────────────────────────────
   int _systemAlarmCurrent = -1;
@@ -499,17 +501,26 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     try {
       if (sound.isOnline) {
         _onlinePlayer = AudioPlayer();
+        final previewItem = MediaItem(
+          id: sound.id,
+          title: 'اختبار الأذان',
+          album: sound.nameAr,
+          artist: 'القرآن الكريم',
+          displayTitle: 'اختبار الأذان',
+          displaySubtitle: sound.nameAr,
+          artUri: _kPreviewArtUri,
+        );
         final state = _cacheState[sound.id];
         if (state == _CacheState.cached) {
           final f = await _cachedFile(sound);
           await _onlinePlayer!.setAudioSource(AudioSource.uri(
             Uri.file(f.path),
-            tag: MediaItem(id: sound.id, title: sound.nameAr),
+            tag: previewItem,
           ));
         } else if (sound.url != null) {
           await _onlinePlayer!.setAudioSource(AudioSource.uri(
             Uri.parse(sound.url!),
-            tag: MediaItem(id: sound.id, title: sound.nameAr),
+            tag: previewItem,
           ));
         } else {
           throw Exception('No URL available');
@@ -2006,8 +2017,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             SizedBox(width: 8),
             Expanded(child: Text(
               isAr
-                  ? 'الأصوات الأون‌لاين تُشغَّل مباشرةً بدون تحميل. عند انقطاع الإنترنت يُستخدم أذان مكة المكرمة احتياطياً.'
-                  : 'Online sounds stream directly. If offline, Makkah adhan is used as fallback.',
+                  ? 'الأصوات الأونلاين تُحمَّل تلقائياً على جهازك عند اختيارها، وتعمل بدون إنترنت وقت الأذان. عند فشل التحميل يُستخدم أذان مكة المكرمة احتياطياً.'
+                  : 'Online sounds are downloaded automatically when selected and work offline at prayer time. If download fails, Makkah adhan is used as fallback.',
               style: TextStyle(fontSize: 11, color: _textSecondary, height: 1.4),
             )),
           ]),

@@ -59,6 +59,10 @@ void main() async {
   // Schedule upcoming prayer reminders (uses cached location/times when available).
   unawaited(adhanService.ensureScheduled());
 
+  // If the selected adhan sound is online, cache it silently so it plays at
+  // prayer time even when there is no internet connection.
+  unawaited(adhanService.ensureSelectedSoundCached());
+
   // Initialize wird (daily recitation) reminder notifications.
   final wirdNotifService = di.sl<WirdNotificationService>();
   await wirdNotifService.init();
@@ -75,6 +79,8 @@ void main() async {
     androidNotificationChannelName: 'تلاوة القرآن الكريم',
     androidNotificationOngoing: true,
     androidStopForegroundOnPause: true,
+    notificationColor: const Color(0xFF1B5E20), // Islamic dark green
+    androidNotificationIcon: 'drawable/ic_notification',
   );
 
   runApp(const MyApp());

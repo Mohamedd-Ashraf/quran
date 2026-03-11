@@ -5,8 +5,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -26,20 +24,22 @@ class QuranRadioScreen extends StatefulWidget {
 
 class _QuranRadioScreenState extends State<QuranRadioScreen>
     with TickerProviderStateMixin {
-  late final AudioPlayer _player;
   late final AnimationController _waveController;
   late final AnimationController _pulseController;
-  StreamSubscription<PlayerState>? _playerStateSub;
+  StreamSubscription<AyahAudioState>? _audioStateSub;
 
-  // إذاعة القرآن الكريم بالقاهرة — Official Egyptian Radio streams
+  // Prefer the more reliable URLs first, then fall back to the official ones.
   static const _streams = [
-    _RadioStream(label: 'جودة منخفضة', labelEn: 'Low Quality',  url: 'http://live.sec.gov.eg:9090/quranlow'),
-    _RadioStream(label: 'جودة عالية',  labelEn: 'High Quality', url: 'http://live.sec.gov.eg:9090/quranhi'),
-  ];
-
-  static const _fallbackUrls = [
-    'http://media1.radioways.com/quran',
-    'https://n07.radiojar.com/8s5u5tpdtwzuv',
+    _RadioStream(
+      label: 'جودة منخفضة',
+      labelEn: 'Low Quality',
+      urls: ['https://n07.radiojar.com/8s5u5tpdtwzuv', 'http://live.sec.gov.eg:9090/quranlow', 'http://media1.radioways.com/quran'],
+    ),
+    _RadioStream(
+      label: 'جودة عالية',
+      labelEn: 'High Quality',
+      urls: ['https://n07.radiojar.com/8s5u5tpdtwzuv', 'http://live.sec.gov.eg:9090/quranhi', 'http://media1.radioways.com/quran'],
+    ),
   ];
 
   int   _selectedStreamIndex = 0;
@@ -47,95 +47,111 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
   bool  _connecting          = false; // re-entrancy guard
   bool  _cancelConnect       = false; // cancellation flag
   bool  _usingFallback       = false;
-  Timer? _reconnectDebounce; // debounce unexpected-drop reconnects
   int _connectAttemptId      = 0;
 
   // ──────────────────────────  Lifecycle  ──────────────────────────
   @override
   void initState() {
     super.initState();
-    _player = AudioPlayer();
     _waveController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
+      duration: const Duration(milliseconds: 2600),
+    );
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
 
-    // Detect unexpected mid-stream drops from the server.
-    _playerStateSub = _player.playerStateStream.listen(_onPlayerStateChanged);
-
-    // Stop the Quran audio player first so just_audio_background releases
-    // its single-player slot before we register the radio player.
-    // AudioPlayer.stop() calls _setPlatformActive(false) which clears the
-    // background plugin's registered player reference.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await context.read<AyahAudioCubit>().stop();
-      if (mounted) _connect();
+      final cubit = context.read<AyahAudioCubit>();
+      _audioStateSub = cubit.stream.listen(_syncFromAudioState);
+      _syncFromAudioState(cubit.state);
+      if (cubit.state.mode != AyahAudioMode.radio ||
+          cubit.state.status == AyahAudioStatus.idle) {
+        await cubit.stop();
+        if (mounted) await _connect();
+      }
     });
   }
 
   @override
   void dispose() {
-    _reconnectDebounce?.cancel();
-    _playerStateSub?.cancel();
-    _playerStateSub = null;
-    // Stop before dispose so ExoPlayer clears its buffer cleanly.
-    _player.stop().ignore();
-    _player.dispose();
+    _audioStateSub?.cancel();
+    _audioStateSub = null;
     _waveController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
 
-  void _onPlayerStateChanged(PlayerState ps) {
-    if (!mounted || _connecting || _playerStateSub == null) return;
+  void _syncFromAudioState(AyahAudioState audioState) {
+    if (!mounted) return;
 
-    if (ps.playing) {
-      _reconnectDebounce?.cancel();
-      if (_state != _RadioState.playing) {
-        setState(() => _state = _RadioState.playing);
+    if (audioState.mode != AyahAudioMode.radio) {
+      if (_state == _RadioState.playing || _state == _RadioState.connecting) {
+        setState(() => _state = _RadioState.paused);
       }
-      if (!_waveController.isAnimating) _waveController.repeat();
+      _waveController.stop();
       return;
     }
 
-    // Only handle truly unexpected server drops:
-    // if we're supposed to be playing but the player went idle externally.
-    // We do NOT handle the idle-after-manual-pause case here because
-    // _togglePlayPause sets _state = paused BEFORE calling _player.stop(),
-    // so _state != playing when this listener fires for a user-initiated stop.
-    if (_state == _RadioState.playing &&
-        ps.processingState == ProcessingState.idle &&
-        !ps.playing) {
-      // Debounce: live streams can transiently report idle during buffer
-      // switches. Wait 3 s before treating it as a real drop.
-      _reconnectDebounce?.cancel();
-      _reconnectDebounce = Timer(const Duration(seconds: 3), () {
-        if (!mounted || _state != _RadioState.playing || _connecting) return;
-        setState(() => _state = _RadioState.connecting);
+    switch (audioState.status) {
+      case AyahAudioStatus.buffering:
+        if (_state != _RadioState.connecting) {
+          setState(() => _state = _RadioState.connecting);
+        }
         _waveController.stop();
-        _connect();
-      });
+      case AyahAudioStatus.playing:
+        if (_state != _RadioState.playing) {
+          setState(() => _state = _RadioState.playing);
+        }
+        if (!_waveController.isAnimating) _waveController.repeat();
+      case AyahAudioStatus.paused:
+        if (_state != _RadioState.paused) {
+          setState(() => _state = _RadioState.paused);
+        }
+        _waveController.stop();
+      case AyahAudioStatus.error:
+        if (_state != _RadioState.error) {
+          setState(() => _state = _RadioState.error);
+        }
+        _waveController.stop();
+      case AyahAudioStatus.idle:
+        if (_state != _RadioState.paused) {
+          setState(() => _state = _RadioState.paused);
+        }
+        _waveController.stop();
     }
   }
 
   bool _isAttemptCurrent(int attemptId) =>
       mounted && !_cancelConnect && attemptId == _connectAttemptId;
 
+  Future<bool> _waitForPlaybackResult(int attemptId) async {
+    final cubit = context.read<AyahAudioCubit>();
+    final deadline = DateTime.now().add(const Duration(seconds: 8));
+    while (_isAttemptCurrent(attemptId) && DateTime.now().isBefore(deadline)) {
+      final audioState = cubit.state;
+      if (audioState.mode == AyahAudioMode.radio) {
+        if (audioState.status == AyahAudioStatus.playing) return true;
+        if (audioState.status == AyahAudioStatus.error) return false;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    return false;
+  }
+
   Future<void> _cancelInFlightConnection() async {
-    _reconnectDebounce?.cancel();
+    final cubit = context.read<AyahAudioCubit>();
     _cancelConnect = true;
     _connectAttemptId++;
-    await _player.stop();
+    await cubit.stop();
   }
 
   // ──────────────────────────  Connection  ─────────────────────────
   Future<void> _connect() async {
     if (_connecting) return;
+    final cubit = context.read<AyahAudioCubit>();
     final int attemptId = ++_connectAttemptId;
     _connecting    = true;
     _cancelConnect = false;
@@ -157,10 +173,8 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
 
       if (!_isAttemptCurrent(attemptId)) return;
 
-      final urlsToTry = [
-        _streams[_selectedStreamIndex].url,
-        ..._fallbackUrls,
-      ];
+      final stream = _streams[_selectedStreamIndex];
+      final urlsToTry = stream.urls;
 
       for (int i = 0; i < urlsToTry.length; i++) {
         if (!_isAttemptCurrent(attemptId)) return;
@@ -168,35 +182,29 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
         if (!_isAttemptCurrent(attemptId)) return;
 
         try {
-          await _player
-              .setAudioSource(
-                AudioSource.uri(
-                  Uri.parse(urlsToTry[i]),
-                  tag: MediaItem(
-                    id:     'quran_radio_cairo_$i',
-                    title:  'إذاعة القرآن الكريم',
-                    artist: 'الإذاعة المصرية — القاهرة',
-                  ),
-                ),
-              )
-              .timeout(const Duration(seconds: 8));
-          if (!_isAttemptCurrent(attemptId)) {
-            await _player.stop();
-            return;
-          }
+          await cubit.playLiveStream(
+            url: urlsToTry[i],
+            title: 'إذاعة القرآن الكريم',
+            subtitle: 'الإذاعة المصرية — القاهرة',
+          );
+          if (!_isAttemptCurrent(attemptId)) return;
 
-          unawaited(_player.play());
-
-          if (_isAttemptCurrent(attemptId)) {
+          final started = await _waitForPlaybackResult(attemptId);
+          if (started && _isAttemptCurrent(attemptId)) {
             setState(() {
               _state        = _RadioState.playing;
               _usingFallback = i > 0;
             });
             if (!_waveController.isAnimating) _waveController.repeat();
-          } else {
-            await _player.stop();
+            return;
           }
-          return;
+
+          if (!_isAttemptCurrent(attemptId)) return;
+
+          await cubit.stop();
+          if (_isAttemptCurrent(attemptId)) {
+            setState(() => _usingFallback = i > 0);
+          }
         } catch (e) {
           debugPrint('[Radio] URL ${urlsToTry[i]} failed: $e');
           // try next URL
@@ -237,6 +245,8 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
   }
 
   Future<void> _togglePlayPause() async {
+    final cubit = context.read<AyahAudioCubit>();
+
     // While connecting: cancel and return to idle state.
     if (_connecting) {
       await _cancelInFlightConnection();
@@ -249,15 +259,16 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
     }
 
     if (_state == _RadioState.playing) {
-      // Cancel any pending reconnect before stopping.
-      await _cancelInFlightConnection();
-      // IMPORTANT: set state to paused BEFORE awaiting the platform stop call.
-      // Live streams go idle on stop, which fires _onPlayerStateChanged.
-      // If _state were still 'playing' at that moment, the listener would
-      // treat it as an unexpected server drop and auto-reconnect,
-      // cancelling the user's stop request.
+      _cancelConnect = true;
+      _connectAttemptId++;
+      await cubit.pause();
       setState(() => _state = _RadioState.paused);
       _waveController.stop();
+      return;
+    }
+
+    if (_state == _RadioState.paused && cubit.state.mode == AyahAudioMode.radio) {
+      await cubit.resume();
       return;
     }
 
@@ -324,15 +335,12 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
       body: _RadioBackground(
         isDark: isDark,
         child: SafeArea(
-          child: StreamBuilder<PlayerState>(
-            stream: _player.playerStateStream,
-            builder: (context, _) {
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
                       const SizedBox(height: 28),
 
                       // ── Station identity card ──
@@ -415,13 +423,10 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
                           onRetry: _connect,
                         ),
                       ],
-
                       const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -629,20 +634,21 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const barCount = 22;
+    const barCount = 16;
     final spacing  = size.width / (barCount * 2 - 1);
 
     for (int i = 0; i < barCount; i++) {
-      final phase     = (i / barCount + progress) * math.pi * 2;
-      final amp       = isActive
-          ? (math.sin(phase) * 0.40 + math.sin(phase * 2.1) * 0.15 + 0.60)
-              .clamp(0.12, 1.0)
-          : (0.18 + (i % 3) * 0.06); // subtle static bars when paused
+      final normalized = i / (barCount - 1);
+      final centerBias = 1 - ((normalized - 0.5).abs() * 1.7).clamp(0.0, 1.0);
+      final phase = progress * math.pi * 2 + normalized * math.pi;
+      final amp = isActive
+          ? (0.18 + centerBias * 0.30 + math.sin(phase) * 0.08).clamp(0.16, 0.62)
+          : (0.16 + centerBias * 0.10);
       final h         = size.height * amp;
       final x         = i * spacing * 2;
       final y         = (size.height - h) / 2;
 
-      final alpha = isActive ? 0.80 : 0.30;
+      final alpha = isActive ? 0.72 : 0.22;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(x, y, spacing, h),
@@ -1057,8 +1063,8 @@ class _ErrorCard extends StatelessWidget {
 class _RadioStream {
   final String label;   // Arabic label
   final String labelEn; // English label
-  final String url;
-  const _RadioStream({required this.label, required this.labelEn, required this.url});
+  final List<String> urls;
+  const _RadioStream({required this.label, required this.labelEn, required this.urls});
 }
 
 
