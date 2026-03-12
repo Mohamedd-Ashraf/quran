@@ -76,7 +76,13 @@ class AdhanNotificationService {
   // Maximum days we'll ever schedule (hard ceiling so we never cross 60 days).
   static const int _maxDaysToSchedule = 60;
   // Minimum days to guarantee reliability even with many reminders enabled.
-  static const int _minDaysToSchedule = 14;
+  static const int _minDaysToSchedule = 30;
+  // Cairo, Egypt fallback used only when no location is available yet.
+  static final Coordinates _defaultEgyptCoordinates = Coordinates(
+    30.0444,
+    31.2357,
+  );
+  static const int _rescheduleWindowDays = 7;
 
   final FlutterLocalNotificationsPlugin _plugin;
   final SettingsService _settings;
@@ -160,7 +166,7 @@ class AdhanNotificationService {
             'fallbackSoundName': AdhanSounds.offlineFallback.id,
             'useAlarmStream': _settings.getAdhanAudioStream() == 'alarm',
             if (prayerArabicName != null && prayerArabicName.isNotEmpty) ...{
-              'notifTitle': 'أذان ${prayerArabicName}',
+              'notifTitle': 'أذان $prayerArabicName',
               'notifBody': 'اضغط لإيقاف الأذان',
             },
           },
@@ -190,7 +196,7 @@ class AdhanNotificationService {
   /// These alarms survive the app being killed and fire AdhanPlayerService.
   Future<void> _scheduleNativeAlarms(List<Map<String, dynamic>> preview) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
-    const _arabicPrayerNames = {
+    const arabicPrayerNames = {
       'fajr': 'الفجر',
       'dhuhr': 'الظهر',
       'asr': 'العصر',
@@ -206,7 +212,7 @@ class AdhanNotificationService {
         final dt = DateTime.tryParse(timeStr);
         if (dt == null) return null;
         final prayer = item['prayer'] as String? ?? '';
-        final arabicName = _arabicPrayerNames[prayer] ?? (item['label'] as String? ?? '');
+        final arabicName = arabicPrayerNames[prayer] ?? (item['label'] as String? ?? '');
         return <String, dynamic>{
           'id': item['id'] as int,
           'timeMs': dt.millisecondsSinceEpoch,
@@ -549,7 +555,7 @@ class AdhanNotificationService {
     await _downloadAdhanSound(sound);
   }
 
-  Future<void> ensureScheduled() async {
+  Future<void> ensureScheduled({bool requestLocationPermission = true}) async {
     // If a scheduling is already in progress, just flag that another run is
     // needed after it finishes. This prevents concurrent calls from racing
     // (cancel-then-add interleaving) and blowing past the 500-alarm limit.
@@ -559,22 +565,33 @@ class AdhanNotificationService {
     }
     _isScheduling = true;
     try {
-      await _doEnsureScheduled();
+      await _doEnsureScheduled(
+        requestLocationPermission: requestLocationPermission,
+      );
       // If settings changed while we were scheduling, run once more.
       while (_schedulePending) {
         _schedulePending = false;
-        await _doEnsureScheduled();
+        await _doEnsureScheduled(
+          requestLocationPermission: requestLocationPermission,
+        );
       }
     } finally {
       _isScheduling = false;
     }
   }
 
-  Future<void> _doEnsureScheduled() async {
+  Future<void> ensureScheduleFresh({bool requestLocationPermission = false}) async {
+    if (!_needsScheduleRefresh()) return;
+    await ensureScheduled(requestLocationPermission: requestLocationPermission);
+  }
+
+  Future<void> _doEnsureScheduled({bool requestLocationPermission = true}) async {
     final enabled = _settings.getAdhanNotificationsEnabled();
     if (!enabled) return;
 
-    final coords = await _ensureCoordinatesForScheduling();
+    final coords = await _ensureCoordinatesForScheduling(
+      requestPermission: requestLocationPermission,
+    );
     if (coords == null) return;
 
     // Update prayer times cache if invalid or stale
@@ -645,6 +662,31 @@ class AdhanNotificationService {
     }
   }
 
+  bool _needsScheduleRefresh() {
+    if (!_settings.getAdhanNotificationsEnabled()) return false;
+
+    final rawPreview = _settings.getAdhanSchedulePreview();
+    if (rawPreview == null || rawPreview.trim().isEmpty || rawPreview.trim() == '[]') {
+      return true;
+    }
+
+    final lastIso = _settings.getLastAdhanScheduleDateIso();
+    if (lastIso == null || lastIso.isEmpty) return true;
+
+    final lastScheduledDate = DateTime.tryParse(lastIso);
+    if (lastScheduledDate == null) return true;
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final scheduledThrough = DateTime(
+      lastScheduledDate.year,
+      lastScheduledDate.month,
+      lastScheduledDate.day,
+    ).add(Duration(days: computeDaysAhead() - 1));
+    final remainingDays = scheduledThrough.difference(todayDate).inDays;
+    return remainingDays <= _rescheduleWindowDays;
+  }
+
   /// Dynamically computes the optimal number of days to schedule ahead,
   /// keeping total AlarmManager registrations safely under Android's 500-alarm limit.
   ///
@@ -667,9 +709,13 @@ class AdhanNotificationService {
 
     // Alarm types per prayer per day
     int typesPerPrayer = 1; // adhan always
-    if (_settings.getIqamaEnabled()) typesPerPrayer++;
+    if (_settings.getIqamaEnabled()) {
+      typesPerPrayer++;
+    }
     if (_settings.getPrayerReminderEnabled() &&
-        _settings.getPrayerReminderMinutes() > 0) typesPerPrayer++;
+        _settings.getPrayerReminderMinutes() > 0) {
+      typesPerPrayer++;
+    }
 
     // Always reserve salawatCap regardless of getSalawatEnabled() to prevent
     // overflow if the setting is read inconsistently mid-cycle (e.g. during a
@@ -725,7 +771,9 @@ class AdhanNotificationService {
 
   Future<void> cancelAll() => _plugin.cancelAll();
 
-  Future<Coordinates?> _ensureCoordinatesForScheduling() async {
+  Future<Coordinates?> _ensureCoordinatesForScheduling({
+    bool requestPermission = true,
+  }) async {
     final cached = _settings.getLastKnownCoordinates();
     if (cached != null) return cached;
 
@@ -734,19 +782,22 @@ class AdhanNotificationService {
       return Coordinates(cachedFromTimes.latitude, cachedFromTimes.longitude);
     }
 
-    // Try getting a fresh location once.
-    final permission = await _location.ensurePermission();
-    if (permission != LocationPermissionState.granted) {
-      return null;
+    if (requestPermission) {
+      final permission = await _location.ensurePermission();
+      if (permission == LocationPermissionState.granted) {
+        try {
+          final pos = await _location.getPosition(
+            timeout: const Duration(seconds: 12),
+          );
+          await _settings.setLastKnownCoordinates(pos.latitude, pos.longitude);
+          return Coordinates(pos.latitude, pos.longitude);
+        } catch (_) {
+          // Fall through to Egypt fallback so first-launch scheduling never stays empty.
+        }
+      }
     }
 
-    try {
-      final pos = await _location.getPosition(timeout: const Duration(seconds: 12));
-      await _settings.setLastKnownCoordinates(pos.latitude, pos.longitude);
-      return Coordinates(pos.latitude, pos.longitude);
-    } catch (_) {
-      return null;
-    }
+    return _defaultEgyptCoordinates;
   }
 
   Future<({List<Map<String, dynamic>> scheduled, List<Map<String, dynamic>> iqama, List<Map<String, dynamic>> approaching})> _scheduleForDate(Coordinates coordinates, DateTime date) async {

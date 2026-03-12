@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -32,7 +31,7 @@ void main() async {
   );
   // Ensure Firestore is initialized (fixes gray screen in release if tree-shaken)
   try {
-    await FirebaseFirestore.instance.settings;
+    FirebaseFirestore.instance.settings;
   } catch (e) {
     debugPrint('Firestore init error: $e');
   }
@@ -56,8 +55,9 @@ void main() async {
   // Scheduling will no-op if permissions are denied.
   unawaited(adhanService.requestPermissions());
 
-  // Schedule upcoming prayer reminders (uses cached location/times when available).
-  unawaited(adhanService.ensureScheduled());
+  // Prime adhan scheduling immediately from cached coordinates or Egypt fallback.
+  // The first foreground frame will retry with a real location permission prompt.
+  unawaited(adhanService.ensureScheduleFresh());
 
   // If the selected adhan sound is online, cache it silently so it plays at
   // prayer time even when there is no internet connection.
@@ -99,10 +99,21 @@ class _GlobalWirdLifecycleObserver extends StatefulWidget {
 
 class _GlobalWirdLifecycleObserverState
     extends State<_GlobalWirdLifecycleObserver> with WidgetsBindingObserver {
+  bool _requestedInitialAdhanSchedule = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _requestedInitialAdhanSchedule) return;
+      _requestedInitialAdhanSchedule = true;
+      unawaited(
+        di.sl<AdhanNotificationService>().ensureScheduleFresh(
+          requestLocationPermission: true,
+        ),
+      );
+    });
   }
 
   @override
@@ -114,6 +125,8 @@ class _GlobalWirdLifecycleObserverState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Refresh the adhan schedule before the programmed window runs out.
+      unawaited(di.sl<AdhanNotificationService>().ensureScheduleFresh());
       // Re-schedule wird notifications every time the app comes to foreground.
       // This ensures follow-up reminders are refreshed even when the user is
       // not on the Wird screen.
