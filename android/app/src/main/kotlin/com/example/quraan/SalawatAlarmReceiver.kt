@@ -49,7 +49,7 @@ class SalawatAlarmReceiver : BroadcastReceiver() {
                 val sound  = alarm["sound"]  as? String ?: "salawat_1"
                 if (timeMs <= now) continue
                 val pi = pendingIntentFor(context, id, title, body, sound)
-                setExactAlarm(am, timeMs, pi)
+                setExactAlarm(context, am, timeMs, pi)
                 count++
             }
             Log.d(TAG, "Salawat: scheduled $count alarm(s)")
@@ -90,16 +90,15 @@ class SalawatAlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        private fun setExactAlarm(am: AlarmManager, timeMs: Long, pi: PendingIntent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                try {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                } catch (e: SecurityException) {
-                    am.set(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                }
-            } else {
-                am.setExact(AlarmManager.RTC_WAKEUP, timeMs, pi)
-            }
+        private fun setExactAlarm(context: Context, am: AlarmManager, timeMs: Long, pi: PendingIntent) {
+            // setAlarmClock() grants the highest scheduling priority and permission to
+            // start foreground services from background at fire time.
+            val showIntent = PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(timeMs, showIntent), pi)
         }
     }
 
@@ -130,7 +129,7 @@ class SalawatAlarmReceiver : BroadcastReceiver() {
         val sound = intent.getStringExtra("sound") ?: "salawat_1"
 
         // Use the same alarm/ringtone stream as the user selected for the adhan.
-        val useAlarmStream = prefs.getString("flutter.adhan_audio_stream", "ringtone") == "alarm"
+        val useAlarmStream = prefs.getString("flutter.adhan_audio_stream", "alarm") != "ringtone"
 
         Log.d(TAG, "Salawat alarm fired — stream=${if (useAlarmStream) "alarm" else "ringtone"}, sound=$sound")
 
@@ -229,7 +228,7 @@ class SalawatAlarmReceiver : BroadcastReceiver() {
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                setExactAlarm(am, triggerMs, pi)
+                setExactAlarm(context, am, triggerMs, pi)
                 newAlarms.add(mapOf("id" to id, "timeMs" to triggerMs,
                                     "title" to title, "body" to text, "sound" to soundName))
                 idx++

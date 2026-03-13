@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Main widget background: deep Islamic green gradient with rounded corners.
+    Colors mirror the Flutter app's AppColors (primary = #0D5E3A, primaryDark = #064428).
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer shadow / border layer -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#20000000" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <!-- Gradient background -->
+    <item
+        android:top="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#0A3D26"
+                android:centerColor="#0D5E3A"
+                android:endColor="#064428"
+                android:type="linear" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <!-- Subtle gold border highlight at top -->
+    <item android:bottom="1dp" android:left="1dp" android:right="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="1dp" android:color="#40D4AF37" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+</layer-list>

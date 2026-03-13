@@ -51,11 +51,9 @@ void main() async {
   final adhanService = di.sl<AdhanNotificationService>();
   await adhanService.init();
 
-  // Best-effort: ask for notification + exact alarm permission up-front.
-  // Scheduling will no-op if permissions are denied.
-  unawaited(adhanService.requestPermissions());
-
   // Prime adhan scheduling immediately from cached coordinates or Egypt fallback.
+  // Permissions are requested from the first-frame callback (with a delay)
+  // so they never appear before the UI is visible.
   // The first foreground frame will retry with a real location permission prompt.
   unawaited(adhanService.ensureScheduleFresh());
 
@@ -66,7 +64,6 @@ void main() async {
   // Initialize wird (daily recitation) reminder notifications.
   final wirdNotifService = di.sl<WirdNotificationService>();
   await wirdNotifService.init();
-  unawaited(wirdNotifService.requestPermissions());
   // scheduleForPlan() re-registers BOTH the main daily reminder AND follow-ups
   // on every app start (covers device reboots that clear scheduled alarms).
   unawaited(wirdNotifService.scheduleForPlan());
@@ -108,11 +105,10 @@ class _GlobalWirdLifecycleObserverState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _requestedInitialAdhanSchedule) return;
       _requestedInitialAdhanSchedule = true;
-      unawaited(
-        di.sl<AdhanNotificationService>().ensureScheduleFresh(
-          requestLocationPermission: true,
-        ),
-      );
+      // Schedule adhan immediately from cached coordinates or Egypt fallback.
+      // Permissions are requested from MainNavigator (after any What's New
+      // screen is dismissed) so dialogs never interrupt the intro flow.
+      unawaited(di.sl<AdhanNotificationService>().ensureScheduleFresh());
     });
   }
 

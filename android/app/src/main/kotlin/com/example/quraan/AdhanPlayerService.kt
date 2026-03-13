@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -105,7 +106,7 @@ class AdhanPlayerService : Service() {
     private var volumePollThread: Thread? = null
 
     companion object {
-        const val CHANNEL_ID      = "adhan_player_service_ch"
+        const val CHANNEL_ID      = "adhan_ch_v3"
         const val NOTIF_ID        = 7_777
         const val EXTRA_SOUND               = "soundName"
         /** Pass true to auto-stop playback after shortCutoffSeconds. */
@@ -384,11 +385,7 @@ class AdhanPlayerService : Service() {
             }
 
             val prefs  = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            // Flutter stores doubles as Strings in SharedPreferences on Android.
-            val volume = prefs.getString(volumeKey, null)
-                ?.toFloatOrNull()
-                ?.coerceIn(0.0f, 1.0f)
-                ?: 1.0f
+            val volume = readVolumeFromPrefs(prefs, volumeKey)
 
             /** Common post-prepare: set volume, start, register receiver, set short-mode timer. */
             fun startPlayback(mp: MediaPlayer) {
@@ -469,6 +466,55 @@ class AdhanPlayerService : Service() {
         }
     }
 
+    /**
+     * Reads a volume value from Flutter SharedPreferences and normalizes it to [0.0, 1.0].
+     *
+     * Depending on plugin/version/migration path, doubles can be stored as different native
+     * types. Supporting all numeric/string variants prevents falling back to full volume.
+     */
+    private fun readVolumeFromPrefs(
+        prefs: SharedPreferences,
+        key: String,
+        fallback: Float = 1.0f
+    ): Float {
+        val raw = prefs.all[key]
+        val parsed = when (raw) {
+            is Float -> raw
+            is Double -> raw.toFloat()
+            is Int -> raw.toFloat()
+            is Long -> raw.toFloat()
+            is String -> parseFlutterDoubleString(raw)
+            else -> null
+        }
+        return (parsed ?: fallback).coerceIn(0.0f, 1.0f)
+    }
+
+    /**
+     * shared_preferences on Android may store doubles as encoded strings (legacy format).
+     * Accepts plain numeric strings and known Flutter double prefixes.
+     */
+    private fun parseFlutterDoubleString(raw: String): Float? {
+        raw.toFloatOrNull()?.let { return it }
+
+        val knownPrefixes = listOf(
+            "This is the prefix for a double.",
+            // Base64 of the same prefix used by some plugin versions/migrations.
+            "VGhpcyBpcyB0aGUgcHJlZml4IGZvciBhIGRvdWJsZS4"
+        )
+
+        for (prefix in knownPrefixes) {
+            if (raw.startsWith(prefix)) {
+                raw.removePrefix(prefix).toFloatOrNull()?.let { return it }
+            }
+        }
+
+        // Last-resort: extract first numeric token from mixed-content string.
+        val number = Regex("[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?")
+            .find(raw)
+            ?.value
+        return number?.toFloatOrNull()
+    }
+
     private fun stopAdhan() {
         cancelShortModeTimer()
         stopVolumePolling()            // stop polling before deactivating everything else
@@ -502,13 +548,16 @@ class AdhanPlayerService : Service() {
 
         // Set MediaMetadata so the OS compact-player widget and lock screen
         // show the correct prayer name and artwork instead of a blank card.
-        val artBitmap = getDrawableBitmap(R.drawable.adhan_art)
+        val artBitmap = getAssetBitmap("assets/logo/files/mosque.jpg")
+        // Use non-breaking spaces to prevent Samsung's MediaStyle from word-wrapping Arabic.
+        fun String.nbsps() = replace(' ', '\u00A0')
+        val metaTitle = (title ?: "الأذان").nbsps()
         val meta = MediaMetadata.Builder()
-            .putString(MediaMetadata.METADATA_KEY_TITLE,            title ?: "الأذان")
-            .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,    title ?: "الأذان")
-            .putString(MediaMetadata.METADATA_KEY_ARTIST,           "حان الآن موعد الصلاة")
-            .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, "اضغط لإيقاف الأذان")
-            .putString(MediaMetadata.METADATA_KEY_ALBUM,            "أوقات الصلاة")
+            .putString(MediaMetadata.METADATA_KEY_TITLE,            metaTitle)
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,    metaTitle)
+            .putString(MediaMetadata.METADATA_KEY_ARTIST,           "حان\u00A0الآن\u00A0موعد\u00A0الصلاة")
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, "اضغط\u00A0لإيقاف\u00A0الأذان")
+            .putString(MediaMetadata.METADATA_KEY_ALBUM,            "أوقات\u00A0الصلاة")
             .also { b -> if (artBitmap != null) {
                 b.putBitmap(MediaMetadata.METADATA_KEY_ART,       artBitmap)
                 b.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, artBitmap)
@@ -773,6 +822,22 @@ class AdhanPlayerService : Service() {
         bmp
     } catch (_: Exception) { null }
 
+    /** Decodes a Flutter asset into a Bitmap for notification artwork.
+     *
+     * Flutter stores declared assets inside the APK under flutter_assets/<declared-path>.
+     * Android's AssetManager sees the path relative to the APK's assets/ directory, so
+     * the full AssetManager key is "flutter_assets/<pubspec-relative-path>".
+     * e.g. pubspec: "assets/logo/files/mosque.jpg" → key: "flutter_assets/assets/logo/files/mosque.jpg"
+     */
+    private fun getAssetBitmap(assetPath: String): Bitmap? {
+        // Normalise: strip a leading "flutter_assets/" to avoid double-prefixing.
+        val normalised = assetPath.removePrefix("flutter_assets/")
+        val key = "flutter_assets/$normalised"
+        return try {
+            assets.open(key).use { input -> BitmapFactory.decodeStream(input) }
+        } catch (_: Exception) { null }
+    }
+
     private fun buildNotification(
         title: String? = null,
         body: String? = null,
@@ -783,6 +848,7 @@ class AdhanPlayerService : Service() {
             this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Opens the app only when the user intentionally taps the notification body.
         val openPi = packageManager.getLaunchIntentForPackage(packageName)?.let {
             PendingIntent.getActivity(this, 1, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
@@ -790,7 +856,7 @@ class AdhanPlayerService : Service() {
         val iconRes = resources.getIdentifier("ic_notification", "drawable", packageName)
             .takeIf { it != 0 } ?: R.mipmap.ic_launcher
 
-        val largeIcon = getDrawableBitmap(R.drawable.adhan_art)
+        val largeIcon = getAssetBitmap("assets/logo/files/mosque.jpg")
 
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
@@ -801,13 +867,31 @@ class AdhanPlayerService : Service() {
 
         if (largeIcon != null) builder.setLargeIcon(largeIcon)
 
+        // Replace regular spaces with non-breaking spaces (\u00A0) in both title and body.
+        // Samsung's MediaStyle notification word-wraps at regular spaces, which causes
+        // multi-word Arabic strings like "اضغط لإيقاف الأذان" to be clipped to just the
+        // first word. Non-breaking spaces prevent that line break.
+        fun String.nbsps() = replace(' ', '\u00A0')
+        val safeTitle = (title ?: "الأذان").nbsps()
+        val safeBody  = (body  ?: "اضغط\u00A0لإيقاف\u00A0الأذان").nbsps()
+
+        // Use a system stop/close icon so the action button renders visibly on
+        // Android 15 Samsung "Live Notifications" compact cards (null icons are invisible).
+        @Suppress("DEPRECATION")
+        val stopAction = Notification.Action.Builder(
+            android.R.drawable.ic_media_pause,
+            stopLabel?.replace(' ', '\u00A0') ?: "إيقاف\u00A0الأذان",
+            stopPi
+        ).build()
+
         return builder
             .setSmallIcon(iconRes)
             .setColor(0xFF1B5E20.toInt()) // Islamic dark green accent
             .setColorized(true)
-            .setContentTitle(title ?: "الأذان")
-            .setContentText(body ?: "اضغط لإيقاف الأذان")
+            .setContentTitle(safeTitle)
+            .setContentText(safeBody)
             .setContentIntent(openPi)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)  // show on lock screen so stop is accessible
             .setOngoing(true)
             .setStyle(
                 Notification.MediaStyle().also { style ->
@@ -815,13 +899,7 @@ class AdhanPlayerService : Service() {
                     style.setShowActionsInCompactView(0) // show stop button in compact view
                 }
             )
-            .addAction(
-                Notification.Action.Builder(
-                    null,
-                    stopLabel ?: "إيقاف الأذان",
-                    stopPi
-                ).build()
-            )
+            .addAction(stopAction)
             .build()
     }
 
@@ -829,12 +907,14 @@ class AdhanPlayerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Adhan Player",
-                NotificationManager.IMPORTANCE_LOW
+                "أذان",
+                NotificationManager.IMPORTANCE_HIGH   // shows heads-up banner when screen is on
             ).apply {
-                description = "Adhan audio playback foreground service"
-                setSound(null, null)
+                description = "Adhan prayer time alert"
+                setSound(null, null)          // audio comes from MediaPlayer, not the notification
                 enableVibration(false)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET  // hidden on lock screen
             }
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }

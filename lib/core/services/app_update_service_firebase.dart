@@ -1,4 +1,6 @@
-﻿import 'dart:io';
+﻿import 'dart:ffi' show Abi;
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,12 +26,23 @@ class AppUpdateServiceFirebase {
   // Remote Config keys
   static const String _keyLatestVersion = 'latest_version';
   static const String _keyMinimumVersion = 'minimum_version';
-  static const String _keyIsMandatory = 'mandatory_update';
+  static const String _keyIsMandatory = 'is_mandatory';
+  // Backward-compat aliases still used in some Firebase templates.
+  static const String _keyIsMandatoryLegacy = 'mandatory_update';
+  // Generic download URL — used for iOS and as fallback when an ABI-specific URL
+  // is not set in Remote Config.
   static const String _keyDownloadUrl = 'download_url';
+  // Per-ABI download URLs for split-per-ABI Android APKs.
+  // If the device ABI has a specific URL it will be preferred over _keyDownloadUrl.
+  // Leave empty in Remote Config to fall back to the generic URL.
+  static const String _keyDownloadUrlArm64   = 'download_url_arm64_v8a';
+  static const String _keyDownloadUrlArmeabi = 'download_url_armeabi_v7a';
+  static const String _keyDownloadUrlX86_64  = 'download_url_x86_64';
   static const String _keyChangelogAr = 'changelog_ar';
   static const String _keyChangelogEn = 'changelog_en';
   static const String _keyReleaseDate = 'release_date';
-  static const String _keyEnableInAppUpdate = 'use_in_app_update'; // Android only
+  static const String _keyEnableInAppUpdate = 'enable_in_app_update'; // Android only
+  static const String _keyEnableInAppUpdateLegacy = 'use_in_app_update'; // Android only (legacy)
   static const String _keyUpdatePriority = 'update_priority';
 
   // Preference keys
@@ -38,6 +51,18 @@ class AppUpdateServiceFirebase {
 
   AppUpdateServiceFirebase(this._remoteConfig, this._prefs);
 
+  Future<void> _refreshRemoteConfig({bool force = false}) async {
+    if (force || kDebugMode) {
+      await _remoteConfig.setConfigSettings(
+        RemoteConfigSettings(
+          fetchTimeout: const Duration(seconds: 10),
+          minimumFetchInterval: Duration.zero,
+        ),
+      );
+    }
+    await _remoteConfig.fetchAndActivate();
+  }
+
   /// Initialize Firebase Remote Config with default values
   Future<void> initialize() async {
     print('🚀 Initializing Firebase Remote Config...');
@@ -45,7 +70,9 @@ class AppUpdateServiceFirebase {
       await _remoteConfig.setConfigSettings(
         RemoteConfigSettings(
           fetchTimeout: const Duration(seconds: 10),
-          minimumFetchInterval: Duration.zero, // For testing - fetch immediately
+          // In debug we always fetch the latest published template immediately.
+          minimumFetchInterval:
+              kDebugMode ? Duration.zero : const Duration(hours: 1),
         ),
       );
       print('✅ Remote Config settings configured');
@@ -55,11 +82,17 @@ class AppUpdateServiceFirebase {
         _keyLatestVersion: '1.0.3',
         _keyMinimumVersion: '1.0.3',
         _keyIsMandatory: false,
+        _keyIsMandatoryLegacy: false,
         _keyDownloadUrl: '',
+        // ABI-specific defaults — empty means "fall back to generic download_url"
+        _keyDownloadUrlArm64: '',
+        _keyDownloadUrlArmeabi: '',
+        _keyDownloadUrlX86_64: '',
         _keyChangelogAr: '',
         _keyChangelogEn: '',
         _keyReleaseDate: DateTime.now().toIso8601String(),
         _keyEnableInAppUpdate: true,
+        _keyEnableInAppUpdateLegacy: true,
         _keyUpdatePriority: 3,
       });
       print('✅ Remote Config defaults set');
@@ -75,12 +108,13 @@ class AppUpdateServiceFirebase {
   }
 
   /// Check for app updates using Firebase Remote Config
-  Future<AppUpdateInfo?> checkForUpdate() async {
+  Future<AppUpdateInfo?> checkForUpdate({bool forceRefresh = false}) async {
     try {
       print('🔄 Checking for updates...');
-      
-      // Fetch latest config from Firebase
-      await _remoteConfig.fetchAndActivate();
+
+      // Fetch latest config from Firebase.
+      // forceRefresh=true bypasses cache (used by manual check).
+      await _refreshRemoteConfig(force: forceRefresh);
       print('✅ Remote Config fetched and activated');
 
       // Get current app version
@@ -88,19 +122,36 @@ class AppUpdateServiceFirebase {
       final currentVersion = packageInfo.version;
       print('📱 Current version: $currentVersion');
 
-      // Get update info from Remote Config
-      final latestVersion = _remoteConfig.getString(_keyLatestVersion);
-      final minimumVersion = _remoteConfig.getString(_keyMinimumVersion);
-      final isMandatory = _remoteConfig.getBool(_keyIsMandatory);
-      final downloadUrl = _remoteConfig.getString(_keyDownloadUrl);
+      // Get update info from Remote Config and log value source for diagnostics.
+      // This makes it obvious whether a value came from Firebase Console
+      // (remote) or from local defaults (setDefaults).
+      final latestVersionValue = _remoteConfig.getValue(_keyLatestVersion);
+      final minimumVersionValue = _remoteConfig.getValue(_keyMinimumVersion);
+      final latestVersion = latestVersionValue.asString();
+      final minimumVersion = minimumVersionValue.asString();
+        final isMandatory =
+          _remoteConfig.getBool(_keyIsMandatory) ||
+          _remoteConfig.getBool(_keyIsMandatoryLegacy);
+      // Resolve the correct download URL for this device's CPU architecture.
+      // For split-per-ABI builds each ABI has its own APK with a separate URL.
+      final downloadUrl = _getAbiSpecificDownloadUrl();
       final changelogAr = _remoteConfig.getString(_keyChangelogAr);
       final changelogEn = _remoteConfig.getString(_keyChangelogEn);
       final releaseDateStr = _remoteConfig.getString(_keyReleaseDate);
 
+      if (latestVersion.trim().isEmpty) {
+        print('⚠️ latest_version is empty in Remote Config');
+        return null;
+      }
+
       print('🆕 Latest version: $latestVersion');
       print('📦 Minimum version: $minimumVersion');
-      print('⚠️ Mandatory: $isMandatory');
-      print('🔗 Download URL: $downloadUrl');
+      print('🧭 latest_version source: ${latestVersionValue.source}');
+      print('🧭 minimum_version source: ${minimumVersionValue.source}');
+        print('⚠️ Mandatory: $isMandatory '
+          '(is_mandatory=${_remoteConfig.getBool(_keyIsMandatory)}, '
+          'mandatory_update=${_remoteConfig.getBool(_keyIsMandatoryLegacy)})');
+      print('🔗 Download URL (ABI-resolved): $downloadUrl');
 
       // Build changelog map
       final changelogMap = <String, String>{};
@@ -172,7 +223,9 @@ class AppUpdateServiceFirebase {
     if (!Platform.isAndroid) return false;
 
     try {
-      final enableInAppUpdate = _remoteConfig.getBool(_keyEnableInAppUpdate);
+      final enableInAppUpdate =
+          _remoteConfig.getBool(_keyEnableInAppUpdate) ||
+          _remoteConfig.getBool(_keyEnableInAppUpdateLegacy);
       if (!enableInAppUpdate) return false;
 
       final updateInfo = await iap.InAppUpdate.checkForUpdate();
@@ -269,7 +322,7 @@ class AppUpdateServiceFirebase {
   /// Force check for updates (ignores time interval and skipped versions)
   Future<AppUpdateInfo?> forceCheckForUpdate() async {
     await clearSkippedVersion();
-    return checkForUpdate();
+    return checkForUpdate(forceRefresh: true);
   }
 
   /// Get update availability status (for UI indicators)
@@ -284,6 +337,54 @@ class AppUpdateServiceFirebase {
     } catch (e) {
       return iap.UpdateAvailability.updateNotAvailable;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ABI resolution helpers
+  // ---------------------------------------------------------------------------
+
+  /// Returns the device's primary ABI as a Remote Config key suffix, or an
+  /// empty string if the ABI cannot be determined (e.g. non-Android platforms).
+  ///
+  /// Possible return values:
+  ///   'arm64_v8a'   → 64-bit ARM  (most modern Android phones)
+  ///   'armeabi_v7a' → 32-bit ARM  (older / low-end devices)
+  ///   'x86_64'      → 64-bit x86  (emulators, some Chromebooks)
+  ///   ''            → unknown / iOS → fall back to generic download_url
+  String _detectAbi() {
+    if (!Platform.isAndroid) return '';
+    try {
+      final abi = Abi.current();
+      if (abi == Abi.androidArm64) return 'arm64_v8a';
+      if (abi == Abi.androidArm)   return 'armeabi_v7a';
+      // androidX64 covers 64-bit x86 emulators.
+      // androidIA32 covers 32-bit x86 (extremely rare on real devices).
+      if (abi == Abi.androidX64 || abi == Abi.androidIA32) return 'x86_64';
+      return '';
+    } catch (_) {
+      // dart:ffi.Abi.current() is unavailable on some restricted profiles.
+      return '';
+    }
+  }
+
+  /// Returns the download URL that matches this device's CPU architecture.
+  ///
+  /// Priority:
+  ///   1. ABI-specific Remote Config key  (e.g. download_url_arm64_v8a)
+  ///   2. Generic download_url key        (Play Store / direct link)
+  ///   3. Empty string if nothing is set
+  String _getAbiSpecificDownloadUrl() {
+    final abiSuffix = _detectAbi();
+    if (abiSuffix.isNotEmpty) {
+      final key     = 'download_url_$abiSuffix';
+      final abiUrl  = _remoteConfig.getString(key);
+      if (abiUrl.isNotEmpty) {
+        print('📲 [Update] ABI=$abiSuffix → using per-ABI URL ($key)');
+        return abiUrl;
+      }
+      print('📲 [Update] ABI=$abiSuffix → per-ABI URL empty, falling back to generic');
+    }
+    return _remoteConfig.getString(_keyDownloadUrl);
   }
 
   /// Download APK file directly from URL with progress callback

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -246,6 +247,42 @@ class AyahAudioService {
     return sources.cast<AyahAudioSource>();
   }
 
+  /// Fast cache lookup — returns a [MergedSurahAudio] if the merged MP3 and
+  /// its metadata are already on disk, otherwise returns null immediately.
+  /// Does NOT concatenate files; call [prepareMergedSurahAudio] to build the
+  /// cache when it is missing.
+  Future<MergedSurahAudio?> checkMergedSurahCache({
+    required int surahNumber,
+    required int numberOfAyahs,
+  }) async {
+    final bitrateKbps = currentEditionBitrateKbps;
+    if (bitrateKbps == null) return null;
+
+    final tmpDir = await getTemporaryDirectory();
+    final mergedDir = Directory('${tmpDir.path}/merged_surahs');
+    if (!mergedDir.existsSync()) return null;
+
+    final editionSafe = currentEdition.replaceAll('.', '_');
+    final baseName = '${editionSafe}_${surahNumber}_$numberOfAyahs';
+    final mergedFile = File('${mergedDir.path}/$baseName.mp3');
+    final metaFile = File('${mergedDir.path}/$baseName.json');
+
+    if (!mergedFile.existsSync() || !metaFile.existsSync()) return null;
+
+    try {
+      final raw = jsonDecode(await metaFile.readAsString()) as List;
+      return MergedSurahAudio(
+        filePath: mergedFile.path,
+        ayahDurations: raw
+            .whereType<num>()
+            .map((ms) => Duration(milliseconds: ms.toInt()))
+            .toList(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<MergedSurahAudio?> prepareMergedSurahAudio({
     required int surahNumber,
     required int numberOfAyahs,
@@ -281,23 +318,39 @@ class AyahAudioService {
     final ayahDurations = <Duration>[];
 
     try {
+      bool isFirstSource = true;
       for (final source in sources) {
         int byteCount = 0;
         if (source.isLocal) {
-          final file = File(source.localFilePath!);
-          byteCount = file.lengthSync();
-          await sink.addStream(file.openRead());
+          // Read bytes so we can strip the ID3+Xing header from the first
+          // segment.  Ayah files are small (~100–500 KB) so this is fine.
+          var bytes = await File(source.localFilePath!).readAsBytes();
+          if (isFirstSource) bytes = _stripLeadingId3AndXing(bytes);
+          byteCount = bytes.length;
+          sink.add(bytes);
         } else {
           final request = http.Request('GET', source.remoteUri!);
           final response = await _client.send(request);
           if (response.statusCode != 200) {
             throw Exception('Failed to download surah segment');
           }
-          await for (final chunk in response.stream) {
-            byteCount += chunk.length;
-            sink.add(chunk);
+          if (isFirstSource) {
+            // Buffer the whole segment so we can strip the ID3+Xing header.
+            final bb = BytesBuilder();
+            await for (final chunk in response.stream) {
+              bb.add(chunk);
+            }
+            final stripped = _stripLeadingId3AndXing(bb.toBytes());
+            byteCount = stripped.length;
+            sink.add(stripped);
+          } else {
+            await for (final chunk in response.stream) {
+              byteCount += chunk.length;
+              sink.add(chunk);
+            }
           }
         }
+        isFirstSource = false;
 
         final durationMs = ((byteCount * 8) / (bitrateKbps * 1000) * 1000).round();
         ayahDurations.add(Duration(milliseconds: durationMs.clamp(1, 3600000)));
@@ -319,5 +372,104 @@ class AyahAudioService {
       try { if (tmpFile.existsSync()) tmpFile.deleteSync(); } catch (_) {}
       return null;
     }
+  }
+
+  // ── MP3 header helpers ────────────────────────────────────────────────────
+
+  /// Returns a copy of [data] with any leading ID3v2 tag(s) and Xing/Info
+  /// VBR frame removed.
+  ///
+  /// When MP3 ayah files are concatenated into one merged file, the first
+  /// ayah's Xing frame still contains the frame-count for that single ayah.
+  /// ExoPlayer reads this and reports only that ayah's duration as the total
+  /// duration of the merged file.  Stripping the Xing frame forces ExoPlayer
+  /// to fall back to `fileSize × 8 / bitrate`, which is correct for the
+  /// whole merged CBR file.
+  static Uint8List _stripLeadingId3AndXing(Uint8List data) {
+    int offset = 0;
+
+    // Skip any ID3v2 headers.
+    while (offset + 10 <= data.length &&
+        data[offset] == 0x49 && // 'I'
+        data[offset + 1] == 0x44 && // 'D'
+        data[offset + 2] == 0x33) { // '3'
+      // Size is stored as a 4-byte synchsafe integer at bytes [6..9].
+      final tagSize = ((data[offset + 6] & 0x7F) << 21) |
+          ((data[offset + 7] & 0x7F) << 14) |
+          ((data[offset + 8] & 0x7F) << 7) |
+          (data[offset + 9] & 0x7F);
+      offset += 10 + tagSize;
+    }
+
+    // Locate the first MPEG sync word.
+    final syncPos = _findMpegSync(data, offset);
+    if (syncPos < 0) {
+      return Uint8List.sublistView(data, offset.clamp(0, data.length));
+    }
+    if (syncPos + 4 > data.length) {
+      return Uint8List.sublistView(data, syncPos);
+    }
+
+    final b1 = data[syncPos + 1];
+    final b2 = data[syncPos + 2];
+    final b3 = data[syncPos + 3];
+
+    // Parse MPEG header fields.
+    final mpegVersion = (b1 >> 3) & 0x03; // 3=MPEG1, 2=MPEG2, 0=MPEG2.5
+    final layer = (b1 >> 1) & 0x03; // 1=Layer3
+    final bitrateIdx = (b2 >> 4) & 0x0F;
+    final sampleRateIdx = (b2 >> 2) & 0x03;
+    final paddingBit = (b2 >> 1) & 0x01;
+    final channelMode = (b3 >> 6) & 0x03; // 3=Mono
+
+    // Only handle MPEG Layer 3 (MP3); bail out for anything else.
+    if (layer != 1 || bitrateIdx == 0 || bitrateIdx == 15 || sampleRateIdx == 3) {
+      return Uint8List.sublistView(data, syncPos);
+    }
+
+    // kbps tables for Layer 3.
+    const v1Kbps = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+    const v2Kbps = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+    // Sample-rate tables.
+    const v1Hz = [44100, 48000, 32000];
+    const v2Hz = [22050, 24000, 16000];
+    const v25Hz = [11025, 12000, 8000];
+
+    final kbps = mpegVersion == 3 ? v1Kbps[bitrateIdx] : v2Kbps[bitrateIdx];
+    final hz = mpegVersion == 3
+        ? v1Hz[sampleRateIdx]
+        : (mpegVersion == 2 ? v2Hz[sampleRateIdx] : v25Hz[sampleRateIdx]);
+
+    // Frame size = floor(144 × bitrateBps / sampleRate) + paddingBit.
+    final frameSize = (144 * kbps * 1000 ~/ hz) + paddingBit;
+
+    // Xing/Info tag offset: 4 (frame header) + side-info bytes.
+    // MPEG1 stereo=32, MPEG1 mono=17; MPEG2/2.5 stereo=17, MPEG2/2.5 mono=9.
+    final sideInfoSize =
+        mpegVersion == 3 ? (channelMode == 3 ? 17 : 32) : (channelMode == 3 ? 9 : 17);
+    final xingPos = syncPos + 4 + sideInfoSize;
+
+    if (xingPos + 4 <= data.length) {
+      final tag = String.fromCharCodes(data.sublist(xingPos, xingPos + 4));
+      if (tag == 'Xing' || tag == 'Info') {
+        // Skip the entire Xing frame and return data starting from the next frame.
+        final nextSync = _findMpegSync(data, syncPos + frameSize);
+        if (nextSync >= 0) return Uint8List.sublistView(data, nextSync);
+      }
+    }
+
+    // No Xing frame — just skip the ID3 header and start from the first sync.
+    return Uint8List.sublistView(data, syncPos);
+  }
+
+  /// Returns the byte index of the first MPEG sync word at or after [from],
+  /// or -1 if none is found.  A sync word is 0xFF followed by a byte whose
+  /// top 3 bits are all 1 (0xEx or 0xFx).
+  static int _findMpegSync(Uint8List data, int from) {
+    final start = from.clamp(0, data.length);
+    for (var i = start; i < data.length - 1; i++) {
+      if (data[i] == 0xFF && (data[i + 1] & 0xE0) == 0xE0) return i;
+    }
+    return -1;
   }
 }

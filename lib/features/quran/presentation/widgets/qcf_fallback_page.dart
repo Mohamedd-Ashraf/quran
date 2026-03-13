@@ -1008,52 +1008,6 @@ class _FbSurahHeader extends StatelessWidget {
   }
 }
 
-// ─── Verse number circle ───────────────────────────────────────────────────
-
-class _FbVerseNumber extends StatelessWidget {
-  final _Verse verse;
-  final bool isHighlighted;
-  final VoidCallback onLongPress;
-
-  const _FbVerseNumber({
-    required this.verse,
-    required this.isHighlighted,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isHighlighted
-        ? AppColors.secondary
-        : AppColors.primary.withValues(alpha: 0.75);
-    return GestureDetector(
-      onLongPress: onLongPress,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: color, width: 1),
-          color: isHighlighted
-              ? AppColors.secondary.withValues(alpha: 0.15)
-              : Colors.transparent,
-        ),
-        child: Center(
-          child: Text(
-            '${verse.ayah}',
-            style: TextStyle(
-              fontSize: 9,
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Verse options sheet ───────────────────────────────────────────────────
 
 void _showFbVerseOptionsSheet(

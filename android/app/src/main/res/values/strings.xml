@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Noor Al-Imaan</string>
+    <!-- Prayer Times Widget -->
+    <string name="prayer_widget_label">Prayer Times</string>
+    <string name="prayer_widget_description">Shows today&#8217;s Islamic prayer times with the current and upcoming prayer highlighted.</string>
+    <string name="prayer_widget_dark_label">Prayer Times Night</string>
+    <string name="prayer_widget_light_label">Prayer Times Light</string>
 </resources>

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/adhan_notification_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../widgets/islamic_audio_player.dart';
@@ -9,8 +12,8 @@ import 'home_screen.dart';
 import 'bookmarks_screen.dart';
 import 'settings_screen.dart';
 import '../../../wird/presentation/screens/wird_screen.dart';
+import '../../../wird/services/wird_notification_service.dart';
 import '../../../islamic/presentation/screens/more_screen.dart';
-import '../../../islamic/presentation/screens/adhan_settings_screen.dart';
 
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
@@ -49,6 +52,20 @@ class _MainNavigatorState extends State<MainNavigator> {
     // Show a one-time first-launch banner informing the user that prayer
     // time notifications (adhan) are enabled by default and can be adjusted.
     WidgetsBinding.instance.addPostFrameCallback((_) => _showAdhanBannerIfNeeded());
+    // Request permissions 5 s after the home screen appears.
+    // MainNavigator is only built AFTER any What's New screen is dismissed,
+    // so the dialogs never interrupt the intro flow. Chained sequentially to
+    // avoid the "permissionRequestInProgress" PlatformException.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(Future.delayed(const Duration(seconds: 5), () async {
+        if (!mounted) return;
+        final adhan = di.sl<AdhanNotificationService>();
+        await adhan.requestPermissions();
+        await di.sl<WirdNotificationService>().requestPermissions();
+        if (!mounted) return;
+        unawaited(adhan.requestLocationIfNeeded());
+      }));
+    });
   }
 
   Future<void> _showAdhanBannerIfNeeded() async {
@@ -61,7 +78,7 @@ class _MainNavigatorState extends State<MainNavigator> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        duration: const Duration(seconds: 8),
+        duration: const Duration(seconds: 4),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -70,16 +87,6 @@ class _MainNavigatorState extends State<MainNavigator> {
               ? '🕌 تم تفعيل إشعارات أوقات الصلاة تلقائياً'
               : '🕌 Prayer time notifications enabled automatically',
           style: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-        action: SnackBarAction(
-          label: isAr ? 'الإعدادات' : 'Settings',
-          textColor: Colors.white,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const AdhanSettingsScreen()),
-            );
-          },
         ),
       ),
     );

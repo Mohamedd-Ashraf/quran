@@ -323,6 +323,60 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFF1565C0),
     ),
   ],
+
+  // ─── v1.0.10 ─────────────────────────────────────────────────────────────
+  '1.0.10': [
+    _WhatsNewEntry(
+      icon: Icons.alarm_on_rounded,
+      titleAr: 'الأذان على صوت المنبه الآن 🔔',
+      titleEn: 'Adhan Now Uses Alarm Sound 🔔',
+      descAr:
+          'الأذان هيشتغل دلوقتي حتى لو التليفون على الصامت أو وضع DND — زي المنبه تماماً. تقدر تغيّر ده من إعدادات الأذان.',
+      descEn:
+          'Adhan now plays even in Silent or DND mode — just like an alarm clock. You can change this anytime in Adhan Settings.',
+      color: const Color(0xFF2E7D32),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.lock_clock_rounded,
+      titleAr: 'الأذان يُفعَّل في الوقت الصحيح دائماً',
+      titleEn: 'Adhan Fires On Time — Always',
+      descAr:
+          'تم الترقية لأعلى أولوية تنبيه في Android — الأذان يشتغل بدقة حتى وإنت نايم أو الشاشة مقفولة أو التطبيق في الخلفية.',
+      descEn:
+          'Upgraded to the highest Android alarm priority — Adhan fires accurately even while you sleep, screen locked, or app in background.',
+      color: AppColors.primary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.healing_rounded,
+      titleAr: 'الرقية الشرعية داخل التطبيق',
+      titleEn: 'Ruqyah Shariah Inside the App',
+      descAr:
+          'أضفنا شاشة رقية شرعية متكاملة تضم آيات الشفاء والحماية مع عرض جميل للنص القرآني، وترجمة، وتشغيل صوتي للسور والآيات الأساسية.',
+      descEn:
+          'A dedicated Ruqyah Shariah screen is now available with healing and protection verses, polished Quran text rendering, translations, and audio playback for the essential recitations.',
+      color: const Color(0xFF8E6C1F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.feedback_outlined,
+      titleAr: 'نظام اقتراحات ومشاركات جديد',
+      titleEn: 'New Feedback & Suggestions System',
+      descAr:
+          'يمكنك الآن إرسال اقتراحاتك وملاحظاتك من داخل التطبيق بسهولة، مع نافذة تذكير ذكية تظهر في الوقت المناسب دون إزعاج.',
+      descEn:
+          'You can now send feedback and suggestions directly from inside the app, with a smart reminder prompt that appears at the right time without being intrusive.',
+      color: const Color(0xFF00838F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.widgets_rounded,
+      titleAr: 'ويدجت مواقيت الصلاة للشاشة الرئيسية',
+      titleEn: 'Prayer Times Home-Screen Widget',
+      descAr:
+          'أضفنا ويدجت لمواقيت الصلاة يعرض الصلاة الحالية والقادمة وتاريخ اليوم، مع أكثر من شكل ليتناسب مع واجهة هاتفك.',
+      descEn:
+          'A new Prayer Times home-screen widget shows the current and upcoming prayer along with today\'s date, with multiple styles to match your device theme.',
+      color: const Color(0xFF5D4037),
+    ),
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -332,12 +386,18 @@ class WhatsNewScreen extends StatefulWidget {
   final WhatsNewService whatsNewService;
   final VoidCallback onDismiss;
   final String version;
+  /// The version the user last saw the What's New screen for.
+  /// If null (new install), the app showcase is shown with all features.
+  /// If set, all entries from versions AFTER this one up to [version] are shown
+  /// so users who skipped intermediate updates see everything they missed.
+  final String? lastSeenVersion;
 
   const WhatsNewScreen({
     super.key,
     required this.whatsNewService,
     required this.onDismiss,
     required this.version,
+    this.lastSeenVersion,
   });
 
   @override
@@ -346,17 +406,96 @@ class WhatsNewScreen extends StatefulWidget {
 
 class _WhatsNewScreenState extends State<WhatsNewScreen>
     with SingleTickerProviderStateMixin {
-  // Total = 300ms base + 10 cards × 100ms stagger + 500ms card window = 2100ms (v1.0.9)
-  static const int _totalMs = 2100;
-
+  late final List<_WhatsNewEntry> _entries;
+  late final String _displayVersion;
+  late final bool _isShowcaseMode;
+  late final int _totalMs;
   late final AnimationController _animController;
+
+  String _resolveVersion(String version) {
+    final normalized = WhatsNewService.normalizeVersionForChangelog(version);
+    if (_changelog.containsKey(normalized)) {
+      return normalized;
+    }
+    if (_changelog.containsKey(version)) {
+      return version;
+    }
+    return _changelog.keys.last;
+  }
+
+  List<_WhatsNewEntry> _entriesThroughVersion(String version) {
+    final result = <_WhatsNewEntry>[];
+    for (final entry in _changelog.entries) {
+      result.addAll(entry.value);
+      if (entry.key == version) {
+        return result;
+      }
+    }
+    return _changelog.values.expand((items) => items).toList(growable: false);
+  }
+
+  List<_WhatsNewEntry> _entriesAfterVersion({
+    required String lastSeen,
+    required String current,
+  }) {
+    final result = <_WhatsNewEntry>[];
+    bool collect = false;
+
+    for (final entry in _changelog.entries) {
+      if (collect) {
+        result.addAll(entry.value);
+      }
+
+      if (entry.key == lastSeen) {
+        collect = true;
+      }
+
+      if (entry.key == current) {
+        break;
+      }
+    }
+
+    return result;
+  }
+
+  /// Returns every changelog entry the user hasn’t seen yet.
+  ///
+  /// - [lastSeen] null  → first launch, show the full app feature showcase.
+  /// - [lastSeen] known → collect entries from all versions AFTER [lastSeen].
+  /// - [lastSeen] not found in map → fallback to current version’s entries.
+  List<_WhatsNewEntry> _buildEntries(String? lastSeen) {
+    final currentVersion = _resolveVersion(widget.version);
+
+    if (lastSeen == null) {
+      return _entriesThroughVersion(currentVersion);
+    }
+
+    final normalizedLastSeen = _resolveVersion(lastSeen);
+    if (!_changelog.containsKey(normalizedLastSeen)) {
+      return _changelog[currentVersion] ?? _changelog.values.last;
+    }
+
+    final result = _entriesAfterVersion(
+      lastSeen: normalizedLastSeen,
+      current: currentVersion,
+    );
+
+    return result.isNotEmpty
+        ? result
+        : (_changelog[currentVersion] ?? _changelog.values.last);
+  }
 
   @override
   void initState() {
     super.initState();
+    _displayVersion = _resolveVersion(widget.version);
+    _isShowcaseMode = widget.lastSeenVersion == null;
+    _entries = _buildEntries(widget.lastSeenVersion);
+    // 300ms base + 100ms per card stagger + 500ms card animation window
+    _totalMs = 300 + _entries.length * 100 + 500;
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: _totalMs),
+      duration: Duration(milliseconds: _totalMs),
     );
     _animController.forward();
   }
@@ -378,7 +517,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
     final isDark = settings.darkMode;
     final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
 
-    final entries = _changelog[widget.version] ?? _changelog.values.last;
+    final entries = _entries;
 
     final bgColors = isDark
         ? [const Color(0xFF0E1A12), const Color(0xFF131F16)]
@@ -437,7 +576,8 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
                         );
                       },
                       child: _WhatsNewHeader(
-                        version: widget.version,
+                        version: _displayVersion,
+                        isShowcaseMode: _isShowcaseMode,
                         isAr: isAr,
                         isDark: isDark,
                       ),
@@ -449,7 +589,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
                         // the button area
                         padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
                         itemCount: entries.length,
-                        separatorBuilder: (_, __) =>
+                        separatorBuilder: (_, _) =>
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           return _FeatureCard(
@@ -573,11 +713,13 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 class _WhatsNewHeader extends StatelessWidget {
   final String version;
+  final bool isShowcaseMode;
   final bool isAr;
   final bool isDark;
 
   const _WhatsNewHeader({
     required this.version,
+    required this.isShowcaseMode,
     required this.isAr,
     required this.isDark,
   });
@@ -663,9 +805,13 @@ class _WhatsNewHeader extends StatelessWidget {
 
                     // Big version line
                     Text(
-                      isAr
+                      isShowcaseMode
+                        ? (isAr
+                          ? 'أهم مميزات التطبيق'
+                          : 'Explore the App')
+                        : (isAr
                           ? 'الإصدار $version'
-                          : 'Version $version',
+                          : 'Version $version'),
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -678,9 +824,13 @@ class _WhatsNewHeader extends StatelessWidget {
 
                     // Subtitle
                     Text(
-                      isAr
+                      isShowcaseMode
+                        ? (isAr
+                          ? 'نظرة سريعة على أبرز ما يقدمه التطبيق بالكامل'
+                          : 'A quick look at the app\'s full feature set')
+                        : (isAr
                           ? 'كل ما تم تطويره وإضافته في هذا التحديث'
-                          : 'Everything added in this update',
+                          : 'Everything added in this update'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
@@ -941,8 +1091,11 @@ class _StarBurstPainter extends CustomPainter {
       final r = i.isEven ? outer : inner;
       final x = center.dx + math.cos(angle) * r;
       final y = center.dy + math.sin(angle) * r;
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
     path.close();
     canvas.drawPath(path, starPaint);

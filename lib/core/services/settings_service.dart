@@ -45,6 +45,8 @@ class SettingsService {
   /// is used for adhan playback and which system volume is displayed.
   static const String _keyAdhanAudioStream        = 'adhan_audio_stream';
   static const String _keyAdhanBannerShown        = 'adhan_banner_shown';
+  /// One-time migration flag: forces adhan stream to 'alarm' for all existing users.
+  static const String _keyAdhanAlarmMigrated      = 'adhan_alarm_stream_migrated_v1';
 
   // ── Salawat sound selection ────────────────────────────────────────────────
   static const String _keySalawatSound        = 'salawat_sound';
@@ -315,6 +317,16 @@ class SettingsService {
   String getAdhanAudioStream() {
     // Default to 'alarm' so the adhan plays at alarm volume (louder, bypasses DND).
     return _prefs.getString(_keyAdhanAudioStream) ?? 'alarm';
+  }
+
+  /// One-time migration: forces every existing user's adhan stream to 'alarm'.
+  /// Returns [true] the first time it runs (caller should show a snackbar).
+  /// Returns [false] on every subsequent call (already migrated).
+  Future<bool> migrateAdhanStreamToAlarm() async {
+    if (_prefs.getBool(_keyAdhanAlarmMigrated) == true) return false;
+    await _prefs.setString(_keyAdhanAudioStream, 'alarm');
+    await _prefs.setBool(_keyAdhanAlarmMigrated, true);
+    return true;
   }
 
   // ── First-launch adhan info banner ──────────────────────────────────────────

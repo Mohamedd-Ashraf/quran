@@ -555,6 +555,36 @@ class AdhanNotificationService {
     await _downloadAdhanSound(sound);
   }
 
+  /// Requests location permission and caches real GPS coordinates if not already saved.
+  ///
+  /// Call this once after the first frame (bypasses the schedule-freshness check)
+  /// so location permission is asked on first launch — not deferred until the
+  /// user opens the prayer times screen.  After the first successful GPS read
+  /// the coordinates are persisted; subsequent calls are instant no-ops.
+  Future<void> requestLocationIfNeeded() async {
+    if (kIsWeb) return;
+    // Already have real GPS coordinates — nothing to do.
+    if (_settings.getLastKnownCoordinates() != null) return;
+
+    final permission = await _location.ensurePermission();
+    if (permission != LocationPermissionState.granted) return;
+
+    try {
+      final pos = await _location.getPosition(
+        timeout: const Duration(seconds: 15),
+      );
+      await _settings.setLastKnownCoordinates(pos.latitude, pos.longitude);
+      // Refresh prayer-times cache with the real location so the schedule
+      // (and prayer times screen) reflect accurate times from the first launch.
+      await _cache.cachePrayerTimes(pos.latitude, pos.longitude);
+      // Trigger a full reschedule now that we have a real position.
+      await ensureScheduled();
+    } catch (_) {
+      // Silent fail — Egypt fallback will be used until the user grants
+      // permission or until getPosition succeeds on the next launch.
+    }
+  }
+
   Future<void> ensureScheduled({bool requestLocationPermission = true}) async {
     // If a scheduling is already in progress, just flag that another run is
     // needed after it finishes. This prevents concurrent calls from racing
@@ -616,10 +646,11 @@ class AdhanNotificationService {
       allApproachingAlarms.addAll(r.approaching);
     }
 
-    await _settings.setLastAdhanScheduleDateIso(today.toIso8601String());
-
     // Persist a snapshot of what we scheduled (for UI display).
     // Note: this does not guarantee OS delivery, but reflects our intended schedule.
+    // IMPORTANT: setLastAdhanScheduleDateIso is stamped INSIDE the try block so
+    // that if scheduling fails mid-way, the date is not marked as done and
+    // ensureScheduleFresh() will retry on the next resume/launch within the same day.
     try {
       preview.sort((a, b) {
         final ta = DateTime.tryParse(a['time'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -657,8 +688,14 @@ class AdhanNotificationService {
         }
       }
       await _scheduleSalawatNotifications();
-    } catch (_) {
-      // Ignore preview/schedule failures.
+      // Stamp the schedule date only after all alarms have been submitted.
+      // Placing this here (instead of before the try block) means a failure
+      // anywhere above leaves the date un-stamped, so ensureScheduleFresh()
+      // will retry on the next app resume or launch within the same day.
+      await _settings.setLastAdhanScheduleDateIso(today.toIso8601String());
+    } catch (e) {
+      // Log scheduling failures instead of swallowing them silently.
+      debugPrint('⚠️ [Adhan] Scheduling failed — will retry next launch: $e');
     }
   }
 
@@ -678,11 +715,23 @@ class AdhanNotificationService {
 
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
-    final scheduledThrough = DateTime(
+
+    // Force a full reschedule once per calendar day.
+    // AlarmManager alarms are silently cleared on APK update, wake-lock
+    // expiry, or aggressive battery optimisation. The native boot/update
+    // receiver attempts recovery, but can race with a cold-start or be
+    // skipped entirely.  Rescheduling on first launch of each new day
+    // guarantees alarms are always registered, at the cost of a few
+    // extra seconds of background work per day — acceptable for a prayer app.
+    final lastDateOnly = DateTime(
       lastScheduledDate.year,
       lastScheduledDate.month,
       lastScheduledDate.day,
-    ).add(Duration(days: computeDaysAhead() - 1));
+    );
+    if (todayDate.isAfter(lastDateOnly)) return true;
+
+    // Within the same day, only reschedule when the window is running short.
+    final scheduledThrough = lastDateOnly.add(Duration(days: computeDaysAhead() - 1));
     final remainingDays = scheduledThrough.difference(todayDate).inDays;
     return remainingDays <= _rescheduleWindowDays;
   }
@@ -729,26 +778,21 @@ class AdhanNotificationService {
   }
 
   Future<void> testNow() async {
+    // Uses the same native AdhanPlayerService path as a real prayer alarm.
+    // No extra flutter_local_notifications — the foreground service posts its own notification.
     await _playFullAdhanAudio(prayerArabicName: 'الأذان');
-    final isArabic = _settings.getAppLanguage() == 'ar';
-    await _plugin.show(
-      999001,
-      isArabic ? 'اختبار الأذان' : 'Adhan Test',
-      isArabic ? 'إذا سمعت الأذان، فالتذكيرات تعمل بشكل صحيح ✓' : 'If you hear the Adhan, reminders are working.',
-      _notificationDetails(),
-    );
   }
 
   Future<void> scheduleTestIn(Duration delay) async {
-    final when = tz.TZDateTime.now(tz.local).add(delay);
     final whenLocal = DateTime.now().add(delay);
 
-    // In-app timer (fires if app stays open)
+    // In-app timer (fires if app stays open) — mirrors real adhan startup path.
     Timer(delay, () async {
       await _playFullAdhanAudio(prayerArabicName: 'الأذان');
     });
 
-    // Native AlarmManager alarm (fires even when app is killed)
+    // Native AlarmManager alarm via setAlarmClock() — same path as real prayer alarms.
+    // Fires even when the app is killed or the screen is off.
     await _scheduleNativeAlarms([
       {
         'id': 999002,
@@ -757,16 +801,6 @@ class AdhanNotificationService {
         'label': 'Test',
       }
     ]);
-
-    // Silent OS notification as a companion reminder
-    await _plugin.zonedSchedule(
-      999002,
-      'اختبار الأذان',
-      'إذا سمعت الأذان، فالتطبيق يعمل بشكل صحيح ✓',
-      when,
-      _notificationDetails(),
-      androidScheduleMode: await _androidScheduleMode(),
-    );
   }
 
   Future<void> cancelAll() => _plugin.cancelAll();
@@ -855,7 +889,7 @@ class AdhanNotificationService {
     final reminderEnabled = _settings.getPrayerReminderEnabled();
     final reminderMinutes = _settings.getPrayerReminderMinutes();
     final iqamaEnabled    = _settings.getIqamaEnabled();
-    final schedMode       = await _androidScheduleMode();
+    final schedMode       = _androidScheduleMode();
     final now             = tz.TZDateTime.now(tz.local);
     final isAndroid       = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -994,21 +1028,9 @@ class AdhanNotificationService {
     );
   }
 
-  Future<AndroidScheduleMode> _androidScheduleMode() async {
-    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) {
-      return AndroidScheduleMode.exactAllowWhileIdle;
-    }
-
-    try {
-      final canExact = await android.canScheduleExactNotifications();
-      return (canExact ?? false)
-          ? AndroidScheduleMode.exactAllowWhileIdle
-          : AndroidScheduleMode.inexactAllowWhileIdle;
-    } catch (_) {
-      return AndroidScheduleMode.inexactAllowWhileIdle;
-    }
-  }
+  // Uses AlarmManager.setAlarmClock() — same as native Adhan/Iqama receivers.
+  // Reliable delivery in Doze mode with no runtime permission required.
+  AndroidScheduleMode _androidScheduleMode() => AndroidScheduleMode.alarmClock;
 
   int _notificationId(DateTime day, Prayer prayer) {
     // Deterministic per day+prayer; stable and under int32 range.
@@ -1248,7 +1270,7 @@ class AdhanNotificationService {
     }
 
     final isArabic = _settings.getAppLanguage() == 'ar';
-    final schedMode = await _androidScheduleMode();
+    final schedMode = _androidScheduleMode();
 
     final salawatTexts = [
       isArabic ? 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ' : 'O Allah, send blessings upon Muhammad ﷺ',

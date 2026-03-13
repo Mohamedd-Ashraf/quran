@@ -1498,6 +1498,28 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             },
           )),
         ]),
+        // ── Warning banner when user picks ringtone ─────────────────────
+        if (_adhanAudioStream == 'ringtone') ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.shade300, width: 1),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(
+                isAr
+                    ? 'تحذير: وضع الرنين يكتم الأذان لو التليفون على الصامت أو DND. يُنصح باستخدام «منبه» لضمان سماع الأذان دائماً.'
+                    : 'Warning: Ring mode will silence the adhan if your phone is on Silent or DND. Use «Alarm» to always hear the adhan.',
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.4),
+              )),
+            ]),
+          ),
+        ],
       ]),
     );
   }

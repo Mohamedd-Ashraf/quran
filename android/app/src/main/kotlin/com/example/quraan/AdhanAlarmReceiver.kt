@@ -8,8 +8,12 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
 
 /**
  * BroadcastReceiver for two purposes:
@@ -33,6 +37,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         private const val KEY_SHORT_CUTOFF   = "flutter.adhan_short_cutoff_seconds"
         private const val KEY_AUDIO_STREAM   = "flutter.adhan_audio_stream"
         private const val KEY_ONLINE_URL     = "flutter.adhan_online_url"
+        private const val KEY_ALARM_TIMES    = "flutter.adhan_alarm_times" // JSON map of alarm ID → timeMs
 
         /**
          * Schedule a list of alarms via AlarmManager.
@@ -44,16 +49,22 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val now = System.currentTimeMillis()
             var count = 0
+            // Build a map of alarm ID → timeMs for later retrieval when alarms fire
+            val alarmTimesMap = mutableMapOf<String, Long>()
             for (alarm in alarms) {
                 val id     = (alarm["id"]     as? Number)?.toInt()  ?: continue
                 val timeMs = (alarm["timeMs"] as? Number)?.toLong() ?: continue
                 if (timeMs <= now) continue
                 val arabicName = alarm["arabicName"] as? String ?: ""
+                alarmTimesMap[id.toString()] = timeMs // Store for later retrieval
                 val pi = pendingIntentFor(context, id, soundName, arabicName)
-                setExactAlarm(am, timeMs, pi)
+                setExactAlarm(context, am, timeMs, pi)
                 count++
             }
-            Log.d(TAG, "Scheduled $count alarm(s)")
+            // Persist the alarm times map to SharedPreferences
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putString(KEY_ALARM_TIMES, JSONObject(alarmTimesMap).toString()).apply()
+            Log.d(TAG, "Scheduled $count alarm(s) and stored times")
         }
 
         /**
@@ -84,6 +95,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                                        arabicName: String = ""): PendingIntent {
             val intent = Intent(context, AdhanAlarmReceiver::class.java).apply {
                 action = ACTION_FIRE
+                putExtra("alarmId", id) // Pass alarm ID for later retrieval of prayer time
                 putExtra("soundName", soundName)
                 if (arabicName.isNotEmpty()) putExtra("arabicName", arabicName)
             }
@@ -93,17 +105,16 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        private fun setExactAlarm(am: AlarmManager, timeMs: Long, pi: PendingIntent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                try {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                } catch (e: SecurityException) {
-                    // Fallback if user revoked SCHEDULE_EXACT_ALARM
-                    am.set(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                }
-            } else {
-                am.setExact(AlarmManager.RTC_WAKEUP, timeMs, pi)
-            }
+        private fun setExactAlarm(context: Context, am: AlarmManager, timeMs: Long, pi: PendingIntent) {
+            // setAlarmClock() has the HIGHEST system priority — fires exactly on time even in
+            // deep Doze mode and grants explicit permission to start foreground services from
+            // background at fire time. Never batched or delayed by any OEM battery manager.
+            val showIntent = PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(timeMs, showIntent), pi)
         }
 
         /** Parse Flutter ISO local datetime string → epoch millis. */
@@ -141,13 +152,33 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             Log.d(TAG, "Adhan disabled — ignoring alarm fire")
             return
         }
+        val alarmId     = intent.getIntExtra("alarmId", -1)
         val soundName   = intent.getStringExtra("soundName") ?: "adhan_1"
         val arabicName  = intent.getStringExtra("arabicName") ?: ""
         val shortMode   = prefs.getBoolean(KEY_SHORT_MODE, false)
         val shortCutoff = prefs.getInt(KEY_SHORT_CUTOFF, 15)
-        val useAlarm    = prefs.getString(KEY_AUDIO_STREAM, "ringtone") == "alarm"
+        val useAlarm    = prefs.getString(KEY_AUDIO_STREAM, "alarm") != "ringtone"
         val onlineUrl   = prefs.getString(KEY_ONLINE_URL, "")?.takeIf { it.isNotBlank() }
-        Log.d(TAG, "Adhan alarm fired: $soundName (shortMode=$shortMode, cutoff=${shortCutoff}s, alarmStream=$useAlarm, hasUrl=${onlineUrl != null})")
+        
+        // Retrieve the prayer time from SharedPreferences
+        var prayerTimeMs = 0L
+        val alarmTimesJson = prefs.getString(KEY_ALARM_TIMES, "{}") ?: "{}"
+        try {
+            val alarmTimesMap = JSONObject(alarmTimesJson)
+            prayerTimeMs = alarmTimesMap.optLong("${alarmId}", 0L)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse alarm times: ${e.message}")
+        }
+        
+        // Format the prayer time for display (e.g., "5:30 AM")
+        val timeDisplay = if (prayerTimeMs > 0) {
+            val formatter = SimpleDateFormat("h:mm a", Locale("ar"))
+            formatter.format(Date(prayerTimeMs))
+        } else {
+            ""
+        }
+        
+        Log.d(TAG, "Adhan alarm fired: $soundName (shortMode=$shortMode, cutoff=${shortCutoff}s, alarmStream=$useAlarm, time=$timeDisplay)")
         val serviceIntent = Intent(context, AdhanPlayerService::class.java).apply {
             putExtra(AdhanPlayerService.EXTRA_SOUND, soundName)
             putExtra(AdhanPlayerService.EXTRA_SHORT_MODE, shortMode)
@@ -156,7 +187,13 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             if (onlineUrl != null) putExtra(AdhanPlayerService.EXTRA_ONLINE_URL, onlineUrl)
             if (arabicName.isNotEmpty()) {
                 putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, "أذان $arabicName")
-                putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, "اضغط لإيقاف الأذان")
+                // Include prayer time in the notification body
+                val body = if (timeDisplay.isNotEmpty()) {
+                    "$timeDisplay - اضغط لإيقاف الأذان"
+                } else {
+                    "اضغط لإيقاف الأذان"
+                }
+                putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, body)
                 putExtra(AdhanPlayerService.EXTRA_STOP_LABEL, "إيقاف الأذان")
             }
         }

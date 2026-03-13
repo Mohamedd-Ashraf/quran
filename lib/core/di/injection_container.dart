@@ -32,6 +32,7 @@ import '../services/adhan_notification_service.dart';
 import '../services/prayer_times_cache_service.dart';
 import '../services/app_update_service.dart';
 import '../services/whats_new_service.dart';
+import '../services/feedback_service.dart';
 import '../audio/download_manager_cubit.dart';
 import '../../features/wird/data/wird_service.dart';
 import '../../features/wird/services/wird_notification_service.dart';
@@ -123,6 +124,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AudioEditionService(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AppUpdateService(sl(), sl()));
   sl.registerLazySingleton(() => WhatsNewService(sl()));
+  sl.registerLazySingleton(() => FeedbackService(sl()));
   sl.registerLazySingleton(() => WirdService(sl()));
   sl.registerLazySingleton(() => WirdNotificationService(sl(), sl()));
   sl.registerFactory(() => WirdCubit(sl(), sl()));

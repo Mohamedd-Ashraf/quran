@@ -47,7 +47,7 @@ class ApproachingAlarmReceiver : BroadcastReceiver() {
                 val sound  = alarm["sound"]  as? String ?: "prayer_reminder_fajr"
                 if (timeMs <= now) continue
                 val pi = pendingIntentFor(context, id, title, body, sound)
-                setExactAlarm(am, timeMs, pi)
+                setExactAlarm(context, am, timeMs, pi)
                 count++
             }
             Log.d(TAG, "Approaching: scheduled $count alarm(s)")
@@ -88,16 +88,15 @@ class ApproachingAlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        private fun setExactAlarm(am: AlarmManager, timeMs: Long, pi: PendingIntent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                try {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                } catch (e: SecurityException) {
-                    am.set(AlarmManager.RTC_WAKEUP, timeMs, pi)
-                }
-            } else {
-                am.setExact(AlarmManager.RTC_WAKEUP, timeMs, pi)
-            }
+        private fun setExactAlarm(context: Context, am: AlarmManager, timeMs: Long, pi: PendingIntent) {
+            // setAlarmClock() grants the highest scheduling priority and permission to
+            // start foreground services from background at fire time.
+            val showIntent = PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(timeMs, showIntent), pi)
         }
     }
 

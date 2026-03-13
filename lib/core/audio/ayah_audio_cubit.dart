@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../services/ayah_audio_service.dart';
 import '../services/adhan_notification_service.dart';
@@ -145,13 +148,68 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     'المسد',     'الإخلاص',   'الفلق',     'الناس',
   ];
 
-  static String _surahName(int n) =>
-      (n >= 1 && n <= _kSurahNames.length) ? _kSurahNames[n - 1] : 'سورة $n';
+  /// Returns the surah name for use in [MediaItem] notification metadata.
+  /// Regular spaces are replaced with non-breaking spaces (U+00A0) to prevent
+  /// Samsung's notification text widget from word-wrapping "آل عمران" into
+  /// just "آل" on the first visible line.
+  static String _surahName(int n) {
+    final raw = (n >= 1 && n <= _kSurahNames.length)
+        ? _kSurahNames[n - 1]
+        : 'سورة\u00A0$n';
+    return raw.replaceAll(' ', '\u00A0');
+  }
 
-  static final _kTilawaArtUri =
-      Uri.parse('android.resource://com.example.quraan/drawable/tilawa_art');
-  static final _kRadioArtUri =
-      Uri.parse('android.resource://com.example.quraan/drawable/radio_art');
+  // Media artwork must be a file/http URI that Flutter-side image loading can
+  // actually resolve. android.resource:// works natively on Android, but
+  // just_audio_background also tries to resolve it through Flutter image code,
+  // which produces noisy "Unsupported scheme 'android.resource'" errors.
+  // We therefore materialize bundled Flutter assets into temp files once and
+  // use file:// URIs for notifications.
+  static Uri? _tilawaArtUriCache;
+  static Uri? _radioArtUriCache;
+
+  static Future<Uri?> _cacheNotificationArtwork({
+    required String assetPath,
+    required String fileName,
+  }) async {
+    try {
+      final isTilawa = fileName == 'tilawa_art.jpg';
+      final cached = isTilawa
+          ? _tilawaArtUriCache
+          : _radioArtUriCache;
+      if (cached != null) return cached;
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}${Platform.pathSeparator}$fileName');
+      if (!await file.exists()) {
+        final byteData = await rootBundle.load(assetPath);
+        await file.writeAsBytes(
+          byteData.buffer.asUint8List(),
+          flush: true,
+        );
+      }
+      final uri = file.uri;
+      if (isTilawa) {
+        _tilawaArtUriCache = uri;
+      } else {
+        _radioArtUriCache = uri;
+      }
+      return uri;
+    } catch (e) {
+      debugPrint('⚠️ [Audio] Failed to cache notification artwork: $e');
+      return null;
+    }
+  }
+
+  static Future<Uri?> _getTilawaArtUri() => _cacheNotificationArtwork(
+    assetPath: 'assets/logo/files/quraan telawa.jpg',
+    fileName: 'tilawa_art.jpg',
+  );
+
+  static Future<Uri?> _getRadioArtUri() => _cacheNotificationArtwork(
+    assetPath: 'assets/logo/files/islam radio.jpg',
+    fileName: 'radio_art.jpg',
+  );
 
   StreamSubscription<PlayerState>? _playerSub;
   StreamSubscription<int?>? _indexSub;
@@ -188,6 +246,10 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Suppresses spurious `ProcessingState.completed` events that just_audio
   /// fires during the internal FLUSHING/RESUMING cycle of a seek operation.
   bool _isSeeking = false;
+  /// When playing a surah via [ConcatenatingAudioSource] (Phase 3), this holds
+  /// the surah number so that [_switchToMergedSurah] can verify the user has
+  /// not navigated away before the background merge finishes.
+  int? _playlistSurahNumber;
   AyahAudioCubit(this._service, this._adhanService)
     : _player = AudioPlayer(),
       super(const AyahAudioState.idle()) {
@@ -365,7 +427,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Compute the effective total duration synchronously so both the stream
   /// and [seekToAbsolute] can call it without duplicating logic.
   Duration? _computeEffectiveDuration() {
-    if (_usingMergedSurahSource) return _player.duration;
+    if (_usingMergedSurahSource) {
+      // Prefer our own calculated total over ExoPlayer's measured value.
+      // ExoPlayer may read the Xing/Info frame from the first ayah and report
+      // only that ayah's duration rather than the true merged-file total.
+      return _mergedAyahEnds.isNotEmpty ? _mergedAyahEnds.last : _player.duration;
+    }
     if (_ayahCount <= 1) return _player.duration;
 
     // Fixed total silence duration is always known.
@@ -489,6 +556,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     _firstAyahNumber = firstAyahNumber;
     _usingMergedSurahSource = false;
     _mergedAyahEnds = const [];
+    _playlistSurahNumber = null;
     // When gap > 0: N ayahs + (N-1) silences = 2N-1 items.
     // When gap == 0: no silence items inserted, so exactly N items.
     final hasGap = _ayahGap > Duration.zero;
@@ -534,6 +602,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       );
 
       final surahName = _surahName(surahNumber);
+      final artUri = await _getTilawaArtUri();
       final mediaItem = MediaItem(
         id: '${surahNumber}_$ayahNumber',
         title: surahName,
@@ -541,7 +610,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         artist: 'القرآن الكريم',
         displayTitle: surahName,
         displaySubtitle: 'القرآن الكريم',
-        artUri: _kTilawaArtUri,
+        artUri: artUri,
       );
       if (source.isLocal) {
         await _player.setAudioSource(
@@ -591,6 +660,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      final artUri = await _getRadioArtUri();
       final mediaItem = MediaItem(
         id: 'radio_${url.hashCode}',
         title: title,
@@ -598,7 +668,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         artist: 'القرآن الكريم',
         displayTitle: title,
         displaySubtitle: 'بث مباشر',
-        artUri: _kRadioArtUri,
+        artUri: artUri,
         extras: const {'isLive': true},
       );
       await _player.setAudioSource(
@@ -661,6 +731,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     try {
       final surahNameW = _surahName(surahNumber);
+      final artUri = await _getTilawaArtUri();
       final mediaItem = MediaItem(
         id: 'word_${surahNumber}_${ayahNumber}_$wordIndex',
         title: surahNameW,
@@ -668,7 +739,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         artist: 'القرآن الكريم',
         displayTitle: surahNameW,
         displaySubtitle: 'القرآن الكريم',
-        artUri: _kTilawaArtUri,
+        artUri: artUri,
       );
       await _player.setAudioSource(AudioSource.uri(uri, tag: mediaItem));
       await _player.setLoopMode(LoopMode.off);
@@ -692,7 +763,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int numberOfAyahs,
   }) async {
-    if (state.mode == AyahAudioMode.surah && state.surahNumber == surahNumber) {
+    // Only toggle the current track when it is a standalone (non-queue)
+    // full-surah playback.  If a queue is active (e.g. Ruqyah "Play All")
+    // or playAyahRange is running, treat this as a fresh play request so
+    // the user is not stuck behind a buried queue session.
+    if (state.mode == AyahAudioMode.surah &&
+        state.surahNumber == surahNumber &&
+        !state.isQueueMode) {
       if (_player.playing) {
         await pause();
       } else {
@@ -733,6 +810,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     if (!_initialized) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
+    // Stop the player before resolving sources.  This prevents a race where
+    // the old track completes during async source resolution and
+    // _onPlaylistCompleted emits idle + fires a second stop() that cancels
+    // the newly loaded source.  just_audio handles stop→setAudioSource
+    // cleanly (processingState goes idle, not completed).
+    try { await _player.stop(); } catch (_) {}
     _resetPlaylistTracking(numberOfAyahs);
     emit(
       AyahAudioState(
@@ -746,18 +829,62 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      final surahNameS = _surahName(surahNumber);
+      final tilawaArtUri = await _getTilawaArtUri();
+
+      // ── Phase 1: Fast cache check (no file I/O beyond existence check) ──────
+      final cached = await _service.checkMergedSurahCache(
+        surahNumber: surahNumber,
+        numberOfAyahs: numberOfAyahs,
+      );
+
+      if (cached != null) {
+        // Cached merged file found — start playback instantly.
+        _usingMergedSurahSource = true;
+        Duration cumulative = Duration.zero;
+        _mergedAyahEnds = cached.ayahDurations.map((d) {
+          cumulative += d;
+          return cumulative;
+        }).toList(growable: false);
+
+        final mediaItem = MediaItem(
+          id: 'surah_$surahNumber',
+          title: surahNameS,
+          album: 'القرآن الكريم',
+          artist: 'تلاوة كاملة',
+          displayTitle: surahNameS,
+          displaySubtitle: 'تلاوة كاملة',
+          artUri: tilawaArtUri,
+          duration: _mergedAyahEnds.isNotEmpty ? _mergedAyahEnds.last : null,
+        );
+        await _player.setAudioSource(
+          AudioSource.file(cached.filePath, tag: mediaItem),
+        );
+        await _player.setLoopMode(LoopMode.off);
+        await _player.setShuffleModeEnabled(false);
+        await _player.play();
+        return;
+      }
+
+      // ── Phase 2: Resolve sources ──────────────────────────────────────────
       final sources = await _service.resolveSurahAyahAudio(
         surahNumber: surahNumber,
         numberOfAyahs: numberOfAyahs,
       );
 
-      final merged = await _service.prepareMergedSurahAudio(
-        surahNumber: surahNumber,
-        numberOfAyahs: numberOfAyahs,
-        sources: sources,
-      );
+      // If every ayah file is already on disk, merge them now (pure disk I/O —
+      // no downloads, typically < 200 ms even for long surahs).  This gives
+      // the notification a single audio source with accurate total duration.
+      final allLocal = sources.every((s) => s.isLocal);
+      MergedSurahAudio? merged;
+      if (allLocal) {
+        merged = await _service.prepareMergedSurahAudio(
+          surahNumber: surahNumber,
+          numberOfAyahs: numberOfAyahs,
+          sources: sources,
+        );
+      }
 
-      final surahNameS = _surahName(surahNumber);
       if (merged != null) {
         _usingMergedSurahSource = true;
         Duration cumulative = Duration.zero;
@@ -773,7 +900,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           artist: 'تلاوة كاملة',
           displayTitle: surahNameS,
           displaySubtitle: 'تلاوة كاملة',
-          artUri: _kTilawaArtUri,
+          artUri: tilawaArtUri,
+          duration: _mergedAyahEnds.isNotEmpty ? _mergedAyahEnds.last : null,
         );
         await _player.setAudioSource(
           AudioSource.file(merged.filePath, tag: mediaItem),
@@ -784,6 +912,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         return;
       }
 
+      // ── Phase 3: Remote sources (or rare local-merge failure) — start
+      // playlist immediately so playback is not blocked by downloads.
+      _usingMergedSurahSource = false;
       final children = <AudioSource>[];
       for (var i = 0; i < sources.length; i++) {
         final ayahNumber = i + 1;
@@ -795,7 +926,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           artist: 'القرآن الكريم',
           displayTitle: surahNameS,
           displaySubtitle: 'القرآن الكريم',
-          artUri: _kTilawaArtUri,
+          artUri: tilawaArtUri,
         );
         if (s.isLocal) {
           children.add(AudioSource.file(s.localFilePath!, tag: mediaItem));
@@ -818,7 +949,34 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       );
       await _player.setLoopMode(LoopMode.off);
       await _player.setShuffleModeEnabled(false);
+      // Mark which surah is in playlist mode so _switchToMergedSurah can
+      // verify the user has not navigated away before the merge finishes.
+      _playlistSurahNumber = surahNumber;
       await _player.play();
+
+      // ── Phase 4: Download remote ayahs + merge in background ─────────────
+      // After merging, switch the player from ConcatenatingAudioSource to the
+      // single merged file at the same absolute position.  This gives
+      // just_audio_background a unified source so the notification's progress
+      // bar reflects the full surah duration, not just the current ayah.
+      if (!allLocal) {
+        final sn = surahNumber;
+        final na = numberOfAyahs;
+        final sName = surahNameS;
+        final src = List<AyahAudioSource>.unmodifiable(sources);
+        unawaited(Future<void>(() async {
+          try {
+            final merged = await _service.prepareMergedSurahAudio(
+              surahNumber: sn,
+              numberOfAyahs: na,
+              sources: src,
+            );
+            if (merged != null && !isClosed) {
+              await _switchToMergedSurah(sn, merged, sName);
+            }
+          } catch (_) {}
+        }));
+      }
     } catch (e) {
       emit(
         AyahAudioState(
@@ -834,6 +992,81 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     }
   }
 
+  /// Seamlessly switches from a [ConcatenatingAudioSource] playlist to a single
+  /// merged MP3 file once the background merge (Phase 4) completes.
+  ///
+  /// This gives [just_audio_background] a unified source so the Android media
+  /// notification can show correct cumulative position and total duration for
+  /// the whole surah, instead of the per-ayah progress visible in playlist mode.
+  Future<void> _switchToMergedSurah(
+    int surahNumber,
+    MergedSurahAudio merged,
+    String surahName,
+  ) async {
+    if (isClosed) return;
+    // Abort if the user has navigated to a different surah or stopped playback.
+    if (_playlistSurahNumber != surahNumber) return;
+
+    // Compute the absolute playback position from accumulated + current position.
+    final savedPosition = _accumulatedDuration + _player.position;
+    final wasPlaying = _player.playing;
+
+    // Build cumulative ayah-end timestamps for boundary detection.
+    var cumulative = Duration.zero;
+    final newMergedAyahEnds = <Duration>[];
+    for (final d in merged.ayahDurations) {
+      cumulative += d;
+      newMergedAyahEnds.add(cumulative);
+    }
+    final totalDuration = newMergedAyahEnds.isNotEmpty
+        ? newMergedAyahEnds.last
+        : null;
+
+    final mediaItem = MediaItem(
+      id: 'surah_$surahNumber',
+      title: surahName,
+      album: 'القرآن الكريم',
+      artist: 'تلاوة كاملة',
+      displayTitle: surahName,
+      displaySubtitle: 'تلاوة كاملة',
+      artUri: await _getTilawaArtUri(),
+      duration: totalDuration,
+    );
+
+    // Update tracking state before changing the source so that any
+    // position/duration subscription callbacks see consistent values.
+    _usingMergedSurahSource = true;
+    _mergedAyahEnds = newMergedAyahEnds;
+    _playlistSurahNumber = null;
+    _accumulatedDuration = Duration.zero;
+    _currentItemIndex = 0;
+    _itemDurations.clear();
+
+    try {
+      await _player.setAudioSource(AudioSource.file(merged.filePath, tag: mediaItem));
+      // Log what ExoPlayer reports so we can verify it equals totalDuration.
+      // If ExoPlayer still reads a Xing/Info frame it may report only the first
+      // ayah's duration here; the strip in AyahAudioService should prevent that.
+      _player.durationStream.firstWhere((d) => d != null).then((d) {
+        debugPrint(
+          '🔀 [MergedSwitch] ExoPlayer reported ${d?.inSeconds}s,'
+          ' expected ${totalDuration?.inSeconds}s for surah $surahNumber',
+        );
+      });
+      // Seek to the position where the user was before the switch.
+      if (savedPosition > Duration.zero) {
+        final clipped = totalDuration != null && savedPosition > totalDuration
+            ? totalDuration
+            : savedPosition;
+        await _player.seek(clipped);
+      }
+      if (wasPlaying) await _player.play();
+    } catch (_) {
+      // If the switch fails (e.g. the merged file was deleted), leave the
+      // player in whatever state it ended up in — do not crash.
+    }
+  }
+
   /// Plays a specific range of ayahs from a surah
   Future<void> playAyahRange({
     required int surahNumber,
@@ -845,6 +1078,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     if (!_initialized) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
+    // Stop previous playback cleanly before resolving sources (same race
+    // guard as _playSurahInternal above).
+    try { await _player.stop(); } catch (_) {}
     _resetPlaylistTracking(endAyah - startAyah + 1, firstAyahNumber: startAyah);
     emit(
       AyahAudioState(
@@ -858,6 +1094,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     try {
       final children = <AudioSource>[];
       final surahNameR = _surahName(surahNumber);
+      final artUri = await _getTilawaArtUri();
       for (var ayahNumber = startAyah; ayahNumber <= endAyah; ayahNumber++) {
         final source = await _service.resolveAyahAudio(
           surahNumber: surahNumber,
@@ -871,7 +1108,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           artist: 'القرآن الكريم',
           displayTitle: surahNameR,
           displaySubtitle: 'القرآن الكريم',
-          artUri: _kTilawaArtUri,
+          artUri: artUri,
         );
         if (source.isLocal) {
           children.add(

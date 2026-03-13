@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">نور الإيمان</string>
+    <!-- ويدجت مواقيت الصلاة -->
+    <string name="prayer_widget_label">مواقيت الصلاة</string>
+    <string name="prayer_widget_description">يعرض مواقيت الصلاة لليوم مع تمييز الصلاة الحالية والقادمة.</string>
+    <string name="prayer_widget_dark_label">مواقيت الصلاة الليلي</string>
+    <string name="prayer_widget_light_label">مواقيت الصلاة الفاتح</string>
 </resources>

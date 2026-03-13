@@ -84,7 +84,13 @@ class WirdNotificationService {
 
     bool ok = true;
     if (android != null) {
-      ok = (await android.requestNotificationsPermission()) ?? true;
+      try {
+        ok = (await android.requestNotificationsPermission()) ?? true;
+      } catch (_) {
+        // Ignore "permissionRequestInProgress" if adhan service is requesting
+        // at the same time; the shared notification permission will still be
+        // granted via the other request.
+      }
       try {
         await android.requestExactAlarmsPermission();
       } catch (_) {}
@@ -193,7 +199,7 @@ class WirdNotificationService {
       'لا تنس قراءة وردك اليومي من القرآن الكريم',
       scheduled,
       _buildDetails(isFollowUp: false),
-      androidScheduleMode: await _scheduleMode(),
+      androidScheduleMode: _scheduleMode(),
       matchDateTimeComponents: DateTimeComponents.time, // Repeats every day.
     );
   }
@@ -245,7 +251,7 @@ class WirdNotificationService {
         body,
         followUpTime,
         _buildDetails(isFollowUp: true),
-        androidScheduleMode: await _scheduleMode(),
+        androidScheduleMode: _scheduleMode(),
       );
       scheduledCount++;
     }
@@ -316,18 +322,8 @@ class WirdNotificationService {
     );
   }
 
-  Future<AndroidScheduleMode> _scheduleMode() async {
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) return AndroidScheduleMode.exactAllowWhileIdle;
-    try {
-      final canExact = await android.canScheduleExactNotifications();
-      return (canExact ?? false)
-          ? AndroidScheduleMode.exactAllowWhileIdle
-          : AndroidScheduleMode.inexactAllowWhileIdle;
-    } catch (_) {
-      return AndroidScheduleMode.inexactAllowWhileIdle;
-    }
-  }
+  // Uses AlarmManager.setAlarmClock() — fires reliably regardless of
+  // battery optimisation or SCHEDULE_EXACT_ALARM permission status.
+  // Identical to how the native Adhan AlarmReceiver schedules its alarms.
+  AndroidScheduleMode _scheduleMode() => AndroidScheduleMode.alarmClock;
 }

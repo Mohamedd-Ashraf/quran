@@ -142,6 +142,68 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             Prayer Times Home-Screen Widget
+             ═══════════════════════════════════════════════════════════════════
+             Reads prayer data from Flutter's SharedPreferences (no network
+             call needed) and refreshes itself every 15 minutes via an exact
+             AlarmManager alarm.  Tapping the widget opens the app.
+        -->
+        <receiver
+            android:name=".PrayerTimesWidget"
+            android:exported="true"
+            android:label="@string/prayer_widget_label">
+            <intent-filter>
+                <!-- Required: system asks the widget provider to update -->
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- Refresh after device reboot / package replace -->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <!-- Custom 15-minute refresh alarm -->
+                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+            </intent-filter>
+            <!-- Widget metadata -->
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".PrayerTimesWidgetDark"
+            android:exported="true"
+            android:label="@string/prayer_widget_dark_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_dark_info" />
+        </receiver>
+
+        <receiver
+            android:name=".PrayerTimesWidgetLight"
+            android:exported="true"
+            android:label="@string/prayer_widget_light_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_light_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

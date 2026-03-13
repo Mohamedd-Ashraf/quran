@@ -19,13 +19,51 @@ is_mandatory:
 download_url:
   Type: String
   Value: "https://play.google.com/store/apps/details?id=com.yourcompany.quraan"
-  Description: "Download URL for the update (Play Store for Android, App Store for iOS)"
-  
-  # For Android:
-  # https://play.google.com/store/apps/details?id=YOUR_PACKAGE_NAME
-  
-  # For iOS:
-  # https://apps.apple.com/app/idYOUR_APP_ID
+  Description: |
+    Fallback download URL used when:
+      • The device is running iOS (App Store link)
+      • The app is distributed via a single universal APK
+      • No ABI-specific URL is set for the device's architecture
+    Leave empty if you always use per-ABI URLs below.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-ABI Download URLs (split-per-ABI Android builds)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# When you build with `flutter build apk --release --split-per-abi` you get
+# three separate APK files.  Set the correct direct-download URL for each one.
+# The app detects the device CPU architecture at runtime and downloads only the
+# matching APK — saving the user 20-40 MB of bandwidth.
+#
+# How the app resolves the URL (priority order):
+#   1. ABI-specific key (e.g. download_url_arm64_v8a) — if non-empty
+#   2. Generic download_url above — universal fallback
+#
+# ABI → Device type mapping:
+#   arm64_v8a   → Most modern Android smartphones (2015+)
+#   armeabi_v7a → Older / low-end devices, older Qualcomm chips
+#   x86_64      → Android emulators, some Chromebooks
+
+download_url_arm64_v8a:
+  Type: String
+  Value: ""
+  Description: |
+    Direct download URL for the arm64-v8a APK.
+    Example: https://example.com/releases/v1.0.9/app-arm64-v8a-release.apk
+
+download_url_armeabi_v7a:
+  Type: String
+  Value: ""
+  Description: |
+    Direct download URL for the armeabi-v7a APK.
+    Example: https://example.com/releases/v1.0.9/app-armeabi-v7a-release.apk
+
+download_url_x86_64:
+  Type: String
+  Value: ""
+  Description: |
+    Direct download URL for the x86_64 APK (emulators / Chromebooks).
+    Example: https://example.com/releases/v1.0.9/app-x86_64-release.apk
 
 changelog_ar:
   Type: String

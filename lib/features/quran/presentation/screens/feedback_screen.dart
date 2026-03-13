@@ -28,7 +28,12 @@ enum _FeedbackType {
 }
 
 class FeedbackScreen extends StatefulWidget {
-  const FeedbackScreen({super.key});
+  /// Optional callback invoked right after a successful Firestore submission.
+  /// Useful when the screen is pushed from a dialog that needs to know if
+  /// the user actually sent their feedback.
+  final VoidCallback? onSubmitted;
+
+  const FeedbackScreen({super.key, this.onSubmitted});
 
   @override
   State<FeedbackScreen> createState() => _FeedbackScreenState();
@@ -75,6 +80,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         _sent = true;
         _isSending = false;
       });
+      // Notify caller (e.g. the promo dialog) that submission succeeded.
+      widget.onSubmitted?.call();
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSending = false);

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Prevents the Android resource shrinker from removing adhan audio files.
-  These files are referenced dynamically via resources.getIdentifier(soundName, "raw", packageName)
-  which bypasses static analysis. Without this file, the shrinker removes adhan_2.mp3–adhan_10.mp3
-  in release builds because they appear "unreferenced".
+  All files here are referenced dynamically (via resources.getIdentifier or
+  RawResourceAndroidNotificationSound) and must be explicitly kept.
+
+  Removed: iqama_sound.mp3 (replaced by iqama_sound_new.m4a) and
+           salawat_sound.wav (not referenced in any code path).
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
     tools:keep="@raw/adhan_1,@raw/wird_reminder,
-               @raw/iqama_sound,@raw/iqama_sound_full,@raw/iqama_sound_new,
+               @raw/iqama_sound_full,@raw/iqama_sound_new,
                @raw/short_adhan,
                @raw/prayer_approaching_dhuhr,@raw/prayer_approaching_maghrib,
                @raw/prayer_reminder_fajr,@raw/prayer_reminder_dhuhr,

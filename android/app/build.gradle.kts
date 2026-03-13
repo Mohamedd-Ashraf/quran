@@ -39,11 +39,15 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
-            // Disable resource shrinking to prevent removal of dynamically-referenced
-            // adhan audio files (adhan_1.mp3 – adhan_10.mp3). They are accessed via
-            // resources.getIdentifier(soundName, "raw", packageName) which the shrinker
-            // cannot trace statically, so it would remove adhan_2–10 as "unused".
-            isShrinkResources = false
+            // Code shrinking (R8) — reduces APK size significantly.
+            isMinifyEnabled = true
+            // Resource shrinking — safe because all dynamically-referenced raw audio
+            // files are explicitly kept in res/raw/keep.xml via tools:keep.
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

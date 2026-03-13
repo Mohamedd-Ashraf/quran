@@ -47,8 +47,18 @@ class AppUpdateInfo extends Equatable {
   /// Compare two version strings (e.g., "1.2.3")
   /// Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
   static int _compareVersions(String v1, String v2) {
-    final v1Parts = v1.split('.').map(int.parse).toList();
-    final v2Parts = v2.split('.').map(int.parse).toList();
+    List<int> parseParts(String value) {
+      final cleaned = value.trim();
+      if (cleaned.isEmpty) return const [0];
+      final matches = RegExp(r'\d+').allMatches(cleaned);
+      final parts = matches
+          .map((m) => int.tryParse(m.group(0) ?? '0') ?? 0)
+          .toList();
+      return parts.isEmpty ? const [0] : parts;
+    }
+
+    final v1Parts = parseParts(v1);
+    final v2Parts = parseParts(v2);
 
     final maxLength = v1Parts.length > v2Parts.length ? v1Parts.length : v2Parts.length;
 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget provider metadata.
+    - Minimum size: 4 columns × 2 rows (≈ 250dp × 110dp).
+    - updatePeriodMillis: Android enforces a minimum of 30 minutes; the widget uses
+      an AlarmManager internally for a 15-minute refresh cycle.
+    - resizeMode: users can resize the widget wider / taller.
+    - widgetCategory: home screen placement only.
+    - previewImage: fallback icon shown in the widget picker (API 11+).
+      NOTE: previewLayout / targetCellWidth / description are API-31+ only and
+      are intentionally omitted here to keep compatibility with API 21+.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="180dp"
+  android:minResizeHeight="110dp"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/prayer_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:previewImage="@mipmap/launcher_icon" />

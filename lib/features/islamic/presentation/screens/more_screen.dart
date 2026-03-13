@@ -16,6 +16,7 @@ import 'prayer_times_screen.dart';
 import 'qiblah_screen.dart';
 import '../../../adhkar/presentation/screens/tasbeeh_screen.dart';
 import '../../../quran/presentation/screens/feedback_screen.dart';
+import '../../../ruqyah/presentation/screens/ruqyah_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -238,6 +239,20 @@ class MoreScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TasbeehScreen()),
+              );
+            },
+          ),
+          _NavCard(
+            title: isArabicUi ? 'الرقية الشرعية' : 'Ruqyah Shariah',
+            subtitle: isArabicUi
+                ? 'آيات الشفاء والحماية من القرآن الكريم'
+                : 'Quranic verses for healing & protection',
+            icon: Icons.healing_rounded,
+            imagePath: 'assets/logo/button icons/Roqia.png',
+            monochromeImage: true,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RuqyahScreen()),
               );
             },
           ),
@@ -979,6 +994,8 @@ class _NavCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final String? imagePath;
+  final bool monochromeImage;
   final VoidCallback onTap;
   final String? badge;
 
@@ -986,6 +1003,8 @@ class _NavCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.imagePath,
+    this.monochromeImage = false,
     required this.onTap,
     this.badge,
   });
@@ -1022,7 +1041,30 @@ class _NavCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 22),
+                child: imagePath != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: ColorFiltered(
+                          colorFilter: monochromeImage
+                              ? const ColorFilter.matrix([
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0, 0, 0, 1, 0,
+                                ])
+                              : const ColorFilter.mode(
+                                  Colors.transparent,
+                                  BlendMode.dst,
+                                ),
+                          child: Image.asset(
+                            imagePath!,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    : Icon(icon, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
