@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran/qcf_quran.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -146,20 +145,9 @@ String _stripBasmalaPrefix(String text) {
 
 Future<List<_Verse>?> _loadFromCache(int page) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('$_kCachePrefix$page');
-    if (raw == null || raw.isEmpty) return null;
-    final decoded = jsonDecode(raw) as List;
-    return decoded.map((v) {
-      final key = v['verseKey'] as String;
-      final sp = key.split(':');
-      return _Verse(
-        verseKey: key,
-        surah: int.parse(sp[0]),
-        ayah: int.parse(sp[1]),
-        text: (v['text'] as String?) ?? '',
-      );
-    }).toList();
+    final cached = _pageTextSessionCache[page];
+    if (cached == null || cached.isEmpty) return null;
+    return List<_Verse>.from(cached);
   } catch (_) {
     return null;
   }
@@ -167,13 +155,14 @@ Future<List<_Verse>?> _loadFromCache(int page) async {
 
 Future<void> _saveToCache(int page, List<_Verse> verses) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(
-      verses.map((v) => {'verseKey': v.verseKey, 'text': v.text}).toList(),
-    );
-    await prefs.setString('$_kCachePrefix$page', encoded);
+    // Keep only a lightweight in-memory cache for this app session.
+    // Writing full-page Quran text to SharedPreferences causes file bloat and
+    // can trigger OOM on Android while codec serializes values.
+    _pageTextSessionCache[page] = List<_Verse>.from(verses);
   } catch (_) {}
 }
+
+final Map<int, List<_Verse>> _pageTextSessionCache = <int, List<_Verse>>{};
 
 Future<List<_Verse>> _loadFromBundledAssets(int page) async {
   final pageData = getPageData(page);

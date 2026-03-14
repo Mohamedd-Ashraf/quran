@@ -41,16 +41,11 @@ class TafsirAutoDownloadService {
       final alreadyTriggered =
           _prefs.getBool(_kMuyassarAutoTriggeredV1011) ?? false;
 
-      final hasPendingMuyassarSession =
-          _stateService.isActive &&
-          _stateService.edition == ApiConstants.tafsirMuyassar &&
-          _stateService.pendingAyahs.isNotEmpty;
-
-      if (alreadyTriggered && !hasPendingMuyassarSession) {
+      if (alreadyTriggered) {
         return;
       }
 
-      if (!alreadyTriggered && currentVersion != _targetVersion) {
+      if (currentVersion != _targetVersion) {
         return;
       }
 
@@ -64,11 +59,6 @@ class TafsirAutoDownloadService {
       try {
         if (!alreadyTriggered) {
           await _prefs.setBool(_kMuyassarAutoTriggeredV1011, true);
-        }
-
-        if (hasPendingMuyassarSession) {
-          await cubit.resume();
-          return;
         }
 
         await cubit.startFull(ApiConstants.tafsirMuyassar);

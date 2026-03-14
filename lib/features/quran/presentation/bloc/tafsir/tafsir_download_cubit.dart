@@ -314,7 +314,7 @@ class TafsirDownloadCubit extends Cubit<TafsirDownloadState> {
 
     final parallelSurahRequests = edition == ApiConstants.tafsirIbnKathir
         ? 2
-        : 5; // Reduced for quran.com to avoid API rate limits, increased for others
+        : 10; // Increased to 10 for faster alquran.cloud downloads
     final maxSurahAttempts = 5;
 
     debugPrint(

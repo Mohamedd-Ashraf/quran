@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/mushaf_page_map.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -164,33 +163,17 @@ class _Verse {
 const String _mushafCachePrefix = 'mushaf_page_v2_';
 
 Future<List<_Verse>?> _loadPageFromDiskCache(int page) async {
-  final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getString('$_mushafCachePrefix$page');
-  if (raw == null || raw.isEmpty) return null;
-  try {
-    final decoded = jsonDecode(raw) as List;
-    return decoded.map((v) {
-      final key = v['verseKey'] as String;
-      final sp = key.split(':');
-      return _Verse(
-        verseKey: key,
-        surah: int.parse(sp[0]),
-        ayah: int.parse(sp[1]),
-        text: (v['text'] as String?) ?? '',
-      );
-    }).toList();
-  } catch (_) {
-    return null;
-  }
+  final cached = _mushafPageSessionCache[page];
+  if (cached == null || cached.isEmpty) return null;
+  return List<_Verse>.from(cached);
 }
 
 Future<void> _savePageToDiskCache(int page, List<_Verse> verses) async {
-  final prefs = await SharedPreferences.getInstance();
-  final encoded = jsonEncode(
-    verses.map((v) => {'verseKey': v.verseKey, 'text': v.text}).toList(),
-  );
-  await prefs.setString('$_mushafCachePrefix$page', encoded);
+  // Keep only session cache in memory to avoid bloating SharedPreferences.
+  _mushafPageSessionCache[page] = List<_Verse>.from(verses);
 }
+
+final Map<int, List<_Verse>> _mushafPageSessionCache = <int, List<_Verse>>{};
 
 /// Load verses for [page] from the bundled offline JSON assets (always available).
 Future<List<_Verse>> _fetchPageFromBundledAssets(int page) async {

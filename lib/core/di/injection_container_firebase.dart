@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../features/quran/data/datasources/quran_remote_data_source.dart';
 import '../../features/quran/data/datasources/quran_local_data_source.dart';
@@ -47,7 +51,45 @@ import '../../features/adhkar/presentation/cubit/adhkar_progress_cubit.dart';
 
 final sl = GetIt.instance;
 
+Future<void> _pruneOversizedLegacySharedPrefs() async {
+  if (defaultTargetPlatform != TargetPlatform.android) return;
+
+  try {
+    final supportDir = await getApplicationSupportDirectory();
+    final appRootDir = supportDir.parent;
+    final prefsFile = File(
+      '${appRootDir.path}/shared_prefs/FlutterSharedPreferences.xml',
+    );
+
+    if (!await prefsFile.exists()) return;
+
+    final sizeBytes = await prefsFile.length();
+    const int maxSafeBytes = 8 * 1024 * 1024; // 8 MB
+    if (sizeBytes <= maxSafeBytes) return;
+
+    final backupFile = File('${prefsFile.path}.oversized.bak');
+    try {
+      if (await backupFile.exists()) {
+        await backupFile.delete();
+      }
+      await prefsFile.copy(backupFile.path);
+    } catch (_) {
+      // Best effort backup only.
+    }
+
+    await prefsFile.delete();
+    debugPrint(
+      'Deleted oversized legacy SharedPreferences file '
+      '(${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB) to avoid OOM.',
+    );
+  } catch (e, st) {
+    debugPrint('SharedPreferences prune skipped: $e\n$st');
+  }
+}
+
 Future<void> init() async {
+  await _pruneOversizedLegacySharedPrefs();
+
   //! Features - Quran
   // Bloc
   sl.registerFactory(
