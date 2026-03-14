@@ -708,7 +708,8 @@ class _OfflineTafsirScreenState extends State<OfflineTafsirScreen> {
                         );
 
                     final bool isComplete = stat.ayahCount >= 6236;
-                    final canStart = (!isRunning || runningEdition == id) && !isComplete;
+                    final canStart =
+                        (!isRunning || runningEdition == id) && !isComplete;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -766,13 +767,16 @@ class _OfflineTafsirScreenState extends State<OfflineTafsirScreen> {
                               children: [
                                 if (!isComplete)
                                   FilledButton.icon(
-                                  onPressed: (!isRunning && canStart)
-                                      ? () =>
-                                            _showStartDialog(context, cubit, id)
-                                      : null,
-                                  icon: const Icon(Icons.download_rounded),
-                                  label: Text(_isAr ? 'تحميل' : 'Download'),
-                                ),
+                                    onPressed: (!isRunning && canStart)
+                                        ? () => _showStartDialog(
+                                            context,
+                                            cubit,
+                                            id,
+                                          )
+                                        : null,
+                                    icon: const Icon(Icons.download_rounded),
+                                    label: Text(_isAr ? 'تحميل' : 'Download'),
+                                  ),
                                 if (!isRunning &&
                                     state is TafsirDownloadResumable &&
                                     state.edition == id)
