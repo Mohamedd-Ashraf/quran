@@ -107,17 +107,17 @@ class ApiConstants {
   /// Approximate on-disk size (MB) for downloading all ayahs of each tafsir.
   /// Actual size varies by encoding and content length per ayah.
   static const Map<String, double> tafsirEstimatedSizeMb = {
-    tafsirMuyassar: 3.0,
+    tafsirMuyassar: 1.5,
     tafsirIbnKathir: 15.0,
-    tafsirJalalayn: 2.0,
-    tafsirQurtubi: 30.0,
-    tafsirBaghawi: 52.0,
-    tafsirWaseet: 42.0,
-    tafsirMiqbas: 16.0,
-    tafsirWahidi: 6.0,
-    tafsirAsad: 7.0,
-    tafsirMaududi: 19.0,
-    tafsirPickthall: 5.0,
+    tafsirJalalayn: 1.0,
+    tafsirQurtubi: 15.5,
+    tafsirBaghawi: 8.0,
+    tafsirWaseet: 10.0,
+    tafsirMiqbas: 3.5,
+    tafsirWahidi: 1.5,
+    tafsirAsad: 2.0,
+    tafsirMaududi: 4.5,
+    tafsirPickthall: 1.2,
   };
 
   // ─── Arabic Quran Text Editions ──────────────────────────────────────────
