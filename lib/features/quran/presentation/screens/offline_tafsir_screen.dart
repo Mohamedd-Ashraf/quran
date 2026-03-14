@@ -523,8 +523,8 @@ class _OfflineTafsirScreenState extends State<OfflineTafsirScreen> {
                           const SizedBox(height: 8),
                           Text(
                             _isAr
-                                ? 'الميسر ~ 8MB، ابن كثير ~ 60MB، الجلالين ~ 12MB، القرطبي ~ 95MB (تقريبي).'
-                                : 'Muyassar ~ 8MB, Ibn Kathir ~ 60MB, Jalalayn ~ 12MB, Qurtubi ~ 95MB (approx).',
+                                ? 'الميسر 3MB، ابن كثير 15MB، الجلالين 2MB، القرطبي 20MB، البغوي 7MB، الوسيط 17MB، ابن عباس 30MB، أسباب النزول 1.5MB، محمد أسد 1MB، المودودي 1MB، بيكثال 1MB.'
+                                : 'Muyassar 3MB, Ibn Kathir 15MB, Jalalayn 2MB, Qurtubi 20MB, Baghawi 7MB, Waseet 17MB, Ibn Abbas 30MB, Asbab Al-Nuzul 1.5MB, Muhammad Asad 1MB, Maududi 1MB, Pickthall 1MB.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
