@@ -73,10 +73,13 @@ class AdhanNotificationService {
   // iOS: expects a bundled sound file (e.g. Runner -> adhan.caf)
   static const String _iosAdhanSoundName = 'adhan.caf';
 
-  // Maximum days we'll ever schedule (hard ceiling so we never cross 60 days).
-  static const int _maxDaysToSchedule = 60;
+  // Maximum days we'll ever schedule (hard ceiling).
+  // 30 days keeps alarm count under ~150 (vs ~300 at 60 days) which reduces
+  // kernel timer pressure and RE-scheduling CPU cost when the app opens.
+  // Alarms re-schedule automatically on app open, boot, TIME_SET, etc.
+  static const int _maxDaysToSchedule = 30;
   // Minimum days to guarantee reliability even with many reminders enabled.
-  static const int _minDaysToSchedule = 30;
+  static const int _minDaysToSchedule = 14;
   // Cairo, Egypt fallback used only when no location is available yet.
   static final Coordinates _defaultEgyptCoordinates = Coordinates(
     30.0444,
@@ -288,6 +291,86 @@ class AdhanNotificationService {
       } catch (_) {}
     } catch (e) {
       debugPrint('Native alarm cancel error: $e');
+    }
+  }
+
+  /// Collect currently stored adhan alarm IDs (before scheduling new ones).
+  Set<int> _getStoredAdhanIds() {
+    try {
+      final raw = _settings.getAdhanSchedulePreview();
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List;
+        return list.whereType<Map>().map((e) => e['id']).whereType<int>().toSet();
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Set<int> _getStoredIqamaIds() {
+    try {
+      final raw = _settings.getIqamaAlarmIds();
+      if (raw != null && raw.isNotEmpty) {
+        return (jsonDecode(raw) as List).whereType<int>().toSet();
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Set<int> _getStoredApproachingIds() {
+    try {
+      final raw = _settings.getApproachingAlarmIds();
+      if (raw != null && raw.isNotEmpty) {
+        return (jsonDecode(raw) as List).whereType<int>().toSet();
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Set<int> _getStoredSalawatIds() {
+    try {
+      final raw = _settings.getSalawatAlarmIds();
+      if (raw != null && raw.isNotEmpty) {
+        return (jsonDecode(raw) as List).whereType<int>().toSet();
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  /// Cancel only AlarmManager IDs that are in the old set but NOT in the new set.
+  /// This avoids the race condition of cancel-all-then-reschedule.
+  Future<void> _cancelStaleNativeAlarms({
+    required Set<int> oldAdhanIds,
+    required Set<int> newAdhanIds,
+    required Set<int> oldIqamaIds,
+    required Set<int> newIqamaIds,
+    required Set<int> oldApproachingIds,
+    required Set<int> newApproachingIds,
+    required Set<int> oldSalawatIds,
+  }) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final staleAdhan = oldAdhanIds.difference(newAdhanIds).toList();
+      if (staleAdhan.isNotEmpty) {
+        await _androidAdhanPlayerChannel.invokeMethod('cancelAdhanAlarms', {'ids': staleAdhan});
+        debugPrint('🔔 [Adhan] Cancelled ${staleAdhan.length} stale alarm(s)');
+      }
+      final staleIqama = oldIqamaIds.difference(newIqamaIds).toList();
+      if (staleIqama.isNotEmpty) {
+        await _androidAdhanPlayerChannel.invokeMethod('cancelIqamaAlarms', {'ids': staleIqama});
+        debugPrint('🔔 [Iqama] Cancelled ${staleIqama.length} stale alarm(s)');
+      }
+      final staleApproaching = oldApproachingIds.difference(newApproachingIds).toList();
+      if (staleApproaching.isNotEmpty) {
+        await _androidAdhanPlayerChannel.invokeMethod('cancelApproachingAlarms', {'ids': staleApproaching});
+        debugPrint('🔔 [Approaching] Cancelled ${staleApproaching.length} stale alarm(s)');
+      }
+      // Salawat: cancel all old (auto-renewal handles its own IDs independently)
+      if (oldSalawatIds.isNotEmpty) {
+        await _androidAdhanPlayerChannel.invokeMethod('cancelSalawatAlarms', {'ids': oldSalawatIds.toList()});
+        debugPrint('🌙 [Salawat] Cancelled ${oldSalawatIds.length} stale alarm(s)');
+      }
+    } catch (e) {
+      debugPrint('Stale alarm cancel error: $e');
     }
   }
 
@@ -634,7 +717,13 @@ class AdhanNotificationService {
     final today = DateTime(now.year, now.month, now.day);
 
     await cancelAll();             // clear flutter_local_notifications alarms (including from older app versions)
-    await _cancelAllNativeAlarms(); // cancel existing native AlarmManager alarms before re-registering
+    // Collect old IDs BEFORE scheduling new ones so we can cancel only stale IDs after.
+    // This avoids the cancel-then-reschedule race condition where alarms are missing
+    // if the process is killed between cancel and reschedule.
+    final oldAdhanIds = _getStoredAdhanIds();
+    final oldIqamaIds = _getStoredIqamaIds();
+    final oldApproachingIds = _getStoredApproachingIds();
+    final oldSalawatIds = _getStoredSalawatIds();
     final days = computeDaysAhead();
     final preview              = <Map<String, dynamic>>[];
     final allIqamaAlarms       = <Map<String, dynamic>>[];
@@ -688,6 +777,17 @@ class AdhanNotificationService {
         }
       }
       await _scheduleSalawatNotifications();
+      // Cancel stale IDs that are no longer in the new schedule.
+      // Done AFTER scheduling so there is never a window without active alarms.
+      await _cancelStaleNativeAlarms(
+        oldAdhanIds: oldAdhanIds,
+        newAdhanIds: preview.map((e) => e['id'] as int).toSet(),
+        oldIqamaIds: oldIqamaIds,
+        newIqamaIds: allIqamaAlarms.map((e) => e['id'] as int).toSet(),
+        oldApproachingIds: oldApproachingIds,
+        newApproachingIds: allApproachingAlarms.map((e) => e['id'] as int).toSet(),
+        oldSalawatIds: oldSalawatIds,
+      );
       // Stamp the schedule date only after all alarms have been submitted.
       // Placing this here (instead of before the try block) means a failure
       // anywhere above leaves the date un-stamped, so ensureScheduleFresh()

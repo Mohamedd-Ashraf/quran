@@ -71,8 +71,10 @@ class AppUpdateServiceFirebase {
         RemoteConfigSettings(
           fetchTimeout: const Duration(seconds: 10),
           // In debug we always fetch the latest published template immediately.
+          // Production: 12 h interval is enough for non-urgent config updates
+          // and avoids unnecessary network + CPU wake-ups.
           minimumFetchInterval:
-              kDebugMode ? Duration.zero : const Duration(hours: 1),
+              kDebugMode ? Duration.zero : const Duration(hours: 12),
         ),
       );
       print('✅ Remote Config settings configured');

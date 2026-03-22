@@ -58,17 +58,7 @@ class JuzListScreen extends StatelessWidget {
         title: Text(isArabicUi ? 'الأجزاء' : 'Juz (Parts)'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
       ),
       body: ListView.builder(
@@ -148,14 +138,7 @@ class _JuzCardState extends State<_JuzCard> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.gradientStart,
-                            AppColors.gradientEnd,
-                          ],
-                        ),
+                        gradient: AppColors.primaryGradient,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: AppColors.secondary,

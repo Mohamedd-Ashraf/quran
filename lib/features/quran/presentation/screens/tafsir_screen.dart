@@ -212,10 +212,10 @@ class _TafsirScreenState extends State<TafsirScreen> {
   // ─── Share Card (captured as PNG image) ─────────────────────────────────
 
   Widget _buildShareCard(String quranFont) {
-    const gold = Color(0xFFD4AF37);
+    const gold = AppColors.secondary;
     const goldLight = Color(0xFFEDD97A);
-    const deepGreen = Color(0xFF064428);
-    const midGreen = Color(0xFF0D5E3A);
+    const deepGreen = AppColors.primaryDark;
+    const midGreen = AppColors.primary;
 
     final ayahStyle = ArabicTextStyleHelper.quranFontStyle(
       fontKey: quranFont,

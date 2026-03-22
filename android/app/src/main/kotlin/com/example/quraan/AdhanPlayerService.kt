@@ -24,6 +24,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.telephony.TelephonyManager
 import android.util.Log
 import java.io.File
 
@@ -132,6 +133,8 @@ class AdhanPlayerService : Service() {
          * Default: false (volume key stops the adhan, which is the desired adhan behaviour).
          */
         const val EXTRA_DISABLE_VOLUME_STOPPER = "disableVolumeStopper"
+        /** Pass true to force audio output to the device speaker, bypassing Bluetooth/headphones. */
+        const val EXTRA_FORCE_SPEAKER = "forceSpeaker"
         const val ACTION_STOP               = "com.example.quraan.STOP_ADHAN"
         private const val TAG               = "AdhanPlayerService"
         /** Default fallback cutoff when none provided (≈ 2 takbeers). */
@@ -141,6 +144,14 @@ class AdhanPlayerService : Service() {
          *  Checked by MainActivity to intercept volume key presses. */
         @Volatile var isPlaying: Boolean = false
             private set
+
+        /** Name of the sound currently playing (or last started). Used to de-duplicate
+         *  simultaneous starts from AlarmReceiver + MainActivity for the same alarm. */
+        @Volatile private var currentPlayingSound: String? = null
+
+        /** Epoch ms when the current playback session was started. Used together with
+         *  [currentPlayingSound] to ignore duplicate starts within a 3-second window. */
+        @Volatile private var playbackStartedAt: Long = 0L
     }
 
     // Lifecycle
@@ -169,8 +180,16 @@ class AdhanPlayerService : Service() {
         val stopLabel          = intent?.getStringExtra(EXTRA_STOP_LABEL)
         val volumeKey          = intent?.getStringExtra(EXTRA_VOLUME_KEY) ?: "flutter.adhan_volume"
         val disableVolumeStopper = intent?.getBooleanExtra(EXTRA_DISABLE_VOLUME_STOPPER, false) ?: false
+        val forceSpeaker       = intent?.getBooleanExtra(EXTRA_FORCE_SPEAKER, false) ?: false
 
-        // Guard: if already playing, stop first (e.g. AlarmManager + in-app both fire).
+        // Guard: deduplicate simultaneous starts that happen when AlarmReceiver and
+        // MainActivity both call startForegroundService() for the same prayer alarm.
+        // If the SAME sound started within the last 3 seconds, this is a duplicate — ignore it.
+        if (isPlaying && currentPlayingSound == soundName &&
+                System.currentTimeMillis() - playbackStartedAt < 3_000L) {
+            Log.w(TAG, "onStartCommand: duplicate start for '$soundName' within 3 s — ignoring")
+            return START_NOT_STICKY
+        }
         if (isPlaying) {
             Log.w(TAG, "onStartCommand: adhan already playing — restarting for $soundName")
         }
@@ -180,7 +199,7 @@ class AdhanPlayerService : Service() {
         // (enables lock-screen controls and activates VolumeProvider routing).
         createAdhanMediaSession(disableVolumeStopper, notifTitle)
         startForeground(NOTIF_ID, buildNotification(notifTitle, notifBody, stopLabel))
-        playAdhan(soundName, isShortMode, shortCutoffSeconds, useAlarmStream, onlineUrl, volumeKey, disableVolumeStopper)
+        playAdhan(soundName, isShortMode, shortCutoffSeconds, useAlarmStream, onlineUrl, volumeKey, disableVolumeStopper, forceSpeaker)
         return START_NOT_STICKY
     }
 
@@ -222,11 +241,19 @@ class AdhanPlayerService : Service() {
                     stopSelf()
                 }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                    // Transient loss = another app (e.g. just_audio_background) momentarily
-                    // re-requests focus. Do NOT stop — the adhan must play to completion.
-                    // The other app will receive AUDIOFOCUS_LOSS and pause itself while we
-                    // continue holding our originally-granted focus.
-                    Log.d(TAG, "Audio focus transiently lost ($change) — ignored, adhan continues")
+                    // Transient loss can be a phone call or another app momentarily
+                    // requesting focus. Check TelephonyManager: if a call is active/ringing,
+                    // stop the adhan. Otherwise, keep playing — the other app will yield.
+                    val tm = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+                    @Suppress("DEPRECATION")
+                    val callActive = tm != null && tm.callState != TelephonyManager.CALL_STATE_IDLE
+                    if (callActive) {
+                        Log.d(TAG, "Audio focus transiently lost ($change) + phone call active — stopping adhan")
+                        stopAdhan()
+                        stopSelf()
+                    } else {
+                        Log.d(TAG, "Audio focus transiently lost ($change) — ignored, adhan continues (no active call)")
+                    }
                 }
                 // AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: duck request — also ignored.
                 // AUDIOFOCUS_GAIN: focus returned to us (e.g. call ended) — no action needed,
@@ -276,7 +303,7 @@ class AdhanPlayerService : Service() {
         shortModeRunnable = null
     }
 
-    private fun playAdhan(soundName: String, shortMode: Boolean = false, shortCutoffSeconds: Int = DEFAULT_SHORT_CUTOFF_SECONDS, useAlarmStream: Boolean = false, onlineUrl: String? = null, volumeKey: String = "flutter.adhan_volume", disableVolumeStopper: Boolean = false) {
+    private fun playAdhan(soundName: String, shortMode: Boolean = false, shortCutoffSeconds: Int = DEFAULT_SHORT_CUTOFF_SECONDS, useAlarmStream: Boolean = false, onlineUrl: String? = null, volumeKey: String = "flutter.adhan_volume", disableVolumeStopper: Boolean = false, forceSpeaker: Boolean = false) {
         cancelShortModeTimer()
         stopAdhan()
         // Set active immediately after stopping any previous playback.
@@ -285,6 +312,8 @@ class AdhanPlayerService : Service() {
         // inside startPlayback). stopAdhan() above already cleared isPlaying,
         // so setting it here is safe and won't be overwritten by it.
         isPlaying = true
+        currentPlayingSound = soundName
+        playbackStartedAt   = System.currentTimeMillis()
         try {
             val pm = getSystemService(POWER_SERVICE) as PowerManager
             @Suppress("DEPRECATION")
@@ -327,6 +356,19 @@ class AdhanPlayerService : Service() {
 
             val player = MediaPlayer()
             player.setAudioAttributes(audioAttrs)
+
+            // ── Force speaker: bypass Bluetooth / wired headphones ─────────
+            if (forceSpeaker) {
+                val am = getSystemService(AUDIO_SERVICE) as AudioManager
+                if (am.isBluetoothA2dpOn || am.isBluetoothScoOn || am.isWiredHeadsetOn) {
+                    // Temporarily route to device speaker by disabling SCO and setting
+                    // speaker mode. Restored in stopAdhan() via setSpeakerphoneOn(false).
+                    am.mode = AudioManager.MODE_IN_COMMUNICATION
+                    @Suppress("DEPRECATION")
+                    am.isSpeakerphoneOn = true
+                    Log.d(TAG, "Force speaker: routing audio to device speaker (BT/headset detected)")
+                }
+            }
 
             // ── Resolve audio source ───────────────────────────────────────────
             // Priority order for online sounds:
@@ -446,30 +488,24 @@ class AdhanPlayerService : Service() {
                         stopSelf()
                         return@setOnPreparedListener
                     }
+                    // Request audio focus as a courtesy so other apps (music, podcasts) pause.
+                    // Never abort on denial — an adhan/alarm MUST play regardless of focus state.
+                    // On Android 15, just_audio_background (same process) may hold focus and the
+                    // system denies our request; aborting would silently skip the prayer call.
                     if (!requestAudioFocus(audioAttrs)) {
-                        if (!disableVolumeStopper) {
-                            Log.w(TAG, "Audio focus denied (streaming) — aborting")
-                            mp.release()
-                            releaseWakeLock()
-                            stopSelf()
-                            return@setOnPreparedListener
-                        }
-                        Log.w(TAG, "Audio focus denied (streaming) for reminder — continuing playback")
+                        Log.w(TAG, "Audio focus denied (streaming) — continuing adhan playback anyway")
                     }
                     startPlayback(mp)
                 }
                 player.prepareAsync()
             } else {
                 player.prepare()
+                // Request audio focus as a courtesy so other apps (music, podcasts) pause.
+                // Never abort on denial — an adhan/alarm MUST play regardless of focus state.
+                // On Android 15, just_audio_background (same process) may hold focus and the
+                // system denies our request; aborting would silently skip the prayer call.
                 if (!requestAudioFocus(audioAttrs)) {
-                    if (!disableVolumeStopper) {
-                        Log.w(TAG, "Audio focus denied — aborting adhan playback")
-                        player.release()
-                        releaseWakeLock()
-                        stopSelf()
-                        return
-                    }
-                    Log.w(TAG, "Audio focus denied for reminder — continuing playback")
+                    Log.w(TAG, "Audio focus denied — continuing adhan playback anyway")
                 }
                 startPlayback(player)
             }
@@ -544,10 +580,20 @@ class AdhanPlayerService : Service() {
         releaseAdhanMediaSession()     // deactivate VolumeProvider first
         unregisterVolumeReceiver()
         unregisterVolumeObserver()
+        // Reset speaker mode if we forced it
+        try {
+            val am = getSystemService(AUDIO_SERVICE) as? AudioManager
+            if (am != null && am.isSpeakerphoneOn) {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = false
+                am.mode = AudioManager.MODE_NORMAL
+            }
+        } catch (_: Exception) {}
         try { mediaPlayer?.stop() }    catch (_: Exception) {}
         try { mediaPlayer?.release() } catch (_: Exception) {}
         mediaPlayer = null
         isPlaying = false
+        currentPlayingSound = null
         abandonAudioFocus()
         releaseWakeLock()
     }

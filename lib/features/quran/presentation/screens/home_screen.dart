@@ -9,6 +9,7 @@ import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_event.dart';
 import '../bloc/surah/surah_state.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
@@ -171,73 +172,36 @@ class HomeScreenState extends State<HomeScreen>
         title: Text(isArabicUi ? 'القرآن الكريم' : 'Quran'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
           // Search button
-          Container(
-            margin: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.secondary.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.search_rounded,
-                color: AppColors.onPrimary,
-              ),
-              tooltip: isArabicUi ? 'بحث' : 'Search',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SearchScreen()),
-              ),
+          _AppBarActionButton(
+            icon: Icons.search_rounded,
+            tooltip: isArabicUi ? 'بحث' : 'Search',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchScreen()),
             ),
           ),
           // Dark mode toggle
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.secondary.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: IconButton(
-              icon: Icon(
-                context.watch<AppSettingsCubit>().state.darkMode
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-                color: AppColors.onPrimary,
-              ),
-              tooltip: isArabicUi
-                  ? (context.watch<AppSettingsCubit>().state.darkMode
-                        ? 'الوضع الفاتح'
-                        : 'الوضع الداكن')
-                  : (context.watch<AppSettingsCubit>().state.darkMode
-                        ? 'Light Mode'
-                        : 'Dark Mode'),
-              onPressed: () {
-                final cubit = context.read<AppSettingsCubit>();
-                cubit.setDarkMode(!cubit.state.darkMode);
-              },
-            ),
+          _AppBarActionButton(
+            icon: context.watch<AppSettingsCubit>().state.darkMode
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+            tooltip: isArabicUi
+                ? (context.watch<AppSettingsCubit>().state.darkMode
+                      ? 'الوضع الفاتح'
+                      : 'الوضع الداكن')
+                : (context.watch<AppSettingsCubit>().state.darkMode
+                      ? 'Light Mode'
+                      : 'Dark Mode'),
+            onPressed: () {
+              final cubit = context.read<AppSettingsCubit>();
+              cubit.setDarkMode(!cubit.state.darkMode);
+            },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: BlocBuilder<SurahBloc, SurahState>(
@@ -287,31 +251,8 @@ class HomeScreenState extends State<HomeScreen>
                       final detailsLine = detailsParts.join(' • ');
 
                       return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 4,
-                        shadowColor: AppColors.secondary.withValues(alpha: 0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(
-                            color: AppColors.secondary.withValues(alpha: 0.15),
-                            width: 1,
-                          ),
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Theme.of(context).cardColor,
-                                Theme.of(
-                                  context,
-                                ).cardColor.withValues(alpha: 0.95),
-                              ],
-                            ),
-                          ),
-                          child: InkWell(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: InkWell(
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -325,7 +266,7 @@ class HomeScreenState extends State<HomeScreen>
                                 ),
                               );
                             },
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: AppDesignSystem.borderRadiusLg,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -336,32 +277,17 @@ class HomeScreenState extends State<HomeScreen>
                                     ? TextDirection.rtl
                                     : TextDirection.ltr,
                                 children: [
+                                  // Surah number badge
                                   Container(
-                                    width: 52,
-                                    height: 52,
+                                    width: 48,
+                                    height: 48,
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          AppColors.gradientStart,
-                                          AppColors.gradientEnd,
-                                        ],
-                                      ),
+                                      gradient: AppColors.primaryGradient,
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: AppColors.secondary,
-                                        width: 2,
+                                        color: AppColors.secondary.withValues(alpha: 0.4),
+                                        width: 1.5,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.secondary.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
                                     ),
                                     child: Center(
                                       child: Text(
@@ -372,12 +298,12 @@ class HomeScreenState extends State<HomeScreen>
                                             ?.copyWith(
                                               color: AppColors.onPrimary,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 18,
+                                              fontSize: 16,
                                             ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: isArabicUi
@@ -407,7 +333,7 @@ class HomeScreenState extends State<HomeScreen>
                                               : null,
                                           style: isArabicUi
                                               ? GoogleFonts.amiriQuran(
-                                                  fontSize: 22,
+                                                  fontSize: 20,
                                                   fontWeight: FontWeight.w700,
                                                   height: 1.6050,
                                                   color: Theme.of(context)
@@ -421,9 +347,10 @@ class HomeScreenState extends State<HomeScreen>
                                                     ?.copyWith(
                                                       fontWeight:
                                                           FontWeight.w700,
+                                                      fontSize: 16,
                                                     ),
                                         ),
-                                        const SizedBox(height: 6),
+                                        const SizedBox(height: 4),
                                         Text(
                                           detailsLine,
                                           maxLines: 1,
@@ -442,42 +369,35 @@ class HomeScreenState extends State<HomeScreen>
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.3,
+                                  // Play button
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: AppDesignSystem.borderRadiusMd,
+                                      onTap: () {
+                                        context
+                                            .read<AyahAudioCubit>()
+                                            .togglePlaySurah(
+                                              surahNumber: surah.number,
+                                              numberOfAyahs:
+                                                  surah.numberOfAyahs,
+                                            );
+                                      },
+                                      child: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                          borderRadius: AppDesignSystem.borderRadiusMd,
                                         ),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(12),
-                                        onTap: () {
-                                          context
-                                              .read<AyahAudioCubit>()
-                                              .togglePlaySurah(
-                                                surahNumber: surah.number,
-                                                numberOfAyahs:
-                                                    surah.numberOfAyahs,
-                                              );
-                                        },
                                         child: Tooltip(
                                           message: isArabicUi
                                               ? 'تشغيل السورة كاملة'
                                               : 'Play full surah',
                                           child: Icon(
                                             Icons.play_arrow_rounded,
-                                            color: AppColors.primary,
-                                            size: 24,
+                                            color: Theme.of(context).colorScheme.primary,
+                                            size: 22,
                                           ),
                                         ),
                                       ),
@@ -487,7 +407,6 @@ class HomeScreenState extends State<HomeScreen>
                               ),
                             ),
                           ),
-                        ),
                       );
                     }, childCount: state.surahs.length),
                   ),
@@ -951,14 +870,7 @@ class _CategoryTile extends StatelessWidget {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.gradientStart,
-                                AppColors.gradientEnd,
-                              ],
-                            ),
+                            gradient: AppColors.primaryGradient,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: AppColors.secondary.withValues(
@@ -1050,6 +962,41 @@ class _CategoryTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared AppBar action button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AppBarActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _AppBarActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: AppDesignSystem.borderRadiusMd,
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: AppColors.onPrimary, size: 20),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.all(8),
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
     );
   }

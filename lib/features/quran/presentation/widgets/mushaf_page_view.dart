@@ -11,8 +11,11 @@ import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/surah_names.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
+import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../wird/data/quran_boundaries.dart';
 import '../../domain/entities/surah.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
@@ -333,14 +336,51 @@ class _MushafPageViewState extends State<MushafPageView>
     HapticFeedback.selectionClick();
     final cubit = context.read<AyahAudioCubit>();
     final state = cubit.state;
-    if (state.isCurrent(surah, verse)) {
-      // Already playing/paused this ayah – toggle.
+
+    // If already on this ayah → toggle play/pause.
+    if (state.isCurrent(surah, verse) &&
+        (state.status == AyahAudioStatus.playing ||
+            state.status == AyahAudioStatus.paused)) {
       if (state.status == AyahAudioStatus.playing) {
         cubit.pause();
-      } else if (state.status == AyahAudioStatus.paused) {
-        cubit.resume();
       } else {
-        cubit.playAyah(surahNumber: surah, ayahNumber: verse);
+        cubit.resume();
+      }
+      _highlightAyah(surah, verse);
+      return;
+    }
+
+    final settings = context.read<AppSettingsCubit>().state;
+    if (settings.mushafContinueTilawa) {
+      if (settings.mushafContinueScope == 'surah') {
+        final idx = surah - 1;
+        final totalAyahs = (idx >= 0 && idx < kSurahAyahCounts.length)
+            ? kSurahAyahCounts[idx]
+            : verse;
+        cubit.playAyahRange(
+          surahNumber: surah,
+          startAyah: verse,
+          endAyah: totalAyahs,
+        );
+      } else {
+        // Page scope: find the last ayah of this surah on the current page.
+        int endAyah = verse;
+        try {
+          final pageNum = (_pageController.page?.round() ?? 0) + 1;
+          final ranges = getPageData(pageNum);
+          for (final r in ranges) {
+            final m = r as Map;
+            if (int.parse(m['surah'].toString()) == surah) {
+              endAyah = int.parse(m['end'].toString());
+              break;
+            }
+          }
+        } catch (_) {}
+        cubit.playAyahRange(
+          surahNumber: surah,
+          startAyah: verse,
+          endAyah: endAyah,
+        );
       }
     } else {
       cubit.playAyah(surahNumber: surah, ayahNumber: verse);
@@ -857,6 +897,34 @@ class _MushafPageViewState extends State<MushafPageView>
     );
   }
 
+  Widget _buildRecitationSettingsButton(bool isDark) {
+    final color = isDark
+        ? Colors.white.withValues(alpha: 0.65)
+        : AppColors.primary.withValues(alpha: 0.55);
+    return IconButton(
+      onPressed: () => _showMushafRecitationSettings(context),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
+      iconSize: 18,
+      icon: Icon(Icons.tune_rounded, color: color, size: 18),
+      tooltip: 'إعدادات التلاوة',
+    );
+  }
+
+  void _showMushafRecitationSettings(BuildContext ctx) {
+    showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BlocProvider.value(
+        value: ctx.read<AppSettingsCubit>(),
+        child: _MushafQcfRecitationSheet(
+          isAr: widget.isArabicUi,
+        ),
+      ),
+    );
+  }
+
   // ── Decorative widgets ─────────────────────────────────────────────────────
 
   // ── Juz approximation (standard 20-page/juz Medina layout) ──────────────
@@ -931,6 +999,7 @@ class _MushafPageViewState extends State<MushafPageView>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildPagePlayButton(pageNumber),
+          _buildRecitationSettingsButton(isDark),
           Text(
             'الجزء ${_juzName(_juzForPage(pageNumber))}',
             style: labelStyle,
@@ -1165,4 +1234,382 @@ class BorderOrnamentPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─── Recitation settings sheet (QCF Mushaf) ──────────────────────────────────
+
+class _MushafQcfRecitationSheet extends StatefulWidget {
+  final bool isAr;
+  const _MushafQcfRecitationSheet({required this.isAr});
+
+  @override
+  State<_MushafQcfRecitationSheet> createState() =>
+      _MushafQcfRecitationSheetState();
+}
+
+class _MushafQcfRecitationSheetState
+    extends State<_MushafQcfRecitationSheet> {
+  late final OfflineAudioService _offlineAudio;
+  late final AudioEditionService _editionService;
+  late Future<List<AudioEdition>> _editionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _offlineAudio = di.sl<OfflineAudioService>();
+    _editionService = di.sl<AudioEditionService>();
+    _editionsFuture = _editionService.getVerseByVerseAudioEditions();
+  }
+
+  Future<void> _showReciterPicker(
+    BuildContext ctx,
+    List<AudioEdition> all,
+    String currentEdition,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _QcfReciterPickerSheet(
+        all: all,
+        currentEdition: currentEdition,
+        isAr: widget.isAr,
+        onSelected: (identifier) async {
+          await _offlineAudio.setEdition(identifier);
+          if (ctx.mounted) {
+            try {
+              ctx.read<AyahAudioCubit>().stop();
+            } catch (_) {}
+            setState(() {
+              _editionsFuture = _editionService.getVerseByVerseAudioEditions();
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AppSettingsCubit, AppSettingsState>(
+      builder: (ctx, settings) {
+        final isDark = settings.darkMode;
+        final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+        final subTextColor = isDark
+            ? Colors.white.withValues(alpha: 0.55)
+            : Colors.black.withValues(alpha: 0.45);
+        final dividerColor = isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.08);
+        final titleStyle = GoogleFonts.amiriQuran(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: textColor,
+        );
+        final labelStyle =
+            GoogleFonts.amiriQuran(fontSize: 14, color: textColor);
+        final noteStyle =
+            GoogleFonts.amiriQuran(fontSize: 11, color: subTextColor);
+
+        return SafeArea(
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text('إعدادات التلاوة',
+                      style: titleStyle, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+
+                  // ── القارئ ──────────────────────────────────────────────────
+                  FutureBuilder<List<AudioEdition>>(
+                    future: _editionsFuture,
+                    builder: (ctx, snap) {
+                      final currentId = _offlineAudio.edition;
+                      final edition = snap.data
+                          ?.where((e) => e.identifier == currentId)
+                          .cast<AudioEdition?>()
+                          .firstOrNull;
+                      final name =
+                          edition?.displayNameForAppLanguage(
+                              widget.isAr ? 'ar' : 'en') ??
+                              currentId;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('القارئ', style: labelStyle),
+                                Text(name,
+                                    style: labelStyle.copyWith(
+                                      color: subTextColor,
+                                      fontSize: 12,
+                                    )),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: snap.hasData
+                                ? () => _showReciterPicker(
+                                    ctx, snap.data!, _offlineAudio.edition)
+                                : null,
+                            child: Text(
+                              'تغيير',
+                              style: GoogleFonts.amiriQuran(
+                                color: AppColors.secondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+
+                  // ── تلاوة كلمة بكلمة ────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('تلاوة كلمة بكلمة', style: labelStyle),
+                            Text(
+                              'اضغط على كلمة لتسمعها',
+                              style: noteStyle,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: settings.wordByWordAudio,
+                        onChanged: (v) =>
+                            ctx.read<AppSettingsCubit>().setWordByWordAudio(v),
+                        activeColor: AppColors.secondary,
+                        inactiveThumbColor: isDark
+                            ? Colors.white.withValues(alpha: 0.55)
+                            : Colors.grey.shade400,
+                        inactiveTrackColor: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.grey.shade300,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+
+                  // ── تكملة التلاوة ──────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('تكملة التلاوة عند الضغط',
+                            style: labelStyle),
+                      ),
+                      Switch(
+                        value: settings.mushafContinueTilawa,
+                        onChanged: (v) => ctx
+                            .read<AppSettingsCubit>()
+                            .setMushafContinueTilawa(v),
+                        activeColor: AppColors.secondary,
+                        inactiveThumbColor: isDark
+                            ? Colors.white.withValues(alpha: 0.55)
+                            : Colors.grey.shade400,
+                        inactiveTrackColor: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.grey.shade300,
+                      ),
+                    ],
+                  ),
+                  if (settings.mushafContinueTilawa) ...[
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'page',
+                          label: Text('إلى نهاية الصفحة',
+                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                        ),
+                        ButtonSegment(
+                          value: 'surah',
+                          label: Text('إلى نهاية السورة',
+                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                        ),
+                      ],
+                      selected: {settings.mushafContinueScope},
+                      onSelectionChanged: (s) => ctx
+                          .read<AppSettingsCubit>()
+                          .setMushafContinueScope(s.first),
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? (isDark ? Colors.white : AppColors.primary)
+                              : textColor.withValues(alpha: 0.65),
+                        ),
+                        backgroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.12)
+                              : Colors.transparent,
+                        ),
+                        side: WidgetStateProperty.all(
+                          BorderSide(color: dividerColor, width: 0.8),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QcfReciterPickerSheet extends StatefulWidget {
+  final List<AudioEdition> all;
+  final String currentEdition;
+  final bool isAr;
+  final Future<void> Function(String identifier) onSelected;
+
+  const _QcfReciterPickerSheet({
+    required this.all,
+    required this.currentEdition,
+    required this.isAr,
+    required this.onSelected,
+  });
+
+  @override
+  State<_QcfReciterPickerSheet> createState() =>
+      _QcfReciterPickerSheetState();
+}
+
+class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
+  late String _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.currentEdition;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+
+    final arReciters = widget.all.where((e) => e.language == 'ar').toList();
+    final others = widget.all.where((e) => e.language != 'ar').toList();
+    final ordered = [...arReciters, ...others];
+
+    return SafeArea(
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : Colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  'اختر القارئ',
+                  style: GoogleFonts.amiriQuran(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: ordered.length,
+                  itemBuilder: (ctx, i) {
+                    final e = ordered[i];
+                    final name = e.displayNameForAppLanguage(
+                        widget.isAr ? 'ar' : 'en');
+                    final isSelected = e.identifier == _selected;
+                    return ListTile(
+                      title: Text(
+                        name,
+                        style: GoogleFonts.amiriQuran(
+                          fontSize: 13,
+                          color: isSelected
+                              ? AppColors.secondary
+                              : textColor,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.secondary, size: 18)
+                          : null,
+                      onTap: () async {
+                        setState(() => _selected = e.identifier);
+                        await widget.onSelected(e.identifier);
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

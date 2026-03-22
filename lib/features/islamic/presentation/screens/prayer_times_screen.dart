@@ -219,17 +219,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         title: Text(isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
           // Update / change location

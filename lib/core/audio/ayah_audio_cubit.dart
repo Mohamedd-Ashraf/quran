@@ -434,7 +434,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         if (tag is MediaItem) {
           final ayahNum = int.tryParse(tag.id.split('_').last);
           if (ayahNum != null) {
-            emit(state.copyWith(ayahNumber: ayahNum));
+            // Guard against stale events from a replaced playlist (e.g., fired
+            // after stop() but before setAudioSource loads the new sequence).
+            // Only emit if ayahNum falls within the current expected range.
+            if (ayahNum >= _firstAyahNumber &&
+                ayahNum < _firstAyahNumber + _ayahCount) {
+              emit(state.copyWith(ayahNumber: ayahNum));
+            }
             return;
           }
         }
@@ -885,17 +891,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     int queueTotal = 0,
   }) async {
     final isQueueMode = queueTotal > 1;
-    // Stop Adhan (await so native stop completes before audio starts).
-    await _adhanService.stopCurrentAdhan();
-    if (!_initialized) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    // Stop the player before resolving sources.  This prevents a race where
-    // the old track completes during async source resolution and
-    // _onPlaylistCompleted emits idle + fires a second stop() that cancels
-    // the newly loaded source.  just_audio handles stop→setAudioSource
-    // cleanly (processingState goes idle, not completed).
-    try { await _player.stop(); } catch (_) {}
+    // Update tracking state and emit the new target FIRST, before any awaits.
+    // Mirrors the same safeguard in _playAyahRangeInternal: stale callbacks
+    // from _player.stop() (below) must not overwrite the correct highlight.
     _resetPlaylistTracking(numberOfAyahs);
     emit(
       AyahAudioState(
@@ -907,6 +905,17 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         queueTotal: queueTotal,
       ),
     );
+    // Stop Adhan (await so native stop completes before audio starts).
+    await _adhanService.stopCurrentAdhan();
+    if (!_initialized) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    // Stop the player before resolving sources.  This prevents a race where
+    // the old track completes during async source resolution and
+    // _onPlaylistCompleted emits idle + fires a second stop() that cancels
+    // the newly loaded source.  just_audio handles stop→setAudioSource
+    // cleanly (processingState goes idle, not completed).
+    try { await _player.stop(); } catch (_) {}
 
     try {
       final surahNameS = _surahName(surahNumber);
@@ -1176,14 +1185,10 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     int queueIndex = 0,
     int queueTotal = 0,
   }) async {
-    // Stop Adhan (await so native stop completes before audio starts).
-    await _adhanService.stopCurrentAdhan();
-    if (!_initialized) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    // Stop previous playback cleanly before resolving sources (same race
-    // guard as _playSurahInternal above).
-    try { await _player.stop(); } catch (_) {}
+    // Update tracking state and emit the new target FIRST, before any awaits.
+    // This prevents callbacks from _player.stop() below from overwriting the
+    // correct highlight — stale tag events are also guarded by the range check
+    // in _indexSub, but emitting first here is the primary safeguard.
     _resetPlaylistTracking(endAyah - startAyah + 1, firstAyahNumber: startAyah);
     emit(
       AyahAudioState(
@@ -1195,6 +1200,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         queueTotal: queueTotal,
       ),
     );
+    // Stop Adhan (await so native stop completes before audio starts).
+    await _adhanService.stopCurrentAdhan();
+    if (!_initialized) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    // Stop previous playback cleanly before resolving sources.
+    try { await _player.stop(); } catch (_) {}
 
     try {
       final children = <AudioSource>[];

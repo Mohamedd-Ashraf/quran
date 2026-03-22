@@ -401,17 +401,7 @@ class _QiblahScreenState extends State<QiblahScreen>
         title: Text(isAr ? 'القِبلة' : 'Qiblah'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
           if (_updatingLocation)

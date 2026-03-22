@@ -1,6 +1,8 @@
 package com.example.quraan
 
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -109,6 +111,11 @@ class ApproachingAlarmReceiver : BroadcastReceiver() {
             "android.intent.action.MY_PACKAGE_REPLACED",
             "android.intent.action.QUICKBOOT_POWERON",
             "com.htc.intent.action.QUICKBOOT_POWERON" -> handleBoot(context)
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED -> {
+                Log.d(TAG, "Time/timezone changed — rescheduling approaching alarms")
+                handleBoot(context)
+            }
         }
     }
 
@@ -142,9 +149,43 @@ class ApproachingAlarmReceiver : BroadcastReceiver() {
             putExtra(AdhanPlayerService.EXTRA_VOLUME_KEY,             "flutter.approaching_volume")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
+            try {
+                context.startForegroundService(serviceIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "startForegroundService failed — posting fallback notification", e)
+                postFallbackNotification(context, title, body)
+            }
         } else {
             context.startService(serviceIntent)
+        }
+    }
+
+    private fun postFallbackNotification(context: Context, title: String, body: String) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val ch = NotificationChannel(
+                    "approaching_fallback", "تذكير (احتياطي)",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply { description = "Fallback approaching notification" }
+                nm.createNotificationChannel(ch)
+            }
+            val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            }
+            val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                android.app.Notification.Builder(context, "approaching_fallback")
+            } else {
+                @Suppress("DEPRECATION") android.app.Notification.Builder(context)
+            }.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .also { b -> openPi?.let { b.setContentIntent(it) } }
+                .build()
+            nm.notify(8890, notif)
+        } catch (e2: Exception) {
+            Log.e(TAG, "Fallback notification also failed", e2)
         }
     }
 

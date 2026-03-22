@@ -28,17 +28,7 @@ class AdhkarCategoriesScreen extends StatelessWidget {
         title: Text(isArabicUi ? 'الأذكار والأدعية' : 'Adhkar & Duas'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
       ),
       body: CustomScrollView(
@@ -110,11 +100,7 @@ class _HeaderBanner extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: AppColors.primaryGradient,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(

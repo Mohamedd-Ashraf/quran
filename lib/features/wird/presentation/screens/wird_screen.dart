@@ -282,17 +282,7 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
       title: Text(isAr ? 'الورد اليومي' : 'Daily Wird'),
       centerTitle: true,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.gradientStart,
-              AppColors.gradientMid,
-              AppColors.gradientEnd,
-            ],
-          ),
-        ),
+        decoration: BoxDecoration(gradient: AppColors.primaryGradient),
       ),
     );
   }
@@ -369,8 +359,8 @@ class _NoPlanView extends StatelessWidget {
             isAr: isAr,
             isDark: isDark,
             icon: Icons.nightlight_round,
-            iconColor: const Color(0xFFD4AF37),
-            gradientColors: const [Color(0xFF2E1760), Color(0xFF0D5E3A)],
+            iconColor: AppColors.secondary,
+            gradientColors: const [Color(0xFF2E1760), AppColors.primary],
             title: isAr ? 'ختمة رمضان' : 'Ramadan Khatm',
             subtitle: isAr
                 ? 'ختم القرآن الكريم في ٣٠ يومًا\nجزء واحد كل يوم'
@@ -1612,11 +1602,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -2057,13 +2043,7 @@ class _ProgressHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isRamadan
-              ? const [Color(0xFF1A0050), Color(0xFF0D5E3A)]
-              : [AppColors.gradientStart, AppColors.gradientEnd],
-        ),
+        gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -2844,11 +2824,7 @@ class _DaysGrid extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              gradient: AppColors.primaryGradient,
             ),
             child: Row(
               children: [

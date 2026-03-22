@@ -119,17 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(isAr ? 'الإعدادات' : 'Settings'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
       ),
       body: ListView(
@@ -156,19 +146,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: SegmentedButton<String>(
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        foregroundColor: WidgetStateProperty.resolveWith(
-                          (s) => s.contains(WidgetState.selected)
-                              ? Colors.white
-                              : AppColors.primary,
-                        ),
-                        backgroundColor: WidgetStateProperty.resolveWith(
-                          (s) => s.contains(WidgetState.selected)
-                              ? AppColors.primary
-                              : null,
-                        ),
-                      ),
                       segments: [
                         ButtonSegment(
                           value: 'ar',
@@ -242,19 +219,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: WidgetStateProperty.resolveWith(
-                        (s) => s.contains(WidgetState.selected)
-                            ? Colors.white
-                            : AppColors.primary,
-                      ),
-                      backgroundColor: WidgetStateProperty.resolveWith(
-                        (s) => s.contains(WidgetState.selected)
-                            ? AppColors.primary
-                            : null,
-                      ),
-                    ),
                     segments: [
                       ButtonSegment(
                           value: 'different',
@@ -501,11 +465,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, Color(0xFF1A8A58)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+                        gradient: AppColors.primaryGradient,
                       ),
                       child: Row(children: [
                         const Icon(Icons.record_voice_over_rounded,
@@ -747,17 +707,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(16)),
             clipBehavior: Clip.hardEdge,
             child: Column(children: [
-              // ── Gradient header ────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 14),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
+                  gradient: AppColors.primaryGradient,
                 ),
                 child: Row(children: [
                   const Icon(Icons.auto_awesome_rounded,
@@ -1004,22 +959,19 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 14, 2, 10),
+      padding: const EdgeInsets.fromLTRB(2, 20, 2, 10),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              gradient: AppColors.primaryGradient,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.22),
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.22),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -1045,7 +997,9 @@ class _SectionHeader extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Divider(
-              color: AppColors.primary.withValues(alpha: 0.15),
+              color: isDark
+                  ? AppColors.darkDivider
+                  : AppColors.primary.withValues(alpha: 0.12),
               height: 1,
             ),
           ),
@@ -1064,7 +1018,6 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: child,
     );
   }
@@ -1076,7 +1029,7 @@ class _TileTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14));
+      Text(text, style: Theme.of(context).listTileTheme.titleTextStyle);
 }
 
 class _TileSubtitle extends StatelessWidget {
@@ -1084,10 +1037,8 @@ class _TileSubtitle extends StatelessWidget {
   const _TileSubtitle(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-      );
+  Widget build(BuildContext context) =>
+      Text(text, style: Theme.of(context).listTileTheme.subtitleTextStyle);
 }
 
 class _SettingLabel extends StatelessWidget {
@@ -1112,16 +1063,17 @@ class _ValueBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
+        color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         value,
-        style: const TextStyle(
-            color: AppColors.primary,
+        style: TextStyle(
+            color: isDark ? AppColors.primaryLight : AppColors.primary,
             fontWeight: FontWeight.bold,
             fontSize: 14),
       ),
@@ -1136,12 +1088,17 @@ class _PreviewBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+        color: isDark ? AppColors.darkBackground : color,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? AppColors.darkDivider : AppColors.cardBorder,
+          width: 0.8,
+        ),
       ),
       child: child,
     );
@@ -1252,14 +1209,7 @@ class _MushafEntryCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          AppColors.gradientStart,
-                          AppColors.gradientEnd
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: AppColors.primaryGradient,
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: const Icon(Icons.tune_rounded,
@@ -1516,7 +1466,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.primary, Color(0xFF1A8A58)],
+                      colors: [AppColors.primary, AppColors.primaryLight],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),

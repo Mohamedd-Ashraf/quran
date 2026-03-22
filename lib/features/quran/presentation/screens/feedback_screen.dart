@@ -129,17 +129,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
           ),
           centerTitle: true,
           flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.gradientStart,
-                  AppColors.gradientMid,
-                  AppColors.gradientEnd,
-                ],
-              ),
-            ),
+            decoration: BoxDecoration(gradient: AppColors.primaryGradient),
           ),
         ),
         body: _sent
@@ -322,11 +312,7 @@ class _SuccessView extends StatelessWidget {
               width: 90,
               height: 90,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                ),
+                gradient: AppColors.primaryGradient,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(

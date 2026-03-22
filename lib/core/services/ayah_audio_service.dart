@@ -25,34 +25,89 @@ class AyahAudioSource {
 /// Maps alquran.cloud edition IDs to their everyayah.com folder names.
 /// everyayah.com is more reliable than cdn.islamic.network used by alquran.cloud.
 const Map<String, String> _everyAyahFolders = {
-  'ar.alafasy': 'Alafasy_128kbps',
-  'ar.abdurrahmaansudais': 'Abdurrahmaan_As-Sudais_192kbps',
-  'ar.husary': 'Husary_128kbps',
-  'ar.husarymujawwad': 'Husary_Mujawwad_128kbps',
-  'ar.minshawi': 'Minshawy_Murattal_128kbps',
-  'ar.minshawimujawwad': 'Minshawy_Mujawwad_128kbps',
-  'ar.muhammadayyoub': 'Muhammad_Ayyoub_128kbps',
-  'ar.muhammadjibreel': 'muhammad_jibreel_128kbps',
-  'ar.saoodshuraym': 'Saood_ash-Shuraym_128kbps',
-  'ar.shaatree': 'Abu_Bakr_Ash-Shaatree_128kbps',
-  'ar.parhizgar': 'Parhizgar_48kbps',
-  // ─── قراء مضافون يدوياً ───────────────────────────────────────────────────
-  'ar.alijaber': 'Ali_Jaber_64kbps',                    // علي عبد الله جابر
+  'ar.alafasy':             'Alafasy_128kbps',
+  'ar.abdurrahmaansudais':  'Abdurrahmaan_As-Sudais_192kbps',
+  'ar.husary':              'Husary_128kbps',
+  'ar.husarymujawwad':      'Husary_128kbps_Mujawwad',           // الفولدر الصحيح على everyayah.com
+  'ar.minshawi':            'Minshawy_Murattal_128kbps',         // محمد صديق المنشاوي (مرتل)
+  'ar.minshawimujawwad':    'Minshawy_Mujawwad_192kbps',         // محمد صديق المنشاوي (مجود) - 192kbps
+  'ar.muhammadayyoub':      'Muhammad_Ayyoub_128kbps',
+  'ar.muhammadjibreel':     'Muhammad_Jibreel_128kbps',          // تصحيح: M كبير
+  'ar.saoodshuraym':        'Saood_ash-Shuraym_128kbps',
+  'ar.shaatree':            'Abu_Bakr_Ash-Shaatree_128kbps',
+  'ar.parhizgar':           'Parhizgar_48kbps',
+  // ─── قراء مضافون يدوياً ────────────────────────────────────────────────────
+  'ar.alijaber':            'Ali_Jaber_64kbps',                  // علي عبد الله جابر
+  'ar.abdulsamad':          'Abdul_Basit_Murattal_64kbps',       // عبد الباسط المرتل (ar.abdulsamad في API)
+  'ar.abdulbasitmujawwad':  'Abdul_Basit_Mujawwad_128kbps',      // عبد الباسط المجود
+  'ar.mahermuaiqly':        'Maher_AlMuaiqly_64kbps',            // ماهر المعيقلي
+  'ar.nasserqatami':        'Nasser_Alqatami_128kbps',           // ناصر القطامي
+  'ar.yasiradussary':       'Yasser_Ad-Dussary_128kbps',         // ياسر الدوسري
+  'ar.ahmedajamy':          'ahmed_ibn_ali_al_ajamy_128kbps',    // تصحيح: الحروف الصغيرة
+  // ─── قراء إضافيون ──────────────────────────────────────────────────────────
+  'ar.ghamadi':             'Ghamadi_40kbps',                    // سعد الغامدي
+  'ar.hudhaify':            'Hudhaify_128kbps',                  // علي الحذيفي
+  'ar.hanirifai':           'Hani_Rifai_192kbps',                // هاني الرفاعي
+  'ar.abdullahbasfar':      'Abdullah_Basfar_192kbps',           // عبدالله بصفر
+  'ar.aymanswoaid':         'Ayman_Sowaid_64kbps',               // أيمن سويد
+  'ar.ibrahimakhbar':       'Ibrahim_Akhdar_64kbps',             // إبراهيم الأخضر
+  'ar.muhsinqasim':         'Muhsin_Al_Qasim_192kbps',           // محسن القاسم
+  'ar.mohammadaltablawi':   'Mohammad_al_Tablaway_128kbps',      // محمد الطبلاوي
+  'ar.mustafaismail':       'Mustafa_Ismail_48kbps',             // مصطفى إسماعيل
+  'ar.salahbudair':         'Salah_Al_Budair_128kbps',           // صلاح البدير
+  'ar.salaahbukhatir':      'Salaah_AbdulRahman_Bukhatir_128kbps', // صلاح بو خاطر
+  'ar.abdullahjuhani':      'Abdullaah_3awwaad_Al-Juhaynee_128kbps', // عبدالله الجهني
+  'ar.yaserslama':          'Yaser_Salamah_128kbps',             // ياسر سلامة
+  'ar.khaledtunaiji':       'khalefa_al_tunaiji_64kbps',         // خليفة الطنيجي
+  'ar.khaalidqahtani':      'Khaalid_Abdullaah_al-Qahtaanee_192kbps', // خالد القحطاني
+  'ar.nabilerrifaai':       'Nabil_Rifa3i_48kbps',               // نبيل الرفاعي
+  'ar.sahlyssin':           'Sahl_Yassin_128kbps',               // سهل ياسين
+  'ar.faresabbad':          'Fares_Abbad_64kbps',                // فارس عباد
+  'ar.mahmoudbanna':        'mahmoud_ali_al_banna_32kbps',       // محمود علي البنا
+  'ar.alisuesy':            'Ali_Hajjaj_AlSuesy_128kbps',        // علي حجاج السويسي
+  'ar.karimmansoori':       'Karim_Mansoori_40kbps',             // كريم منصوري
 };
 
 const Map<String, int> _everyAyahBitratesKbps = {
-  'ar.alafasy': 128,
-  'ar.abdurrahmaansudais': 192,
-  'ar.husary': 128,
-  'ar.husarymujawwad': 128,
-  'ar.minshawi': 128,
-  'ar.minshawimujawwad': 128,
-  'ar.muhammadayyoub': 128,
-  'ar.muhammadjibreel': 128,
-  'ar.saoodshuraym': 128,
-  'ar.shaatree': 128,
-  'ar.parhizgar': 48,
-  'ar.alijaber': 64,
+  'ar.alafasy':             128,
+  'ar.abdurrahmaansudais':  192,
+  'ar.husary':              128,
+  'ar.husarymujawwad':      128,
+  'ar.minshawi':            128,
+  'ar.minshawimujawwad':    192,
+  'ar.muhammadayyoub':      128,
+  'ar.muhammadjibreel':     128,
+  'ar.saoodshuraym':        128,
+  'ar.shaatree':            128,
+  'ar.parhizgar':            48,
+  'ar.alijaber':             64,
+  'ar.abdulsamad':           64,
+  'ar.abdulbasitmujawwad':  128,
+  'ar.mahermuaiqly':         64,
+  'ar.nasserqatami':        128,
+  'ar.yasiradussary':       128,
+  'ar.ahmedajamy':          128,
+  'ar.ghamadi':              40,
+  'ar.hudhaify':            128,
+  'ar.hanirifai':           192,
+  'ar.abdullahbasfar':      192,
+  'ar.aymanswoaid':          64,
+  'ar.ibrahimakhbar':        64,
+  'ar.muhsinqasim':         192,
+  'ar.mohammadaltablawi':   128,
+  'ar.mustafaismail':        48,
+  'ar.salahbudair':         128,
+  'ar.salaahbukhatir':      128,
+  'ar.abdullahjuhani':      128,
+  'ar.yaserslama':          128,
+  'ar.khaledtunaiji':        64,
+  'ar.khaalidqahtani':      192,
+  'ar.nabilerrifaai':        48,
+  'ar.sahlyssin':           128,
+  'ar.faresabbad':           64,
+  'ar.mahmoudbanna':         32,
+  'ar.alisuesy':            128,
+  'ar.karimmansoori':        40,
 };
 
 class MergedSurahAudio {

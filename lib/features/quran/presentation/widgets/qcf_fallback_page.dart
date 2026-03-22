@@ -14,9 +14,12 @@ import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/mushaf_page_map.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
+import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import '../../../wird/data/quran_boundaries.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
 import '../widgets/ayah_share_card.dart';
@@ -526,6 +529,7 @@ class _FbTopBar extends StatelessWidget {
       child: Row(
         children: [
           _FbPlayButton(page: page, verses: verses),
+          _FbRecitationSettingsButton(isDark: isDark),
           Expanded(
             child: Text(
               _juzLabel,
@@ -854,10 +858,42 @@ class _FbPageTextState extends State<_FbPageText> {
                   }
                   ..onTap = () {
                     final cubit = ctx.read<AyahAudioCubit>();
+                    // Toggle play/pause if already on this ayah.
                     if (audioState.surahNumber == v.surah &&
                         audioState.ayahNumber == v.ayah &&
-                        audioState.status == AyahAudioStatus.playing) {
-                      cubit.pause();
+                        (audioState.status == AyahAudioStatus.playing ||
+                            audioState.status == AyahAudioStatus.paused)) {
+                      if (audioState.status == AyahAudioStatus.playing) {
+                        cubit.pause();
+                      } else {
+                        cubit.resume();
+                      }
+                      return;
+                    }
+                    final settings = ctx.read<AppSettingsCubit>().state;
+                    if (settings.mushafContinueTilawa) {
+                      if (settings.mushafContinueScope == 'surah') {
+                        final idx = v.surah - 1;
+                        final totalAyahs =
+                            (idx >= 0 && idx < kSurahAyahCounts.length)
+                                ? kSurahAyahCounts[idx]
+                                : v.ayah;
+                        cubit.playAyahRange(
+                          surahNumber: v.surah,
+                          startAyah: v.ayah,
+                          endAyah: totalAyahs,
+                        );
+                      } else {
+                        // Page scope: last ayah of same surah on this page.
+                        final endAyah = widget.verses
+                            .where((vv) => vv.surah == v.surah)
+                            .fold<int>(v.ayah, (last, vv) => vv.ayah > last ? vv.ayah : last);
+                        cubit.playAyahRange(
+                          surahNumber: v.surah,
+                          startAyah: v.ayah,
+                          endAyah: endAyah,
+                        );
+                      }
                     } else {
                       cubit.playAyah(surahNumber: v.surah, ayahNumber: v.ayah);
                     }
@@ -1034,6 +1070,394 @@ class _FbSurahHeader extends StatelessWidget {
             textDirection: TextDirection.rtl,
           ),
       ],
+    );
+  }
+}
+
+// ─── Recitation settings button (fallback page) ────────────────────────────
+
+class _FbRecitationSettingsButton extends StatelessWidget {
+  final bool isDark;
+  const _FbRecitationSettingsButton({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDark
+        ? Colors.white.withValues(alpha: 0.65)
+        : AppColors.primary.withValues(alpha: 0.55);
+    return IconButton(
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => BlocProvider.value(
+            value: context.read<AppSettingsCubit>(),
+            child: _FbRecitationSettingsSheet(
+              isAr: context
+                  .read<AppSettingsCubit>()
+                  .state
+                  .appLanguageCode
+                  .toLowerCase()
+                  .startsWith('ar'),
+            ),
+          ),
+        );
+      },
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
+      iconSize: 18,
+      icon: Icon(Icons.tune_rounded, color: color, size: 18),
+      tooltip: 'إعدادات التلاوة',
+    );
+  }
+}
+
+class _FbRecitationSettingsSheet extends StatefulWidget {
+  final bool isAr;
+  const _FbRecitationSettingsSheet({required this.isAr});
+
+  @override
+  State<_FbRecitationSettingsSheet> createState() =>
+      _FbRecitationSettingsSheetState();
+}
+
+class _FbRecitationSettingsSheetState
+    extends State<_FbRecitationSettingsSheet> {
+  late final OfflineAudioService _offlineAudio;
+  late final AudioEditionService _editionService;
+  late Future<List<AudioEdition>> _editionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _offlineAudio = di.sl<OfflineAudioService>();
+    _editionService = di.sl<AudioEditionService>();
+    _editionsFuture = _editionService.getVerseByVerseAudioEditions();
+  }
+
+  Future<void> _showPicker(
+    BuildContext ctx,
+    List<AudioEdition> all,
+    String currentId,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FbReciterPickerSheet(
+        all: all,
+        currentEdition: currentId,
+        isAr: widget.isAr,
+        onSelected: (identifier) async {
+          await _offlineAudio.setEdition(identifier);
+          if (ctx.mounted) {
+            try {
+              ctx.read<AyahAudioCubit>().stop();
+            } catch (_) {}
+            setState(() {
+              _editionsFuture = _editionService.getVerseByVerseAudioEditions();
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AppSettingsCubit, AppSettingsState>(
+      builder: (ctx, settings) {
+        final isDark = settings.darkMode;
+        final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+        final subTextColor = isDark
+            ? Colors.white.withValues(alpha: 0.55)
+            : Colors.black.withValues(alpha: 0.45);
+        final dividerColor = isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.08);
+        final titleStyle = GoogleFonts.amiriQuran(
+          fontSize: 15, fontWeight: FontWeight.w700, color: textColor);
+        final labelStyle =
+            GoogleFonts.amiriQuran(fontSize: 14, color: textColor);
+        final noteStyle =
+            GoogleFonts.amiriQuran(fontSize: 11, color: subTextColor);
+
+        return SafeArea(
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text('إعدادات التلاوة',
+                      style: titleStyle, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<AudioEdition>>(
+                    future: _editionsFuture,
+                    builder: (ctx, snap) {
+                      final currentId = _offlineAudio.edition;
+                      final edition = snap.data
+                          ?.where((e) => e.identifier == currentId)
+                          .cast<AudioEdition?>()
+                          .firstOrNull;
+                      final name = edition?.displayNameForAppLanguage(
+                              widget.isAr ? 'ar' : 'en') ??
+                          currentId;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('القارئ', style: labelStyle),
+                                Text(name,
+                                    style: labelStyle.copyWith(
+                                        color: subTextColor, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: snap.hasData
+                                ? () => _showPicker(
+                                    ctx, snap.data!, _offlineAudio.edition)
+                                : null,
+                            child: Text('تغيير',
+                                style: GoogleFonts.amiriQuran(
+                                    color: AppColors.secondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+                  // ── تلاوة كلمة بكلمة (معطلة - الفولباك لا يدعمها) ─────────
+                  Opacity(
+                    opacity: 0.45,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('تلاوة كلمة بكلمة', style: labelStyle),
+                              Text('تتطلب تفعيل رسم المصحف الشريف QCF',
+                                  style: noteStyle),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: settings.wordByWordAudio,
+                          onChanged: null,
+                          activeColor: AppColors.secondary,
+                          inactiveThumbColor: isDark
+                              ? Colors.white.withValues(alpha: 0.55)
+                              : Colors.grey.shade400,
+                          inactiveTrackColor: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.grey.shade300,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: dividerColor, height: 1),
+                  const SizedBox(height: 12),
+                  // ── تكملة التلاوة ──────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child:
+                            Text('تكملة التلاوة عند الضغط', style: labelStyle),
+                      ),
+                      Switch(
+                        value: settings.mushafContinueTilawa,
+                        onChanged: (v) => ctx
+                            .read<AppSettingsCubit>()
+                            .setMushafContinueTilawa(v),
+                        activeColor: AppColors.secondary,
+                        inactiveThumbColor: isDark
+                            ? Colors.white.withValues(alpha: 0.55)
+                            : Colors.grey.shade400,
+                        inactiveTrackColor: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.grey.shade300,
+                      ),
+                    ],
+                  ),
+                  if (settings.mushafContinueTilawa) ...[
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'page',
+                          label: Text('إلى نهاية الصفحة',
+                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                        ),
+                        ButtonSegment(
+                          value: 'surah',
+                          label: Text('إلى نهاية السورة',
+                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                        ),
+                      ],
+                      selected: {settings.mushafContinueScope},
+                      onSelectionChanged: (s) => ctx
+                          .read<AppSettingsCubit>()
+                          .setMushafContinueScope(s.first),
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? (isDark ? Colors.white : AppColors.primary)
+                              : textColor.withValues(alpha: 0.65),
+                        ),
+                        backgroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.12)
+                              : Colors.transparent,
+                        ),
+                        side: WidgetStateProperty.all(
+                            BorderSide(color: dividerColor, width: 0.8)),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FbReciterPickerSheet extends StatefulWidget {
+  final List<AudioEdition> all;
+  final String currentEdition;
+  final bool isAr;
+  final Future<void> Function(String) onSelected;
+
+  const _FbReciterPickerSheet({
+    required this.all,
+    required this.currentEdition,
+    required this.isAr,
+    required this.onSelected,
+  });
+
+  @override
+  State<_FbReciterPickerSheet> createState() => _FbReciterPickerSheetState();
+}
+
+class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
+  late String _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.currentEdition;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final all = [...widget.all.where((e) => e.language == 'ar'),
+                 ...widget.all.where((e) => e.language != 'ar')];
+
+    return SafeArea(
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          decoration: BoxDecoration(
+              color: bg,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20))),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : Colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text('اختر القارئ',
+                    style: GoogleFonts.amiriQuran(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textColor)),
+              ),
+              const Divider(height: 1),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.55),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: all.length,
+                  itemBuilder: (ctx, i) {
+                    final e = all[i];
+                    final name = e.displayNameForAppLanguage(
+                        widget.isAr ? 'ar' : 'en');
+                    final isSelected = e.identifier == _selected;
+                    return ListTile(
+                      title: Text(name,
+                          style: GoogleFonts.amiriQuran(
+                            fontSize: 13,
+                            color: isSelected
+                                ? AppColors.secondary
+                                : textColor,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.normal,
+                          )),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.secondary, size: 18)
+                          : null,
+                      onTap: () async {
+                        setState(() => _selected = e.identifier);
+                        await widget.onSelected(e.identifier);
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

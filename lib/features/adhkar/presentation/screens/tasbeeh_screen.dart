@@ -796,7 +796,7 @@ class _TasbeehButton extends StatelessWidget {
                 child: CustomPaint(
                   painter: _BeadRingPainter(
                     progress: progress,
-                    ringColor: isDone ? const Color(0xFFD4AF37) : color,
+                    ringColor: isDone ? AppColors.secondary : color,
                     isDone: isDone,
                     isDark: isDark,
                   ),
@@ -927,7 +927,7 @@ class _BeadRingPainter extends CustomPainter {
     final ringR   = size.width / 2 - 8.0;
     final beadR   = (size.width / 34.0).clamp(7.0, 9.5);
 
-    const gold      = Color(0xFFD4AF37);
+    const gold      = AppColors.secondary;
     const lightGold = Color(0xFFF8DC6A);
     const darkGold  = Color(0xFF8B6600);
 
@@ -1067,10 +1067,10 @@ class _StatusLine extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withValues(alpha: 0.18),
+              color: AppColors.secondary.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
-                color: const Color(0xFFD4AF37).withValues(alpha: 0.5),
+                color: AppColors.secondary.withValues(alpha: 0.5),
                 width: 1.5,
               ),
             ),
@@ -1197,7 +1197,7 @@ class _StatsCard extends StatelessWidget {
               label: isAr ? 'الدورات' : 'Rounds',
               value: _fmt(rounds, isAr),
               icon: '🔄',
-              color: const Color(0xFFD4AF37),
+              color: AppColors.secondary,
             ),
           ],
         ],

@@ -1,6 +1,8 @@
 package com.example.quraan
 
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -139,6 +141,11 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             "android.intent.action.MY_PACKAGE_REPLACED",
             "android.intent.action.QUICKBOOT_POWERON",
             "com.htc.intent.action.QUICKBOOT_POWERON" -> handleBoot(context)
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED -> {
+                Log.d(TAG, "Time/timezone changed — rescheduling adhan alarms")
+                handleBoot(context)
+            }
         }
     }
 
@@ -155,10 +162,20 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
         val alarmId     = intent.getIntExtra("alarmId", -1)
         val soundName   = intent.getStringExtra("soundName") ?: "adhan_1"
         val arabicName  = intent.getStringExtra("arabicName") ?: ""
+
+        // Write a "fired" marker for reliability-test alarms (ID ≥ 990000)
+        if (alarmId >= 990000) {
+            prefs.edit().putString(
+                "flutter.adhan_test_fired_$alarmId",
+                System.currentTimeMillis().toString()
+            ).apply()
+            Log.d(TAG, "Wrote test-fired marker for alarm $alarmId")
+        }
         val shortMode   = prefs.getBoolean(KEY_SHORT_MODE, false)
         val shortCutoff = prefs.getInt(KEY_SHORT_CUTOFF, 15)
         val useAlarm    = prefs.getString(KEY_AUDIO_STREAM, "alarm") != "ringtone"
         val onlineUrl   = prefs.getString(KEY_ONLINE_URL, "")?.takeIf { it.isNotBlank() }
+        val forceSpeaker = prefs.getBoolean("flutter.adhan_force_speaker", false)
         
         // Retrieve the prayer time from SharedPreferences
         var prayerTimeMs = 0L
@@ -184,6 +201,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             putExtra(AdhanPlayerService.EXTRA_SHORT_MODE, shortMode)
             putExtra(AdhanPlayerService.EXTRA_SHORT_CUTOFF_SECONDS, shortCutoff)
             putExtra(AdhanPlayerService.EXTRA_USE_ALARM_STREAM, useAlarm)
+            putExtra(AdhanPlayerService.EXTRA_FORCE_SPEAKER, forceSpeaker)
             if (onlineUrl != null) putExtra(AdhanPlayerService.EXTRA_ONLINE_URL, onlineUrl)
             if (arabicName.isNotEmpty()) {
                 putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, "أذان $arabicName")
@@ -198,9 +216,45 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
+            try {
+                context.startForegroundService(serviceIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "startForegroundService failed — posting fallback notification", e)
+                postFallbackNotification(context, arabicName, timeDisplay)
+            }
         } else {
             context.startService(serviceIntent)
+        }
+    }
+
+    private fun postFallbackNotification(context: Context, arabicName: String, timeDisplay: String) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val ch = NotificationChannel(
+                    "adhan_fallback", "أذان (احتياطي)",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply { description = "Fallback adhan notification" }
+                nm.createNotificationChannel(ch)
+            }
+            val title = if (arabicName.isNotEmpty()) "أذان $arabicName" else "حان وقت الصلاة"
+            val body = if (timeDisplay.isNotEmpty()) timeDisplay else "اضغط لفتح التطبيق"
+            val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            }
+            val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                android.app.Notification.Builder(context, "adhan_fallback")
+            } else {
+                @Suppress("DEPRECATION") android.app.Notification.Builder(context)
+            }.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .also { b -> openPi?.let { b.setContentIntent(it) } }
+                .build()
+            nm.notify(8888, notif)
+        } catch (e2: Exception) {
+            Log.e(TAG, "Fallback notification also failed", e2)
         }
     }
 

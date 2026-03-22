@@ -483,17 +483,7 @@ class _OfflineTafsirScreenState extends State<OfflineTafsirScreen> {
               title: Text(_isAr ? 'تحميل التفسير (أوفلاين)' : 'Offline Tafsir'),
               centerTitle: true,
               flexibleSpace: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.gradientStart,
-                      AppColors.gradientMid,
-                      AppColors.gradientEnd,
-                    ],
-                  ),
-                ),
+                decoration: BoxDecoration(gradient: AppColors.primaryGradient),
               ),
               actions: [
                 if (!isRunning)

@@ -525,9 +525,7 @@ class _AyahActionSheetState extends State<_AyahActionSheet> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 5),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                    ),
+                    gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

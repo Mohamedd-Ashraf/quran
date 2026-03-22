@@ -323,13 +323,7 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
         ),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.gradientStart, AppColors.gradientMid, AppColors.gradientEnd],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
       ),
       body: _RadioBackground(
@@ -513,11 +507,7 @@ class _StationHeader extends StatelessWidget {
               height: 88,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                ),
+                gradient: AppColors.primaryGradient,
                 border: Border.all(color: AppColors.secondary, width: 2),
                 boxShadow: [
                   BoxShadow(
@@ -793,11 +783,7 @@ class _PlayButton extends StatelessWidget {
             height: 90,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.gradientStart, AppColors.gradientEnd],
-              ),
+              gradient: AppColors.primaryGradient,
               border: Border.all(color: AppColors.secondary, width: 2.5),
               boxShadow: [
                 BoxShadow(
@@ -899,8 +885,7 @@ class _QualitySelector extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(30),
                       gradient: selected
-                          ? const LinearGradient(
-                              colors: [AppColors.gradientStart, AppColors.gradientEnd])
+                          ? AppColors.primaryGradient
                           : null,
                       color: selected
                           ? null
@@ -1036,9 +1021,7 @@ class _ErrorCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 9),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -1066,5 +1049,4 @@ class _RadioStream {
   final List<String> urls;
   const _RadioStream({required this.label, required this.labelEn, required this.urls});
 }
-
 

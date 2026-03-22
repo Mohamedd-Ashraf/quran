@@ -182,17 +182,7 @@ class _OfflineAudioScreenState extends State<OfflineAudioScreen>
             title: Text(ar ? 'الصوت دون إنترنت' : 'Offline Audio'),
             centerTitle: true,
             flexibleSpace: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.gradientStart,
-                    AppColors.gradientMid,
-                    AppColors.gradientEnd,
-                  ],
-                ),
-              ),
+              decoration: BoxDecoration(gradient: AppColors.primaryGradient),
             ),
             actions: [
               if (!isRunning)

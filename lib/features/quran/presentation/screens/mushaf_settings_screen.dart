@@ -112,16 +112,7 @@ class _MushafSettingsScreenState extends State<MushafSettingsScreen>
                 children: [
                   Container(
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        //t
-                        colors: [
-                          AppColors.gradientStart,
-                          AppColors.gradientMid,
-                          AppColors.gradientEnd,
-                        ],
-                      ),
+                      gradient: AppColors.primaryGradient,
                     ),
                   ),
                   // Decorative Arabic pattern overlay
@@ -543,9 +534,7 @@ class _DisplayModeCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.secondary, Color(0xFFF4D03F)],
-                      ),
+                      gradient: AppColors.goldGradient,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -597,9 +586,7 @@ class _DisplayModeCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.secondary, Color(0xFFF4D03F)],
-                      ),
+                      gradient: AppColors.goldGradient,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(

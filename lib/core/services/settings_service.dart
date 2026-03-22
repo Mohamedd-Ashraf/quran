@@ -80,9 +80,20 @@ class SettingsService {
   static const String _keyWordByWordAudio = 'word_by_word_audio';
   static const String _keyGeminiApiKey = 'gemini_api_key';
 
+  // ── Mushaf continue-recitation settings ──────────────────────────────────
+  static const String _keyMushafContinueTilawa = 'mushaf_continue_tilawa';
+  static const String _keyMushafContinueScope = 'mushaf_continue_scope';
+
   final SharedPreferences _prefs;
 
   SettingsService(this._prefs);
+
+  // ── Generic accessors for ad-hoc keys ──────────────────────────────────
+  bool getBool(String key, {bool defaultValue = false}) =>
+      _prefs.getBool(key) ?? defaultValue;
+  Future<bool> setBool(String key, bool value) => _prefs.setBool(key, value);
+  String getString(String key, {String defaultValue = ''}) =>
+      _prefs.getString(key) ?? defaultValue;
 
   // Arabic Font Size
   Future<bool> setArabicFontSize(double size) async {
@@ -417,6 +428,18 @@ class SettingsService {
   bool getWordByWordAudio() => _prefs.getBool(_keyWordByWordAudio) ?? false;
   Future<bool> setWordByWordAudio(bool v) =>
       _prefs.setBool(_keyWordByWordAudio, v);
+
+  // ── Mushaf continue-recitation ────────────────────────────────────────────
+  bool getMushafContinueTilawa() =>
+      _prefs.getBool(_keyMushafContinueTilawa) ?? false;
+  Future<bool> setMushafContinueTilawa(bool v) =>
+      _prefs.setBool(_keyMushafContinueTilawa, v);
+
+  /// Scope for continue-recitation: 'page' (default) or 'surah'.
+  String getMushafContinueScope() =>
+      _prefs.getString(_keyMushafContinueScope) ?? 'page';
+  Future<bool> setMushafContinueScope(String v) =>
+      _prefs.setString(_keyMushafContinueScope, v);
 
   // ── Gemini API key (for tajweed recitation assistant) ────────────────────
   Future<bool> setGeminiApiKey(String key) {

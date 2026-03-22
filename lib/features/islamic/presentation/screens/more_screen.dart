@@ -38,17 +38,7 @@ class MoreScreen extends StatelessWidget {
         title: Text(isArabicUi ? 'المزيد' : 'More'),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.gradientStart,
-                AppColors.gradientMid,
-                AppColors.gradientEnd,
-              ],
-            ),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
       ),
       body: ListView(
@@ -72,11 +62,7 @@ class MoreScreen extends StatelessWidget {
                     vertical: 12,
                   ),
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
+                    gradient: AppColors.primaryGradient,
                   ),
                   child: Text(
                     isArabicUi ? 'تطبيق القرآن الكريم' : 'Quran Application',
@@ -140,11 +126,7 @@ class MoreScreen extends StatelessWidget {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
+                    gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -346,16 +328,7 @@ class _QuranPlaylistBanner extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  AppColors.gradientStart.withValues(alpha: 0.85),
-                  AppColors.gradientEnd.withValues(alpha: 0.70),
-                ]
-              : [AppColors.gradientStart, AppColors.gradientEnd],
-        ),
+        gradient: AppColors.primaryGradient,
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.35),
@@ -633,9 +606,7 @@ class _SelectSurahsSheetState extends State<_SelectSurahsSheet> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                  ),
+                  gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppColors.secondary.withValues(alpha: 0.5),
@@ -900,11 +871,7 @@ class _SurahCheckTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                  ),
+                  gradient: AppColors.primaryGradient,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: AppColors.secondary.withValues(alpha: 0.6),
@@ -1076,11 +1043,7 @@ class _NavCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(13),
                   boxShadow: [
                     BoxShadow(

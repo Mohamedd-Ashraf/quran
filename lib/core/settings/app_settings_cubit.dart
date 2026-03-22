@@ -19,6 +19,8 @@ class AppSettingsState extends Equatable {
   final bool scrollMode;    // vertical scroll mode for reading pages
   final bool wordByWordAudio; // tap a single word to hear it
   final bool useQcfFont;    // use QCF bitmap font within the Mushaf view
+  final bool mushafContinueTilawa; // when tapping an ayah, continue playing to end of page/surah
+  final String mushafContinueScope; // 'page' or 'surah'
 
   const AppSettingsState({
     required this.arabicFontSize,
@@ -34,6 +36,8 @@ class AppSettingsState extends Equatable {
     required this.scrollMode,
     required this.wordByWordAudio,
     required this.useQcfFont,
+    required this.mushafContinueTilawa,
+    required this.mushafContinueScope,
   });
 
   factory AppSettingsState.initial(SettingsService service) {
@@ -51,6 +55,8 @@ class AppSettingsState extends Equatable {
       scrollMode: service.getScrollMode(),
       wordByWordAudio: service.getWordByWordAudio(),
       useQcfFont: service.getUseQcfFont(),
+      mushafContinueTilawa: service.getMushafContinueTilawa(),
+      mushafContinueScope: service.getMushafContinueScope(),
     );
   }
 
@@ -68,6 +74,8 @@ class AppSettingsState extends Equatable {
     bool? scrollMode,
     bool? wordByWordAudio,
     bool? useQcfFont,
+    bool? mushafContinueTilawa,
+    String? mushafContinueScope,
   }) {
     return AppSettingsState(
       arabicFontSize: arabicFontSize ?? this.arabicFontSize,
@@ -83,6 +91,8 @@ class AppSettingsState extends Equatable {
       scrollMode: scrollMode ?? this.scrollMode,
       wordByWordAudio: wordByWordAudio ?? this.wordByWordAudio,
       useQcfFont: useQcfFont ?? this.useQcfFont,
+      mushafContinueTilawa: mushafContinueTilawa ?? this.mushafContinueTilawa,
+      mushafContinueScope: mushafContinueScope ?? this.mushafContinueScope,
     );
   }
 
@@ -101,6 +111,8 @@ class AppSettingsState extends Equatable {
     scrollMode,
     wordByWordAudio,
     useQcfFont,
+    mushafContinueTilawa,
+    mushafContinueScope,
   ];
 }
 
@@ -217,5 +229,15 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
   Future<void> setUseQcfFont(bool value) async {
     await _service.setUseQcfFont(value);
     emit(state.copyWith(useQcfFont: value));
+  }
+
+  Future<void> setMushafContinueTilawa(bool value) async {
+    await _service.setMushafContinueTilawa(value);
+    emit(state.copyWith(mushafContinueTilawa: value));
+  }
+
+  Future<void> setMushafContinueScope(String value) async {
+    await _service.setMushafContinueScope(value);
+    emit(state.copyWith(mushafContinueScope: value));
   }
 }

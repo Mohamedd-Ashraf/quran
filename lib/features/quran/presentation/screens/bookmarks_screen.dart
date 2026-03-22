@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qcf_quran/qcf_quran.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/mushaf_page_map.dart';
 import '../../../../core/services/bookmark_service.dart';
@@ -670,6 +671,84 @@ class BookmarksScreenState extends State<BookmarksScreen> {
           ),
         );
       },
+    );
+  }
+ // IMPORTANT: Do not change this automatically! The user explicitly requested the specialized Quran font for Arabic Surah names.
+  Widget _buildBookmarkLabelWidget(
+    Map<String, dynamic> bookmark, {
+    required TextStyle baseStyle,
+    required bool isArabicUi,
+  }) {
+    final surahName = bookmark['surahName'] as String?;
+    final surahNumber = _surahNumberFromBookmark(bookmark);
+    final ayahNumber = _ayahNumberFromBookmark(bookmark);
+    final pageNumber = _pageNumberFromBookmark(bookmark);
+
+    String? specializedSurahName;
+    String normalText = '';
+
+    if (surahNumber != null) {
+      if (isArabicUi) {
+        specializedSurahName = 'surah${surahNumber.toString().padLeft(3, '0')}';
+      } else {
+        // En fallback to English
+        normalText = _surahDisplayName(
+          surahNumber: surahNumber,
+          isArabicUi: false,
+          savedName: surahName,
+        );
+      }
+    } else {
+      if (surahName?.trim().isNotEmpty ?? false) {
+        normalText = surahName!.trim();
+      } else {
+        if (pageNumber != null) {
+          normalText = isArabicUi ? 'المصحف' : 'Mushaf';
+        } else {
+          normalText = isArabicUi ? 'السورة' : 'Surah';
+        }
+      }
+    }
+
+    String suffix = '';
+    if (ayahNumber != null) {
+      suffix = isArabicUi ? ' • الآية $ayahNumber' : ' • Ayah $ayahNumber';
+    } else if (pageNumber != null) {
+      suffix = isArabicUi ? ' • صفحة $pageNumber' : ' • Page $pageNumber';
+    } else {
+      final reference = bookmark['reference'] as String?;
+      if (reference != null) {
+        suffix = ' • $reference';
+      } else if (normalText.isEmpty && specializedSurahName == null) {
+        normalText = isArabicUi ? 'إشارة' : 'Bookmark';
+      }
+    }
+
+    if (specializedSurahName != null && isArabicUi) {
+      return RichText(
+        textDirection: TextDirection.rtl,
+        locale: const Locale('ar'),
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: specializedSurahName,
+              style: baseStyle.copyWith(
+                fontFamily: SurahFontHelper.fontFamily,
+                package: 'qcf_quran',
+                fontSize: (baseStyle.fontSize ?? 14) + 12,
+                height: 1.0,
+              ),
+            ),
+            TextSpan(text: suffix, style: baseStyle),
+          ],
+        ),
+      );
+    }
+
+    return Text(
+      normalText + suffix,
+      textDirection: isArabicUi ? TextDirection.rtl : TextDirection.ltr,
+      style: baseStyle,
     );
   }
 

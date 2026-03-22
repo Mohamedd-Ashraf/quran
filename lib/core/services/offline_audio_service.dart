@@ -367,19 +367,47 @@ class OfflineAudioService {
   /// instead of cdn.islamic.network, which returns HTTP 200 + 0 bytes for
   /// many files at the 64 kbps path.
   static const Map<String, String> _everyAyahFolders = {
-    'ar.alafasy'            : 'Alafasy_128kbps',
-    'ar.abdurrahmaansudais' : 'Abdurrahmaan_As-Sudais_192kbps',
-    'ar.husary'             : 'Husary_128kbps',
-    'ar.husarymujawwad'     : 'Husary_Mujawwad_128kbps',
-    'ar.minshawi'           : 'Minshawy_Murattal_128kbps',
-    'ar.minshawimujawwad'   : 'Minshawy_Mujawwad_128kbps',
-    'ar.muhammadayyoub'     : 'Muhammad_Ayyoub_128kbps',
-    'ar.muhammadjibreel'    : 'muhammad_jibreel_128kbps',
-    'ar.saoodshuraym'       : 'Saood_ash-Shuraym_128kbps',
-    'ar.shaatree'           : 'Abu_Bakr_Ash-Shaatree_128kbps',
-    'ar.parhizgar'          : 'Parhizgar_48kbps',
-    // ─── قراء مضافون يدوياً ────────────────────────────────────────────────
-    'ar.alijaber'           : 'Ali_Jaber_64kbps',        // علي عبد الله جابر
+    'ar.alafasy'             : 'Alafasy_128kbps',
+    'ar.abdurrahmaansudais'  : 'Abdurrahmaan_As-Sudais_192kbps',
+    'ar.husary'              : 'Husary_128kbps',
+    'ar.husarymujawwad'      : 'Husary_128kbps_Mujawwad',           // فولدر صحيح
+    'ar.minshawi'            : 'Minshawy_Murattal_128kbps',         // محمد صديق المنشاوي (مرتل)
+    'ar.minshawimujawwad'    : 'Minshawy_Mujawwad_192kbps',         // محمد صديق المنشاوي (مجود)
+    'ar.muhammadayyoub'      : 'Muhammad_Ayyoub_128kbps',
+    'ar.muhammadjibreel'     : 'Muhammad_Jibreel_128kbps',          // تصحيح: M كبير
+    'ar.saoodshuraym'        : 'Saood_ash-Shuraym_128kbps',
+    'ar.shaatree'            : 'Abu_Bakr_Ash-Shaatree_128kbps',
+    'ar.parhizgar'           : 'Parhizgar_48kbps',
+    // ─── قراء مضافون يدوياً ──────────────────────────────────────────────────
+    'ar.alijaber'            : 'Ali_Jaber_64kbps',
+    'ar.abdulsamad'          : 'Abdul_Basit_Murattal_64kbps',       // ar.abdulsamad في API
+    'ar.abdulbasitmujawwad'  : 'Abdul_Basit_Mujawwad_128kbps',
+    'ar.mahermuaiqly'        : 'Maher_AlMuaiqly_64kbps',
+    'ar.nasserqatami'        : 'Nasser_Alqatami_128kbps',
+    'ar.yasiradussary'       : 'Yasser_Ad-Dussary_128kbps',
+    'ar.ahmedajamy'          : 'ahmed_ibn_ali_al_ajamy_128kbps',    // تصحيح
+    // ─── قراء إضافيون ────────────────────────────────────────────────────────
+    'ar.ghamadi'             : 'Ghamadi_40kbps',
+    'ar.hudhaify'            : 'Hudhaify_128kbps',
+    'ar.hanirifai'           : 'Hani_Rifai_192kbps',
+    'ar.abdullahbasfar'      : 'Abdullah_Basfar_192kbps',
+    'ar.aymanswoaid'         : 'Ayman_Sowaid_64kbps',
+    'ar.ibrahimakhbar'       : 'Ibrahim_Akhdar_64kbps',
+    'ar.muhsinqasim'         : 'Muhsin_Al_Qasim_192kbps',
+    'ar.mohammadaltablawi'   : 'Mohammad_al_Tablaway_128kbps',
+    'ar.mustafaismail'       : 'Mustafa_Ismail_48kbps',
+    'ar.salahbudair'         : 'Salah_Al_Budair_128kbps',
+    'ar.salaahbukhatir'      : 'Salaah_AbdulRahman_Bukhatir_128kbps',
+    'ar.abdullahjuhani'      : 'Abdullaah_3awwaad_Al-Juhaynee_128kbps',
+    'ar.yaserslama'          : 'Yaser_Salamah_128kbps',
+    'ar.khaledtunaiji'       : 'khalefa_al_tunaiji_64kbps',
+    'ar.khaalidqahtani'      : 'Khaalid_Abdullaah_al-Qahtaanee_192kbps',
+    'ar.nabilerrifaai'       : 'Nabil_Rifa3i_48kbps',
+    'ar.sahlyssin'           : 'Sahl_Yassin_128kbps',
+    'ar.faresabbad'          : 'Fares_Abbad_64kbps',
+    'ar.mahmoudbanna'        : 'mahmoud_ali_al_banna_32kbps',
+    'ar.alisuesy'            : 'Ali_Hajjaj_AlSuesy_128kbps',
+    'ar.karimmansoori'       : 'Karim_Mansoori_40kbps',
   };
 
   /// Builds a direct everyayah.com URL (no API call needed).

@@ -96,13 +96,7 @@ class _PlayAllFab extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isActive
-                        ? [const Color(0xFF8B1A1A), const Color(0xFFB22222)]
-                        : [AppColors.gradientStart, AppColors.gradientEnd],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
+                  gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: Row(

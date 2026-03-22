@@ -1,5 +1,6 @@
 package com.example.quraan
 
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -283,9 +284,203 @@ class MainActivity : AudioServiceFragmentActivity() {
                         result.success(null)
                     }
 
+                    // ── Exact alarm permission check (Android 12+) ───────────
+                    "canScheduleExactAlarms" -> {
+                        val can = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            am.canScheduleExactAlarms()
+                        } else {
+                            true // pre-S: exact alarms always allowed
+                        }
+                        result.success(can)
+                    }
+
+                    "openExactAlarmSettings" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            try {
+                                startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                    data = Uri.parse("package:$packageName")
+                                })
+                            } catch (_: Exception) {
+                                try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }) } catch (_: Exception) {}
+                            }
+                        }
+                        result.success(null)
+                    }
+
+                    // ── App standby bucket (Android 9+) ────────────────────
+                    "getAppStandbyBucket" -> {
+                        val bucket = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            try {
+                                val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                                usm.appStandbyBucket
+                            } catch (_: Exception) { -1 }
+                        } else { -1 }
+                        result.success(bucket)
+                    }
+
+                    // ── Device manufacturer for OEM-specific battery pages ───
+                    "getManufacturer" -> {
+                        result.success(Build.MANUFACTURER.lowercase())
+                    }
+
+                    // ── Open OEM-specific battery optimization page ──────────
+                    "openOemBatterySettings" -> {
+                        val opened = openOemBatterySettings()
+                        result.success(opened)
+                    }
+
+                    // ── Force speaker setting persistence ────────────────────
+                    "setForceSpeaker" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("flutter.adhan_force_speaker", enabled)
+                            .apply()
+                        result.success(null)
+                    }
+
+                    // ── System time jump (developer testing tool) ──────────────
+                    "setSystemTime" -> {
+                        val timeMs = call.argument<Long>("timeMs") ?: run {
+                            result.error("INVALID_ARG", "timeMs required", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            // Save original time + monotonic clock so we can restore later.
+                            val realNow  = System.currentTimeMillis()
+                            val elapsedNow = android.os.SystemClock.elapsedRealtime()
+                            getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                                .edit()
+                                .putLong("flutter.time_test_original_ms",      realNow)
+                                .putLong("flutter.time_test_elapsed_at_set",   elapsedNow)
+                                .apply()
+                            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            am.setTime(timeMs)
+                            result.success(null)
+                        } catch (e: SecurityException) {
+                            result.error(
+                                "PERMISSION_DENIED",
+                                "SET_TIME permission not granted. Grant it via:\nadb shell pm grant $packageName android.permission.SET_TIME",
+                                e.message
+                            )
+                        } catch (e: Exception) {
+                            result.error("FAILED", e.message, null)
+                        }
+                    }
+
+                    "restoreSystemTime" -> {
+                        try {
+                            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            val originalMs  = prefs.getLong("flutter.time_test_original_ms",    0L)
+                            val elapsedAtSet = prefs.getLong("flutter.time_test_elapsed_at_set", 0L)
+                            if (originalMs <= 0L || elapsedAtSet <= 0L) {
+                                result.error("NOT_MODIFIED", "No saved time to restore", null)
+                                return@setMethodCallHandler
+                            }
+                            // elapsedRealtime() is monotonic — not affected by setTime() calls.
+                            val elapsedSince = android.os.SystemClock.elapsedRealtime() - elapsedAtSet
+                            val restored     = originalMs + elapsedSince
+                            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            am.setTime(restored)
+                            prefs.edit()
+                                .remove("flutter.time_test_original_ms")
+                                .remove("flutter.time_test_elapsed_at_set")
+                                .apply()
+                            result.success(null)
+                        } catch (e: SecurityException) {
+                            result.error("PERMISSION_DENIED", "SET_TIME permission not granted", e.message)
+                        } catch (e: Exception) {
+                            result.error("FAILED", e.message, null)
+                        }
+                    }
+
+                    // ── Diagnostics info ─────────────────────────────────────
+                    "getDiagnostics" -> {
+                        val diag = mutableMapOf<String, Any>()
+                        // Battery optimization
+                        val pm = getSystemService(POWER_SERVICE) as PowerManager
+                        diag["batteryOptimizationDisabled"] = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                            pm.isIgnoringBatteryOptimizations(packageName) else true
+                        // Exact alarm permission
+                        diag["canScheduleExactAlarms"] = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val alm = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            alm.canScheduleExactAlarms()
+                        } else true
+                        // Standby bucket
+                        diag["appStandbyBucket"] = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            try {
+                                (getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).appStandbyBucket
+                            } catch (_: Exception) { -1 }
+                        } else -1
+                        // Manufacturer
+                        diag["manufacturer"] = Build.MANUFACTURER.lowercase()
+                        // SDK version
+                        diag["sdkVersion"] = Build.VERSION.SDK_INT
+                        // Is playing
+                        diag["isAdhanPlaying"] = AdhanPlayerService.isPlaying
+                        result.success(diag)
+                    }
+
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    // ── OEM-specific battery optimization ──────────────────────────────────
+
+    /**
+     * Attempts to open the manufacturer-specific battery optimization / autostart page.
+     * Returns true if an intent was successfully launched, false otherwise.
+     */
+    private fun openOemBatterySettings(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val intents = mutableListOf<Intent>()
+
+        when {
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") -> {
+                intents.add(Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
+                intents.add(Intent().setClassName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"))
+            }
+            manufacturer.contains("huawei") || manufacturer.contains("honor") -> {
+                intents.add(Intent().setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"))
+                intents.add(Intent().setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"))
+            }
+            manufacturer.contains("samsung") -> {
+                intents.add(Intent().setClassName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity"))
+                intents.add(Intent().setClassName("com.samsung.android.sm", "com.samsung.android.sm.battery.ui.BatteryActivity"))
+            }
+            manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
+                intents.add(Intent().setClassName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"))
+                intents.add(Intent().setClassName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"))
+            }
+            manufacturer.contains("vivo") -> {
+                intents.add(Intent().setClassName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"))
+                intents.add(Intent().setClassName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"))
+            }
+            manufacturer.contains("oneplus") -> {
+                intents.add(Intent().setClassName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"))
+            }
+        }
+
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return true
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Fallback: open the standard battery optimization settings
+        try {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            return true
+        } catch (_: Exception) {}
+        return false
     }
 
     // ── Battery optimization ───────────────────────────────────────────────

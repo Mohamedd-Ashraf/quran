@@ -65,7 +65,7 @@ class PrayerCalculationConstants {
       description: 'Used in Iran',
     ),
   };
-
+//TODO 
   /// Asr calculation methods
   static const Map<String, ({String nameEn, String nameAr, String description, String descriptionAr})> asrMethods = {
     'standard': (
