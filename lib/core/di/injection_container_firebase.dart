@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -55,9 +56,15 @@ import '../../features/wird/presentation/cubit/wird_cubit.dart';
 import '../../features/adhkar/data/adhkar_progress_service.dart';
 import '../../features/adhkar/presentation/cubit/adhkar_progress_cubit.dart';
 import '../../features/hadith/data/datasources/hadith_database.dart';
+import '../../features/hadith/data/datasources/hadith_firestore_datasource.dart';
 import '../../features/hadith/data/datasources/hadith_local_datasource.dart';
 import '../../features/hadith/data/repositories/hadith_repository.dart';
+import '../../features/hadith/data/services/hadith_bookmark_sync_service.dart';
 import '../../features/hadith/presentation/cubit/hadith_cubit.dart';
+import '../../features/quiz/data/quiz_repository.dart';
+import '../../features/quiz/services/quiz_notification_service.dart';
+import '../../features/quiz/presentation/cubit/quiz_cubit.dart';
+import '../../features/quiz/presentation/cubit/leaderboard_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -200,8 +207,24 @@ Future<void> init() async {
   //! Features - Hadith
   sl.registerLazySingleton(() => HadithDatabase());
   sl.registerLazySingleton(() => HadithLocalDataSource(sl()));
-  sl.registerLazySingleton(() => HadithRepository(sl()));
+  sl.registerLazySingleton(
+    () => HadithFirestoreDataSource(FirebaseFirestore.instance),
+  );
+  sl.registerLazySingleton(
+    () => HadithBookmarkSyncService(FirebaseFirestore.instance),
+  );
+  sl.registerLazySingleton(
+    () => HadithRepository(sl(), sl(), sl()),
+  );
   sl.registerFactory(() => HadithCubit(sl(), sl()));
+
+  //! Features - Quiz
+  sl.registerLazySingleton(
+    () => QuizRepository(FirebaseFirestore.instance, FirebaseAuth.instance, sl()),
+  );
+  sl.registerLazySingleton(() => QuizNotificationService(sl(), sl()));
+  sl.registerFactory(() => QuizCubit(sl(), sl()));
+  sl.registerFactory(() => LeaderboardCubit(sl()));
 
   // Firebase-based update service
   sl.registerLazySingleton(() => AppUpdateServiceFirebase(sl(), sl()));

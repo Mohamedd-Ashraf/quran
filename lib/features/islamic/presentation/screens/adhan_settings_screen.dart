@@ -98,6 +98,12 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   /// 'ringtone' → ring stream. 'alarm' → bypasses silent mode (default).
   String _adhanAudioStream = 'alarm';
 
+  // ── Silent mode during prayer ──────────────────────────────────────────
+  bool _silentDuringPrayer    = false;
+  int  _silentDelayMinutes    = 0;
+  int  _silentDurationMinutes = 20;
+  bool _dndPermissionGranted  = true;
+
   // ── Force speaker ─────────────────────────────────────────────────────
   bool _forceSpeaker = false;
 
@@ -153,6 +159,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     _checkCachedOnlineSounds();
     _adhanChannel.setMethodCallHandler(_handleNativeCallback);
     _loadNextPrayer();
+    _checkDndPermission();
     // Show the "جديد" badge only for version 1.0.7
     PackageInfo.fromPlatform().then((info) {
       if (mounted) {
@@ -190,8 +197,11 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _salawatSleepStartH  = _settings.getSalawatSleepStartH();
       _salawatSleepEndH    = _settings.getSalawatSleepEndH();
       _adhanAudioStream  = _settings.getAdhanAudioStream();
-      // Per-prayer adhan enable
-      _enableDhuhr   = _settings.getAdhanEnableDhuhr();
+      // Silent mode during prayer
+      _silentDuringPrayer    = _settings.getSilentDuringPrayer();
+      _silentDelayMinutes    = _settings.getSilentDelayMinutes();
+      _silentDurationMinutes = _settings.getSilentDurationMinutes();
+      // Per-prayer adhan enable      _enableDhuhr   = _settings.getAdhanEnableDhuhr();
       _enableAsr     = _settings.getAdhanEnableAsr();
       _enableMaghrib = _settings.getAdhanEnableMaghrib();
       _enableIsha    = _settings.getAdhanEnableIsha();
@@ -220,6 +230,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _checkBatteryStatus();
       _fetchAlarmVolume();
       _loadNextPrayer();
+      _checkDndPermission();
     }
   }
 
@@ -358,6 +369,19 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           false;
       if (mounted) setState(() => _batteryUnrestricted = disabled);
     } catch (_) {}
+  }
+
+  Future<void> _checkDndPermission() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      if (mounted) setState(() => _dndPermissionGranted = true);
+      return;
+    }
+    try {
+      final granted = await _adhanChannel.invokeMethod<bool>('checkDndPermission') ?? true;
+      if (mounted) setState(() => _dndPermissionGranted = granted);
+    } catch (_) {
+      if (mounted) setState(() => _dndPermissionGranted = true);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -758,6 +782,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _settings.setSalawatVolume(_salawatVolume),
       _settings.setIqamaVolume(_iqamaVolume),
       _settings.setApproachingVolume(_approachingVolume),
+      // Silent mode during prayer
+      _settings.setSilentDuringPrayer(_silentDuringPrayer),
+      _settings.setSilentDelayMinutes(_silentDelayMinutes),
+      _settings.setSilentDurationMinutes(_silentDurationMinutes),
     ]);
     if (_notificationsEnabled) {
       await _adhanService.enableAndSchedule();
@@ -1191,6 +1219,149 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             ],
           ],
         ),
+        const SizedBox(height: 16),
+        // الصمت أثناء الصلاة
+        _buildSilentDuringPrayerSection(isAr),
+      ],
+    );
+  }
+
+  // ─── Silent during prayer section ────────────────────────────────────────
+
+  Widget _buildSilentDuringPrayerSection(bool isAr) {
+    const Color accentColor = Color(0xFF5E35B1); // deep purple
+
+    return _buildSection(
+      icon: Icons.volume_off_rounded,
+      titleAr: 'الصمت أثناء الصلاة',
+      titleEn: 'Silent During Prayer',
+      isAr: isAr,
+      children: [
+        _buildSwitchRow(
+          icon: Icons.volume_off_rounded,
+          iconColor: _silentDuringPrayer ? accentColor : Colors.grey,
+          titleAr: 'تصميت الهاتف وقت الصلاة',
+          titleEn: 'Silence phone during prayer',
+          subtitleAr: 'يُصمَّت الهاتف تلقائياً فور الأذان ثم يُعاد إلى وضعه الأصلي',
+          subtitleEn: 'Phone silences automatically at prayer time and restores after',
+          value: _silentDuringPrayer,
+          onChanged: _notificationsEnabled
+              ? (v) async {
+                  if (v && !_dndPermissionGranted) {
+                    // Must grant DND permission first.
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(isAr ? 'مطلوب صلاحية الإزعاج' : 'DND Permission Required'),
+                        content: Text(isAr
+                            ? 'لتصميت الهاتف تلقائياً يجب منح التطبيق صلاحية "عدم الإزعاج".\n'
+                              'سيُفتح الإعداد الآن — فعّل التطبيق ثم عُد.'
+                            : 'To silence the phone automatically, please grant the app '
+                              '"Do Not Disturb" access.\n'
+                              'The settings screen will open — enable the app then come back.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(isAr ? 'لاحقاً' : 'Later'),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: accentColor),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(isAr ? 'فتح الإعدادات' : 'Open Settings'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok == true && mounted) {
+                      await _adhanChannel.invokeMethod('requestDndPermission');
+                    }
+                    return; // Don't enable yet — user must come back after granting.
+                  }
+                  setState(() => _silentDuringPrayer = v);
+                  _autoSave();
+                }
+              : null,
+          isAr: isAr,
+        ),
+        // DND permission warning when needed.
+        if (_silentDuringPrayer && !_dndPermissionGranted) ...[
+          _buildDivider(),
+          _DndPermissionBanner(
+            isAr: isAr,
+            onTap: () async {
+              await _adhanChannel.invokeMethod('requestDndPermission');
+            },
+          ),
+        ],
+        if (_silentDuringPrayer && _dndPermissionGranted) ...[
+          _buildDivider(),
+          // Delay slider
+          _buildMinutesPicker(
+            icon: Icons.timer_outlined,
+            labelAr: 'التأخير بعد الأذان',
+            labelEn: 'Delay after adhan',
+            value: _silentDelayMinutes,
+            options: const [0, 2, 5, 10, 15],
+            isAr: isAr,
+            customLabel: (v) => v == 0
+                ? (isAr ? 'فور الأذان' : 'At adhan time')
+                : (isAr ? 'بعد $v دقيقة' : '$v min after'),
+            onChanged: (v) {
+              setState(() => _silentDelayMinutes = v);
+              _autoSave();
+            },
+          ),
+          _buildDivider(),
+          // Duration slider
+          _buildMinutesPicker(
+            icon: Icons.hourglass_bottom_rounded,
+            labelAr: 'مدة الصمت',
+            labelEn: 'Silence duration',
+            value: _silentDurationMinutes,
+            options: const [5, 10, 15, 20, 30, 45, 60],
+            isAr: isAr,
+            customLabel: (v) => isAr ? '$v دقيقة' : '$v min',
+            onChanged: (v) {
+              setState(() => _silentDurationMinutes = v);
+              _autoSave();
+            },
+          ),
+          _buildDivider(),
+          // Summary chip
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 17, color: accentColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _silentDelayMinutes == 0
+                          ? (isAr
+                              ? 'الهاتف سيُصمَّت فور الأذان لمدة $_silentDurationMinutes دقيقة'
+                              : 'Phone will be silenced at adhan time for $_silentDurationMinutes min')
+                          : (isAr
+                              ? 'الهاتف سيُصمَّت بعد $_silentDelayMinutes دقيقة من الأذان لمدة $_silentDurationMinutes دقيقة'
+                              : 'Phone will be silenced $_silentDelayMinutes min after adhan for $_silentDurationMinutes min'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: accentColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1485,6 +1656,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     required List<int> options,
     required bool isAr,
     required ValueChanged<int> onChanged,
+    String Function(int)? customLabel,
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -1502,6 +1674,9 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             spacing: 8, runSpacing: 8,
             children: options.map((opt) {
               final selected = opt == value;
+              final label = customLabel != null
+                  ? customLabel(opt)
+                  : (isAr ? '$opt د' : '${opt}m');
               return GestureDetector(
                 onTap: () => onChanged(opt),
                 child: AnimatedContainer(
@@ -1513,7 +1688,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
                     border: Border.all(color: selected ? AppColors.primary : _cardBorder),
                   ),
                   child: Text(
-                    isAr ? '$opt د' : '${opt}m',
+                    label,
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                         color: selected ? Colors.white : AppColors.primary),
                   ),
@@ -3187,6 +3362,63 @@ class _CacheIndicator extends StatelessWidget {
 }
 
 // ─── Battery warning ──────────────────────────────────────────────────────────
+
+// ─── DND Permission Banner ────────────────────────────────────────────────────
+
+class _DndPermissionBanner extends StatelessWidget {
+  final bool isAr;
+  final VoidCallback onTap;
+  const _DndPermissionBanner({required this.isAr, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark     = Theme.of(context).brightness == Brightness.dark;
+    final cardBg     = isDark ? const Color(0xFF1A0A2E) : const Color(0xFFF3E5F5);
+    const accent     = Color(0xFF5E35B1);
+    final iconColor  = isDark ? const Color(0xFF9575CD) : accent;
+    final btnColor   = isDark ? const Color(0xFF7E57C2) : accent;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: isDark ? 0.35 : 0.3), width: 1.2),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Icon(Icons.do_not_disturb_on_rounded, color: iconColor, size: 24),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            isAr ? 'صلاحية عدم الإزعاج مطلوبة' : 'DND Access Required',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: iconColor),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            isAr
+                ? 'امنح التطبيق صلاحية التحكم في وضع الصمت ثم ارجع'
+                : 'Grant the app Do Not Disturb access, then come back',
+            style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.4),
+          ),
+        ])),
+        const SizedBox(width: 10),
+        TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: btnColor,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(isAr ? 'منح' : 'Grant', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+      ]),
+    );
+  }
+}
 
 class _BatteryWarningCard extends StatelessWidget {
   final bool isAr;

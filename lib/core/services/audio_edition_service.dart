@@ -473,7 +473,13 @@ class AudioEditionService {
       '${ApiConstants.baseUrl}${ApiConstants.editionEndpoint}?format=audio&type=versebyverse',
     );
 
-    final res = await _client.get(uri);
+    final http.Response res;
+    try {
+      res = await _client.get(uri);
+    } catch (_) {
+      // Network error (connection closed, timeout, etc.) — fall back to cache.
+      return cached;
+    }
     if (res.statusCode != 200) {
       // If request fails, fall back to cache.
       return cached;

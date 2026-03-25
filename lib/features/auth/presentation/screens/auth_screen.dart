@@ -23,9 +23,11 @@ class _AuthScreenState extends State<AuthScreen>
   bool _showEmailForm = false;
   bool _isSignUp = true;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   late final AnimationController _fadeController;
@@ -49,6 +51,7 @@ class _AuthScreenState extends State<AuthScreen>
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -134,11 +137,38 @@ class _AuthScreenState extends State<AuthScreen>
 
                         // ── Email/Password ───────────────────────
                         if (!_showEmailForm)
-                          _EmailToggleButton(
-                            isArabic: isArabic,
-                            isDark: isDark,
-                            onPressed: () =>
-                                setState(() => _showEmailForm = true),
+                          Column(
+                            children: [
+                              _EmailToggleButton(
+                                isArabic: isArabic,
+                                isDark: isDark,
+                                label: isArabic
+                                    ? 'التسجيل بالبريد الإلكتروني'
+                                    : 'Sign Up with Email',
+                                onPressed: () => setState(() {
+                                  _showEmailForm = true;
+                                  _isSignUp = true;
+                                }),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                onPressed: () => setState(() {
+                                  _showEmailForm = true;
+                                  _isSignUp = false;
+                                }),
+                                child: Text(
+                                  isArabic
+                                      ? 'لديك حساب بالفعل؟ سجّل دخولك'
+                                      : 'Already have an account? Sign In',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? AppColors.darkTextSecondary
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           )
                         else
                           _buildEmailForm(context, isArabic, isDark),
@@ -280,6 +310,70 @@ class _AuthScreenState extends State<AuthScreen>
               return null;
             },
           ),
+          const SizedBox(height: 12),
+
+          if (_isSignUp)
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: _obscureConfirmPassword,
+              textDirection: TextDirection.ltr,
+              decoration: InputDecoration(
+                labelText: isArabic ? 'تأكيد كلمة المرور' : 'Confirm Password',
+                prefixIcon: Icon(
+                  Icons.lock_outlined,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.primary.withValues(alpha: 0.7),
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textHint,
+                  ),
+                  onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? AppColors.darkCard
+                    : AppColors.primary.withValues(alpha: 0.04),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.primary.withValues(alpha: 0.15),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return isArabic
+                      ? 'أكّد كلمة المرور'
+                      : 'Confirm your password';
+                }
+                if (value != _passwordController.text) {
+                  return isArabic
+                      ? 'كلمتا المرور غير متطابقتين'
+                      : 'Passwords do not match';
+                }
+                return null;
+              },
+            ),
+
           const SizedBox(height: 8),
 
           if (!_isSignUp)
@@ -340,7 +434,10 @@ class _AuthScreenState extends State<AuthScreen>
           const SizedBox(height: 8),
 
           TextButton(
-            onPressed: () => setState(() => _isSignUp = !_isSignUp),
+            onPressed: () => setState(() {
+              _isSignUp = !_isSignUp;
+              _confirmPasswordController.clear();
+            }),
             child: Text(
               _isSignUp
                   ? (isArabic
@@ -562,12 +659,15 @@ class _IslamicHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
-                  style: TextStyle(
-                    fontFamily: 'Amiri',
-                    fontSize: 15,
-                    color: Colors.white.withValues(alpha: 0.9),
-                    height: 1.8,
+                  ' \uFC41  \uFC42\uFC43\uFC44',
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                  style: const TextStyle(
+                    fontFamily: 'QCF_P001',
+                    package: 'qcf_quran',
+                    fontSize: 26,
+                    color: Colors.white,
+                    height: 2.0,
                   ),
                 ),
               ),
@@ -737,11 +837,13 @@ class _OrDivider extends StatelessWidget {
 class _EmailToggleButton extends StatelessWidget {
   final bool isArabic;
   final bool isDark;
+  final String label;
   final VoidCallback onPressed;
 
   const _EmailToggleButton({
     required this.isArabic,
     required this.isDark,
+    required this.label,
     required this.onPressed,
   });
 
@@ -778,9 +880,7 @@ class _EmailToggleButton extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              isArabic
-                  ? 'التسجيل بالبريد الإلكتروني'
-                  : 'Continue with Email',
+              label,
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,

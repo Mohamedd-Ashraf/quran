@@ -6,6 +6,7 @@ import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -51,6 +52,10 @@ import '../../features/wird/services/wird_notification_service.dart';
 import '../../features/wird/presentation/cubit/wird_cubit.dart';
 import '../../features/adhkar/data/adhkar_progress_service.dart';
 import '../../features/adhkar/presentation/cubit/adhkar_progress_cubit.dart';
+import '../../features/quiz/data/quiz_repository.dart';
+import '../../features/quiz/services/quiz_notification_service.dart';
+import '../../features/quiz/presentation/cubit/quiz_cubit.dart';
+import '../../features/quiz/presentation/cubit/leaderboard_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -201,6 +206,14 @@ Future<void> init() async {
       editionService: sl(),
     ),
   );
+
+  //! Features - Quiz
+  sl.registerLazySingleton(
+    () => QuizRepository(FirebaseFirestore.instance, FirebaseAuth.instance, sl()),
+  );
+  sl.registerLazySingleton(() => QuizNotificationService(sl(), sl()));
+  sl.registerFactory(() => QuizCubit(sl(), sl()));
+  sl.registerFactory(() => LeaderboardCubit(sl()));
 
   //! Auth
   sl.registerLazySingleton(() => AuthService());

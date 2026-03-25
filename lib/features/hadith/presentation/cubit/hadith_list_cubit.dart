@@ -1,20 +1,27 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../data/datasources/hadith_firestore_datasource.dart';
 import '../../data/datasources/hadith_local_datasource.dart';
 import '../../data/repositories/hadith_repository.dart';
 import 'hadith_list_state.dart';
 
-/// Manages paginated hadith list for a single category.
+/// Manages paginated hadith list for a single category (offline or online).
 /// Supports infinite scroll with cursor-based pagination.
 class HadithListCubit extends Cubit<HadithListState> {
   final HadithRepository _repository;
   final String categoryId;
   final int _pageSize;
 
+  /// When non-null, serves data from Firestore (Bukhari).
+  final BukhariBook? bukhariBook;
+
+  bool get _isOnline => bukhariBook != null;
+
   HadithListCubit({
     required HadithRepository repository,
     required this.categoryId,
     int pageSize = HadithLocalDataSource.defaultPageSize,
+    this.bukhariBook,
   }) : _repository = repository,
        _pageSize = pageSize,
        super(const HadithListState());
@@ -25,26 +32,41 @@ class HadithListCubit extends Cubit<HadithListState> {
     emit(state.copyWith(status: HadithListStatus.loading));
 
     try {
-      final items = await _repository.getHadithsPaginated(
-        categoryId: categoryId,
-        limit: _pageSize,
-      );
-
-      emit(
-        state.copyWith(
+      if (_isOnline) {
+        final page = await _repository.getFirestoreHadithsPaginated(
+          bookNumber: bukhariBook!.number,
+          limit: _pageSize,
+        );
+        final listItems = page.items
+            .map((h) => h.toListItem(
+                  bookNameAr: bukhariBook!.nameAr,
+                  sortOrder: h.number,
+                ))
+            .toList();
+        emit(state.copyWith(
+          status: HadithListStatus.loaded,
+          items: listItems,
+          hasReachedEnd: !page.hasMore,
+          lastSortOrder:
+              page.items.isNotEmpty ? page.items.last.number : null,
+        ));
+      } else {
+        final items = await _repository.getHadithsPaginated(
+          categoryId: categoryId,
+          limit: _pageSize,
+        );
+        emit(state.copyWith(
           status: HadithListStatus.loaded,
           items: items,
           hasReachedEnd: items.length < _pageSize,
           lastSortOrder: items.isNotEmpty ? items.last.sortOrder : null,
-        ),
-      );
+        ));
+      }
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: HadithListStatus.error,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(
+        status: HadithListStatus.error,
+        errorMessage: e.toString(),
+      ));
     }
   }
 
@@ -54,30 +76,48 @@ class HadithListCubit extends Cubit<HadithListState> {
     emit(state.copyWith(status: HadithListStatus.loading));
 
     try {
-      final items = await _repository.getHadithsPaginated(
-        categoryId: categoryId,
-        limit: _pageSize,
-        afterSortOrder: state.lastSortOrder,
-      );
-
-      final allItems = [...state.items, ...items];
-      emit(
-        state.copyWith(
+      if (_isOnline) {
+        final page = await _repository.getFirestoreHadithsPaginated(
+          bookNumber: bukhariBook!.number,
+          limit: _pageSize,
+          startAfterNumber: state.lastSortOrder,
+        );
+        final listItems = page.items
+            .map((h) => h.toListItem(
+                  bookNameAr: bukhariBook!.nameAr,
+                  sortOrder: h.number,
+                ))
+            .toList();
+        final allItems = [...state.items, ...listItems];
+        emit(state.copyWith(
+          status: HadithListStatus.loaded,
+          items: allItems,
+          hasReachedEnd: !page.hasMore,
+          lastSortOrder: page.items.isNotEmpty
+              ? page.items.last.number
+              : state.lastSortOrder,
+        ));
+      } else {
+        final items = await _repository.getHadithsPaginated(
+          categoryId: categoryId,
+          limit: _pageSize,
+          afterSortOrder: state.lastSortOrder,
+        );
+        final allItems = [...state.items, ...items];
+        emit(state.copyWith(
           status: HadithListStatus.loaded,
           items: allItems,
           hasReachedEnd: items.length < _pageSize,
           lastSortOrder: items.isNotEmpty
               ? items.last.sortOrder
               : state.lastSortOrder,
-        ),
-      );
+        ));
+      }
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: HadithListStatus.error,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(
+        status: HadithListStatus.error,
+        errorMessage: e.toString(),
+      ));
     }
   }
 

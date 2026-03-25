@@ -289,6 +289,26 @@ class AdhanNotificationService {
           }
         }
       } catch (_) {}
+      // Cancel silent-mode alarms (uses same base IDs as adhan alarms).
+      try {
+        final raw5 = _settings.getAdhanSchedulePreview();
+        if (raw5 != null && raw5.isNotEmpty) {
+          final ids5 = (jsonDecode(raw5) as List)
+              .whereType<Map>()
+              .map((e) => e['id'])
+              .whereType<int>()
+              .toList();
+          if (ids5.isNotEmpty) {
+            await _androidAdhanPlayerChannel.invokeMethod('cancelSilentModeAlarms', {'ids': ids5});
+            debugPrint('🔕 [SilentMode] AlarmManager: cancelled ${ids5.length} base alarm(s)');
+          }
+        }
+      } catch (_) {}
+      // Restore ringer immediately in case phone is currently in our silent window.
+      try {
+        await _androidAdhanPlayerChannel.invokeMethod('restoreSilentMode');
+        debugPrint('🔕 [SilentMode] Ringer restored (cancelAllNative)');
+      } catch (_) {}
     } catch (e) {
       debugPrint('Native alarm cancel error: $e');
     }
@@ -368,6 +388,12 @@ class AdhanNotificationService {
       if (oldSalawatIds.isNotEmpty) {
         await _androidAdhanPlayerChannel.invokeMethod('cancelSalawatAlarms', {'ids': oldSalawatIds.toList()});
         debugPrint('🌙 [Salawat] Cancelled ${oldSalawatIds.length} stale alarm(s)');
+      }
+      // Silent mode: stale = adhan IDs that were removed (same base ID space).
+      // Always cancel stale silent alarms even if silent mode is now disabled.
+      if (staleAdhan.isNotEmpty) {
+        await _androidAdhanPlayerChannel.invokeMethod('cancelSilentModeAlarms', {'ids': staleAdhan});
+        debugPrint('🔕 [SilentMode] Cancelled ${staleAdhan.length} stale base alarm(s)');
       }
     } catch (e) {
       debugPrint('Stale alarm cancel error: $e');
@@ -775,6 +801,58 @@ class AdhanNotificationService {
         } catch (e) {
           debugPrint('🔔 [Approaching] Native scheduling error: $e');
         }
+        // Silent mode — schedule start + end alarms derived from adhan prayer times.
+        try {
+          final silentEnabled = _settings.getSilentDuringPrayer();
+          final silentDelay   = _settings.getSilentDelayMinutes();
+          final silentDur     = _settings.getSilentDurationMinutes();
+          if (silentEnabled && silentDur > 0) {
+            final now = DateTime.now();
+            final allSilentAlarms = <Map<String, dynamic>>[];
+            for (final entry in preview) {
+              final timeStr = entry['time'] as String?;
+              final baseId  = entry['id'] as int?;
+              if (timeStr == null || baseId == null) continue;
+              final prayerTime = DateTime.tryParse(timeStr);
+              if (prayerTime == null) continue;
+              final startTime = prayerTime.add(Duration(minutes: silentDelay));
+              final endTime   = startTime.add(Duration(minutes: silentDur));
+              if (startTime.isAfter(now)) {
+                allSilentAlarms.add({
+                  'id':      baseId,
+                  'timeMs':  startTime.millisecondsSinceEpoch,
+                  'isStart': true,
+                });
+              }
+              if (endTime.isAfter(now)) {
+                allSilentAlarms.add({
+                  'id':      baseId,
+                  'timeMs':  endTime.millisecondsSinceEpoch,
+                  'isStart': false,
+                });
+              }
+            }
+            await _androidAdhanPlayerChannel.invokeMethod('scheduleSilentModeAlarms', {
+              'alarms':  allSilentAlarms,
+              'enabled': true,
+            });
+            debugPrint('🔕 [SilentMode] Scheduled ${allSilentAlarms.length} alarm(s) '
+                '(delay=${silentDelay}min, dur=${silentDur}min)');
+          } else if (!silentEnabled) {
+            // Feature is off: restore ringer immediately (phone may be in our silent window),
+            // then cancel any pending alarms.
+            try {
+              await _androidAdhanPlayerChannel.invokeMethod('restoreSilentMode');
+              debugPrint('🔕 [SilentMode] Ringer restored (feature disabled)');
+            } catch (_) {}
+            final ids = preview.map((e) => e['id'] as int).toList();
+            if (ids.isNotEmpty) {
+              await _androidAdhanPlayerChannel.invokeMethod('cancelSilentModeAlarms', {'ids': ids});
+            }
+          }
+        } catch (e) {
+          debugPrint('🔕 [SilentMode] Scheduling error: $e');
+        }
       }
       await _scheduleSalawatNotifications();
       // Cancel stale IDs that are no longer in the new schedule.
@@ -864,6 +942,10 @@ class AdhanNotificationService {
     if (_settings.getPrayerReminderEnabled() &&
         _settings.getPrayerReminderMinutes() > 0) {
       typesPerPrayer++;
+    }
+    // Silent mode: 2 alarms per prayer (start + end).
+    if (_settings.getSilentDuringPrayer()) {
+      typesPerPrayer += 2;
     }
 
     // Always reserve salawatCap regardless of getSalawatEnabled() to prevent

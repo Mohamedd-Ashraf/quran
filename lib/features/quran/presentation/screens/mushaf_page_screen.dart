@@ -653,6 +653,7 @@ class _MushafPage extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
                 child: _PageText(
                   verses: visibleVerses,
+                  page: page,
                   focusSurahNumber: focusSurahNumber,
                   focusAyahNumber: focusAyahNumber,
                   tajweedMode: tajweedMode,
@@ -1595,6 +1596,7 @@ class _MushafFooter extends StatelessWidget {
 // Highlight follows the audio cubit so the active ayah is visually marked.
 class _PageText extends StatefulWidget {
   final List<_Verse> verses;
+  final int page;
   final int? focusSurahNumber;
   final int? focusAyahNumber;
   final bool tajweedMode;
@@ -1603,6 +1605,7 @@ class _PageText extends StatefulWidget {
 
   const _PageText({
     required this.verses,
+    required this.page,
     this.focusSurahNumber,
     this.focusAyahNumber,
     this.tajweedMode = false,
@@ -1797,7 +1800,12 @@ class _PageTextState extends State<_PageText> {
                   section.entries.first.verse.ayah == 1 &&
                   section.surahNum != 1 &&
                   section.surahNum != 9) {
-                children.add(_Basmala(isDark: isDark));
+                children.add(_Basmala(
+                  isDark: isDark,
+                  quranFont: settings.quranFont,
+                  useQcfFont: settings.useQcfFont,
+                  page: widget.page,
+                ));
               }
 
               // Whether we showed a basmala header for this section.
@@ -2084,23 +2092,48 @@ class _SurahHeader extends StatelessWidget {
 // ─── Basmala separator ────────────────────────────────────────────────────────
 class _Basmala extends StatelessWidget {
   final bool isDark;
-  const _Basmala({required this.isDark});
+  final String quranFont;
+  final bool useQcfFont;
+  final int page;
+  const _Basmala({
+    required this.isDark,
+    required this.quranFont,
+    required this.useQcfFont,
+    required this.page,
+  });
 
   @override
   Widget build(BuildContext context) {
     final color = isDark ? const Color(0xFFD4A855) : AppColors.primary;
-    // Render the Bismillah using the same QCF_P001 font and glyph sequence
-    // as the qcf_quran package so it looks identical to QCF mode.
+    if (useQcfFont) {
+      // Use exact same font-size as QCF page so Basmala matches verse glyphs.
+      final fontSize = getFontSize(page, context);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Text(
+          ' \uFC41  \uFC42\uFC43\uFC44',
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+            fontFamily: 'QCF_P001',
+            package: 'qcf_quran',
+            fontSize: fontSize,
+            color: color,
+            height: 2.0,
+          ),
+        ),
+      );
+    }
+    // Regular Arabic font — matches the ayah text font the user selected.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Text(
-        ' \uFC41  \uFC42\uFC43\uFC44',
+        '\u0628\u0650\u0633\u0652\u0645\u0650 \u0671\u0644\u0644\u0651\u064e\u0647\u0650 \u0671\u0644\u0631\u0651\u064e\u062d\u0652\u0645\u064e\u0670\u0646\u0650 \u0671\u0644\u0631\u0651\u064e\u062d\u0650\u064a\u0645\u0650',
         textAlign: TextAlign.center,
         textDirection: TextDirection.rtl,
-        style: TextStyle(
-          fontFamily: 'QCF_P001',
-          package: 'qcf_quran',
-          fontSize: 24.0,
+        style: ArabicTextStyleHelper.quranFontStyle(
+          fontKey: quranFont,
+          fontSize: 22.0,
           color: color,
           height: 2.0,
         ),

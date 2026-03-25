@@ -14,6 +14,7 @@ import 'core/services/quran_cache_warmup_service.dart';
 import 'core/services/app_update_service_firebase.dart';
 import 'core/services/tafsir_auto_download_service.dart';
 import 'features/wird/services/wird_notification_service.dart';
+import 'features/quiz/services/quiz_notification_service.dart';
 import 'core/widgets/app_update_dialog_premium.dart';
 import 'core/theme/app_theme.dart';
 import 'core/settings/app_settings_cubit.dart';
@@ -108,6 +109,11 @@ void main() async {
   // scheduleForPlan() re-registers BOTH the main daily reminder AND follow-ups
   // on every app start (covers device reboots that clear scheduled alarms).
   unawaited(wirdNotifService.scheduleForPlan());
+
+  // Initialize quiz (daily competition) reminder notifications.
+  final quizNotifService = di.sl<QuizNotificationService>();
+  await quizNotifService.init();
+  unawaited(quizNotifService.scheduleDailyReminder());
 
   // Enable background audio playback (foreground service + lock-screen controls).
   // Must be called before runApp so AyahAudioCubit's AudioPlayer can connect

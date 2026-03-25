@@ -12,6 +12,12 @@ class HadithCategoryInfo {
   final Color color;
   final int count;
 
+  /// True for CDN-based online books; false for the curated offline set.
+  final bool isOnline;
+
+  /// CDN edition key, e.g. "ara-bukhari". Only set when [isOnline] is true.
+  final String? apiEdition;
+
   const HadithCategoryInfo({
     required this.id,
     required this.titleAr,
@@ -21,6 +27,8 @@ class HadithCategoryInfo {
     required this.icon,
     required this.color,
     this.count = 0,
+    this.isOnline = false,
+    this.apiEdition,
   });
 
   HadithCategoryInfo copyWith({int? count}) => HadithCategoryInfo(
@@ -32,6 +40,8 @@ class HadithCategoryInfo {
     icon: icon,
     color: color,
     count: count ?? this.count,
+    isOnline: isOnline,
+    apiEdition: apiEdition,
   );
 
   /// Static metadata for all hadith categories.
@@ -105,7 +115,28 @@ class HadithCategoryInfo {
     try {
       return all.firstWhere((c) => c.id == id);
     } catch (_) {
-      return null;
+      try {
+        return allOnline.firstWhere((c) => c.id == id);
+      } catch (_) {
+        return null;
+      }
     }
   }
+
+  // ── Online book categories ──────────────────────────────────────────
+
+  /// Sahih al-Bukhari (7592 hadiths) served from Firestore.
+  static const List<HadithCategoryInfo> allOnline = [
+    HadithCategoryInfo(
+      id: 'bukhari',
+      titleAr: 'صحيح البخاري',
+      titleEn: 'Sahih al-Bukhari',
+      subtitleAr: 'أصح كتاب بعد القرآن الكريم – ٧٥٩٢ حديث',
+      subtitleEn: 'Most authentic hadith collection – 7592 hadiths',
+      icon: Icons.menu_book_rounded,
+      color: Color(0xFF1A5276),
+      isOnline: true,
+      count: 7592,
+    ),
+  ];
 }

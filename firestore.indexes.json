@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "hadiths",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "bookNumber", "order": "ASCENDING" },
+        { "fieldPath": "number", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

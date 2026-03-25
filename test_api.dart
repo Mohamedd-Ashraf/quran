@@ -1,1 +1,0 @@
-import 'dart:convert'; import 'dart:io'; void main() async { var req = await HttpClient().getUrl(Uri.parse('https://api.quran.com/api/v4/tafsirs/14/by_chapter/2?per_page=300')); var res = await req.close(); var body = await res.transform(utf8.decoder).join(); var t = jsonDecode(body); print(t['tafsirs'].length); }

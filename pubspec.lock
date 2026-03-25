@@ -1013,6 +1013,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.5"
+  qcf_quran_lite:
+    dependency: "direct main"
+    description:
+      path: "packages/qcf_quran_lite"
+      relative: true
+    source: path
+    version: "0.0.1"
   rxdart:
     dependency: transitive
     description:

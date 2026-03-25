@@ -69,6 +69,11 @@ class SettingsService {
   static const String _keyAdhanEnableMaghrib = 'adhan_enable_maghrib';
   static const String _keyAdhanEnableIsha = 'adhan_enable_isha';
 
+  // ── Silent mode during prayer ──────────────────────────────────────────────
+  static const String _keySilentDuringPrayer    = 'silent_during_prayer';
+  static const String _keySilentDelayMinutes    = 'silent_delay_minutes';
+  static const String _keySilentDurationMinutes = 'silent_duration_minutes';
+
   // ── Per-prayer iqama minutes ──────────────────────────────────────────────
   static const String _keyIqamaMinutesFajr = 'iqama_minutes_fajr';
   static const String _keyIqamaMinutesDhuhr = 'iqama_minutes_dhuhr';
@@ -515,6 +520,23 @@ class SettingsService {
   String? getSalawatAlarmIds() => _prefs.getString('salawat_alarm_ids');
   Future<bool> setSalawatAlarmIds(String json) =>
       _prefs.setString('salawat_alarm_ids', json);
+
+  // ── Silent mode during prayer ──────────────────────────────────────────────
+  bool getSilentDuringPrayer() =>
+      _prefs.getBool(_keySilentDuringPrayer) ?? false;
+  Future<bool> setSilentDuringPrayer(bool v) =>
+      _prefs.setBool(_keySilentDuringPrayer, v);
+
+  /// Minutes to wait after adhan before silencing (0 = silence immediately at adhan time).
+  int getSilentDelayMinutes() => _prefs.getInt(_keySilentDelayMinutes) ?? 0;
+  Future<bool> setSilentDelayMinutes(int v) =>
+      _prefs.setInt(_keySilentDelayMinutes, v.clamp(0, 60));
+
+  /// Duration in minutes to keep the phone silent.
+  int getSilentDurationMinutes() =>
+      _prefs.getInt(_keySilentDurationMinutes) ?? 20;
+  Future<bool> setSilentDurationMinutes(int v) =>
+      _prefs.setInt(_keySilentDurationMinutes, v.clamp(1, 120));
 
   // ── Hijri date offset: clamped to [-3, +3] ────────────────────────────────
   int getHijriDateOffset() =>

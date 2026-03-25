@@ -11,7 +11,10 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-
+# Secrets only
+service-account.json
+**/service-account.json
+firebase-adminsdk*.json
 # IntelliJ related
 *.iml
 *.ipr

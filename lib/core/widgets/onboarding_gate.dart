@@ -152,7 +152,48 @@ class _OnboardingGateState extends State<OnboardingGate> {
     }
 
     // ── 3. Authentication ──────────────────────────────────────────────────
+    // Listen to auth state so that when the user signs out we reset _authComplete.
+    return BlocListener<AuthCubit, AuthState>(
+      listenWhen: (prev, curr) => prev.status != curr.status,
+      listener: (context, state) {
+        if (state.status == AuthStatus.unauthenticated) {
+          setState(() {
+            _authComplete = false;
+            _showWhatsNew = null;
+          });
+        } else if ((state.status == AuthStatus.authenticated ||
+                state.status == AuthStatus.guest) &&
+            !_authComplete) {
+          // Firebase stream fired after splash — skip auth screen
+          _onAuthComplete();
+        }
+      },
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    // ── 3. Authentication ──────────────────────────────────────────────────
     if (!_authComplete) {
+      final authStatus = context.read<AuthCubit>().state.status;
+      if (authStatus == AuthStatus.unknown) {
+        // Firebase hasn't responded yet — show loading.
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (authStatus == AuthStatus.authenticated ||
+          authStatus == AuthStatus.guest) {
+        // Firebase already authenticated but BlocListener missed it
+        // (state changed while SplashPage was showing).
+        // Schedule the auth-complete transition safely outside build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_authComplete) _onAuthComplete();
+        });
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
       return AuthScreen(onAuthComplete: _onAuthComplete);
     }
 

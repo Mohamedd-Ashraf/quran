@@ -38,6 +38,9 @@ class HadithItem {
   /// Sort order within the category.
   final int sortOrder;
 
+  /// True for the 117 bundled hadiths; false for online CDN hadiths.
+  final bool isOffline;
+
   const HadithItem({
     required this.id,
     required this.arabicText,
@@ -52,6 +55,7 @@ class HadithItem {
     this.explanation,
     this.categoryId,
     this.sortOrder = 0,
+    this.isOffline = true,
   });
 
   Map<String, dynamic> toMap(String catId, int order) => {
@@ -87,6 +91,7 @@ class HadithItem {
     explanation: map['explanation'] as String?,
     categoryId: map['category_id'] as String?,
     sortOrder: (map['sort_order'] as int?) ?? 0,
+    isOffline: (map['is_offline'] as int? ?? 1) == 1,
   );
 }
 

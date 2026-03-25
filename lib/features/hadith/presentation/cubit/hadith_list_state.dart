@@ -10,7 +10,7 @@ class HadithListState extends Equatable {
   final bool hasReachedEnd;
   final String? errorMessage;
 
-  /// Cursor for the next page (sort_order of the last loaded item).
+  /// Cursor for the next page (hadith number or sort_order of the last loaded item).
   final int? lastSortOrder;
 
   const HadithListState({

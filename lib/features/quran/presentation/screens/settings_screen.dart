@@ -2156,11 +2156,201 @@ class _AccountSection extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showLinkEmailForm(context, isAr);
+                  },
+                  icon: const Icon(Icons.email_outlined, size: 22),
+                  label: Text(
+                    isAr ? 'ربط بالبريد الإلكتروني' : 'Link with Email',
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showLinkEmailForm(BuildContext context, bool isAr) {
+    final emailCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSignUp = false;
+    bool obscure = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isAr
+                          ? (isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول')
+                          : (isSignUp ? 'Create Account' : 'Sign In'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      textDirection: TextDirection.ltr,
+                      decoration: InputDecoration(
+                        labelText: isAr ? 'البريد الإلكتروني' : 'Email',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return isAr ? 'أدخل البريد الإلكتروني' : 'Enter your email';
+                        }
+                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) {
+                          return isAr ? 'البريد الإلكتروني غير صالح' : 'Invalid email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: passwordCtrl,
+                      obscureText: obscure,
+                      textDirection: TextDirection.ltr,
+                      decoration: InputDecoration(
+                        labelText: isAr ? 'كلمة المرور' : 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined),
+                          onPressed: () =>
+                              setModalState(() => obscure = !obscure),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return isAr ? 'أدخل كلمة المرور' : 'Enter your password';
+                        }
+                        if (isSignUp && v.length < 6) {
+                          return isAr
+                              ? 'كلمة المرور يجب أن تكون ٦ أحرف على الأقل'
+                              : 'At least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: BlocBuilder<AuthCubit, AuthState>(
+                        builder: (context, state) {
+                          return ElevatedButton(
+                            onPressed: state.isLoading
+                                ? null
+                                : () {
+                                    if (!formKey.currentState!.validate()) return;
+                                    final email = emailCtrl.text.trim();
+                                    final password = passwordCtrl.text;
+                                    Navigator.pop(ctx);
+                                    final cubit = context.read<AuthCubit>();
+                                    if (isSignUp) {
+                                      cubit.signUpWithEmail(email, password);
+                                    } else {
+                                      cubit.signInWithEmail(email, password);
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: state.isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    isAr
+                                        ? (isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول')
+                                        : (isSignUp ? 'Sign Up' : 'Sign In'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          setModalState(() => isSignUp = !isSignUp),
+                      child: Text(
+                        isSignUp
+                            ? (isAr
+                                ? 'لديك حساب بالفعل؟ سجّل دخولك'
+                                : 'Already have an account? Sign In')
+                            : (isAr
+                                ? 'ليس لديك حساب؟ أنشئ حساباً جديداً'
+                                : "Don't have an account? Sign Up"),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

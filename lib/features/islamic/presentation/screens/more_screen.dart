@@ -19,6 +19,9 @@ import '../../../quran/presentation/screens/feedback_screen.dart';
 import '../../../quran/presentation/screens/offline_tafsir_screen.dart';
 import '../../../ruqyah/presentation/screens/ruqyah_screen.dart';
 import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../quiz/presentation/screens/quiz_screen.dart';
+import '../../../quiz/presentation/widgets/quiz_sign_in_sheet.dart';
 import 'package:qcf_quran/qcf_quran.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -222,6 +225,30 @@ class _MoreScreenState extends State<MoreScreen> {
                 ),
               ],
             ),
+          ),
+          _NavCard(
+            title: isArabicUi ? 'المسابقة اليومية' : 'Daily Quiz',
+            subtitle: isArabicUi
+                ? 'سؤال ديني يومي مع لوحة المتصدرين'
+                : 'Daily religious question with leaderboard',
+            icon: Icons.emoji_events_rounded,
+            badge: isArabicUi ? 'جديد' : 'NEW',
+            onTap: () {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null || user.isAnonymous) {
+                showQuizSignInSheet(
+                  context,
+                  isArabic: isArabicUi,
+                  onAuthenticated: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const QuizScreen()),
+                  ),
+                );
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QuizScreen()),
+                );
+              }
+            },
           ),
           _NavCard(
             key: MoreTutorialKeys.prayerTimesCard,

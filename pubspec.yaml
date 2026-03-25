@@ -105,6 +105,10 @@ dependencies:
   qcf_quran: ^0.0.5
   scrollable_positioned_list: ^0.3.8
 
+  # QCF Quran Lite – lightweight local package for Bismillah / Hafs font
+  qcf_quran_lite:
+    path: packages/qcf_quran_lite
+
   # Maps
   flutter_map: ^6.1.0
   latlong2: ^0.9.1
@@ -162,6 +166,7 @@ flutter:
     - "assets/logo/button icons/Tafsir-icon.png"
     - "assets/logo/button icons/Tafsir-icon-mono.png"
     - assets/fonts/
+    - assets/hadith/
     # - assets/sound/ # Commented out to reduce size as it seems unused and contains images?
 
   # An image asset can refer to one or more resolution-specific "variants", see

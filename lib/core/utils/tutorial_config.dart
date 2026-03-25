@@ -15,7 +15,7 @@ class TutorialConfig {
   //                Set to `false` ONLY if you want to ship with all tutorials
   //                completely disabled (e.g., during a hotfix rollout).
   /// Master switch — `false` silences all tutorial overlays app-wide.
-  static const bool kTutorialsEnabled = true;
+  static const bool kTutorialsEnabled = false;
 
   // TODO(release): Set `kAlwaysShowTutorial = false` before production build.
   //                When `true` every screen shows its tutorial on every visit,
@@ -25,5 +25,5 @@ class TutorialConfig {
   /// Force-show flag — when `true`, tutorials ignore the "already seen" state
   /// and show on every visit.  Safe to leave `true` locally; must be `false`
   /// in any release build.
-  static const bool kAlwaysShowTutorial = true;
+  static const bool kAlwaysShowTutorial = false;
 }

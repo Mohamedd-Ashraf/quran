@@ -186,18 +186,18 @@ class AppTheme {
       ),
 
       // ── Switch ──────────────────────────────────────────────────
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((s) {
-          if (s.contains(WidgetState.selected)) return AppColors.primary;
-          return AppColors.textSecondary.withValues(alpha: 0.5);
-        }),
-        trackColor: WidgetStateProperty.resolveWith((s) {
-          if (s.contains(WidgetState.selected)) {
-            return AppColors.primary.withValues(alpha: 0.3);
-          }
-          return AppColors.divider;
-        }),
-      ),
+      // switchTheme: SwitchThemeData(
+      //   thumbColor: WidgetStateProperty.resolveWith((s) {
+      //     if (s.contains(WidgetState.selected)) return AppColors.primary;
+      //     return Colors.white;
+      //   }),
+      //   trackColor: WidgetStateProperty.resolveWith((s) {
+      //     if (s.contains(WidgetState.selected)) {
+      //       return AppColors.primary.withValues(alpha: 0.3);
+      //     }
+      //     return Colors.grey.shade300;
+      //   }),
+      // ),
 
       // ── Slider ──────────────────────────────────────────────────
       sliderTheme: SliderThemeData(
@@ -316,7 +316,9 @@ class AppTheme {
                 : AppColors.primary,
           ),
           backgroundColor: WidgetStateProperty.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? AppColors.primary : null,
+            (s) => s.contains(WidgetState.selected)
+                ? AppColors.primary
+                : Colors.white,
           ),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(

@@ -13,6 +13,9 @@ class HadithListItem {
   final HadithGrade grade;
   final int sortOrder;
 
+  /// True for the 117 bundled hadiths; false for online CDN hadiths.
+  final bool isOffline;
+
   const HadithListItem({
     required this.id,
     required this.categoryId,
@@ -23,6 +26,7 @@ class HadithListItem {
     required this.reference,
     required this.grade,
     required this.sortOrder,
+    this.isOffline = true,
   });
 
   factory HadithListItem.fromMap(Map<String, dynamic> map) => HadithListItem(
@@ -38,5 +42,6 @@ class HadithListItem {
       orElse: () => HadithGrade.sahih,
     ),
     sortOrder: (map['sort_order'] as int?) ?? 0,
+    isOffline: (map['is_offline'] as int? ?? 1) == 1,
   );
 }

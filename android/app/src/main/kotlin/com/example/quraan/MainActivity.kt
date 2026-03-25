@@ -397,6 +397,74 @@ class MainActivity : AudioServiceFragmentActivity() {
                         }
                     }
 
+                    // ── Silent mode during prayer ────────────────────────────
+
+                    /** Immediately restores the ringer if we silenced it.
+                     *  Called when the feature is disabled or all adhan is disabled
+                     *  while the phone may still be in a silent window. */
+                    "restoreSilentMode" -> {
+                        SilentModeAlarmReceiver.restoreNow(this)
+                        result.success(null)
+                    }
+
+                    "scheduleSilentModeAlarms" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val alarms  = call.argument<List<Map<String, Any>>>("alarms") ?: emptyList()
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        // Persist schedule for boot rescue and per-alarm enabled check.
+                        val scheduleJson = org.json.JSONArray().also { arr ->
+                            alarms.forEach { a ->
+                                arr.put(org.json.JSONObject().apply {
+                                    put("id",      (a["id"]      as? Number)?.toInt()    ?: 0)
+                                    put("timeMs",  (a["timeMs"]  as? Number)?.toLong()   ?: 0L)
+                                    put("isStart", a["isStart"]  as? Boolean             ?: true)
+                                })
+                            }
+                        }.toString()
+                        getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("flutter.silent_during_prayer", enabled)
+                            .putString(SilentModeAlarmReceiver.KEY_SCHEDULE, scheduleJson)
+                            .apply()
+                        if (enabled) SilentModeAlarmReceiver.scheduleAlarms(this, alarms)
+                        result.success(null)
+                    }
+
+                    "cancelSilentModeAlarms" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val ids = call.argument<List<Int>>("ids") ?: emptyList()
+                        SilentModeAlarmReceiver.cancelAlarms(this, ids)
+                        result.success(null)
+                    }
+
+                    /** Returns true if the app has Do-Not-Disturb policy access (required on Android 6+
+                     *  to call AudioManager.setRingerMode(RINGER_MODE_SILENT)). */
+                    "checkDndPermission" -> {
+                        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val nm = getSystemService(NOTIFICATION_SERVICE)
+                                    as android.app.NotificationManager
+                            nm.isNotificationPolicyAccessGranted
+                        } else {
+                            true // Pre-M: no DND concept, ringer mode always controllable
+                        }
+                        result.success(granted)
+                    }
+
+                    /** Opens the system DND access settings so the user can grant permission. */
+                    "requestDndPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            try {
+                                startActivity(
+                                    android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.w("MainActivity", "Cannot open DND settings: ${e.message}")
+                            }
+                        }
+                        result.success(null)
+                    }
+
                     // ── Diagnostics info ─────────────────────────────────────
                     "getDiagnostics" -> {
                         val diag = mutableMapOf<String, Any>()

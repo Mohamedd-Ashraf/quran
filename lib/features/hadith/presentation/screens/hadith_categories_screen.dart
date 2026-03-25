@@ -9,6 +9,7 @@ import '../../data/models/hadith_category_info.dart';
 import '../../data/repositories/hadith_repository.dart';
 import 'hadith_list_screen.dart';
 import 'hadith_search_screen.dart';
+import 'hadith_sections_screen.dart';
 
 class HadithCategoriesScreen extends StatefulWidget {
   const HadithCategoriesScreen({super.key});
@@ -119,7 +120,7 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
                     ),
                   ),
 
-                  // ── Section Label ──
+                  // ── Section Label: Curated ──
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
@@ -128,7 +129,7 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
                           _GlowDot(color: AppColors.primary),
                           const SizedBox(width: 10),
                           Text(
-                            isArabic ? 'أبواب الأحاديث' : 'Hadith Categories',
+                            isArabic ? 'مختارات الأحاديث' : 'Curated Hadiths',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -154,16 +155,16 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
                     ),
                   ),
 
-                  // ── Category Cards ──
+                  // ── Offline Category Cards ──
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final cat = categories[index];
                         return AnimatedBuilder(
                           animation: _animCtrl,
                           builder: (context, child) {
-                            final delay = index * 0.12;
+                            final delay = index * 0.10;
                             final t = Curves.easeOutCubic.transform(
                               (_animCtrl.value - delay).clamp(0.0, 1.0),
                             );
@@ -185,6 +186,106 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
                           ),
                         );
                       }, childCount: categories.length),
+                    ),
+                  ),
+
+                  // ── Section Label: Major books ──
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+                      child: Row(
+                        children: [
+                          _GlowDot(color: AppColors.info),
+                          const SizedBox(width: 10),
+                          Text(
+                            isArabic ? 'كتب الحديث الكبرى' : 'Major Hadith Books',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : AppColors.info,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.info.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: AppColors.info.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.wifi_rounded,
+                                    size: 11, color: AppColors.info),
+                                SizedBox(width: 3),
+                                Text(
+                                  'أونلاين',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.info,
+                                    fontFamily: 'Amiri',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              height: 1.5,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.info.withValues(alpha: 0.35),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Online Book Cards ──
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final book = HadithCategoryInfo.allOnline[index];
+                        return AnimatedBuilder(
+                          animation: _animCtrl,
+                          builder: (context, child) {
+                            final delay =
+                                (categories.length + index) * 0.10;
+                            final t = Curves.easeOutCubic.transform(
+                              (_animCtrl.value - delay).clamp(0.0, 1.0),
+                            );
+                            return Transform.translate(
+                              offset: Offset(0, 30 * (1 - t)),
+                              child: Opacity(opacity: t, child: child),
+                            );
+                          },
+                          child: _CategoryCard(
+                            category: book,
+                            index: categories.length + index,
+                            isArabic: isArabic,
+                            isDark: isDark,
+                            showOnlineBadge: true,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    HadithSectionsScreen(book: book),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                          childCount: HadithCategoryInfo.allOnline.length),
                     ),
                   ),
                 ],
@@ -396,6 +497,7 @@ class _CategoryCard extends StatelessWidget {
   final bool isArabic;
   final bool isDark;
   final VoidCallback onTap;
+  final bool showOnlineBadge;
 
   const _CategoryCard({
     required this.category,
@@ -403,6 +505,7 @@ class _CategoryCard extends StatelessWidget {
     required this.isArabic,
     required this.isDark,
     required this.onTap,
+    this.showOnlineBadge = false,
   });
 
   @override
@@ -530,25 +633,53 @@ class _CategoryCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Count badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: catColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${category.count}',
-                          style: TextStyle(
-                            color: catColor,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
+                      // Count badge or online badge
+                      if (showOnlineBadge)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: AppColors.info.withValues(alpha: 0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.wifi_rounded,
+                                  size: 11, color: AppColors.info),
+                              SizedBox(width: 3),
+                              Text(
+                                'أونلاين',
+                                style: TextStyle(
+                                  color: AppColors.info,
+                                  fontSize: 10,
+                                  fontFamily: 'Amiri',
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: catColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${category.count}',
+                            style: TextStyle(
+                              color: catColor,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                      ),
                       const SizedBox(width: 4),
                       Icon(
                         isArabic

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/theme/app_design_system.dart';
+import '../../data/datasources/hadith_firestore_datasource.dart';
 import '../../data/models/hadith_category_info.dart';
 import '../../data/models/hadith_item.dart';
 import '../../data/models/hadith_list_item.dart';
@@ -15,6 +16,8 @@ import '../cubit/hadith_list_state.dart';
 import '../cubit/hadith_state.dart';
 import '../widgets/hadith_skeleton.dart';
 import 'hadith_detail_screen.dart';
+
+// ─── Offline category list ────────────────────────────────────────────────────
 
 class HadithListScreen extends StatelessWidget {
   final HadithCategoryInfo category;
@@ -33,9 +36,39 @@ class HadithListScreen extends StatelessWidget {
   }
 }
 
+// ─── Online (Firestore/Bukhari) section list ──────────────────────────────────
+
+/// Wrapper for browsing a specific Bukhari book from Firestore.
+class OnlineHadithListScreen extends StatelessWidget {
+  final HadithCategoryInfo bookInfo;
+  final BukhariBook bukhariBook;
+
+  const OnlineHadithListScreen({
+    super.key,
+    required this.bookInfo,
+    required this.bukhariBook,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => HadithListCubit(
+        repository: context.read<HadithRepository>(),
+        categoryId: bookInfo.id,
+        bukhariBook: bukhariBook,
+      )..loadInitial(),
+      child: _HadithListView(
+        category: bookInfo,
+        sectionTitle: bukhariBook.nameAr,
+      ),
+    );
+  }
+}
+
 class _HadithListView extends StatefulWidget {
   final HadithCategoryInfo category;
-  const _HadithListView({required this.category});
+  final String? sectionTitle;
+  const _HadithListView({required this.category, this.sectionTitle});
 
   @override
   State<_HadithListView> createState() => _HadithListViewState();
@@ -101,7 +134,11 @@ class _HadithListViewState extends State<_HadithListView> {
                 centerTitle: true,
                 titlePadding: const EdgeInsets.only(bottom: 16),
                 title: Text(
-                  isArabic ? widget.category.titleAr : widget.category.titleEn,
+                  widget.sectionTitle?.isNotEmpty == true
+                      ? widget.sectionTitle!
+                      : (isArabic
+                          ? widget.category.titleAr
+                          : widget.category.titleEn),
                   style: const TextStyle(
                     fontFamily: 'Amiri',
                     fontWeight: FontWeight.w700,
