@@ -789,6 +789,30 @@ class _InfoCard extends StatelessWidget {
 //  Tab 3: Sanad (Chain of Narration)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Renders Arabic [text] as a [RichText] with tashkeel (diacritics) displayed
+/// in a muted colour (38 % opacity of the base colour) so base letters stand out.
+RichText _arabicRichText(String text, {required TextStyle baseStyle}) {
+  final baseColor = baseStyle.color ?? Colors.black;
+  final tashkeelColor = baseColor.withValues(alpha: 0.38);
+  final tkRegex = RegExp(
+    '[\u064B-\u065F\u0610-\u061A\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]',
+  );
+  final spans = <TextSpan>[];
+  int prev = 0;
+  for (final m in tkRegex.allMatches(text)) {
+    if (m.start > prev) {
+      spans.add(TextSpan(text: text.substring(prev, m.start)));
+    }
+    spans.add(TextSpan(text: m[0], style: TextStyle(color: tashkeelColor)));
+    prev = m.end;
+  }
+  if (prev < text.length) spans.add(TextSpan(text: text.substring(prev)));
+  return RichText(
+    textDirection: TextDirection.rtl,
+    text: TextSpan(style: baseStyle, children: spans),
+  );
+}
+
 class _SanadTab extends StatelessWidget {
   final HadithItem hadith;
   final bool isArabic;
@@ -940,18 +964,44 @@ class _SanadTab extends StatelessWidget {
   }
 
   List<String> _parseSanad(String sanad) {
-    // Split by common linking patterns in hadith chains
-    final parts = sanad
-        .split(RegExp(r'،?\s*(?:حدثنا|أخبرنا|عن|قال[:\s]|أن[هـ]?\s)'))
-        .where((s) => s.trim().isNotEmpty && s.trim().length > 3)
-        .map((s) => s.trim().replaceAll(RegExp(r'^[,،\s]+|[,،\s]+$'), ''))
-        .where((s) => s.isNotEmpty)
-        .toList();
+    // Diacritic-tolerant pattern: after each keyword letter allow any number of
+    // tashkeel characters so it matches both plain (offline) and fully-vowelled
+    // (online/Firestore) text without stripping diacritics from the original.
+    const t = r'[\u064B-\u065F\u0610-\u061A\u0670]*';
+    String kw(String word) =>
+        word.split('').map((c) => RegExp.escape(c) + t).join();
 
-    if (parts.isEmpty) {
-      return [sanad]; // Return the whole text if parsing fails
+    // Build the split pattern (highest-priority variant first):
+    //   • (قال )?(حدثنا|أخبرنا) — optionally preceded by قال and comma/space
+    //   • ، عن  — only when preceded by comma to avoid mid-word matches
+    final pattern = RegExp(
+      '(?:[،,]$t[ \\t]*)?' // optional leading comma+space
+      '(?:${kw('قال')}$t[ \\t]+)?' // optional قال
+      '(?:${kw('حدثنا')}|${kw('أخبرنا')})'
+      '|'
+      '[،,]$t[ \\t]*${kw('عن')}$t(?=[ \\t])', // ، عن (comma required)
+    );
+
+    final matches = pattern.allMatches(sanad).toList();
+    if (matches.isEmpty) return [sanad];
+
+    String clean(String s) =>
+        s.trim().replaceAll(RegExp(r'^[،,\s]+|[،,\s]+$'), '');
+
+    final parts = <String>[];
+
+    final before = clean(sanad.substring(0, matches.first.start));
+    if (before.length > 3) parts.add(before);
+
+    for (var i = 0; i < matches.length - 1; i++) {
+      final seg = clean(sanad.substring(matches[i].end, matches[i + 1].start));
+      if (seg.length > 3) parts.add(seg);
     }
-    return parts;
+
+    final after = clean(sanad.substring(matches.last.end));
+    if (after.length > 3) parts.add(after);
+
+    return parts.isEmpty ? [sanad] : parts;
   }
 }
 
@@ -1061,10 +1111,9 @@ class _ChainLink extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  _arabicRichText(
                     narrator,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
+                    baseStyle: TextStyle(
                       fontFamily: 'Amiri',
                       fontSize: 14,
                       fontWeight: isFirst || isLast

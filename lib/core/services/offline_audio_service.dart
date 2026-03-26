@@ -362,6 +362,74 @@ class OfflineAudioService {
     }
   }
 
+  /// Delete audio for a specific edition by its identifier.
+  Future<void> deleteEditionAudio(String editionId) async {
+    final base = await _audioBaseDir();
+    if (!base.existsSync()) return;
+    final dir = Directory(
+      '${base.path}${Platform.pathSeparator}$editionId',
+    );
+    if (dir.existsSync()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Returns info about all OTHER editions (not the currently selected one)
+  /// that have at least one downloaded MP3 file.
+  ///
+  /// Each entry: `{ 'editionId': String, 'downloadedSurahs': int, 'sizeMB': double }`
+  Future<List<Map<String, dynamic>>> getOtherDownloadedEditionsInfo() async {
+    final base = await _audioBaseDir();
+    if (!base.existsSync()) return [];
+
+    final currentEditionRoot = await _audioRootDir();
+    final otherDirs = base
+        .listSync()
+        .whereType<Directory>()
+        .where((d) => d.path != currentEditionRoot.path)
+        .toList();
+
+    final result = <Map<String, dynamic>>[];
+    for (final dir in otherDirs) {
+      final mp3Files = dir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.mp3') && f.lengthSync() >= _minValidAudioBytes)
+          .toList();
+      if (mp3Files.isEmpty) continue;
+
+      // Count fully downloaded surahs in this edition.
+      final surahDirs = dir.listSync().whereType<Directory>().toList();
+      int doneSurahs = 0;
+      for (final sd in surahDirs) {
+        final match = RegExp(r'surah_(\d+)$').firstMatch(sd.path);
+        if (match == null) continue;
+        final surahIdx = int.tryParse(match.group(1) ?? '');
+        if (surahIdx == null || surahIdx < 1 || surahIdx > 114) continue;
+        final expected = _surahAyahCounts[surahIdx - 1];
+        final validCount = sd
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.mp3') && f.lengthSync() >= _minValidAudioBytes)
+            .length;
+        if (validCount >= expected) doneSurahs++;
+      }
+
+      int totalBytes = 0;
+      for (final f in mp3Files) {
+        totalBytes += f.lengthSync();
+      }
+
+      final editionId = dir.path.split(Platform.pathSeparator).last;
+      result.add({
+        'editionId': editionId,
+        'downloadedSurahs': doneSurahs,
+        'sizeMB': totalBytes / 1048576,
+      });
+    }
+    return result;
+  }
+
   /// Maps alquran.cloud edition IDs → everyayah.com folder names.
   /// When a folder is available, we download from everyayah.com (128 kbps)
   /// instead of cdn.islamic.network, which returns HTTP 200 + 0 bytes for

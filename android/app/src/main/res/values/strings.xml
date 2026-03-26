@@ -15,4 +15,11 @@
     <string name="tasbeeh_widget_dark_description">Dark style tasbeeh counter for your home screen.</string>
     <string name="tasbeeh_widget_light_label">Tasbeeh Counter Light</string>
     <string name="tasbeeh_widget_light_description">Light style tasbeeh counter for your home screen.</string>
+    <!-- Adhkar Widget -->
+    <string name="adhkar_widget_label">أذكار الصلاة</string>
+    <string name="adhkar_widget_description">Post-prayer adhkar counter that auto-advances through each dhikr and transitions to morning, evening, or sleep adhkar.</string>
+    <string name="adhkar_widget_dark_label">أذكار الصلاة (ليلي)</string>
+    <string name="adhkar_widget_dark_description">Dark style post-prayer adhkar counter for your home screen.</string>
+    <string name="adhkar_widget_light_label">أذكار الصلاة (فاتح)</string>
+    <string name="adhkar_widget_light_description">Light style post-prayer adhkar counter for your home screen.</string>
 </resources>

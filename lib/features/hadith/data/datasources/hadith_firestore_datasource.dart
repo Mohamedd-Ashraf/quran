@@ -240,11 +240,15 @@ class FirestoreHadith {
     final displayText = effectiveMatn.isNotEmpty ? effectiveMatn : text;
     final preview =
         displayText.length > 150 ? displayText.substring(0, 150) : displayText;
+    // Truncate title to 60 chars — some Firestore titles are the hadith text itself
+    final rawTitle = title.isNotEmpty ? title : bookNameAr;
+    final shortTitle =
+        rawTitle.length > 60 ? '${rawTitle.substring(0, 60)}...' : rawTitle;
     return HadithListItem(
       id: 'bukhari_${bookNumber}_$number',
       categoryId: 'bukhari',
       arabicPreview: preview,
-      topicAr: title.isNotEmpty ? title : bookNameAr,
+      topicAr: shortTitle,
       topicEn: '',
       narrator: narrator,
       reference: 'صحيح البخاري $number',

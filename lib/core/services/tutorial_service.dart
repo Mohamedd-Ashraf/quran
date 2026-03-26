@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/tutorial_config.dart';
+import 'settings_service.dart';
 
 class TutorialService {
   final SharedPreferences _prefs;
@@ -61,6 +62,8 @@ class TutorialService {
   String _key(String screenKey) => '$_prefix$screenKey';
 
   bool isTutorialComplete(String screenKey) {
+    // If tutorials feature is disabled, treat all as complete (don't show).
+    if (!SettingsService.enableTutorialsFeature) return true;
     // When force-show is on, always treat every tutorial as "not yet seen".
     if (TutorialConfig.kAlwaysShowTutorial) return false;
     return _prefs.getBool(_key(screenKey)) ?? false;

@@ -34,12 +34,18 @@ class _OfflineAudioScreenState extends State<OfflineAudioScreen>
   /// For the quality-confirm dialog (shown once per edition selection).
   String? _confirmedEdition;
 
+  /// Cached edition list for display-name lookup inside dialogs.
+  List<AudioEdition> _cachedEditions = [];
+
   @override
   void initState() {
     super.initState();
     _audioService = di.sl<OfflineAudioService>();
     _editionService = di.sl<AudioEditionService>();
     _editionsFuture = _editionService.getVerseByVerseAudioEditions();
+    _editionsFuture.then((list) {
+      if (mounted) setState(() => _cachedEditions = list);
+    }).catchError((_) {});
     _refreshStats();
   }
 
@@ -128,7 +134,7 @@ class _OfflineAudioScreenState extends State<OfflineAudioScreen>
 
   Future<void> _startAll() async {
     if (!await _confirmQuality()) return;
-    await _audioService.deleteOtherEditionsAudio();
+    if (!await _handleOtherEditionsConflict()) return;
     if (!mounted) return;
     context.read<DownloadManagerCubit>().downloadAll();
   }
@@ -140,10 +146,117 @@ class _OfflineAudioScreenState extends State<OfflineAudioScreen>
     );
     if (selected == null || selected.isEmpty) return;
     if (!await _confirmQuality()) return;
-    if (!mounted) return;
-    await _audioService.deleteOtherEditionsAudio();
+    if (!await _handleOtherEditionsConflict()) return;
     if (!mounted) return;
     context.read<DownloadManagerCubit>().downloadSelective(selected);
+  }
+
+  /// Returns `false` if the user cancelled, `true` to proceed with download.
+  ///
+  /// If OTHER editions have downloaded content the user is shown a dialog
+  /// that lists them and lets them decide which (if any) to delete first.
+  Future<bool> _handleOtherEditionsConflict() async {
+    final others = await _audioService.getOtherDownloadedEditionsInfo();
+    if (others.isEmpty) return true; // nothing to resolve
+
+    if (!mounted) return false;
+    final ar = _isAr;
+    final appLang = ar ? 'ar' : 'en';
+
+    // Build a map id → display name for quick lookup.
+    final nameMap = <String, String>{
+      for (final e in _cachedEditions)
+        e.identifier: e.displayNameForAppLanguage(appLang),
+    };
+
+    // Which editions did the user tick to delete (default: none).
+    final toDelete = <String>{};
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          return AlertDialog(
+            title: Text(
+              ar ? 'تسجيلات محمّلة مسبقاً' : 'Already Downloaded Recordings',
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ar
+                        ? 'لديك تسجيلات محمّلة للقرّاء التاليين. هل تريد حذف أيٍّ منها قبل المتابعة؟'
+                        : 'You have downloaded recordings for the following reciters. Would you like to remove any of them before continuing?',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 12),
+                  ...others.map((info) {
+                    final id = info['editionId'] as String;
+                    final surahs = info['downloadedSurahs'] as int;
+                    final mb = (info['sizeMB'] as double).toStringAsFixed(1);
+                    final displayName = nameMap[id] ?? id;
+                    final subtitle = ar
+                        ? '$surahs سورة • ${mb} MB'
+                        : '$surahs surahs • ${mb} MB';
+                    return CheckboxListTile(
+                      value: toDelete.contains(id),
+                      onChanged: (v) => setDlgState(() {
+                        if (v == true) {
+                          toDelete.add(id);
+                        } else {
+                          toDelete.remove(id);
+                        }
+                      }),
+                      title: Text(
+                        displayName,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        subtitle,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                  Text(
+                    ar
+                        ? 'إذا لم تختر شيئاً ستُحتفظ بجميع التسجيلات.'
+                        : 'If you select nothing, all recordings will be kept.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(ar ? 'إلغاء' : 'Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(ar ? 'متابعة التحميل' : 'Continue Download'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed != true) return false;
+
+    // Delete only the editions the user ticked.
+    for (final id in toDelete) {
+      await _audioService.deleteEditionAudio(id);
+    }
+    return true;
   }
 
   // ──────────────────────────────────────────────────────────────────────────

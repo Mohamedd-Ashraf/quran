@@ -22,6 +22,7 @@ class AppSettingsState extends Equatable {
   final bool mushafContinueTilawa; // when tapping an ayah, continue playing to end of page/surah
   final String mushafContinueScope; // 'page' or 'surah'
   final int hijriDateOffset; // user-defined Hijri date adjustment: -3..+3
+  final bool tajweedEnabled; // user has enabled the tajweed colours feature
 
   const AppSettingsState({
     required this.arabicFontSize,
@@ -40,6 +41,7 @@ class AppSettingsState extends Equatable {
     required this.mushafContinueTilawa,
     required this.mushafContinueScope,
     required this.hijriDateOffset,
+    required this.tajweedEnabled,
   });
 
   factory AppSettingsState.initial(SettingsService service) {
@@ -60,6 +62,7 @@ class AppSettingsState extends Equatable {
       mushafContinueTilawa: service.getMushafContinueTilawa(),
       mushafContinueScope: service.getMushafContinueScope(),
       hijriDateOffset: service.getHijriDateOffset(),
+      tajweedEnabled: service.getTajweedEnabled(),
     );
   }
 
@@ -80,6 +83,7 @@ class AppSettingsState extends Equatable {
     bool? mushafContinueTilawa,
     String? mushafContinueScope,
     int? hijriDateOffset,
+    bool? tajweedEnabled,
   }) {
     return AppSettingsState(
       arabicFontSize: arabicFontSize ?? this.arabicFontSize,
@@ -98,6 +102,7 @@ class AppSettingsState extends Equatable {
       mushafContinueTilawa: mushafContinueTilawa ?? this.mushafContinueTilawa,
       mushafContinueScope: mushafContinueScope ?? this.mushafContinueScope,
       hijriDateOffset: hijriDateOffset ?? this.hijriDateOffset,
+      tajweedEnabled: tajweedEnabled ?? this.tajweedEnabled,
     );
   }
 
@@ -119,6 +124,7 @@ class AppSettingsState extends Equatable {
     mushafContinueTilawa,
     mushafContinueScope,
     hijriDateOffset,
+    tajweedEnabled,
   ];
 }
 
@@ -251,5 +257,10 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
     final clamped = value.clamp(-3, 3);
     await _service.setHijriDateOffset(clamped);
     emit(state.copyWith(hijriDateOffset: clamped));
+  }
+
+  Future<void> setTajweedEnabled(bool value) async {
+    await _service.setTajweedEnabled(value);
+    emit(state.copyWith(tajweedEnabled: value));
   }
 }

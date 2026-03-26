@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/adhkar_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/adhkar_widget_bg_balanced"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Header: unified single label -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/adhkar_phase_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="أذكار بعد صلاة الفجر"
+            android:textColor="#FFF0C040"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- kept for compatibility but hidden -->
+        <TextView
+            android:id="@+id/adhkar_prayer_name"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- Center: Tap circle with bead ring and count -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center">
+
+        <FrameLayout
+            android:id="@+id/adhkar_tap_area"
+            android:layout_width="130dp"
+            android:layout_height="130dp"
+            android:layout_gravity="center">
+
+            <!-- Bead ring (drawn dynamically) -->
+            <ImageView
+                android:id="@+id/adhkar_bead_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:clickable="false"
+                android:focusable="false" />
+
+            <!-- Inner filled circle -->
+            <ImageView
+                android:id="@+id/adhkar_inner_circle"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:layout_gravity="center"
+                android:background="@drawable/adhkar_widget_inner_balanced"
+                android:clickable="false"
+                android:focusable="false"
+                android:scaleType="fitXY"
+                android:src="@android:color/transparent" />
+
+            <!-- Count + target, centered -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="false"
+                android:focusable="false">
+
+                <TextView
+                    android:id="@+id/adhkar_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="٠"
+                    android:textColor="#F5F0E8"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:clickable="false" />
+
+                <TextView
+                    android:id="@+id/adhkar_target"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="من ٣٣"
+                    android:textColor="#CCF0C040"
+                    android:textSize="11sp"
+                    android:clickable="false" />
+
+                <TextView
+                    android:id="@+id/adhkar_done_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✓ تمّ بحمد الله"
+                    android:textColor="#FFF0C040"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:clickable="false" />
+
+                <TextView
+                    android:id="@+id/adhkar_tap_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="اضغط للذكر"
+                    android:textColor="#55F0C040"
+                    android:textSize="8sp"
+                    android:layout_marginTop="2dp"
+                    android:clickable="false" />
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>
+
+    <!-- Current dhikr text -->
+    <TextView
+        android:id="@+id/adhkar_dhikr_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="سبحان الله"
+        android:textColor="#DDFDFBF6"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textAlignment="center"
+        android:gravity="center"
+        android:maxLines="4"
+        android:ellipsize="end"
+        android:layout_marginBottom="4dp"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="9sp"
+        android:autoSizeMaxTextSize="16sp"
+        android:autoSizeStepGranularity="1sp" />
+
+    <!-- Bottom: Reset + Progress -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/adhkar_reset_btn"
+            android:layout_width="32dp"
+            android:layout_height="28dp"
+            android:background="@drawable/adhkar_widget_btn_balanced">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="↺"
+                android:textColor="#EEFDFBF6"
+                android:textSize="16sp" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/adhkar_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="١ / ١٠"
+            android:textColor="#AAFDFBF6"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

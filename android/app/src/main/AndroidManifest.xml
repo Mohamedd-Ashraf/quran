@@ -297,6 +297,72 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/tasbeeh_widget_light_info" />
         </receiver>
+
+        <!-- 7 ── أذكار الصلاة (داكن) -->
+        <receiver
+            android:name=".AdhkarWidgetDark"
+            android:exported="true"
+            android:label="@string/adhkar_widget_dark_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.example.quraan.ADHAN_STARTED" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/adhkar_widget_dark_info" />
+        </receiver>
+
+        <!-- 8 ── أذكار الصلاة (عادي) -->
+        <receiver
+            android:name=".AdhkarWidget"
+            android:exported="true"
+            android:label="@string/adhkar_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.example.quraan.ADHAN_STARTED" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/adhkar_widget_info" />
+        </receiver>
+
+        <!-- 9 ── أذكار الصلاة (فاتح) -->
+        <receiver
+            android:name=".AdhkarWidgetLight"
+            android:exported="true"
+            android:label="@string/adhkar_widget_light_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.example.quraan.ADHAN_STARTED" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/adhkar_widget_light_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -416,6 +416,7 @@ class _TasbeehScreenState extends State<TasbeehScreen>
 
     return Scaffold(
       backgroundColor: bgColor,
+      resizeToAvoidBottomInset: false,
       appBar: _buildAppBar(isAr, isDark, preset),
       body: SafeArea(
         child: Stack(
@@ -565,37 +566,37 @@ class _TasbeehScreenState extends State<TasbeehScreen>
       ),
       centerTitle: true,
       iconTheme: IconThemeData(color: preset.color),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: GestureDetector(
-            onTap: () {
-              setState(() => _vibrate = !_vibrate);
-              _save();
-              if (_vibrate) _vibrateDevice(duration: 30, amplitude: 120);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _vibrate
-                    ? preset.color.withValues(alpha: 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: preset.color.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                _vibrate ? Icons.vibration_rounded : Icons.phonelink_erase_rounded,
-                color: preset.color,
-                size: 20,
-              ),
-            ),
-          ),
-        ),
-      ],
+      // actions: [
+      //   Padding(
+      //     padding: const EdgeInsets.only(right: 8),
+      //     child: GestureDetector(
+      //       onTap: () {
+      //         setState(() => _vibrate = !_vibrate);
+      //         _save();
+      //         if (_vibrate) _vibrateDevice(duration: 30, amplitude: 120);
+      //       },
+      //       child: AnimatedContainer(
+      //         duration: const Duration(milliseconds: 250),
+      //         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      //         decoration: BoxDecoration(
+      //           color: _vibrate
+      //               ? preset.color.withValues(alpha: 0.12)
+      //               : Colors.transparent,
+      //           borderRadius: BorderRadius.circular(12),
+      //           border: Border.all(
+      //             color: preset.color.withValues(alpha: 0.3),
+      //             width: 1,
+      //           ),
+      //         ),
+      //         child: Icon(
+      //           _vibrate ? Icons.vibration_rounded : Icons.phonelink_erase_rounded,
+      //           color: preset.color,
+      //           size: 20,
+      //         ),
+      //       ),
+      //     ),
+      //   ),
+      // ],
     );
   }
 }

@@ -24,6 +24,7 @@ import '../../../quiz/presentation/screens/quiz_screen.dart';
 import '../../../quiz/presentation/widgets/quiz_sign_in_sheet.dart';
 import 'package:qcf_quran/qcf_quran.dart';
 import '../../../../core/services/tutorial_service.dart';
+import '../../../../core/services/settings_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../tutorials/more_tutorial.dart';
 
@@ -226,67 +227,32 @@ class _MoreScreenState extends State<MoreScreen> {
               ],
             ),
           ),
-          _NavCard(
-            title: isArabicUi ? 'المسابقة اليومية' : 'Daily Quiz',
-            subtitle: isArabicUi
-                ? 'سؤال ديني يومي مع لوحة المتصدرين'
-                : 'Daily religious question with leaderboard',
-            icon: Icons.emoji_events_rounded,
-            badge: isArabicUi ? 'جديد' : 'NEW',
-            onTap: () {
-              final user = FirebaseAuth.instance.currentUser;
-              if (user == null || user.isAnonymous) {
-                showQuizSignInSheet(
-                  context,
-                  isArabic: isArabicUi,
-                  onAuthenticated: () => Navigator.of(context).push(
+          if (SettingsService.enableQuizFeature)
+            _NavCard(
+              title: isArabicUi ? 'المسابقة اليومية' : 'Daily Quiz',
+              subtitle: isArabicUi
+                  ? 'سؤال ديني يومي مع لوحة المتصدرين'
+                  : 'Daily religious question with leaderboard',
+              icon: Icons.emoji_events_rounded,
+              badge: isArabicUi ? 'جديد' : 'NEW',
+              onTap: () {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null || user.isAnonymous) {
+                  showQuizSignInSheet(
+                    context,
+                    isArabic: isArabicUi,
+                    onAuthenticated: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const QuizScreen()),
+                    ),
+                  );
+                } else {
+                  Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const QuizScreen()),
-                  ),
-                );
-              } else {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const QuizScreen()),
-                );
-              }
-            },
-          ),
-          _NavCard(
-            key: MoreTutorialKeys.prayerTimesCard,
-            title: isArabicUi ? 'مواقيت الصلاة' : 'Prayer Times',
-            subtitle: isArabicUi
-                ? 'حسب موقعك الحالي'
-                : 'Based on your current location',
-            icon: Icons.schedule,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PrayerTimesScreen()),
-              );
-            },
-          ),
-          _NavCard(
-            title: isArabicUi ? 'إعدادات الأذان' : 'Adhan Settings',
-            subtitle: isArabicUi
-                ? 'صوت الأذان وإشعارات أوقات الصلاة'
-                : 'Adhan sound & prayer time notifications',
-            icon: Icons.volume_up_rounded,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdhanSettingsScreen()),
-              );
-            },
-          ),
-          _NavCard(
-            title: isArabicUi ? 'الأدعية' : 'Duaa',
-            subtitle: isArabicUi
-                ? 'أدعية وأذكار إسلامية'
-                : 'Islamic supplications & remembrances',
-            icon: Icons.menu_book,
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const DuaaScreen()));
-            },
-          ),
+                  );
+                }
+              },
+            ),
+
           _NavCard(
             key: MoreTutorialKeys.feedbackCard,
             title: isArabicUi ? 'اقتراحات ومشاركات' : 'Feedback & Suggestions',
@@ -301,19 +267,7 @@ class _MoreScreenState extends State<MoreScreen> {
               ).push(MaterialPageRoute(builder: (_) => const FeedbackScreen()));
             },
           ),
-          _NavCard(
-            key: MoreTutorialKeys.tasbeehCard,
-            title: isArabicUi ? 'السبحة الإلكترونية' : 'Digital Tasbeeh',
-            subtitle: isArabicUi
-                ? 'عداد التسبيح مع حفظ العدد وخيارات متعددة'
-                : 'Dhikr counter with multiple presets',
-            icon: Icons.apps_rounded,
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const TasbeehScreen()));
-            },
-          ),
+
           _NavCard(
             title: isArabicUi ? 'تحميل التفسير أوفلاين' : 'Offline Tafsir',
             subtitle: isArabicUi
@@ -328,45 +282,18 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          _NavCard(
-            key: MoreTutorialKeys.ruqyahCard,
+        _NavCard(
             title: isArabicUi ? 'الرقية الشرعية' : 'Ruqyah Shariah',
             subtitle: isArabicUi
                 ? 'آيات الشفاء والحماية من القرآن الكريم'
                 : 'Quranic verses for healing & protection',
             icon: Icons.healing_rounded,
-            imagePath: 'assets/logo/button icons/Roqia.png',
+            imagePath: 'assets/logo/button icons/Roqia-mono.png',
             monochromeImage: false,
             onTap: () {
               Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const RuqyahScreen()));
-            },
-          ),
-          _NavCard(
-            title: isArabicUi ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
-            subtitle: isArabicUi
-                ? 'أحاديث صحيحة مع السند والتحقيق والمشاركة'
-                : 'Authentic hadiths with chain, verification & sharing',
-            icon: Icons.menu_book_rounded,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const HadithCategoriesScreen()),
-              );
-            },
-          ),
-          _NavCard(
-            title: isArabicUi ? 'القبلة' : 'Qiblah',
-            subtitle: isArabicUi
-                ? 'قيد التطوير — قريبا'
-                : 'Coming soon — in development',
-            icon: Icons.explore,
-            badge: isArabicUi ? 'قريباً' : 'SOON',
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const QiblahScreen()));
             },
           ),
         ],
@@ -1157,51 +1084,16 @@ class _NavCard extends StatelessWidget {
                 child: imagePath != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(13),
-                        child: monochromeImage
-                            ? ColorFiltered(
-                                // Convert near-white backgrounds to transparent,
-                                // then tint remaining icon shape in black/white.
-                                colorFilter: const ColorFilter.matrix([
-                                  1,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  1,
-                                  0,
-                                  0,
-                                  -0.2126,
-                                  -0.7152,
-                                  -0.0722,
-                                  0,
-                                  1,
-                                ]),
-                                child: Image.asset(
-                                  imagePath!,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.contain,
-                                  color: isDark ? Colors.white : Colors.black,
-                                  colorBlendMode: BlendMode.srcIn,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Icon(icon, color: Colors.white, size: 22),
-                                ),
-                              )
-                            : Image.asset(
-                                imagePath!,
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Icon(icon, color: Colors.white, size: 22),
-                              ),
+                        child: Image.asset(
+                          imagePath!,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.contain,
+                          color: monochromeImage ? Colors.white : null,
+                          colorBlendMode: monochromeImage ? BlendMode.srcATop : null,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(icon, color: Colors.white, size: 22),
+                        ),
                       )
                     : Icon(icon, color: Colors.white, size: 22),
               ),

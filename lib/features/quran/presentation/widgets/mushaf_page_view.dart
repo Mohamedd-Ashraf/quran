@@ -16,6 +16,7 @@ import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/services/tutorial_service.dart';
+import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../wird/data/quran_boundaries.dart';
 import '../../domain/entities/surah.dart';
@@ -1130,6 +1131,9 @@ class _MushafPageViewState extends State<MushafPageView>
   }
 
   Widget _buildTajweedToggle(bool isDark, int pageNumber) {
+    // Hide if tajweed feature flag is disabled (compile-time gate)
+    if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
+
     final activeColor = isDark
         ? const Color(0xFF69F0AE)
         : const Color(0xFF169200);

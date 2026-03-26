@@ -86,7 +86,16 @@ class SettingsService {
   static const String _keyFontSizeMigratedV18 = 'font_size_migrated_v18';
   static const String _keyScrollMode = 'scroll_mode';
   static const String _keyWordByWordAudio = 'word_by_word_audio';
+  static const String _keyTajweedEnabled = 'tajweed_enabled';
   static const String _keyGeminiApiKey = 'gemini_api_key';
+
+  // ── Feature Flags (for unreleased features) ────────────────────────────────
+  // These are compile-time constants, not user preferences.
+  // Set to true when the feature is ready for production.
+  static const bool enableQuizFeature = false;
+  static const bool enableHadithFeature = false;
+  static const bool enableTajweedFeature = false;
+  static const bool enableTutorialsFeature = false;
 
   // ── Mushaf continue-recitation settings ──────────────────────────────────
   static const String _keyMushafContinueTilawa = 'mushaf_continue_tilawa';
@@ -436,6 +445,10 @@ class SettingsService {
   bool getWordByWordAudio() => _prefs.getBool(_keyWordByWordAudio) ?? false;
   Future<bool> setWordByWordAudio(bool v) =>
       _prefs.setBool(_keyWordByWordAudio, v);
+
+  bool getTajweedEnabled() => _prefs.getBool(_keyTajweedEnabled) ?? false;
+  Future<bool> setTajweedEnabled(bool v) =>
+      _prefs.setBool(_keyTajweedEnabled, v);
 
   // ── Mushaf continue-recitation ────────────────────────────────────────────
   bool getMushafContinueTilawa() =>

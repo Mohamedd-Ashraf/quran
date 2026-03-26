@@ -25,6 +25,7 @@ import 'juz_list_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
 import 'surah_detail_screen.dart';
 import '../../../islamic/presentation/screens/qiblah_screen.dart';
+import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
 import 'search_screen.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
@@ -401,7 +402,7 @@ class HomeScreenState extends State<HomeScreen>
                                                 )
                                               : null,
                                           style: isArabicUi
-                                              ? GoogleFonts.amiriQuran(
+                                              ? GoogleFonts.cairo (
                                                   fontSize: 20,
                                                   fontWeight: FontWeight.w700,
                                                   height: 1.6050,
@@ -777,10 +778,21 @@ class _CategoriesSection extends StatelessWidget {
                             label: isArabicUi ? 'الإذاعة' : 'Radio',
                             imagePath: 'assets/logo/button icons/radio.png',
                             imagePadding: 3,
-
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const QuranRadioScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        wrap(
+                          _CategoryTile(
+                            label: isArabicUi ? 'الأحاديث' : 'Hadiths',
+                            imagePath: 'assets/logo/button icons/hadith.png',
+                            imagePadding: 3,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const HadithCategoriesScreen(),
                               ),
                             ),
                           ),

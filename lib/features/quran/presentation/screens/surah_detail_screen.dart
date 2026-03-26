@@ -13,8 +13,6 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import 'mushaf_page_screen.dart';
-import '../../../../core/services/tutorial_service.dart';
-import '../tutorials/surah_detail_tutorial.dart';
 
 class SurahDetailScreen extends StatefulWidget {
   final int surahNumber;
@@ -49,7 +47,6 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   final Map<int, String> _translationByAyah = {};
   bool _isLoadingTranslation = false;
   String? _translationError;
-  bool _tutorialShown = false;
 
   bool? _previousUthmaniSetting;
   String? _previousEditionSetting;
@@ -182,23 +179,6 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
               } else if (state is SurahDetailLoaded) {
                 final surah = state.surah;
 
-                // ── Tutorial trigger ────────────────────────────────
-                if (!_tutorialShown && surah.number == widget.surahNumber) {
-                  _tutorialShown = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    final svc = di.sl<TutorialService>();
-                    if (svc.isTutorialComplete(TutorialService.surahDetailScreen)) return;
-                    final isDark = context.read<AppSettingsCubit>().state.darkMode;
-                    SurahDetailTutorial.show(
-                      context: context,
-                      tutorialService: svc,
-                      isArabic: isArabicUi,
-                      isDark: isDark,
-                    );
-                  });
-                }
-
                 // Guard: the bloc may still hold the previous surah's data
                 // while the new request is in-flight (e.g. after pushReplacement).
                 // Treat stale data as loading so MushafPageView is never built
@@ -210,7 +190,6 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                 // Use QCF Mushaf page view when both toggles are enabled
                 if (useUthmaniScript && useQcfFont) {
                   return MushafPageView(
-                      key: SurahDetailTutorialKeys.ayahText,
                       surah: surah,
                       surahNumber: widget.surahNumber,
                       initialPage:
@@ -261,10 +240,9 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                         surah.ayahs, widget.initialAyahNumber ?? 1) ??
                     1;
                 return MushafPageScreen(
-                  key: SurahDetailTutorialKeys.ayahText,
                   initialPage: initialPage,
                   focusSurahNumber: widget.surahNumber,
-                  focusAyahNumber: widget.initialAyahNumber,
+                  focusAyahNumber: widget.initialAyahNumber ?? 1,
                   playerCollapsedNotifier: _playerCollapsed,
                 );
               } else if (state is SurahError) {
@@ -322,7 +300,6 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                   left: 0,
                   right: 0,
                   child: IslamicAudioPlayer(
-                    key: SurahDetailTutorialKeys.audioPlayer,
                     isArabicUi: isArabicUi,
                     collapsedNotifier: _playerCollapsed,
                   ),

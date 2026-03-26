@@ -33,6 +33,7 @@ import json
 import re
 import sys
 import io
+import time as _time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -964,6 +965,8 @@ def upload(
     dry_run: bool,
     batch_size: int,
     force: bool,
+    start_after: int = 0,
+    delay: float = 0.0,
 ) -> None:
     """Main Firestore upload function."""
 
@@ -999,39 +1002,47 @@ def upload(
 
     start_time = datetime.now(timezone.utc)
 
-    # ── 1. Metadata ────────────────────────────────────────────────────
-    print("\n[1/3] Writing metadata document...")
-    bukhari_ref.set({
-        'nameAr':       'صحيح البخاري',
-        'authorAr':     'الإمام محمد بن إسماعيل البخاري',
-        'totalHadiths': len(hadiths),
-        'totalBooks':   len(books),
-        'uploadedAt':   _fs.SERVER_TIMESTAMP,
-    })
-    print("      Done.")
+    # ── Filter hadiths when resuming ─────────────────────────────────
+    upload_hadiths = hadiths
+    if start_after > 0:
+        upload_hadiths = [h for h in hadiths if h['number'] > start_after]
+        print(f"\n[*] Resuming from hadith {start_after + 1}  ({len(upload_hadiths):,} remaining)")
+        print("    Skipping metadata and books (already uploaded).")
+    else:
+        # ── 1. Metadata ────────────────────────────────────────────────
+        print("\n[1/3] Writing metadata document...")
+        bukhari_ref.set({
+            'nameAr':       'صحيح البخاري',
+            'authorAr':     'الإمام محمد بن إسماعيل البخاري',
+            'totalHadiths': len(hadiths),
+            'totalBooks':   len(books),
+            'uploadedAt':   _fs.SERVER_TIMESTAMP,
+        })
+        print("      Done.")
 
-    # ── 2. Books (97 documents) ────────────────────────────────────────
-    print(f"\n[2/3] Uploading {len(books)} book documents...")
-    batch  = db.batch()
-    count  = 0
-    for book in _iter(books, 'Books', 'book'):
-        batch.set(books_col.document(str(book['number'])), book)
-        count += 1
-        if count >= batch_size:
+        # ── 2. Books (97 documents) ────────────────────────────────────
+        print(f"\n[2/3] Uploading {len(books)} book documents...")
+        batch  = db.batch()
+        count  = 0
+        for book in _iter(books, 'Books', 'book'):
+            batch.set(books_col.document(str(book['number'])), book)
+            count += 1
+            if count >= batch_size:
+                batch.commit()
+                batch = db.batch()
+                count = 0
+        if count:
             batch.commit()
-            batch = db.batch()
-            count = 0
-    if count:
-        batch.commit()
-    print(f"      Done — {len(books)} books.")
+        print(f"      Done — {len(books)} books.")
 
     # ── 3. Hadiths split into meta (list view) + details (detail view) ─────
-    print(f"\n[3/3] Uploading {len(hadiths):,} hadiths (meta + details = {len(hadiths)*2:,} docs)...")
+    step_label = '3/3' if start_after == 0 else 'Resume'
+    print(f"\n[{step_label}] Uploading {len(upload_hadiths):,} hadiths (meta + details = {len(upload_hadiths)*2:,} docs)...")
     batch       = db.batch()
     count       = 0
     written     = 0
 
-    for hadith in _iter(hadiths, 'Hadiths', 'hadith'):
+    for hadith in _iter(upload_hadiths, 'Hadiths', 'hadith'):
         number = str(hadith['number'])
 
         # Lightweight document — used by list / category browsing
@@ -1063,7 +1074,9 @@ def upload(
             batch.commit()
             batch = db.batch()
             count = 0
-            _progress(f"{written:,}/{len(hadiths):,} hadiths uploaded...")
+            if delay > 0:
+                _time.sleep(delay)
+            _progress(f"{written:,}/{len(upload_hadiths):,} hadiths uploaded  (H{hadith['number']})...")
 
     if count:
         batch.commit()
@@ -1071,7 +1084,7 @@ def upload(
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     print(f"\n{'=' * 60}")
     print(f"  UPLOAD COMPLETE!")
-    print(f"  Hadiths uploaded : {written:,}")
+    print(f"  Hadiths uploaded : {written:,}  (H{upload_hadiths[0]['number']}–H{upload_hadiths[-1]['number']})")
     print(f"  Books uploaded   : {len(books)}")
     print(f"  Firestore path   : {_FS_COLLECTION}/{_FS_DOC_ID}")
     print(f"  Time elapsed     : {elapsed:.1f}s")
@@ -1114,6 +1127,10 @@ Examples:
                    help='Print hadith distribution across all 97 books')
     p.add_argument('--output', metavar='FILE',
                    help='Save parsed hadiths to a JSON file instead of uploading (e.g. out.json)')
+    p.add_argument('--start-after', type=int, default=0, metavar='N',
+                   help='Resume: skip hadiths with number <= N (e.g. --start-after 5999)')
+    p.add_argument('--delay', type=float, default=0.0, metavar='SEC',
+                   help='Seconds to sleep between batches (default 0).  Use 1-2 to avoid quota errors.')
     return p
 
 
@@ -1148,6 +1165,10 @@ def main() -> int:
     print(f"  Dry run        : {'yes' if args.dry_run else 'no'}")
     print(f"  Output file    : {args.output or '—  (Firestore)'}")
     print(f"  Force overwrite: {'yes' if args.force else 'no'}")
+    if args.start_after:
+        print(f"  Resume from    : hadith > {args.start_after}")
+    if args.delay:
+        print(f"  Batch delay    : {args.delay}s")
     print("=" * 60)
 
     # Step 1: Parse
@@ -1221,12 +1242,14 @@ def main() -> int:
 
     # Step 4b: Upload to Firestore
     upload(
-        hadiths    = hadiths,
-        books      = books,
-        sa_path    = str(sa_path),
-        dry_run    = args.dry_run,
-        batch_size = args.batch_size,
-        force      = args.force,
+        hadiths     = hadiths,
+        books       = books,
+        sa_path     = str(sa_path),
+        dry_run     = args.dry_run,
+        batch_size  = args.batch_size,
+        force       = args.force,
+        start_after = args.start_after,
+        delay       = args.delay,
     )
 
     return 0

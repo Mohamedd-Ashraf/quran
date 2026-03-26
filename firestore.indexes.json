@@ -7,6 +7,14 @@
         { "fieldPath": "bookNumber", "order": "ASCENDING" },
         { "fieldPath": "number", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "hadiths_meta",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "bookNumber", "order": "ASCENDING" },
+        { "fieldPath": "number", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

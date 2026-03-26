@@ -421,6 +421,60 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFFD84315),
     ),
   ],
+
+  // ─── v1.0.12 ─────────────────────────────────────────────────────────────────
+  '1.0.12': [
+    _WhatsNewEntry(
+      icon: Icons.scatter_plot_rounded,
+      titleAr: 'ويدجت المسبحة للشاشة الرئيسية',
+      titleEn: 'Tasbeeh Home-Screen Widget',
+      descAr:
+          'أضف ويدجت المسبحة على شاشتك الرئيسية لتسبيح سريع مع عداد ذكي واهتزاز عند الوصول للهدف.',
+      descEn:
+          'Add the Tasbeeh widget to your home screen for quick dhikr counting with smart counter and haptic feedback at goals.',
+      color: AppColors.secondary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.do_not_disturb_on_rounded,
+      titleAr: 'وضع الصمت أثناء الصلاة',
+      titleEn: 'Silent Mode During Prayer',
+      descAr:
+          'يُفعَّل وضع الصمت تلقائياً عند دخول وقت الصلاة لتجنب الإزعاج أثناء صلاتك — يمكنك ضبطه من إعدادات الأذان.',
+      descEn:
+          'Silent mode activates automatically at prayer time to avoid interruptions — customize it in Adhan Settings.',
+      color: const Color(0xFF37474F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.timer_rounded,
+      titleAr: 'وقت إقامة مخصص لكل صلاة',
+      titleEn: 'Customizable Iqama Time Per Prayer',
+      descAr:
+          'اضبط وقت الإقامة لكل صلاة على حدة — الفجر 20 دقيقة، الظهر 15، المغرب 5... كما تريد.',
+      descEn:
+          'Set iqama time for each prayer individually — Fajr 20 min, Dhuhr 15, Maghrib 5... as you prefer.',
+      color: const Color(0xFFE65100),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.play_circle_outline_rounded,
+      titleAr: 'استكمال التلاوة تلقائياً',
+      titleEn: 'Auto-Continue Recitation',
+      descAr:
+          'عند الضغط على آية، يمكن تشغيل السورة أو الصفحة كاملة بدلاً من آية واحدة — فعّلها من إعدادات المصحف.',
+      descEn:
+          'Tap an ayah to play the entire surah or page instead of just one verse — enable it in Mushaf Settings.',
+      color: const Color(0xFF0277BD),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.calendar_today_rounded,
+      titleAr: 'تعديل التاريخ الهجري',
+      titleEn: 'Hijri Date Adjustment',
+      descAr:
+          'إذا كان التاريخ الهجري في التطبيق يختلف عن تاريخ بلدك، يمكنك الآن تعديله يدوياً من إعدادات مواقيت الصلاة.',
+      descEn:
+          'If the Hijri date differs from your country, you can now adjust it manually in Prayer Times Settings.',
+      color: const Color(0xFF6A1B9A),
+    ),
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ class AppTheme {
     final baseTextTheme =
         (isArabicUi ? GoogleFonts.cairoTextTheme : GoogleFonts.poppinsTextTheme)(
             ThemeData.light().textTheme);
-    final titleFont = isArabicUi ? GoogleFonts.amiri : GoogleFonts.cinzel;
+    final titleFont = isArabicUi ? GoogleFonts.cairo : GoogleFonts.cinzel;
     final bodyFont = isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins;
 
     return ThemeData(
@@ -370,7 +370,7 @@ class AppTheme {
     final baseTextTheme =
         (isArabicUi ? GoogleFonts.cairoTextTheme : GoogleFonts.poppinsTextTheme)(
             ThemeData.dark().textTheme);
-    final titleFont = isArabicUi ? GoogleFonts.amiri : GoogleFonts.cinzel;
+    final titleFont = isArabicUi ? GoogleFonts.cairo : GoogleFonts.cinzel;
     final bodyFont = isArabicUi ? GoogleFonts.cairo : GoogleFonts.poppins;
 
     return ThemeData(

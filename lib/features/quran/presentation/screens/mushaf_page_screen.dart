@@ -14,6 +14,7 @@ import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/services/tutorial_service.dart';
+import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../../../../core/utils/tajweed_parser.dart';
@@ -64,7 +65,7 @@ void _showVerseOptionsSheet(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
                   '$surahName — آية $verse',
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -468,12 +469,18 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
     );
     final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        bottom: false,
-        child: Container(
-          color: bgColor,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: bgColor,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          bottom: false,
+          child: Container(
+            color: bgColor,
           child: Stack(
             children: [
               Positioned.fill(
@@ -522,6 +529,7 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -756,7 +764,7 @@ class _MushafTopBar extends StatelessWidget {
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.18)
         : const Color(0xFFC8A84B).withValues(alpha: 0.55);
-    final labelStyle = GoogleFonts.amiriQuran(
+    final labelStyle = GoogleFonts.cairo(
       fontSize: 12,
       fontWeight: FontWeight.w700,
       color: textColor,
@@ -888,6 +896,9 @@ class _TajweedToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hide button if tajweed feature flag is disabled (compile-time gate)
+    if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
+
     final activeColor = isDark
         ? const Color(0xFF69F0AE)
         : const Color(0xFF169200);
@@ -933,7 +944,7 @@ class _TajweedToggleButton extends StatelessWidget {
                 const SizedBox(width: 2),
                 Text(
                   'تجويد',
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 9,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     color: isActive ? activeColor : inactiveColor,
@@ -986,7 +997,7 @@ void _showTajweedLegend(BuildContext context, bool isDark) {
                 // Title
                 Text(
                   'دليل ألوان التجويد',
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -995,7 +1006,7 @@ void _showTajweedLegend(BuildContext context, bool isDark) {
                 const SizedBox(height: 4),
                 Text(
                   'اضغط مطولاً على زر التجويد لعرض هذا الدليل',
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 10,
                     color: textColor.withValues(alpha: 0.5),
                   ),
@@ -1026,7 +1037,7 @@ void _showTajweedLegend(BuildContext context, bool isDark) {
                               Expanded(
                                 child: Text(
                                   name,
-                                  style: GoogleFonts.amiriQuran(
+                                  style: GoogleFonts.cairo(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: color,
@@ -1162,16 +1173,16 @@ class _RecitationSettingsSheet extends StatelessWidget {
         final dividerColor = isDark
             ? Colors.white.withValues(alpha: 0.12)
             : Colors.black.withValues(alpha: 0.08);
-        final titleStyle = GoogleFonts.amiriQuran(
+        final titleStyle = GoogleFonts.cairo(
           fontSize: 15,
           fontWeight: FontWeight.w700,
           color: textColor,
         );
-        final labelStyle = GoogleFonts.amiriQuran(
+        final labelStyle = GoogleFonts.cairo(
           fontSize: 14,
           color: textColor,
         );
-        final noteStyle = GoogleFonts.amiriQuran(
+        final noteStyle = GoogleFonts.cairo(
           fontSize: 11,
           color: subTextColor,
         );
@@ -1276,12 +1287,12 @@ class _RecitationSettingsSheet extends StatelessWidget {
                         ButtonSegment(
                           value: 'page',
                           label: Text('إلى نهاية الصفحة',
-                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                              style: GoogleFonts.cairo(fontSize: 12)),
                         ),
                         ButtonSegment(
                           value: 'surah',
                           label: Text('إلى نهاية السورة',
-                              style: GoogleFonts.amiriQuran(fontSize: 12)),
+                              style: GoogleFonts.cairo(fontSize: 12)),
                         ),
                       ],
                       selected: {settings.mushafContinueScope},
@@ -1402,7 +1413,7 @@ class _RsReciterRowState extends State<_RsReciterRow> {
               onPressed: _showPicker,
               child: Text(
                 'تغيير',
-                style: GoogleFonts.amiriQuran(
+                style: GoogleFonts.cairo(
                   color: AppColors.secondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1484,7 +1495,7 @@ class _MushafReciterPickerSheetState
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
                   'اختر القارئ',
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -1507,7 +1518,7 @@ class _MushafReciterPickerSheetState
                     return ListTile(
                       title: Text(
                         name,
-                        style: GoogleFonts.amiriQuran(
+                        style: GoogleFonts.cairo(
                           fontSize: 13,
                           color: isSelected
                               ? AppColors.secondary
@@ -1574,7 +1585,7 @@ class _MushafFooter extends StatelessWidget {
                 child: Text(
                   _toArabicNum(page),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.amiriQuran(
+                  style: GoogleFonts.cairo(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white : const Color(0xFF3D1C00),
@@ -1773,7 +1784,7 @@ class _PageTextState extends State<_PageText> {
                       const SizedBox(width: 6),
                       Text(
                         'جارٍ تحميل ألوان التجويد…',
-                        style: GoogleFonts.amiriQuran(
+                        style: GoogleFonts.cairo(
                           fontSize: 10,
                           color: isDark
                               ? const Color(0xFF69F0AE).withValues(alpha: 0.7)
@@ -2186,7 +2197,7 @@ class _AyahMarker extends StatelessWidget {
             child: Text(
               _toArabicNum(number),
               textAlign: TextAlign.center,
-              style: GoogleFonts.amiriQuran(
+              style: GoogleFonts.cairo(
                 fontSize: numFontSize,
                 fontWeight: FontWeight.w800,
                 color: isDark ? Colors.white : AppColors.primary,

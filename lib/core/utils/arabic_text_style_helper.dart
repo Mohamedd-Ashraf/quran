@@ -145,7 +145,8 @@ class ArabicTextStyleHelper {
         base = GoogleFonts.scheherazadeNew(
             fontSize: size, fontWeight: weight, height: height);
       case 'amiri':
-        base = GoogleFonts.amiri(
+      //TODO: consider switching to Amiri Regular for non-Quran text, as it has better readability and more complete glyph coverage than Amiri Quran
+        base = GoogleFonts.cairo(
             fontSize: size, fontWeight: weight, height: height);
       case 'noto_naskh':
         base = GoogleFonts.notoNaskhArabic(

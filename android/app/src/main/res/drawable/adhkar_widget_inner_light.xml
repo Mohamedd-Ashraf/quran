@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Inner filled circle — light (white/cream) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient
+        android:angle="315"
+        android:startColor="#FFFFFF"
+        android:centerColor="#F8F2E4"
+        android:endColor="#EDE5D0" />
+</shape>
