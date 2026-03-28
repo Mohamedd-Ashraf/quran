@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
@@ -643,8 +644,7 @@ class _IslamicHeader extends StatelessWidget {
                   'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ',
                   textAlign: TextAlign.center,
                   textDirection: TextDirection.rtl,
-                  style: const TextStyle(
-                    fontFamily: 'Amiri',
+                  style: GoogleFonts.amiriQuran(
                     fontSize: 20,
                     color: Colors.white,
                     height: 2.0,

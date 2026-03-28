@@ -1,84 +1,114 @@
 import 'dart:io';
-import 'dart:isolate';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Pages that are bundled inside the APK (local fork of qcf_quran_plus).
-/// These are already available from the bundle so we only need to download
-/// the remaining 604 − 66 = 538 pages.
+/// Smart selection of pages bundled inside the APK (local fork of qcf_quran_plus).
+///
+/// Strategy — 66 pages covering:
+///   • Al-Fatiha + Al-Baqarah opening (1-4)
+///   • Juz boundary pages (22, 62, 81, 100 … 281) — one page per Juz 2–15
+///   • Ayat al-Kursi area (42-44)
+///   • Al-Baqarah last verses (49-50)
+///   • Al-Kahf full (293-297)
+///   • Yasin full (440-444)
+///   • Al-Rahman (531-533), Al-Waqiah (534-536)
+///   • Al-Hashr last 3 verses (548-549)
+///   • Al-Mulk (562-564)
+///   • Full Juz Amma (582-604)
 class _BundledPages {
   static const Set<int> pages = {
-    // Al‑Fatiha + start of Al‑Baqarah (essential opening)
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-    // Al‑Kahf region
+    // Al-Fatiha + Al-Baqarah opening
+    1, 2, 3, 4,
+    // Juz 2 midpoint (Al-Baqarah cont.)
+    22,
+    // Ayat al-Kursi (Al-Baqarah 255+)
+    42, 43, 44,
+    // Al-Baqarah last 2 ayahs (285-286)
+    49, 50,
+    // Juz boundary pages (one per juz, 4–15)
+    62, 81, 100, 121, 141, 161, 181, 201, 221, 241, 261, 281,
+    // Al-Kahf (important for Fridays)
     293, 294, 295, 296, 297,
-    // Yasin region
+    // Yasin
     440, 441, 442, 443, 444,
-    // Al‑Mulk region
-    571, 572, 573,
-    // Last Juz (Amma wa Baed)
-    582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595,
-    596, 597, 598, 599, 600, 601, 602, 603, 604,
+    // Al-Rahman
+    531, 532, 533,
+    // Al-Waqiah
+    534, 535, 536,
+    // Al-Hashr last verses
+    548, 549,
+    // Al-Mulk
+    562, 563, 564,
+    // Full Juz Amma
+    582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592,
+    593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604,
   };
 
   static bool isBundled(int page) => pages.contains(page);
 }
 
-/// Downloads the remaining QCF tajweed font ZIPs that are NOT bundled in the
-/// APK.  Fonts are saved to the same directory that [QcfFontLoader] checks
-/// first on disk, so once a font is pre‑saved here the loader skips bundle
-/// extraction entirely.
+/// Downloads all remaining QCF tajweed fonts by fetching the official pub.dev
+/// package archive (`qcf_quran_plus-0.0.7.tar.gz`), extracting each font ZIP
+/// from the tarball, and persisting the TTF files to the same disk path that
+/// [QcfFontLoader] checks first — so it uses cached files on all future launches.
 ///
-/// Font ZIP source: GitHub releases of the qcf_quran_plus package.
+/// No external hosting is required; pub.dev is used as the CDN.
 class QcfFontDownloadService {
   QcfFontDownloadService._();
 
   static const String _prefKey = 'qcf_fonts_fully_downloaded';
   static const int _totalPages = 604;
 
-  // GitHub releases URL pattern for the zip files.
-  // The fonts are published in a companion release of the qcf_quran_plus repo.
-  static const String _baseUrl =
-      'https://github.com/hussein12347/qcf_quran_plus/raw/main/assets/fonts/qcf_tajweed';
+  /// Official pub.dev archive for qcf_quran_plus 0.0.7.
+  static const String _archiveUrl =
+      'https://pub.dev/api/archives/qcf_quran_plus-0.0.7.tar.gz';
 
-  // Singleton Dio instance with reasonable timeouts.
   static final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 60),
-      sendTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 5),
+      followRedirects: true,
+      maxRedirects: 5,
     ),
   );
 
-  // ── Public helpers ──────────────────────────────────────────────────────────
+  // ── Public API ─────────────────────────────────────────────────────────────
 
-  /// Returns [true] when all 604 fonts are available on disk (or bundled).
+  /// [true] when all 604 fonts are available (bundled or previously downloaded).
   static Future<bool> isFullyDownloaded() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_prefKey) == true) return true;
-    // Verify by checking disk (handles reinstall / cleared storage).
-    final dir = await _getFontDirectory();
-    int count = 0;
-    for (int i = 1; i <= _totalPages; i++) {
-      if (_BundledPages.isBundled(i)) {
-        count++;
-        continue;
+    if (prefs.getBool(_prefKey) == true) {
+      // Double-check disk in case storage was cleared after install.
+      final dir = await _getFontDirectory();
+      int count = 0;
+      for (int i = 1; i <= _totalPages; i++) {
+        if (_BundledPages.isBundled(i)) {
+          count++;
+          continue;
+        }
+        final file = File('${dir.path}/${_getFontName(i)}.ttf');
+        if (file.existsSync() && file.lengthSync() > 1000) count++;
       }
-      final file = File('${dir.path}/${_getFontName(i)}.ttf');
-      if (file.existsSync() && file.lengthSync() > 1000) count++;
+      if (count == _totalPages) return true;
+      // Storage was cleared — reset flag and re-download.
+      await prefs.remove(_prefKey);
+      return false;
     }
-    final done = count == _totalPages;
-    if (done) {
-      await prefs.setBool(_prefKey, true);
-    }
-    return done;
+    return false;
   }
 
-  /// Returns the number of pages that still need to be downloaded.
+  /// [true] if the font for [pageNumber] is bundled or already on disk.
+  static Future<bool> isPageAvailable(int pageNumber) async {
+    if (_BundledPages.isBundled(pageNumber)) return true;
+    final dir = await _getFontDirectory();
+    final file = File('${dir.path}/${_getFontName(pageNumber)}.ttf');
+    return file.existsSync() && file.lengthSync() > 1000;
+  }
+
+  /// How many non-bundled pages still need downloading.
   static Future<int> pendingDownloadCount() async {
     final dir = await _getFontDirectory();
     int pending = 0;
@@ -90,92 +120,90 @@ class QcfFontDownloadService {
     return pending;
   }
 
-  /// Returns [true] if the font for [pageNumber] is available on disk or is
-  /// bundled in the APK.
-  static Future<bool> isPageAvailable(int pageNumber) async {
-    if (_BundledPages.isBundled(pageNumber)) return true;
-    final dir = await _getFontDirectory();
-    final file = File('${dir.path}/${_getFontName(pageNumber)}.ttf');
-    return file.existsSync() && file.lengthSync() > 1000;
-  }
-
-  /// Downloads all pending (non‑bundled, non‑cached) fonts.
+  /// Downloads the pub.dev package archive and extracts all non-bundled fonts.
   ///
-  /// [onProgress] receives a value between 0.0 and 1.0.
-  /// [onPageDone] is called after each individual page font is saved.
-  /// Returns [true] on full success, [false] if any download failed.
+  /// [onProgress] — 0.0 → 0.6 during HTTP download, 0.6 → 1.0 during extraction.
+  /// [onPhase]    — called with a human-readable Arabic phase label.
+  /// [onPageDone] — called after each page font is saved.
+  ///
+  /// Returns [true] on full success.
   static Future<bool> downloadAll({
-    Function(double progress)? onProgress,
-    Function(int page)? onPageDone,
+    void Function(double progress)? onProgress,
+    void Function(String phase)? onPhase,
+    void Function(int page)? onPageDone,
     CancelToken? cancelToken,
   }) async {
-    final dir = await _getFontDirectory();
+    final fontDir = await _getFontDirectory();
+    final tmpDir = await getTemporaryDirectory();
+    final archiveFile = File('${tmpDir.path}/qcf_fonts_pkg.tar.gz');
 
-    // Collect pages that still need downloading.
-    final List<int> pending = [];
-    for (int i = 1; i <= _totalPages; i++) {
-      if (_BundledPages.isBundled(i)) continue;
-      final file = File('${dir.path}/${_getFontName(i)}.ttf');
-      if (!file.existsSync() || file.lengthSync() <= 1000) pending.add(i);
-    }
+    try {
+      // ── Phase 1: Download archive ──────────────────────────────────────
+      onPhase?.call('جارٍ تحميل ملف الخطوط…');
+      await _dio.download(
+        _archiveUrl,
+        archiveFile.path,
+        cancelToken: cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total > 0) onProgress?.call(received / total * 0.6);
+        },
+      );
 
-    if (pending.isEmpty) {
-      await _markComplete();
+      // ── Phase 2: Extract fonts from tar.gz ────────────────────────────
+      onPhase?.call('جارٍ استخراج الخطوط…');
+      onProgress?.call(0.6);
+
+      final archiveBytes = await archiveFile.readAsBytes();
+      final tarBytes = GZipDecoder().decodeBytes(archiveBytes);
+      final archive = TarDecoder().decodeBytes(tarBytes);
+
+      final fontPattern =
+          RegExp(r'qcf_tajweed/(QCF4_tajweed_(\d{3}))\.zip$');
+      final fontEntries =
+          archive.files.where((f) => fontPattern.hasMatch(f.name)).toList();
+
+      int processed = 0;
+      for (final entry in fontEntries) {
+        if (cancelToken?.isCancelled == true) break;
+
+        final match = fontPattern.firstMatch(entry.name)!;
+        final fontName = match.group(1)!;
+        final pageNum = int.parse(match.group(2)!);
+
+        if (!_BundledPages.isBundled(pageNum)) {
+          try {
+            final zipBytes =
+                Uint8List.fromList(entry.content as List<int>);
+            final ttfBytes = await compute(_extractFont, zipBytes);
+            final ttfFile = File('${fontDir.path}/$fontName.ttf');
+            await ttfFile.writeAsBytes(ttfBytes, flush: true);
+            onPageDone?.call(pageNum);
+          } catch (e) {
+            debugPrint('QcfFontDownloadService: skip page $pageNum – $e');
+          }
+        }
+
+        processed++;
+        onProgress?.call(0.6 + processed / fontEntries.length * 0.4);
+      }
+
+      final remaining = await pendingDownloadCount();
+      if (remaining == 0) {
+        await _markComplete();
+      }
       onProgress?.call(1.0);
-      return true;
-    }
-
-    int done = 0;
-    bool anyFailed = false;
-
-    for (final page in pending) {
-      if (cancelToken?.isCancelled == true) break;
+      return remaining == 0;
+    } catch (e) {
+      debugPrint('QcfFontDownloadService: download failed – $e');
+      return false;
+    } finally {
       try {
-        await _downloadPage(page, dir);
-        done++;
-        onPageDone?.call(page);
-        onProgress?.call(done / pending.length);
-      } catch (e) {
-        debugPrint('QcfFontDownloadService: failed page $page – $e');
-        anyFailed = true;
-      }
+        if (archiveFile.existsSync()) await archiveFile.delete();
+      } catch (_) {}
     }
-
-    if (!anyFailed) await _markComplete();
-    return !anyFailed;
   }
 
-  // ── Internal ────────────────────────────────────────────────────────────────
-
-  static Future<void> _downloadPage(int page, Directory fontDir) async {
-    final fontName = _getFontName(page);
-    final ttfFile = File('${fontDir.path}/$fontName.ttf');
-
-    // Already cached – skip.
-    if (ttfFile.existsSync() && ttfFile.lengthSync() > 1000) return;
-
-    final url = '$_baseUrl/$fontName.zip';
-    final response = await _dio.get<List<int>>(
-      url,
-      options: Options(responseType: ResponseType.bytes),
-    );
-
-    final zipBytes = Uint8List.fromList(response.data!);
-    final ttfBytes = await Isolate.run(() => _extractFont(zipBytes));
-
-    await fontDir.create(recursive: true);
-    await ttfFile.writeAsBytes(ttfBytes, flush: true);
-  }
-
-  static Uint8List _extractFont(Uint8List zipBytes) {
-    final archive = ZipDecoder().decodeBytes(zipBytes);
-    for (final file in archive) {
-      if (file.name.endsWith('.ttf')) {
-        return Uint8List.fromList(file.content as List<int>);
-      }
-    }
-    throw Exception('QcfFontDownloadService: TTF not found in ZIP');
-  }
+  // ── Private helpers ────────────────────────────────────────────────────────
 
   static Future<Directory> _getFontDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -186,6 +214,16 @@ class QcfFontDownloadService {
 
   static String _getFontName(int page) =>
       'QCF4_tajweed_${page.toString().padLeft(3, '0')}';
+
+  static Uint8List _extractFont(Uint8List zipBytes) {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    for (final file in archive) {
+      if (file.name.endsWith('.ttf')) {
+        return Uint8List.fromList(file.content as List<int>);
+      }
+    }
+    throw Exception('QcfFontDownloadService: TTF not found in ZIP');
+  }
 
   static Future<void> _markComplete() async {
     final prefs = await SharedPreferences.getInstance();

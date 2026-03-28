@@ -1,21 +1,29 @@
+﻿import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
 
+// ── Palette ───────────────────────────────────────────────────────────────────
+const _kBgTop     = Color(0xFF061510);
+const _kBgBottom  = Color(0xFF0C2318);
+const _kGold      = Color(0xFFC8A84B);
+const _kGoldLight = Color(0xFFE2C97E);
+const _kGoldDim   = Color(0xFF8A7030);
+const _kCream     = Color(0xFFF5EFD9);
+const _kSubText   = Color(0xFF90A898);
+const _kBarBg     = Color(0xFF1A3524);
+const _kDivider   = Color(0xFF2A4535);
+
 /// Full‑screen widget shown on first launch (or when fonts are incomplete) to
 /// let the user download the remaining 538 QCF tajweed font files.
-///
-/// Call [QcfFontDownloadScreen.showIfNeeded] to push this screen only when the
-/// download is actually required.
 class QcfFontDownloadScreen extends StatefulWidget {
   /// Called when the user taps "لاحقاً" (skip) or when the download completes.
   final VoidCallback onDone;
 
   const QcfFontDownloadScreen({super.key, required this.onDone});
-
-  // ── Static helper ──────────────────────────────────────────────────────────
 
   /// Pushes [QcfFontDownloadScreen] only when fonts are not fully downloaded.
   /// Otherwise calls [onDone] immediately.
@@ -24,10 +32,7 @@ class QcfFontDownloadScreen extends StatefulWidget {
     required VoidCallback onDone,
   }) async {
     final complete = await QcfFontDownloadService.isFullyDownloaded();
-    if (complete) {
-      onDone();
-      return;
-    }
+    if (complete) { onDone(); return; }
     if (!context.mounted) return;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -41,216 +46,604 @@ class QcfFontDownloadScreen extends StatefulWidget {
   State<QcfFontDownloadScreen> createState() => _QcfFontDownloadScreenState();
 }
 
-enum _DownloadState { idle, downloading, done, error }
+enum _DLState { idle, downloading, done, error }
 
-class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen> {
-  _DownloadState _state = _DownloadState.idle;
-  double _progress = 0.0;
-  int _pendingCount = 0;
-  int _doneCount = 0;
+class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
+    with SingleTickerProviderStateMixin {
+  _DLState _state      = _DLState.idle;
+  double   _progress   = 0.0;
+  int      _pending    = 0;
+  int      _done       = 0;
+  String   _phase      = '';
   CancelToken? _cancelToken;
+
+  late final AnimationController _glowCtrl;
+  late final Animation<double>   _glowAnim;
 
   @override
   void initState() {
     super.initState();
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _glowAnim = CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut);
     _loadPending();
   }
 
   Future<void> _loadPending() async {
-    final count = await QcfFontDownloadService.pendingDownloadCount();
-    if (mounted) setState(() => _pendingCount = count);
+    final c = await QcfFontDownloadService.pendingDownloadCount();
+    if (mounted) setState(() => _pending = c);
   }
 
   Future<void> _startDownload() async {
-    if (_state == _DownloadState.downloading) return;
+    if (_state == _DLState.downloading) return;
     _cancelToken = CancelToken();
-    setState(() {
-      _state = _DownloadState.downloading;
-      _progress = 0.0;
-      _doneCount = 0;
-    });
+    setState(() { _state = _DLState.downloading; _progress = 0; _done = 0; });
 
-    final success = await QcfFontDownloadService.downloadAll(
-      onProgress: (p) {
-        if (mounted) setState(() => _progress = p);
-      },
-      onPageDone: (_) {
-        if (mounted) setState(() => _doneCount++);
-      },
+    final ok = await QcfFontDownloadService.downloadAll(
+      onProgress: (p) { if (mounted) setState(() => _progress = p); },
+      onPhase:    (ph) { if (mounted) setState(() => _phase = ph); },
+      onPageDone: (_)  { if (mounted) setState(() => _done++); },
       cancelToken: _cancelToken,
     );
 
     if (!mounted) return;
-    if (success) {
-      setState(() {
-        _state = _DownloadState.done;
-        _progress = 1.0;
-      });
-      await Future.delayed(const Duration(milliseconds: 800));
+    if (ok) {
+      setState(() { _state = _DLState.done; _progress = 1.0; });
+      await Future.delayed(const Duration(milliseconds: 900));
       widget.onDone();
     } else {
-      setState(() => _state = _DownloadState.error);
+      setState(() => _state = _DLState.error);
     }
   }
 
   @override
   void dispose() {
     _cancelToken?.cancel();
+    _glowCtrl.dispose();
     super.dispose();
   }
 
-  // ── UI ────────────────────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF1B5E20);
-    const lightGreen = Color(0xFF4CAF50);
-    const bgColor = Color(0xFFF5FFF5);
-
     return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [_kBgTop, _kBgBottom],
+          ),
+        ),
+        child: SafeArea(
+          child: Directionality(
+            textDirection: TextDirection.rtl,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Quran icon ──────────────────────────────────────────────
-                const Icon(Icons.menu_book_rounded,
-                    size: 72, color: green),
-                const SizedBox(height: 16),
+                // ── Ornamental header ──────────────────────────────────────
+                _OrnamentalHeader(glowAnim: _glowAnim),
 
-                // ── Title ───────────────────────────────────────────────────
-                Text(
-                  'خطوط المصحف الشريف',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.arefRuqaa(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: green,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                // ── Scrollable body ────────────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Title
+                        Text(
+                          'خطوط القرآن الكريم',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: _kGold,
+                            shadows: [
+                              Shadow(
+                                color: _kGold.withValues(alpha: 0.45),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
 
-                // ── Description ─────────────────────────────────────────────
-                Text(
-                  'لعرض المصحف بخط القرآن الكريم (المصحف المدني)، '
-                  'يحتاج التطبيق إلى تحميل ملفات الخطوط مرة واحدة فقط.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, height: 1.6),
-                ),
-                const SizedBox(height: 8),
+                        // Sub-title
+                        Text(
+                          'تحميل خطوط المصحف المدني',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 15,
+                            color: _kGoldLight.withValues(alpha: 0.75),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-                // ── Size notice ──────────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: lightGreen, width: 1),
-                  ),
-                  child: Text(
-                    'الحجم التقريبي: ~58 ميجابايت\n'
-                    'يُنصح بالتحميل على شبكة Wi‑Fi',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 13, color: green, height: 1.5),
-                  ),
-                ),
-                const SizedBox(height: 28),
+                        // ── Decorative divider ─────────────────────────────
+                        const _OrnamentalDivider(),
+                        const SizedBox(height: 20),
 
-                // ── Progress area ────────────────────────────────────────────
-                if (_state == _DownloadState.downloading ||
-                    _state == _DownloadState.done) ...[
-                  LinearProgressIndicator(
-                    value: _progress,
-                    backgroundColor: const Color(0xFFD0E8D0),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(lightGreen),
-                    minHeight: 10,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _state == _DownloadState.done
-                        ? 'تم التحميل بنجاح ✓'
-                        : '$_doneCount / $_pendingCount صفحة',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _state == _DownloadState.done
-                          ? lightGreen
-                          : Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                        // Description
+                        Text(
+                          'لعرض المصحف بالخط العثماني الحفص يحتاج التطبيق إلى تحميل '
+                          'ملفات الخطوط مرة واحدة فقط، وتُخزَّن على جهازك للاستخدام '
+                          'بدون إنترنت.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 14,
+                            color: _kCream.withValues(alpha: 0.8),
+                            height: 1.75,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-                if (_state == _DownloadState.error) ...[
-                  const Icon(Icons.wifi_off_rounded,
-                      size: 40, color: Colors.redAccent),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'فشل التحميل — تحقق من الاتصال بالإنترنت ثم حاول مجدداً',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.redAccent, fontSize: 13),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                        // ── Size notice ────────────────────────────────────
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _kGold.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: _kGold.withValues(alpha: 0.28),
+                                width: 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.wifi_rounded,
+                                  size: 16,
+                                  color: _kGold.withValues(alpha: 0.7)),
+                              const SizedBox(width: 8),
+                              Text(
+                                'الحجم التقريبي: ٦٥ ميجابايت — يُنصح بـ Wi‑Fi',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 13,
+                                  color: _kGoldLight.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
 
-                const Spacer(),
+                        // ── Progress area ──────────────────────────────────
+                        if (_state == _DLState.downloading ||
+                            _state == _DLState.done) ...[
+                          _ProgressSection(
+                            progress: _progress,
+                            done: _done,
+                            pending: _pending,
+                            phase: _phase,
+                            isDone: _state == _DLState.done,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
 
-                // ── Download button ──────────────────────────────────────────
-                if (_state != _DownloadState.done)
-                  ElevatedButton.icon(
-                    onPressed: _state == _DownloadState.downloading
-                        ? null
-                        : _startDownload,
-                    icon: _state == _DownloadState.downloading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                        // ── Error ──────────────────────────────────────────
+                        if (_state == _DLState.error) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                  color: Colors.red.withValues(alpha: 0.3)),
                             ),
-                          )
-                        : const Icon(Icons.download_rounded),
-                    label: Text(
-                      _state == _DownloadState.error
-                          ? 'إعادة المحاولة'
-                          : 'تحميل القرآن الكريم كاملاً',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.wifi_off_rounded,
+                                    color: Colors.redAccent, size: 22),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'فشل التحميل — تحقق من الاتصال بالإنترنت',
+                                    style: GoogleFonts.tajawal(
+                                      color: Colors.redAccent.shade100,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // ── Primary button ─────────────────────────────────
+                        if (_state != _DLState.done)
+                          _GoldButton(
+                            label: _state == _DLState.error
+                                ? 'إعادة المحاولة'
+                                : 'تحميل خطوط المصحف',
+                            isLoading: _state == _DLState.downloading,
+                            onTap: _state == _DLState.downloading
+                                ? null
+                                : _startDownload,
+                          ),
+
+                        const SizedBox(height: 14),
+
+                        // ── Skip ───────────────────────────────────────────
+                        if (_state != _DLState.done &&
+                            _state != _DLState.downloading)
+                          GestureDetector(
+                            onTap: widget.onDone,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6),
+                              child: Text(
+                                'لاحقاً — تصفح القرآن بالعرض المبسّط',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 13,
+                                  color: _kSubText,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: _kSubText,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
-
-                const SizedBox(height: 12),
-
-                // ── Skip button ──────────────────────────────────────────────
-                if (_state != _DownloadState.done &&
-                    _state != _DownloadState.downloading)
-                  TextButton(
-                    onPressed: widget.onDone,
-                    child: const Text(
-                      'لاحقاً — استخدام العرض المبسّط',
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey),
-                    ),
-                  ),
+                ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Ornamental header ─────────────────────────────────────────────────────────
+
+class _OrnamentalHeader extends StatelessWidget {
+  final Animation<double> glowAnim;
+  const _OrnamentalHeader({required this.glowAnim});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 200,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Backdrop glow circle
+          AnimatedBuilder(
+            animation: glowAnim,
+            builder: (_, __) => Container(
+              width: 170,
+              height: 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _kGold.withValues(
+                        alpha: 0.08 + 0.10 * glowAnim.value),
+                    blurRadius: 60 + 30 * glowAnim.value,
+                    spreadRadius: 10,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Outer ornamental ring
+          CustomPaint(
+            size: const Size(180, 180),
+            painter: _StarRingPainter(color: _kGoldDim),
+          ),
+          // Inner ring
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: _kGold.withValues(alpha: 0.35), width: 1),
+              color: _kGold.withValues(alpha: 0.06),
+            ),
+          ),
+          // Quran icon
+          Icon(
+            Icons.menu_book_rounded,
+            size: 52,
+            color: _kGold.withValues(alpha: 0.92),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Star-ring custom painter ──────────────────────────────────────────────────
+
+class _StarRingPainter extends CustomPainter {
+  final Color color;
+  const _StarRingPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r  = size.width / 2 - 4;
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    // Dashed circle
+    const totalDash = 120;
+    final dashStep = 2 * math.pi / totalDash;
+    for (int i = 0; i < totalDash; i += 2) {
+      final startA = i * dashStep;
+      final endA   = startA + dashStep * 0.7;
+      canvas.drawArc(
+          Rect.fromCircle(center: Offset(cx, cy), radius: r),
+          startA, endA - startA, false, paint);
+    }
+
+    // 8 star points
+    final tipPaint = Paint()
+      ..color = color.withValues(alpha: 0.65)
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 8; i++) {
+      final angle = i * math.pi / 4 - math.pi / 8;
+      final tipX  = cx + (r + 5) * math.cos(angle);
+      final tipY  = cy + (r + 5) * math.sin(angle);
+      canvas.drawCircle(Offset(tipX, tipY), 2, tipPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StarRingPainter old) => old.color != color;
+}
+
+// ── Ornamental divider ────────────────────────────────────────────────────────
+
+class _OrnamentalDivider extends StatelessWidget {
+  const _OrnamentalDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [
+                Colors.transparent,
+                _kGoldDim.withValues(alpha: 0.65),
+              ]),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text('✦', style: TextStyle(color: _kGold.withValues(alpha: 0.7), fontSize: 12)),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [
+                _kGoldDim.withValues(alpha: 0.65),
+                Colors.transparent,
+              ]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Progress section ──────────────────────────────────────────────────────────
+
+class _ProgressSection extends StatelessWidget {
+  final double progress;
+  final int done;
+  final int pending;
+  final String phase;
+  final bool isDone;
+
+  const _ProgressSection({
+    required this.progress,
+    required this.done,
+    required this.pending,
+    required this.phase,
+    required this.isDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (progress * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Phase label
+        if (phase.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 6, height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDone ? _kGold : _kGoldLight,
+                    boxShadow: [
+                      BoxShadow(
+                          color: _kGold.withValues(alpha: isDone ? 0.6 : 0.3),
+                          blurRadius: 6),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isDone ? 'اكتمل التحميل  ✓' : phase,
+                    style: GoogleFonts.tajawal(
+                      fontSize: 13,
+                      color: isDone ? _kGold : _kCream.withValues(alpha: 0.85),
+                      fontWeight: isDone ? FontWeight.w700 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$percent٪',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 13,
+                    color: _kGoldLight,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            children: [
+              // Background track
+              Container(
+                height: 12,
+                color: _kBarBg,
+              ),
+              // Fill
+              AnimatedFractionallySizedBox(
+                duration: const Duration(milliseconds: 300),
+                widthFactor: progress.clamp(0.0, 1.0),
+                child: Container(
+                  height: 12,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        _kGoldDim,
+                        _kGold,
+                        _kGoldLight,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _kGold.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Count label — only shown during extraction phase (not archive-download phase)
+        if (!isDone && pending > 0 && (done > 0 || phase.contains('استخراج')))
+          Text(
+            '$done / $pending صفحة',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.tajawal(
+              fontSize: 12,
+              color: _kSubText,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Gold button ───────────────────────────────────────────────────────────────
+
+class _GoldButton extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  const _GoldButton({
+    required this.label,
+    required this.isLoading,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          gradient: onTap != null
+              ? const LinearGradient(
+                  colors: [Color(0xFF9A7124), _kGold, Color(0xFFDAB44E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: onTap == null ? _kBarBg : null,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: onTap != null ? _kGoldLight.withValues(alpha: 0.4) : _kDivider,
+            width: 1,
+          ),
+          boxShadow: onTap != null
+              ? [
+                  BoxShadow(
+                    color: _kGold.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF0C2318)),
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.download_rounded,
+                      color: onTap != null
+                          ? const Color(0xFF0C2318)
+                          : _kSubText,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: onTap != null
+                            ? const Color(0xFF0C2318)
+                            : _kSubText,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
