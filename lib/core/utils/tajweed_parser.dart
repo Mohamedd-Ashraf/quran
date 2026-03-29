@@ -98,6 +98,44 @@ const Map<TajweedRule, String> kTajweedRuleNamesAr = {
   TajweedRule.silent:               'حرف ساكن',
 };
 
+/// Brief Arabic description for each tajweed rule, shown in the legend.
+const Map<TajweedRule, String> kTajweedRuleDescriptionsAr = {
+  TajweedRule.ghunnah:
+      'صوت رنّان يخرج من الخيشوم مع النون والميم المشددتين — مدّته حركتان',
+  TajweedRule.ikhfa:
+      'يُخفى صوت النون الساكنة أو التنوين عند أحرف الإخفاء الخمسة عشر مع الغنة',
+  TajweedRule.ikhfaShafawi:
+      'تُخفى الميم الساكنة عند حرف الباء مع غنة خفيفة',
+  TajweedRule.iqlab:
+      'تُقلب النون الساكنة أو التنوين ميماً خفية عند الباء مع الغنة',
+  TajweedRule.idghamWithGhunnah:
+      'تُدغم النون الساكنة أو التنوين في حروف (ي ن م و) مع غنة',
+  TajweedRule.idghamWithoutGhunnah:
+      'تُدغم النون الساكنة أو التنوين في اللام والراء بغير غنة',
+  TajweedRule.idghamShafawi:
+      'تُدغم الميم الساكنة في الميم التالية مع غنة',
+  TajweedRule.idghamMutajanisayn:
+      'إدغام حرف في حرف من مخرجه لكن صفاتهما مختلفة (مثل ت+ط)',
+  TajweedRule.idghamMutaqaribayn:
+      'إدغام حرف في حرف يقاربه مخرجاً وصفةً (مثل ق+ك)',
+  TajweedRule.qalqala:
+      'اضطراب ونبذ في الصوت عند سكون أحد حروف (قطب جد) — خاصةً عند الوقف',
+  TajweedRule.maddaNormal:
+      'مد الحروف الثلاثة (ا و ي) مدةً طبيعية حركتين بغير سبب',
+  TajweedRule.maddaPermissible:
+      'مد عند التقاء حرف المد بهمز في كلمتين — جائز من ٢ إلى ٦ حركات',
+  TajweedRule.maddaObligatory:
+      'مد حرف المد إذا جاء الهمز في نفس الكلمة — واجب ٤ أو ٥ حركات',
+  TajweedRule.maddaNecessary:
+      'مد حرف مد أو لين يعقبه سكون أصلي — لازم ٦ حركات دائماً',
+  TajweedRule.hamzaWasl:
+      'همزة زائدة في أول الكلمة تُنطق ابتداءً وتسقط وصلاً',
+  TajweedRule.laamShamsiyyah:
+      'لام (أل) تُدغم في الحرف الشمسي التالي فلا تُلفظ',
+  TajweedRule.silent:
+      'حرف لا يُلفظ في حالة الوصل أو الوقف — يُكتب ولا يُقرأ',
+};
+
 /// Rules displayed in the legend bottom sheet (grouped logically).
 const List<TajweedRule> kLegendRules = [
   TajweedRule.ghunnah,

@@ -305,7 +305,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // Arabic Font Size
+          // Arabic Font Size – hidden when QCF font is active (QCF controls its own rendering)
+          if (!settings.useQcfFont)
           _SettingsCard(
             key: SettingsTutorialKeys.fontSizeSlider,
             child: Padding(
@@ -1368,54 +1369,56 @@ class _MushafEntryCard extends StatelessWidget {
                 onChanged: onToggleQcf,
               ),
             ],
-          const Divider(height: 1, indent: 56, endIndent: 16),
-          // ── Navigate to full Mushaf settings ──────────────────
-          InkWell(
-            onTap: onOpenSettings,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(9),
+          // ── Navigate to full Mushaf settings (hidden when QCF is on) ──
+          if (!useQcfFont) ...[
+            const Divider(height: 1, indent: 56, endIndent: 16),
+            InkWell(
+              onTap: onOpenSettings,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(Icons.tune_rounded,
+                          color: Colors.white, size: 18),
                     ),
-                    child: const Icon(Icons.tune_rounded,
-                        color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isAr
-                              ? 'إعدادات المصحف الشريف'
-                              : 'Mushaf Display Settings',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 14),
-                        ),
-                        const SizedBox(height: 4),
-                        // current-selection chips
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            _Chip(_fontShortName(), Icons.font_download_rounded),
-                            _Chip(
-                                _editionShortName(), Icons.menu_book_rounded),
-                          ],
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAr
+                                ? 'إعدادات المصحف الشريف'
+                                : 'Mushaf Display Settings',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          // current-selection chips
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              _Chip(_fontShortName(), Icons.font_download_rounded),
+                              _Chip(
+                                  _editionShortName(), Icons.menu_book_rounded),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.primary, size: 22),
-                ],
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AppColors.primary, size: 22),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

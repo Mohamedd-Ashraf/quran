@@ -30,8 +30,12 @@ class FeedbackService {
     if (alwaysShow) return true;
     final lastShownMs = _prefs.getInt(_keyLastShownMs);
 
-    // First time ever – show immediately.
-    if (lastShownMs == null) return true;
+    // First time ever – treat as if user pressed "Later".
+    // Records the current time so the dialog appears again after 3 days.
+    if (lastShownMs == null) {
+      _prefs.setInt(_keyLastShownMs, DateTime.now().millisecondsSinceEpoch);
+      return false;
+    }
 
     final daysSinceLastShown = DateTime.now()
         .difference(DateTime.fromMillisecondsSinceEpoch(lastShownMs))

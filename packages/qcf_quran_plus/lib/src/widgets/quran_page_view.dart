@@ -5,9 +5,14 @@ import 'package:qcf_quran_plus/src/widgets/surah_header_widget.dart';
 import '../models/highlight_verse.dart';
 import '../models/quran_page.dart';
 import '../services/get_page.dart';
+import '../utils/font_loader_service.dart';
 import 'bsmallah_widget.dart';
 
 /// A widget that displays the entire Quran using a swipeable PageView.
+///
+/// When [fallbackPageBuilder] is provided, pages whose QCF font has not yet
+/// been loaded (checked via [QcfFontLoader.isFontLoaded]) are rendered using
+/// the fallback builder instead of the default QCF glyph renderer.
 class QuranPageView extends StatelessWidget {
   final PageController pageController;
   final Function(int)? onPageChanged;
@@ -18,6 +23,7 @@ class QuranPageView extends StatelessWidget {
   final Widget? topBar;
   final Widget? bottomBar;
   final void Function(int surahNumber, int verseNumber, LongPressStartDetails details)? onLongPress;
+  final void Function(int surahNumber, int verseNumber)? onAyahTap;
   final int quranPagesCount;
   final Widget Function(BuildContext context, int surahNumber)? surahHeaderBuilder;
   final Widget Function(BuildContext context, int surahNumber)? basmallahBuilder;
@@ -25,6 +31,10 @@ class QuranPageView extends StatelessWidget {
   final TextStyle? ayahStyle;
   final Color? pageBackgroundColor;
   final bool isTajweed;
+
+  /// Optional builder for pages whose QCF font is not yet loaded.
+  /// Receives the 1-based page number. When `null`, all pages render with QCF.
+  final Widget Function(BuildContext context, int pageNumber)? fallbackPageBuilder;
 
   // Pre-loaded list of Quran pages
   final List<QuranPage> pages;
@@ -35,6 +45,7 @@ class QuranPageView extends StatelessWidget {
     this.onPageChanged,
     required this.highlights,
     this.onLongPress,
+    this.onAyahTap,
     this.quranPagesCount = 604, // Default to the standard 604 pages of the Madani Mushaf
     this.topBar,
     this.bottomBar,
@@ -44,6 +55,7 @@ class QuranPageView extends StatelessWidget {
     this.pageBackgroundColor,
     this.isTajweed = true,
     required this.isDarkMode,
+    this.fallbackPageBuilder,
   }) : pages = _loadQuranData(quranPagesCount);
 
   /// Static helper method to load the Quran pages only once upon widget initialization.
@@ -71,6 +83,19 @@ class QuranPageView extends StatelessWidget {
           itemBuilder: (context, index) {
             final int pageNum = index + 1;
 
+            // When a fallback builder is provided, use it for pages whose
+            // QCF font has not been loaded into the Flutter engine yet.
+            if (fallbackPageBuilder != null &&
+                !QcfFontLoader.isFontLoaded(pageNum)) {
+              return Column(
+                children: [
+                  if (topBar != null) topBar!,
+                  Expanded(child: fallbackPageBuilder!(context, pageNum)),
+                  if (bottomBar != null) bottomBar!,
+                ],
+              );
+            }
+
             return Column(
               children: [
                 // Display top bar if provided (e.g., for Surah name, Juz info)
@@ -85,6 +110,7 @@ class QuranPageView extends StatelessWidget {
                     pageIndex: pageNum,
                     highlights: highlights, // Pass the static list of highlights
                     onLongPress: onLongPress,
+                    onAyahTap: onAyahTap,
                     pageController: pageController,
                     surahHeaderBuilder: surahHeaderBuilder,
                     basmallahBuilder: basmallahBuilder,
@@ -112,6 +138,7 @@ class QuranSinglePageWidget extends StatelessWidget {
   final int pageIndex;
   final List<HighlightVerse> highlights;
   final void Function(int, int, LongPressStartDetails)? onLongPress;
+  final void Function(int surahNumber, int verseNumber)? onAyahTap;
   final PageController pageController;
   final Widget Function(BuildContext context, int surahNumber)? surahHeaderBuilder;
   final Widget Function(BuildContext context, int surahNumber)? basmallahBuilder;
@@ -125,6 +152,7 @@ class QuranSinglePageWidget extends StatelessWidget {
     required this.pageIndex,
     required this.highlights,
     this.onLongPress,
+    this.onAyahTap,
     required this.pageController,
     this.surahHeaderBuilder,
     this.basmallahBuilder,
@@ -263,6 +291,7 @@ class QuranSinglePageWidget extends StatelessWidget {
         highlights, // Passes the normal list of highlighted verses directly
         boxFit: boxFit,
         onLongPress: onLongPress,
+        onTap: onAyahTap,
         ayahStyle: ayahStyle,
         isTajweed: isTajweed,
         isDark: isDark,

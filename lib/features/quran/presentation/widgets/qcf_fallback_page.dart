@@ -1,4 +1,4 @@
-﻿// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print
 
 import 'dart:convert';
 
@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show getPageData, getSurahNameArabic, QuranTextStyles;
+  show getPageData, getSurahNameArabic, getaya_noQCF, getPageNumber, QcfFontLoader, QuranTextStyles;
 
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -42,7 +42,7 @@ class _Verse {
 
 // â”€â”€â”€ Page verse loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Basmala strip ──────────────────────────────────────────────────────────
+// ─── Basmala strip ────────────────────────────────────────────────────────
 
 /// Strips the leading Basmala from [text] if present.
 /// Comparison ignores all diacritics and normalises Alef-wasla → Alef.
@@ -81,6 +81,33 @@ String _stripBasmalaPrefix(String text) {
 
 /// In-session cache: navigating back to the same page is instant.
 final Map<int, List<_Verse>> _pageTextSessionCache = {};
+Set<int>? _bundledQcfFontPages;
+
+Future<bool> _hasBundledQcfFont(int page) async {
+  final cached = _bundledQcfFontPages;
+  if (cached != null) return cached.contains(page);
+
+  try {
+    final manifestJson = await rootBundle.loadString('AssetManifest.json');
+    final manifest = jsonDecode(manifestJson) as Map<String, dynamic>;
+    final pages = <int>{};
+    final rx = RegExp(
+      r'^packages/qcf_quran_plus/assets/fonts/qcf_tajweed/QCF4_tajweed_(\d{3})\.zip$',
+    );
+
+    for (final key in manifest.keys) {
+      final match = rx.firstMatch(key);
+      if (match != null) {
+        pages.add(int.parse(match.group(1)!));
+      }
+    }
+
+    _bundledQcfFontPages = pages;
+    return pages.contains(page);
+  } catch (_) {
+    return false;
+  }
+}
 
 /// Loads Uthmani Arabic text for all verses on [page] from bundled offline
 /// JSON assets (`assets/offline/surah_X.json`).
@@ -211,31 +238,25 @@ class _QcfFallbackPageState extends State<QcfFallbackPage> {
       return Container(color: bgColor);
     }
 
-    return Column(
-      children: [
-        _FbTopBar(page: widget.pageNumber, verses: _verses, isDark: isDark),
-        Expanded(
-          child: BlocBuilder<AyahAudioCubit, AyahAudioState>(
-            builder: (ctx, audioState) {
-              final playerVisible = audioState.status != AyahAudioStatus.idle;
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  16, 8, 16,
-                  playerVisible ? 220.0 : 8,
-                ),
-                child: _FbPageText(
-                  verses: _verses,
-                  page: widget.pageNumber,
-                ),
-              );
-            },
+    return BlocBuilder<AyahAudioCubit, AyahAudioState>(
+      builder: (ctx, audioState) {
+        final playerVisible = audioState.status != AyahAudioStatus.idle;
+        // TODO: Page flipping right-to-left (horizontal swipe) is not working.
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-        ),
-        _FbFooter(page: widget.pageNumber, isDark: isDark),
-      ],
+          padding: EdgeInsets.fromLTRB(
+            16, 8, 16,
+            // 220 = audio player; 64 = download banner (always visible on fallback)
+            playerVisible ? 220.0 : 64,
+          ),
+          child: _FbPageText(
+            verses: _verses,
+            page: widget.pageNumber,
+          ),
+        );
+      },
     );
   }
 }
@@ -254,20 +275,20 @@ class _FbTopBar extends StatelessWidget {
   });
 
   static const _kJuzNames = [
-    'Ø§Ù„Ø£ÙˆÙ„','Ø§Ù„Ø«Ø§Ù†ÙŠ','Ø§Ù„Ø«Ø§Ù„Ø«','Ø§Ù„Ø±Ø§Ø¨Ø¹','Ø§Ù„Ø®Ø§Ù…Ø³',
-    'Ø§Ù„Ø³Ø§Ø¯Ø³','Ø§Ù„Ø³Ø§Ø¨Ø¹','Ø§Ù„Ø«Ø§Ù…Ù†','Ø§Ù„ØªØ§Ø³Ø¹','Ø§Ù„Ø¹Ø§Ø´Ø±',
-    'Ø§Ù„Ø­Ø§Ø¯ÙŠ Ø¹Ø´Ø±','Ø§Ù„Ø«Ø§Ù†ÙŠ Ø¹Ø´Ø±','Ø§Ù„Ø«Ø§Ù„Ø« Ø¹Ø´Ø±','Ø§Ù„Ø±Ø§Ø¨Ø¹ Ø¹Ø´Ø±','Ø§Ù„Ø®Ø§Ù…Ø³ Ø¹Ø´Ø±',
-    'Ø§Ù„Ø³Ø§Ø¯Ø³ Ø¹Ø´Ø±','Ø§Ù„Ø³Ø§Ø¨Ø¹ Ø¹Ø´Ø±','Ø§Ù„Ø«Ø§Ù…Ù† Ø¹Ø´Ø±','Ø§Ù„ØªØ§Ø³Ø¹ Ø¹Ø´Ø±','Ø§Ù„Ø¹Ø´Ø±ÙˆÙ†',
-    'Ø§Ù„Ø­Ø§Ø¯ÙŠ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø«Ø§Ù†ÙŠ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø«Ø§Ù„Ø« ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø±Ø§Ø¨Ø¹ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†',
-    'Ø§Ù„Ø®Ø§Ù…Ø³ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø³Ø§Ø¯Ø³ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø³Ø§Ø¨Ø¹ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø«Ø§Ù…Ù† ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†',
-    'Ø§Ù„ØªØ§Ø³Ø¹ ÙˆØ§Ù„Ø¹Ø´Ø±ÙˆÙ†','Ø§Ù„Ø«Ù„Ø§Ø«ÙˆÙ†',
+    'الأول','الثاني','الثالث','الرابع','الخامس',
+    'السادس','السابع','الثامن','التاسع','العاشر',
+    'الحادي عشر','الثاني عشر','الثالث عشر','الرابع عشر','الخامس عشر',
+    'السادس عشر','السابع عشر','الثامن عشر','التاسع عشر','العشرون',
+    'الحادي والعشرون','الثاني والعشرون','الثالث والعشرون','الرابع والعشرون',
+    'الخامس والعشرون','السادس والعشرون','السابع والعشرون','الثامن والعشرون',
+    'التاسع والعشرون','الثلاثون',
   ];
 
   int get _juz => ((page - 1) ~/ 20).clamp(0, 29) + 1;
 
   String get _juzLabel {
     final j = _juz;
-    return j >= 1 && j <= 30 ? 'Ø§Ù„Ø¬Ø²Ø¡ ${_kJuzNames[j - 1]}' : 'Ø§Ù„Ø¬Ø²Ø¡ $j';
+    return j >= 1 && j <= 30 ? 'الجزء ${_kJuzNames[j - 1]}' : 'الجزء $j';
   }
 
   String get _surahLabel {
@@ -410,7 +431,7 @@ class _FbBookmarkButtonState extends State<_FbBookmarkButton> {
           await _bm.addBookmark(
             id: pageId,
             reference: pageId,
-            arabicText: 'ØµÙØ­Ø© ${widget.page}',
+            arabicText: 'صفحة ${widget.page}',
             surahName: actualSurahName,
             surahNumber: actualSurahNumber,
             ayahNumber: null,
@@ -500,6 +521,98 @@ class _FbPageText extends StatefulWidget {
 class _FbPageTextState extends State<_FbPageText> {
   final List<GestureRecognizer> _recognizers = [];
   _Verse? _lastTouched;
+  bool _qcfFontLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncQcfGlyphFont();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FbPageText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.page != widget.page) {
+      _qcfFontLoaded = false;
+      _syncQcfGlyphFont();
+    }
+  }
+
+  Future<void> _syncQcfGlyphFont() async {
+    final page = widget.page;
+    final alreadyLoaded = QcfFontLoader.isFontLoaded(page);
+    if (alreadyLoaded) {
+      if (mounted) {
+        setState(() {
+          _qcfFontLoaded = true;
+        });
+      }
+      return;
+    }
+
+    final hasBundledFont = await _hasBundledQcfFont(page);
+    if (!hasBundledFont || !mounted) {
+      return;
+    }
+
+    try {
+      await QcfFontLoader.ensureFontLoaded(page);
+      if (mounted) {
+        setState(() {
+          _qcfFontLoaded = true;
+        });
+      }
+    } catch (_) {
+      // Leave placeholder rendering active when the ornament font can't load.
+    }
+  }
+
+  /// Fallback ornament: U+06DD (ARABIC END OF AYAH ring) + Arabic-Indic digits.
+  /// Amiri Quran renders this combination as a proper circular verse ornament.
+  TextSpan _ayahPlaceholderSpan(int ayah, Color color, TextStyle base) {
+    return TextSpan(
+      text: '\u06DD${_toArabicNum(ayah)}',
+      style: GoogleFonts.amiriQuran(
+        color: color,
+        fontSize: base.fontSize,
+        height: base.height,
+      ),
+    );
+  }
+
+  void _playVerse(
+    AyahAudioCubit cubit,
+    AppSettingsState settings,
+    _Verse verse,
+  ) {
+    if (settings.mushafContinueTilawa) {
+      if (settings.mushafContinueScope == 'surah') {
+        final idx = verse.surah - 1;
+        final totalAyahs =
+            (idx >= 0 && idx < kSurahAyahCounts.length)
+                ? kSurahAyahCounts[idx]
+                : verse.ayah;
+        cubit.playAyahRange(
+          surahNumber: verse.surah,
+          startAyah: verse.ayah,
+          endAyah: totalAyahs,
+        );
+      } else {
+        final sameOnPage = widget.verses.where((vv) => vv.surah == verse.surah).toList();
+        final endAyah = sameOnPage.isNotEmpty ? sameOnPage.last.ayah : verse.ayah;
+        cubit.playAyahRange(
+          surahNumber: verse.surah,
+          startAyah: verse.ayah,
+          endAyah: endAyah,
+        );
+      }
+    } else {
+      cubit.togglePlayAyah(
+        surahNumber: verse.surah,
+        ayahNumber: verse.ayah,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -552,9 +665,15 @@ class _FbPageTextState extends State<_FbPageText> {
                 ? const Color(0xFFE8E8E8)
                 : const Color(0xFF1A1A1A);
 
+            // When QCF is enabled the user is on this fallback page because the
+            // QCF font for this page hasn't downloaded yet. Force settings that
+            // best match the QCF mushaf appearance until it loads.
+            final effectiveFontKey = settings.useQcfFont ? 'scheherazade' : settings.quranFont;
+            final effectiveFontSize = settings.useQcfFont ? 18.0 : settings.arabicFontSize;
+
             final baseStyle = ArabicTextStyleHelper.quranFontStyle(
-              fontKey: settings.quranFont,
-              fontSize: settings.arabicFontSize,
+              fontKey: effectiveFontKey,
+              fontSize: effectiveFontSize,
               fontWeight: FontWeight.w500,
               color: textColor,
               height: 2.2,
@@ -599,6 +718,7 @@ class _FbPageTextState extends State<_FbPageText> {
 
               for (final v in section.verses) {
                 final isHighlighted = playKey == v.verseKey;
+                final settingsState = ctx.read<AppSettingsCubit>().state;
 
                 final tap = TapGestureRecognizer()
                   ..onTapDown = (_) { _lastTouched = v; }
@@ -615,32 +735,7 @@ class _FbPageTextState extends State<_FbPageText> {
                       }
                       return;
                     }
-                    final s = ctx.read<AppSettingsCubit>().state;
-                    if (s.mushafContinueTilawa) {
-                      if (s.mushafContinueScope == 'surah') {
-                        final idx = v.surah - 1;
-                        final totalAyahs =
-                            (idx >= 0 && idx < kSurahAyahCounts.length)
-                                ? kSurahAyahCounts[idx]
-                                : v.ayah;
-                        cubit.playAyahRange(
-                          surahNumber: v.surah,
-                          startAyah: v.ayah,
-                          endAyah: totalAyahs,
-                        );
-                      } else {
-                        final endAyah = widget.verses
-                            .where((vv) => vv.surah == v.surah)
-                            .fold<int>(v.ayah, (last, vv) => vv.ayah > last ? vv.ayah : last);
-                        cubit.playAyahRange(
-                          surahNumber: v.surah,
-                          startAyah: v.ayah,
-                          endAyah: endAyah,
-                        );
-                      }
-                    } else {
-                      cubit.playAyah(surahNumber: v.surah, ayahNumber: v.ayah);
-                    }
+                    _playVerse(cubit, settingsState, v);
                   };
                 _recognizers.add(tap);
 
@@ -652,8 +747,8 @@ class _FbPageTextState extends State<_FbPageText> {
                 final verseNumColor = isHighlighted
                     ? AppColors.secondary
                     : (isDark
-                        ? const Color(0xFFC8A84B)
-                        : AppColors.primary);
+                        ? const Color(0xFFD4AF37) // gold – matches QCF dark
+                        : AppColors.primary);     // green – matches QCF light
 
                 spans.add(
                   TextSpan(
@@ -667,15 +762,27 @@ class _FbPageTextState extends State<_FbPageText> {
                               : Colors.transparent,
                         ),
                       ),
-                      // Arabic verse-end marker (U+06DD) + Arabic-Indic numeral
-                      TextSpan(
-                        text: '\u06DD${_toArabicNum(v.ayah)} ',
-                        style: baseStyle.copyWith(
-                          color: verseNumColor,
-                          fontSize: (baseStyle.fontSize ?? 18) * 0.75,
-                          backgroundColor: Colors.transparent,
-                        ),
-                      ),
+                      // QCF verse-number ornament glyph from the page font
+                      if (_qcfFontLoaded)
+                        () {
+                          try {
+                            return TextSpan(
+                              text: getaya_noQCF(v.surah, v.ayah),
+                              style: TextStyle(
+                                fontFamily:
+                                    'QCF4_tajweed_${getPageNumber(v.surah, v.ayah).toString().padLeft(3, '0')}',
+                                fontSize: baseStyle.fontSize,
+                                color: verseNumColor,
+                                height: baseStyle.height,
+                              ),
+                            );
+                          } catch (_) {
+                            return _ayahPlaceholderSpan(v.ayah, verseNumColor, baseStyle);
+                          }
+                        }()
+                      else
+                        _ayahPlaceholderSpan(v.ayah, verseNumColor, baseStyle),
+                      const TextSpan(text: ' '),
                     ],
                   ),
                 );
@@ -718,8 +825,8 @@ class _FbSurahHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color nameColor = isDark
-        ? const Color(0xFFE8C46A)
-        : const Color(0xFF3D2000);
+        ? const Color(0xFFF5E7B3)
+        : const Color(0xFF243222);
     final Color basmalaColor = isDark
         ? const Color(0xFFD4AF37)
         : AppColors.primary.withValues(alpha: 0.9);
@@ -727,7 +834,6 @@ class _FbSurahHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // â”€â”€ Surah ornamental banner (qcf_quran_plus arsura font) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         LayoutBuilder(
           builder: (ctx, constraints) {
             final double w = constraints.maxWidth * 0.9;
@@ -749,11 +855,15 @@ class _FbSurahHeader extends StatelessWidget {
                     color: isDark ? const Color.fromARGB(255, 43, 63, 48) : null,
                     colorBlendMode: isDark ? BlendMode.color : null,
                   ),
-                  Text(
-                    '$surahNum',
-                    style: QuranTextStyles.surahHeaderStyle(
-                      color: nameColor,
-                      fontSize: fs,
+                  // arsura font: glyph key is the surah number as string
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      text: '$surahNum',
+                      style: QuranTextStyles.surahHeaderStyle(
+                        fontSize: fs,
+                        color: nameColor,
+                      ),
                     ),
                   ),
                 ],
@@ -761,20 +871,19 @@ class _FbSurahHeader extends StatelessWidget {
             );
           },
         ),
-        // â”€â”€ Basmala (QCF4_BSML font, bundled in qcf_quran_plus) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // QCF basmala glyphs from the bundled QCF4_BSML font.
         if (surahNum != 1 && surahNum != 9)
           Center(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Text(
-                surahNum == 97 || surahNum == 95
-                    ? 'é½ƒð§»“ð¥³é¾Ž'
-                    : 'é½ƒð§»“ð¥³ð¥‰‰',
+                surahNum == 97 || surahNum == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
                 style: QuranTextStyles.basmallahStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   color: basmalaColor,
                 ),
                 textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
               ),
             ),
           ),
@@ -817,7 +926,7 @@ class _FbRecitationSettingsButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
       iconSize: 18,
       icon: Icon(Icons.tune_rounded, color: color, size: 18),
-      tooltip: 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„ØªÙ„Ø§ÙˆØ©',
+      tooltip: 'إعدادات التلاوة',
     );
   }
 }
@@ -912,7 +1021,7 @@ class _FbRecitationSettingsSheetState
                       ),
                     ),
                   ),
-                  Text('Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„ØªÙ„Ø§ÙˆØ©', style: titleStyle, textAlign: TextAlign.center),
+                  Text('إعدادات التلاوة', style: titleStyle, textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   Divider(color: dividerColor, height: 1),
                   const SizedBox(height: 12),
@@ -932,7 +1041,7 @@ class _FbRecitationSettingsSheetState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Ø§Ù„Ù‚Ø§Ø±Ø¦', style: labelStyle),
+                                Text('القارئ', style: labelStyle),
                                 Text(name, style: labelStyle.copyWith(
                                     color: subTextColor, fontSize: 12)),
                               ],
@@ -942,7 +1051,7 @@ class _FbRecitationSettingsSheetState
                             onPressed: snap.hasData
                                 ? () => _showPicker(ctx, snap.data!, _offlineAudio.edition)
                                 : null,
-                            child: Text('ØªØºÙŠÙŠØ±', style: GoogleFonts.amiriQuran(
+                            child: Text('تغيير', style: GoogleFonts.amiriQuran(
                                 color: AppColors.secondary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700)),
@@ -957,7 +1066,7 @@ class _FbRecitationSettingsSheetState
                   // â”€â”€ Continue Tilawa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Row(
                     children: [
-                      Expanded(child: Text('ØªÙƒÙ…Ù„Ø© Ø§Ù„ØªÙ„Ø§ÙˆØ© Ø¹Ù†Ø¯ Ø§Ù„Ø¶ØºØ·', style: labelStyle)),
+                      Expanded(child: Text('تكملة التلاوة عند الضغط', style: labelStyle)),
                       Switch(
                         value: settings.mushafContinueTilawa,
                         onChanged: (v) =>
@@ -978,12 +1087,12 @@ class _FbRecitationSettingsSheetState
                       segments: [
                         ButtonSegment(
                           value: 'page',
-                          label: Text('Ø¥Ù„Ù‰ Ù†Ù‡Ø§ÙŠØ© Ø§Ù„ØµÙØ­Ø©',
+                          label: Text('إلى نهاية الصفحة',
                               style: GoogleFonts.amiriQuran(fontSize: 12)),
                         ),
                         ButtonSegment(
                           value: 'surah',
-                          label: Text('Ø¥Ù„Ù‰ Ù†Ù‡Ø§ÙŠØ© Ø§Ù„Ø³ÙˆØ±Ø©',
+                          label: Text('إلى نهاية السورة',
                               style: GoogleFonts.amiriQuran(fontSize: 12)),
                         ),
                       ],
@@ -1078,7 +1187,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text('Ø§Ø®ØªØ± Ø§Ù„Ù‚Ø§Ø±Ø¦', style: GoogleFonts.amiriQuran(
+                child: Text('اختر القارئ', style: GoogleFonts.amiriQuran(
                     fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
               ),
               const Divider(height: 1),
@@ -1153,7 +1262,7 @@ void _showFbVerseOptionsSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  '$surahName â€” Ø¢ÙŠØ© $verse',
+                  '$surahName - آية $verse',
                   style: GoogleFonts.amiriQuran(
                     fontSize: 16, fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -1171,7 +1280,7 @@ void _showFbVerseOptionsSheet(
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      isBookmarked ? 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ø¥Ø´Ø§Ø±Ø©' : 'Ø¥Ø¶Ø§ÙØ© Ø¥Ø´Ø§Ø±Ø©',
+                      isBookmarked ? 'إزالة الإشارة' : 'إضافة إشارة',
                       style: const TextStyle(fontSize: 15),
                     ),
                     onTap: () async {
@@ -1194,8 +1303,8 @@ void _showFbVerseOptionsSheet(
               ),
               ListTile(
                 leading: const Icon(Icons.share_rounded, color: AppColors.primary),
-                title: const Text('Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ø¢ÙŠØ©', style: TextStyle(fontSize: 15)),
-                subtitle: const Text('ØµÙˆØ±Ø© Ø¨Ø®Ø· Ø§Ù„Ù‚Ø±Ø¢Ù† Ø§Ù„ÙƒØ±ÙŠÙ…',
+                title: const Text('مشاركة الآية', style: TextStyle(fontSize: 15)),
+                subtitle: const Text('صورة بخط القرآن الكريم',
                     style: TextStyle(fontSize: 11)),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1209,7 +1318,7 @@ void _showFbVerseOptionsSheet(
               ),
               ListTile(
                 leading: const Icon(Icons.menu_book_rounded, color: AppColors.primary),
-                title: const Text('Ø§Ù„ØªÙØ³ÙŠØ±', style: TextStyle(fontSize: 15)),
+                title: const Text('التفسير', style: TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   onTafsir();
@@ -1227,7 +1336,7 @@ void _showFbVerseOptionsSheet(
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 String _toArabicNum(int n) {
-  const digits = ['Ù ','Ù¡','Ù¢','Ù£','Ù¤','Ù¥','Ù¦','Ù§','Ù¨','Ù©'];
+  const digits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
   return n.toString().split('').map((d) {
     final i = int.tryParse(d);
     return i != null ? digits[i] : d;

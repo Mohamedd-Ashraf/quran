@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' show QuranTextStyles;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
@@ -641,13 +642,12 @@ class _IslamicHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ',
+                  '齃𧻓𥳐𥉉',
                   textAlign: TextAlign.center,
                   textDirection: TextDirection.rtl,
-                  style: GoogleFonts.amiriQuran(
-                    fontSize: 20,
+                  style: QuranTextStyles.basmallahStyle(
+                    fontSize: 24,
                     color: Colors.white,
-                    height: 2.0,
                   ),
                 ),
               ),
@@ -667,13 +667,18 @@ class _IslamicHeader extends StatelessWidget {
               // ── Welcome text ───────────────────────────────
               Text(
                 isArabic ? 'أهلاً وسهلاً' : 'Welcome',
-                style: TextStyle(
-                  fontFamily: isArabic ? 'Amiri' : null,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: isArabic ? 0 : 0.5,
-                ),
+                style: isArabic
+                    ? GoogleFonts.amiri(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      )
+                    : const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
               ),
               const SizedBox(height: 8),
               Text(

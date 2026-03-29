@@ -6,8 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show QuranPageView, HighlightVerse, getPageNumber;
+    show QuranPageView, HighlightVerse, getPageNumber, QcfFontLoader;
 import 'package:qcf_quran_lite/qcf_quran_lite.dart' show getPageData;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
 import '../screens/qcf_font_download_screen.dart';
@@ -23,6 +24,7 @@ import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../wird/data/quran_boundaries.dart' show kSurahAyahCounts;
 import '../../domain/entities/surah.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
@@ -223,7 +225,7 @@ class _MushafPageViewState extends State<MushafPageView>
   late final int _startPage;
 
   // ── Tajweed mode ───────────────────────────────────────────────────────────
-  bool _tajweedMode = false;
+  late bool _tajweedMode;
 
   // Tracks the currently visible page number for the top bar / footer.
   late int _currentPageNum;
@@ -246,6 +248,9 @@ class _MushafPageViewState extends State<MushafPageView>
   void initState() {
     super.initState();
     _bookmarkService = di.sl<BookmarkService>();
+
+    // Restore tajweed mode from persisted settings.
+    _tajweedMode = context.read<AppSettingsCubit>().state.tajweedEnabled;
 
     _highlightAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -312,7 +317,35 @@ class _MushafPageViewState extends State<MushafPageView>
   // ── Tajweed helpers ────────────────────────────────────────────────────────
 
   void _toggleTajweed(int currentPage) {
-    setState(() => _tajweedMode = !_tajweedMode);
+    final newValue = !_tajweedMode;
+    // If enabling tajweed but the current page font isn't loaded, warn user.
+    if (newValue && !QcfFontLoader.isFontLoaded(currentPage)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'يجب تحميل خطوط المصحف لعرض ألوان التجويد',
+            style: GoogleFonts.cairo(fontSize: 13),
+            textDirection: TextDirection.rtl,
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+    setState(() => _tajweedMode = newValue);
+    context.read<AppSettingsCubit>().setTajweedEnabled(newValue);
+    if (newValue) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم تفعيل التجويد — اضغط مطولاً على زر التجويد لعرض دليل الألوان',
+            style: GoogleFonts.cairo(fontSize: 12),
+            textDirection: TextDirection.rtl,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   // ── Font download prompt ───────────────────────────────────────────────────
@@ -400,36 +433,82 @@ class _MushafPageViewState extends State<MushafPageView>
     _updateHighlightsNotifier();
   }
 
-  // ── Long-press → options sheet ────────────────────────────────────────────
+  void _handleDisplayedPageChanged(int page) {
+    widget.onPageChanged?.call(page);
+    if (mounted) {
+      setState(() {
+        _currentPageNum = page;
+        // Synchronous check — font loaded in engine?
+        _currentPageFontAvailable = QcfFontLoader.isFontLoaded(page);
+      });
+    }
+    // Also do an async disk check (covers fonts on disk but not yet loaded).
+    QcfFontDownloadService.isPageAvailable(page).then((available) {
+      if (mounted && _currentPageFontAvailable != available) {
+        setState(() => _currentPageFontAvailable = available);
+      }
+    });
+  }
 
-  /// Single tap → toggle play/pause the first ayah on the current page.
-  void _onPageTap() {
-    final List rawRanges;
-    try {
-      rawRanges = getPageData(_currentPageNum);
-    } catch (_) {
+  void _onAyahTap(int surahNumber, int ayahNumber) {
+    final cubit = context.read<AyahAudioCubit>();
+    final audioState = cubit.state;
+    final settings = context.read<AppSettingsCubit>().state;
+
+    if (audioState.surahNumber == surahNumber &&
+        audioState.ayahNumber == ayahNumber &&
+        (audioState.status == AyahAudioStatus.playing ||
+            audioState.status == AyahAudioStatus.paused)) {
+      if (audioState.status == AyahAudioStatus.playing) {
+        cubit.pause();
+      } else {
+        cubit.resume();
+      }
       return;
     }
-    if (rawRanges.isEmpty) return;
 
-    // Prefer the widget's surah if it falls on this page; otherwise use first range.
-    Map<dynamic, dynamic>? matched;
-    for (final r in rawRanges) {
-      final m = r as Map<dynamic, dynamic>;
-      if (int.tryParse(m['surah'].toString()) == widget.surahNumber) {
-        matched = m;
-        break;
+    if (settings.mushafContinueTilawa) {
+      if (settings.mushafContinueScope == 'surah') {
+        final idx = surahNumber - 1;
+        final totalAyahs =
+            idx >= 0 && idx < kSurahAyahCounts.length
+                ? kSurahAyahCounts[idx]
+                : ayahNumber;
+        cubit.playAyahRange(
+          surahNumber: surahNumber,
+          startAyah: ayahNumber,
+          endAyah: totalAyahs,
+        );
+      } else {
+        final List rawRanges;
+        try {
+          rawRanges = getPageData(_currentPageNum);
+        } catch (_) {
+          cubit.togglePlayAyah(surahNumber: surahNumber, ayahNumber: ayahNumber);
+          return;
+        }
+        int endAyah = ayahNumber;
+        for (final r in rawRanges) {
+          final m = r as Map<dynamic, dynamic>;
+          if (int.tryParse(m['surah'].toString()) == surahNumber) {
+            endAyah = int.parse(m['end'].toString());
+          }
+        }
+        cubit.playAyahRange(
+          surahNumber: surahNumber,
+          startAyah: ayahNumber,
+          endAyah: endAyah,
+        );
       }
+    } else {
+      cubit.togglePlayAyah(
+        surahNumber: surahNumber,
+        ayahNumber: ayahNumber,
+      );
     }
-    final range = matched ?? (rawRanges.first as Map<dynamic, dynamic>);
-    final surahNum = int.parse(range['surah'].toString());
-    final startAyah = int.parse(range['start'].toString());
-
-    context.read<AyahAudioCubit>().togglePlayAyah(
-      surahNumber: surahNum,
-      ayahNumber: startAyah,
-    );
   }
+
+  // ── Long-press → options sheet ────────────────────────────────────────────
 
   /// Long press → show options sheet (bookmark / share / tafsir).
   void _onLongPress(int surah, int verse) async {
@@ -558,49 +637,37 @@ class _MushafPageViewState extends State<MushafPageView>
                         ),
                         Expanded(
                           key: MushafTutorialKeys.quranPage,
-                          child: _currentPageFontAvailable
-                              ? ValueListenableBuilder<List<HighlightVerse>>(
-                                  valueListenable: _highlightsNotifier,
-                                  builder: (_, highlights, __) =>
-                                      GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _onPageTap,
-                                    child: QuranPageView(
-                                      pageController: _pageController,
-                                      highlights: highlights,
-                                      isDarkMode: isDark,
-                                      isTajweed: _tajweedMode,
-                                      onPageChanged: (page) {
-                                        widget.onPageChanged?.call(page);
-                                        if (mounted) {
-                                          setState(() =>
-                                              _currentPageNum = page);
-                                        }
-                                        QcfFontDownloadService
-                                            .isPageAvailable(page)
-                                            .then((available) {
-                                          if (mounted) {
-                                            setState(() =>
-                                                _currentPageFontAvailable =
-                                                    available);
-                                          }
-                                        });
-                                      },
-                                      onLongPress: (surah, verse, details) =>
-                                          _onLongPress(surah, verse),
-                                      ayahStyle: TextStyle(color: textColor),
-                                    ),
-                                  ),
-                                )
-                              : GestureDetector(
-                                  behavior: HitTestBehavior.translucent,
-                                  onTap: () =>
-                                      _promptFontDownload(context),
-                                  child: QcfFallbackPage(
-                                    pageNumber: _currentPageNum,
+                          child: Stack(
+                            children: [
+                              ValueListenableBuilder<List<HighlightVerse>>(
+                                valueListenable: _highlightsNotifier,
+                                builder: (_, highlights, __) => QuranPageView(
+                                    pageController: _pageController,
+                                    highlights: highlights,
                                     isDarkMode: isDark,
+                                    isTajweed: _tajweedMode,
+                                    onPageChanged: _handleDisplayedPageChanged,
+                                    onAyahTap: _onAyahTap,
+                                    onLongPress: (surah, verse, details) =>
+                                        _onLongPress(surah, verse),
+                                    ayahStyle: TextStyle(color: textColor),
+                                    fallbackPageBuilder: (ctx, pageNum) =>
+                                        QcfFallbackPage(
+                                          pageNumber: pageNum,
+                                          isDarkMode: isDark,
+                                        ),
                                   ),
+                              ),
+                              // ── Download-fonts banner (only when current page is fallback) ──
+                              if (!_currentPageFontAvailable)
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: _buildDownloadFontsBanner(isDark),
                                 ),
+                            ],
+                          ),
                         ),
                         Directionality(
                           key: MushafTutorialKeys.pageFooter,
@@ -905,8 +972,70 @@ class _MushafPageViewState extends State<MushafPageView>
     );
   }
 
+  /// Compact banner shown when QCF Mushaf fonts are not yet downloaded.
+  /// Floats over the top of the fallback page and invites the user to
+  /// download the fonts for the full high-quality rendering.
+  Widget _buildDownloadFontsBanner(bool isDark) {
+    final bg = isDark
+        ? const Color(0xFF2A3A2E).withValues(alpha: 0.95)
+        : const Color(0xFFFFF3CD).withValues(alpha: 0.97);
+    final textCol = isDark ? const Color(0xFFFFE082) : const Color(0xFF7B4F00);
+    final btnCol = isDark ? const Color(0xFF4CAF50) : AppColors.primary;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border(
+            top: BorderSide(
+              color: isDark
+                  ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                  : AppColors.primary.withValues(alpha: 0.3),
+              width: 0.8,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(Icons.download_for_offline_rounded, size: 16, color: btnCol),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'خطوط المصحف غير مُحمَّلة',
+                style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  color: textCol,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _promptFontDownload(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: btnCol,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'تحميل',
+                  style: GoogleFonts.cairo(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTajweedToggle(bool isDark, int pageNumber) {
-    // Hide if tajweed feature flag is disabled (compile-time gate)
     if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
 
     final activeColor = isDark
@@ -958,85 +1087,154 @@ class _MushafPageViewState extends State<MushafPageView>
     final colorMap = isDark ? kTajweedColorsDark : kTajweedColorsLight;
     final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subColor = textColor.withValues(alpha: 0.55);
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.12)
         : Colors.black.withValues(alpha: 0.08);
+    final linkColor = isDark ? const Color(0xFF80CBC4) : AppColors.primary;
 
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: bg,
       builder: (ctx) {
-        return SafeArea(
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          builder: (_, scrollCtrl) => SafeArea(
+            child: Directionality(
+              textDirection: TextDirection.rtl,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: dividerColor,
-                      borderRadius: BorderRadius.circular(2),
+                  // ── Handle ──────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  Text(
-                    'دليل ألوان التجويد',
-                    style: GoogleFonts.arefRuqaa(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        Text(
+                          'دليل ألوان التجويد',
+                          style: GoogleFonts.arefRuqaa(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'اضغط مطولاً على زر التجويد لعرض هذا الدليل',
+                          style: GoogleFonts.cairo(
+                            fontSize: 10,
+                            color: subColor,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Divider(color: dividerColor, height: 1),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'اضغط مطولاً على زر التجويد لعرض هذا الدليل',
-                    style: GoogleFonts.arefRuqaa(
-                      fontSize: 10,
-                      color: textColor.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(color: dividerColor, height: 1),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: kLegendRules.map((rule) {
+                  // ── Rules list ──────────────────────────────────────
+                  Expanded(
+                    child: ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      children: [
+                        ...kLegendRules.map((rule) {
                           final color = colorMap[rule]!;
                           final name = kTajweedRuleNamesAr[rule] ?? '';
+                          final desc = kTajweedRuleDescriptionsAr[rule] ?? '';
                           return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(vertical: 7),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  width: 20,
-                                  height: 20,
+                                  width: 22,
+                                  height: 22,
+                                  margin: const EdgeInsets.only(top: 2),
                                   decoration: BoxDecoration(
                                     color: color,
-                                    borderRadius: BorderRadius.circular(5),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  name,
-                                  style: GoogleFonts.arefRuqaa(
-                                    fontSize: 13,
-                                    color: textColor,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: GoogleFonts.arefRuqaa(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                      if (desc.isNotEmpty)
+                                        Text(
+                                          desc,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: 10,
+                                            color: subColor,
+                                            height: 1.45,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           );
-                        }).toList(),
-                      ),
+                        }),
+                        // ── Divider ────────────────────────────────────
+                        const SizedBox(height: 6),
+                        Divider(color: dividerColor, height: 1),
+                        const SizedBox(height: 10),
+                        // ── Resource links ─────────────────────────────
+                        Text(
+                          'تعلّم التجويد',
+                          style: GoogleFonts.arefRuqaa(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _TajweedLinkRow(
+                          icon: Icons.language_rounded,
+                          label: 'دليل ألوان التجويد — alquran.cloud',
+                          url:
+                              'https://alquran.cloud/tajweed-guide',
+                          color: linkColor,
+                          textColor: textColor,
+                        ),
+                        const SizedBox(height: 6),
+                        _TajweedLinkRow(
+                          icon: Icons.play_circle_outline_rounded,
+                          label: 'دروس التجويد (يوتيوب)',
+                          url:
+                              'https://www.youtube.com/results?search_query=%D8%AF%D8%B1%D9%88%D8%B3+%D8%A7%D9%84%D8%AA%D8%AC%D9%88%D9%8A%D8%AF+%D9%84%D9%84%D9%85%D8%A8%D8%AA%D8%AF%D8%A6%D9%8A%D9%86',
+                          color: const Color(0xFFE53935),
+                          textColor: textColor,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
                 ],
@@ -1241,6 +1439,61 @@ class BorderOrnamentPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─── Tajweed legend resource link row ────────────────────────────────────────
+
+class _TajweedLinkRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String url;
+  final Color color;
+  final Color textColor;
+
+  const _TajweedLinkRow({
+    required this.icon,
+    required this.label,
+    required this.url,
+    required this.color,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.cairo(
+                  fontSize: 12,
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded,
+                size: 14, color: color.withValues(alpha: 0.65)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Recitation settings sheet (QCF Mushaf) ──────────────────────────────────

@@ -16,6 +16,7 @@ class QuranLine extends StatefulWidget {
         super.key,
         this.boxFit = BoxFit.fill,
         this.onLongPress,
+        this.onTap,
         this.ayahStyle,
         this.isTajweed = true,
         this.isDark = false,
@@ -25,6 +26,7 @@ class QuranLine extends StatefulWidget {
   final List<HighlightVerse> bookmarks;
   final BoxFit boxFit;
   final void Function(int surahNumber, int verseNumber, LongPressStartDetails details)? onLongPress;
+  final void Function(int surahNumber, int verseNumber)? onTap;
   final TextStyle? ayahStyle;
   final bool isTajweed;
   final bool isDark;
@@ -149,6 +151,7 @@ class _QuranLineState extends State<QuranLine> {
 
           return WidgetSpan(
             child: GestureDetector(
+              onTap: () => widget.onTap?.call(data.surahNumber, data.ayahNumber),
               onLongPressStart: (details) =>
                   widget.onLongPress?.call(data.surahNumber, data.ayahNumber, details),
               child: Container(

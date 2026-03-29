@@ -3,12 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qcf_quran_lite/qcf_quran_lite.dart'
-    show getVerseEndSymbol, getVerse;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:qcf_quran_plus/qcf_quran_plus.dart'
+  show getPageNumber, getVerse, getVerseEndSymbol, QuranTextStyles, QcfFontLoader;
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
-import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../../data/ruqyah_data.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1170,10 +1170,37 @@ class _ExpandedContent extends StatefulWidget {
 
 class _ExpandedContentState extends State<_ExpandedContent> {
   bool _showTranslation = false;
+  bool _qcfFontsLoaded = false;
 
   @override
   void initState() {
     super.initState();
+    _loadQcfFonts();
+  }
+
+  void _loadQcfFonts() {
+    final audio = widget.section.audio;
+    final firstVerse =
+        audio.type == RuqyahAudioType.fullSurah ? 1 : audio.startAyah!;
+    final lastVerse = audio.type == RuqyahAudioType.fullSurah
+        ? audio.numberOfAyahs!
+        : audio.endAyah!;
+
+    final pages = <int>{};
+    for (int v = firstVerse; v <= lastVerse; v++) {
+      try {
+        pages.add(getPageNumber(audio.surahNumber, v));
+      } catch (_) {}
+    }
+
+    if (pages.isEmpty || pages.every(QcfFontLoader.isFontLoaded)) {
+      _qcfFontsLoaded = true;
+      return;
+    }
+
+    Future.wait(pages.map(QcfFontLoader.ensureFontLoaded)).then((_) {
+      if (mounted) setState(() => _qcfFontsLoaded = true);
+    });
   }
 
   Widget _buildQcfContent(bool isDark) {
@@ -1201,20 +1228,26 @@ class _ExpandedContentState extends State<_ExpandedContent> {
     required Color textColor,
     required Color numberColor,
   }) {
-    final settings = context.read<AppSettingsCubit>().state;
-    final style = ArabicTextStyleHelper.quranFontStyle(
-      fontKey: settings.quranFont,
-      fontSize: settings.arabicFontSize,
-      fontWeight: FontWeight.w500,
-      color: textColor,
-      height: 2.1,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (firstVerse == 1 && surahNumber != 9)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              surahNumber == 97 || surahNumber == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: QuranTextStyles.basmallahStyle(
+                fontSize: 22,
+                color: textColor,
+              ),
+            ),
+          ),
         for (int v = firstVerse; v <= lastVerse; v++)
           Builder(builder: (context) {
             String text;
+            final pageNumber = getPageNumber(surahNumber, v);
             try {
               text = getVerse(surahNumber, v);
             } catch (_) {
@@ -1224,13 +1257,18 @@ class _ExpandedContentState extends State<_ExpandedContent> {
             return Text.rich(
               TextSpan(
                 text: text,
-                style: style,
+                style: QuranTextStyles.qcfStyle(
+                  pageNumber: pageNumber,
+                  color: textColor,
+                  fontSize: 26,
+                  height: 1.95,
+                ),
                 children: [
                   TextSpan(
-                    text: ' $endSymbol',
-                    style: TextStyle(
+                    text: ' ۝$endSymbol',
+                    style: GoogleFonts.amiriQuran(
                       color: numberColor,
-                      fontSize: settings.arabicFontSize,
+                      fontSize: 18,
                       height: 2.1,
                     ),
                   ),
@@ -1291,7 +1329,21 @@ class _ExpandedContentState extends State<_ExpandedContent> {
                     ),
                   ],
                 ),
-                child: _buildQcfContent(isDark),
+                child: _qcfFontsLoaded
+                    ? _buildQcfContent(isDark)
+                    : const SizedBox(
+                        height: 48,
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
               );
             }),
 
