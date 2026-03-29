@@ -216,10 +216,10 @@ class QuranSinglePageWidget extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return ListView.builder(
-          // Disable scrolling in portrait mode (fits perfectly), enable in landscape
-          physics: orientation == Orientation.portrait
-              ? const NeverScrollableScrollPhysics()
-              : const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           itemCount: page.lines.length,
           itemBuilder: (context, lineIndex) {
             final line = page.lines[lineIndex];
@@ -246,7 +246,7 @@ class QuranSinglePageWidget extends StatelessWidget {
 
             // Dynamically calculate the height of each line to ensure the text fills the page perfectly
             int linesCount = page.lines.isNotEmpty ? page.lines.length : 1;
-            double lineHeight = (availableHeight - surahHeaderOffset) * 0.95 / linesCount;
+            double lineHeight = (availableHeight - surahHeaderOffset) * 0.97 / linesCount;
 
             return Column(
               children: [

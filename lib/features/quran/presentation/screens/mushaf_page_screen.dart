@@ -373,6 +373,10 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
   bool _tutorialShown = false;
   bool _tajweedMode = false;
 
+  // ── Controls visibility (auto-hide after 5 s) ─────────────────────────────
+  bool _showControls = true;
+  Timer? _hideTimer;
+
   final Map<int, List<_Verse>> _cache = {};
   final Map<int, bool> _loading = {};
   final Map<int, Object?> _errors = {};
@@ -394,13 +398,27 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
       _showTutorialIfNeeded();
     });
 
+    _resetHideTimer();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pageCtrl.dispose();
     super.dispose();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _onPageTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _resetHideTimer();
   }
 
   void _showTutorialIfNeeded() {
@@ -457,7 +475,11 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
   }
 
   void _onPageChanged(int idx) {
-    setState(() => _currentPage = idx + 1);
+    setState(() {
+      _currentPage = idx + 1;
+      _showControls = true;
+    });
+    _resetHideTimer();
     _load(_currentPage);
     if (_currentPage < 604) _load(_currentPage + 1);
     if (_tajweedMode) {
@@ -471,7 +493,7 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
     final isDark = context.select<AppSettingsCubit, bool>(
       (c) => c.state.darkMode,
     );
-    final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
+    final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFDF6E3);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -525,6 +547,8 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
                         tajweedTexts: _tajweedCache[page],
                         tajweedLoading: _tajweedLoading[page] == true,
                         onToggleTajweed: _toggleTajweed,
+                        showControls: _showControls,
+                        onTap: _onPageTap,
                       );
                     },
                   ),
@@ -554,6 +578,8 @@ class _MushafPage extends StatelessWidget {
   final Map<String, String>? tajweedTexts;
   final bool tajweedLoading;
   final VoidCallback onToggleTajweed;
+  final bool showControls;
+  final VoidCallback onTap;
 
   const _MushafPage({
     required this.page,
@@ -569,6 +595,8 @@ class _MushafPage extends StatelessWidget {
     this.tajweedTexts,
     this.tajweedLoading = false,
     required this.onToggleTajweed,
+    this.showControls = true,
+    required this.onTap,
   });
 
   @override
@@ -643,15 +671,25 @@ class _MushafPage extends StatelessWidget {
       );
     }
 
-    return Column(
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.translucent,
+      child: Column(
         children: [
-          _MushafTopBar(
-            page: page,
-            verses: visibleVerses,
-            isDark: isDark,
-            attachKeys: isInitialPage,
-            tajweedMode: tajweedMode,
-            onToggleTajweed: onToggleTajweed,
+          AnimatedOpacity(
+            opacity: showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: IgnorePointer(
+              ignoring: !showControls,
+              child: _MushafTopBar(
+                page: page,
+                verses: visibleVerses,
+                isDark: isDark,
+                attachKeys: isInitialPage,
+                tajweedMode: tajweedMode,
+                onToggleTajweed: onToggleTajweed,
+              ),
+            ),
           ),
           Expanded(
             key: isInitialPage ? MushafTutorialKeys.quranPage : null,
@@ -663,7 +701,7 @@ class _MushafPage extends StatelessWidget {
                   physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics(),
                   ),
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPad),
                   child: _PageText(
                     verses: visibleVerses,
                     page: page,
@@ -686,12 +724,20 @@ class _MushafPage extends StatelessWidget {
               },
             ),
           ),
-          _MushafFooter(
-            key: isInitialPage ? MushafTutorialKeys.pageFooter : null,
-            page: page,
-            isDark: isDark,
+          AnimatedOpacity(
+            opacity: showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: IgnorePointer(
+              ignoring: !showControls,
+              child: _MushafFooter(
+                key: isInitialPage ? MushafTutorialKeys.pageFooter : null,
+                page: page,
+                isDark: isDark,
+              ),
+            ),
           ),
         ],
+      ),
     );
   }
 }
@@ -785,8 +831,7 @@ class _MushafTopBar extends StatelessWidget {
 
     return Container(
       key: attachKeys ? MushafTutorialKeys.topBar : null,
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: EdgeInsets.fromLTRB(10, topInset, 10, 0),
+      padding: EdgeInsets.fromLTRB(10, topInset*0.5, 10, 0),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
         gradient: LinearGradient(
@@ -797,9 +842,9 @@ class _MushafTopBar extends StatelessWidget {
         border: Border.all(color: goldBorder, width: 0.7),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 25,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),

@@ -235,6 +235,10 @@ class _MushafPageViewState extends State<MushafPageView>
   // Tracks whether the QCF font for the current page is available on disk.
   bool _currentPageFontAvailable = true;
 
+  // ── Controls visibility (auto-hide after 5 s) ─────────────────────────────
+  bool _showControls = true;
+  Timer? _hideTimer;
+
   // ── Init / dispose ─────────────────────────────────────────────────────────
 
   int _getStartPage() {
@@ -292,16 +296,31 @@ class _MushafPageViewState extends State<MushafPageView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showTutorialIfNeeded();
     });
+
+    _resetHideTimer();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _highlightAnimationController.dispose();
     _pageController.dispose();
     _highlightsNotifier.dispose();
     _playerCollapsed.dispose();
     super.dispose();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _onPageTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _resetHideTimer();
   }
 
   void _showTutorialIfNeeded() {
@@ -442,11 +461,12 @@ class _MushafPageViewState extends State<MushafPageView>
     if (mounted) {
       setState(() {
         _currentPageNum = page;
-        // Synchronous check — font loaded in engine?
         _currentPageFontAvailable = QcfFontLoader.isFontLoaded(page);
+        // Show controls briefly on every page flip.
+        _showControls = true;
       });
+      _resetHideTimer();
     }
-    // Also do an async disk check (covers fonts on disk but not yet loaded).
     QcfFontDownloadService.isPageAvailable(page).then((available) {
       if (mounted && _currentPageFontAvailable != available) {
         setState(() => _currentPageFontAvailable = available);
@@ -586,7 +606,7 @@ class _MushafPageViewState extends State<MushafPageView>
     const double kPlayerHeight = 220.0;
     // kPlayerCollapsedHeight removed — minimized player now floats over content.
 
-    final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
+    final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFDF6E3);
     final textColor = isDark
         ? const Color(0xFFE8E8E8)
         : const Color(0xFF1A1A1A);
@@ -639,55 +659,73 @@ class _MushafPageViewState extends State<MushafPageView>
                       bottom: playerVisible
                           ? (isCollapsed ? 0.0 : kPlayerHeight)
                           : 0.0,
-                      child: Column(
-                        children: [
-                          Directionality(
-                            textDirection: TextDirection.ltr,
-                            child: _buildTopBar(isDark, _currentPageNum),
-                          ),
-                          Expanded(
-                            key: MushafTutorialKeys.quranPage,
-                            child: Stack(
-                              children: [
-                                ValueListenableBuilder<List<HighlightVerse>>(
-                                  valueListenable: _highlightsNotifier,
-                                  builder: (_, highlights, __) => QuranPageView(
-                                    pageController: _pageController,
-                                    highlights: highlights,
+                      child: GestureDetector(
+                        onTap: _onPageTap,
+                        behavior: HitTestBehavior.translucent,
+                        child: Column(
+                          children: [
+                            AnimatedOpacity(
+                              opacity: _showControls ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: IgnorePointer(
+                                ignoring: !_showControls,
+                                child: Directionality(
+                                  textDirection: TextDirection.ltr,
+                                  child: _buildTopBar(isDark, _currentPageNum),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              key: MushafTutorialKeys.quranPage,
+                              child: Stack(
+                                children: [
+                                  ValueListenableBuilder<List<HighlightVerse>>(
+                                    valueListenable: _highlightsNotifier,
+                                    builder: (_, highlights, __) => QuranPageView(
+                                      pageController: _pageController,
+                                      highlights: highlights,
+                                      isDarkMode: isDark,
+                                      isTajweed: _tajweedMode,
+                                      onPageChanged: _handleDisplayedPageChanged,
+                                      onAyahTap: _onAyahTap,
+                                      onLongPress: (surah, verse, details) =>
+                                          _onLongPress(surah, verse),
+                                      ayahStyle: TextStyle(color: textColor),
+                                      fallbackPageBuilder: (ctx, pageNum) =>
+                                          QcfFallbackPage(
+                                            pageNumber: pageNum,
+                                            isDarkMode: isDark,
+                                          ),
+                                    ),
+                                  ),
+                                  // ── Download-fonts banner (only when current page is fallback) ──
+                                  if (!_currentPageFontAvailable)
+                                    Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: _buildDownloadFontsBanner(isDark),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            AnimatedOpacity(
+                              opacity: _showControls ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: IgnorePointer(
+                                ignoring: !_showControls,
+                                child: Directionality(
+                                  key: MushafTutorialKeys.pageFooter,
+                                  textDirection: TextDirection.ltr,
+                                  child: _buildDecorativeFooter(
+                                    _currentPageNum,
                                     isDarkMode: isDark,
-                                    isTajweed: _tajweedMode,
-                                    onPageChanged: _handleDisplayedPageChanged,
-                                    onAyahTap: _onAyahTap,
-                                    onLongPress: (surah, verse, details) =>
-                                        _onLongPress(surah, verse),
-                                    ayahStyle: TextStyle(color: textColor),
-                                    fallbackPageBuilder: (ctx, pageNum) =>
-                                        QcfFallbackPage(
-                                          pageNumber: pageNum,
-                                          isDarkMode: isDark,
-                                        ),
                                   ),
                                 ),
-                                // ── Download-fonts banner (only when current page is fallback) ──
-                                if (!_currentPageFontAvailable)
-                                  Positioned(
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    child: _buildDownloadFontsBanner(isDark),
-                                  ),
-                              ],
+                              ),
                             ),
-                          ),
-                          Directionality(
-                            key: MushafTutorialKeys.pageFooter,
-                            textDirection: TextDirection.ltr,
-                            child: _buildDecorativeFooter(
-                              _currentPageNum,
-                              isDarkMode: isDark,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -978,9 +1016,7 @@ class _MushafPageViewState extends State<MushafPageView>
 
     return Container(
       key: isInitialPage ? MushafTutorialKeys.topBar : null,
-      margin: const EdgeInsets.only(bottom: 4),
-      //TODO
-      padding: EdgeInsets.fromLTRB(10, topInset/2, 10, 0),
+      padding: EdgeInsets.fromLTRB(10, topInset*0.5, 10, 0),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
         gradient: LinearGradient(
@@ -991,9 +1027,9 @@ class _MushafPageViewState extends State<MushafPageView>
         border: Border.all(color: goldBorder, width: 0.7),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 25,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1411,7 +1447,7 @@ class IslamicPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withValues(alpha: 0.03)
+      ..color = color.withValues(alpha: 0.015)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -1444,7 +1480,7 @@ class BorderOrnamentPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeColor = color.withValues(alpha: 0.30);
+    final strokeColor = color.withValues(alpha: 0.12);
     final outerPaint = Paint()
       ..color = strokeColor
       ..style = PaintingStyle.stroke
@@ -1454,7 +1490,7 @@ class BorderOrnamentPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
     final fillPaint = Paint()
-      ..color = strokeColor.withValues(alpha: 0.12)
+      ..color = strokeColor.withValues(alpha: 0.05)
       ..style = PaintingStyle.fill;
 
     const margin = 9.0;

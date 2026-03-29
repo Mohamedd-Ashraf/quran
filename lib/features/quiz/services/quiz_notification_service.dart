@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../../core/services/settings_service.dart';
 import '../data/quiz_repository.dart';
 
 /// Manages daily quiz reminder notifications.
@@ -53,6 +54,10 @@ class QuizNotificationService {
 
   /// Schedules a daily reminder. Rotates through 7 motivational messages.
   Future<void> scheduleDailyReminder() async {
+    if (!SettingsService.enableQuizFeature) {
+      await cancelAll();
+      return;
+    }
     if (!_repository.notificationsEnabled) return;
 
     await cancelAll();
