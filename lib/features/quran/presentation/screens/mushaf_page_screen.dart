@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -372,6 +373,10 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
   bool _tutorialShown = false;
   bool _tajweedMode = false;
 
+  // ── Controls visibility (tap-to-show/hide) ─────────────────────────────────
+  bool _showControls = true;
+  Timer? _hideTimer;
+
   final Map<int, List<_Verse>> _cache = {};
   final Map<int, bool> _loading = {};
   final Map<int, Object?> _errors = {};
@@ -383,6 +388,7 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _currentPage = widget.initialPage;
     _pageCtrl = PageController(initialPage: widget.initialPage - 1);
     _load(_currentPage);
@@ -390,25 +396,29 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showTutorialIfNeeded();
-      if (!mounted) return;
-      final isDark = context.read<AppSettingsCubit>().state.darkMode;
-      final bgColor =
-          isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: bgColor,
-        statusBarIconBrightness:
-            isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-      ));
     });
+
+    _resetHideTimer();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pageCtrl.dispose();
-    // Restore status bar style for screens that have an AppBar with green bg
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
     super.dispose();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _onPageTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _resetHideTimer();
   }
 
   void _showTutorialIfNeeded() {
@@ -482,17 +492,18 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
     final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFFFF9ED);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: bgColor,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: bgColor,
         body: SafeArea(
           bottom: false,
+          top: false,
           child: Container(
-            color: bgColor,
+          color: bgColor,
           child: Stack(
             children: [
               Positioned.fill(
@@ -532,6 +543,8 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
                         tajweedTexts: _tajweedCache[page],
                         tajweedLoading: _tajweedLoading[page] == true,
                         onToggleTajweed: _toggleTajweed,
+                        showControls: _showControls,
+                        onTap: _onPageTap,
                       );
                     },
                   ),
@@ -561,6 +574,8 @@ class _MushafPage extends StatelessWidget {
   final Map<String, String>? tajweedTexts;
   final bool tajweedLoading;
   final VoidCallback onToggleTajweed;
+  final bool showControls;
+  final VoidCallback onTap;
 
   const _MushafPage({
     required this.page,
@@ -576,6 +591,8 @@ class _MushafPage extends StatelessWidget {
     this.tajweedTexts,
     this.tajweedLoading = false,
     required this.onToggleTajweed,
+    this.showControls = true,
+    required this.onTap,
   });
 
   @override
@@ -650,55 +667,73 @@ class _MushafPage extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        _MushafTopBar(
-          page: page,
-          verses: visibleVerses,
-          isDark: isDark,
-          attachKeys: isInitialPage,
-          tajweedMode: tajweedMode,
-          onToggleTajweed: onToggleTajweed,
-        ),
-        Expanded(
-          key: isInitialPage ? MushafTutorialKeys.quranPage : null,
-          child: BlocBuilder<AyahAudioCubit, AyahAudioState>(
-            builder: (ctx, audioState) {
-              final playerVisible = audioState.status != AyahAudioStatus.idle;
-              final notifier = playerCollapsedNotifier;
-              Widget scrollView(double bottomPad) => SingleChildScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
-                child: _PageText(
-                  verses: visibleVerses,
-                  page: page,
-                  focusSurahNumber: focusSurahNumber,
-                  focusAyahNumber: focusAyahNumber,
-                  tajweedMode: tajweedMode,
-                  tajweedTexts: tajweedTexts,
-                  tajweedLoading: tajweedLoading,
-                ),
-              );
-              if (notifier != null) {
-                return ValueListenableBuilder<bool>(
-                  valueListenable: notifier,
-                  builder: (ctx, isCollapsed, _) => scrollView(
-                    playerVisible ? (isCollapsed ? 8.0 : 220.0) : 8,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        children: [
+          AnimatedOpacity(
+            opacity: showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: IgnorePointer(
+              ignoring: !showControls,
+              child: _MushafTopBar(
+                page: page,
+                verses: visibleVerses,
+                isDark: isDark,
+                attachKeys: isInitialPage,
+                tajweedMode: tajweedMode,
+                onToggleTajweed: onToggleTajweed,
+              ),
+            ),
+          ),
+          Expanded(
+            key: isInitialPage ? MushafTutorialKeys.quranPage : null,
+            child: BlocBuilder<AyahAudioCubit, AyahAudioState>(
+              builder: (ctx, audioState) {
+                final playerVisible = audioState.status != AyahAudioStatus.idle;
+                final notifier = playerCollapsedNotifier;
+                Widget scrollView(double bottomPad) => SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
+                  child: _PageText(
+                    verses: visibleVerses,
+                    page: page,
+                    focusSurahNumber: focusSurahNumber,
+                    focusAyahNumber: focusAyahNumber,
+                    tajweedMode: tajweedMode,
+                    tajweedTexts: tajweedTexts,
+                    tajweedLoading: tajweedLoading,
                   ),
                 );
-              }
-              return scrollView(playerVisible ? 220.0 : 8);
-            },
+                if (notifier != null) {
+                  return ValueListenableBuilder<bool>(
+                    valueListenable: notifier,
+                    builder: (ctx, isCollapsed, _) => scrollView(
+                      playerVisible ? (isCollapsed ? 8.0 : 220.0) : 8,
+                    ),
+                  );
+                }
+                return scrollView(playerVisible ? 220.0 : 8);
+              },
+            ),
           ),
-        ),
-        _MushafFooter(
-          key: isInitialPage ? MushafTutorialKeys.pageFooter : null,
-          page: page,
-          isDark: isDark,
-        ),
-      ],
+          AnimatedOpacity(
+            opacity: showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: IgnorePointer(
+              ignoring: !showControls,
+              child: _MushafFooter(
+                key: isInitialPage ? MushafTutorialKeys.pageFooter : null,
+                page: page,
+                isDark: isDark,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -768,63 +803,103 @@ class _MushafTopBar extends StatelessWidget {
     return n > 0 && n < _kSurahNames.length ? _kSurahNames[n] : '';
   }
 
+  // ── Premium Mushaf color constants ──
+  static const _kBarTealLight = Color(0xFF3C9A80);
+  static const _kBarTealDark  = Color(0xFF2A7F6B);
+  static const _kBarTealDarkModeLight = Color(0xFF1A5244);
+  static const _kBarTealDarkModeDark  = Color(0xFF133D31);
+  static const _kGoldText   = Color(0xFFEDE3B7);
+  static const _kGoldBorder = Color(0xFFE6D9A8);
+
   @override
   Widget build(BuildContext context) {
-    final textColor = isDark
-        ? Colors.white.withValues(alpha: 0.88)
-        : const Color(0xFF3D1C00);
-    final dividerColor = isDark
-        ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
+    final topInset      = MediaQuery.of(context).padding.top;
+    final gradientStart = isDark ? _kBarTealDarkModeLight : _kBarTealLight;
+    final gradientEnd   = isDark ? _kBarTealDarkModeDark  : _kBarTealDark;
+    final goldColor     = _kGoldText;
+    final goldBorder    = _kGoldBorder.withValues(alpha: 0.28);
+    final ornamentColor = goldColor.withValues(alpha: 0.50);
     final labelStyle = GoogleFonts.cairo(
-      fontSize: 12,
-      fontWeight: FontWeight.w700,
-      color: textColor,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: goldColor,
     );
 
     return Container(
       key: attachKeys ? MushafTutorialKeys.topBar : null,
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.fromLTRB(10, topInset, 10, 0),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: dividerColor, width: 0.8)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _TopBarPlayButton(
-            verses: verses,
-            tutorialKey: attachKeys ? MushafTutorialKeys.playButton : null,
-          ),
-          _TopBarRecitationSettingsButton(isDark: isDark),
-          _TajweedToggleButton(
-            isActive: tajweedMode,
-            isDark: isDark,
-            onToggle: onToggleTajweed,
-          ),
-          Text(
-            'الجزء $_juzName',
-            style: labelStyle,
-            textDirection: TextDirection.rtl,
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                '❧',
-                style: TextStyle(color: dividerColor, fontSize: 14, height: 1),
-              ),
-            ),
-          ),
-          Text(
-            _surahLabel,
-            style: labelStyle,
-            textDirection: TextDirection.rtl,
-          ),
-          _TopBarBookmarkButton(
-            page: page,
-            tutorialKey: attachKeys ? MushafTutorialKeys.bookmarkButton : null,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [gradientStart, gradientEnd],
+        ),
+        border: Border.all(color: goldBorder, width: 0.7),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 25,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      foregroundDecoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 1.5,
+          colors: [
+            Color(0x1FEDE3B7), // subtle golden centre glow
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: SizedBox(
+        height: 50,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _TopBarPlayButton(
+              verses: verses,
+              tutorialKey: attachKeys ? MushafTutorialKeys.playButton : null,
+            ),
+            const SizedBox(width: 6),
+            _TopBarRecitationSettingsButton(isDark: isDark),
+            const SizedBox(width: 8),
+            _TajweedToggleButton(
+              isActive: tajweedMode,
+              isDark: isDark,
+              onToggle: onToggleTajweed,
+            ),
+            Text(
+              'الجزء $_juzName',
+              style: labelStyle,
+              textDirection: TextDirection.rtl,
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '❧',
+                  style: TextStyle(
+                    color: ornamentColor,
+                    fontSize: 16,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+            Text(
+              _surahLabel,
+              style: labelStyle,
+              textDirection: TextDirection.rtl,
+            ),
+            _TopBarBookmarkButton(
+              page: page,
+              tutorialKey: attachKeys ? MushafTutorialKeys.bookmarkButton : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -859,9 +934,12 @@ class _TopBarPlayButton extends StatelessWidget {
         final isPagePaused =
             isPageActive && audioState.status == AyahAudioStatus.paused;
 
-        return IconButton(
+        // Premium golden circle play button
+        final isActive = isPagePlaying || isPagePaused;
+        const goldColor = Color(0xFFD4B877);
+        return GestureDetector(
           key: tutorialKey,
-          onPressed: () {
+          onTap: () {
             final cubit = context.read<AyahAudioCubit>();
             if (isPagePlaying) {
               cubit.pause();
@@ -875,15 +953,32 @@ class _TopBarPlayButton extends StatelessWidget {
               );
             }
           },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          iconSize: 20,
-          icon: Icon(
-            isPagePlaying ? Icons.pause_circle : Icons.play_circle,
-            color: (isPagePlaying || isPagePaused)
-                ? AppColors.secondary
-                : AppColors.primary.withValues(alpha: 0.6),
-            size: 20,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive
+                    ? goldColor
+                    : goldColor.withValues(alpha: 0.55),
+                width: 1.5,
+              ),
+              color: isActive
+                  ? goldColor.withValues(alpha: 0.12)
+                  : Colors.transparent,
+            ),
+            child: Center(
+              child: Icon(
+                isPagePlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: isActive
+                    ? goldColor
+                    : goldColor.withValues(alpha: 0.7),
+                size: 20,
+              ),
+            ),
           ),
         );
       },
@@ -911,12 +1006,8 @@ class _TajweedToggleButton extends StatelessWidget {
     // Hide button if tajweed feature flag is disabled (compile-time gate)
     if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
 
-    final activeColor = isDark
-        ? const Color(0xFF69F0AE)
-        : const Color(0xFF169200);
-    final inactiveColor = isDark
-        ? Colors.white.withValues(alpha: 0.45)
-        : AppColors.primary.withValues(alpha: 0.45);
+    final activeColor = const Color(0xFFB8E6C8);  // Soft mint visible on teal
+    final inactiveColor = const Color(0xFFD4B877).withValues(alpha: 0.5);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -934,14 +1025,16 @@ class _TajweedToggleButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
             decoration: BoxDecoration(
               color: isActive
-                  ? activeColor.withValues(alpha: 0.15)
+                  ? activeColor.withValues(alpha: 0.18)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isActive ? activeColor : Colors.transparent,
+                color: isActive
+                    ? activeColor.withValues(alpha: 0.6)
+                    : Colors.transparent,
                 width: 1,
               ),
             ),
@@ -953,11 +1046,11 @@ class _TajweedToggleButton extends StatelessWidget {
                   size: 15,
                   color: isActive ? activeColor : inactiveColor,
                 ),
-                const SizedBox(width: 2),
+                const SizedBox(width: 3),
                 Text(
                   'تجويد',
                   style: GoogleFonts.cairo(
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     color: isActive ? activeColor : inactiveColor,
                   ),
@@ -1123,12 +1216,12 @@ class _TopBarBookmarkButtonState extends State<_TopBarBookmarkButton> {
       },
       key: widget.tutorialKey,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      iconSize: 20,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+      iconSize: 22,
       icon: Icon(
-        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-        color: AppColors.secondary,
-        size: 20,
+        isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+        color: const Color(0xFFD4B877),
+        size: 22,
       ),
     );
   }
@@ -1142,15 +1235,16 @@ class _TopBarRecitationSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDark
-        ? Colors.white.withValues(alpha: 0.65)
-        : AppColors.primary.withValues(alpha: 0.55);
     return IconButton(
       onPressed: () => _showRecitationSettingsSheet(context),
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
       iconSize: 18,
-      icon: Icon(Icons.tune_rounded, color: color, size: 18),
+      icon: Icon(
+        Icons.tune_rounded,
+        color: const Color(0xFFD4B877).withValues(alpha: 0.65),
+        size: 18,
+      ),
       tooltip: 'إعدادات التلاوة',
     );
   }
@@ -1703,53 +1797,175 @@ class _MushafFooter extends StatelessWidget {
   final bool isDark;
   const _MushafFooter({super.key, required this.page, required this.isDark});
 
+  static const _tealL    = Color(0xFF2A7F6B);
+  static const _tealD    = Color(0xFF1F6F5E);
+  static const _tealBot  = Color(0xFF3C9A80);
+  static const _darkL    = Color(0xFF1A5244);
+  static const _darkD    = Color(0xFF133D31);
+  static const _borderCol = Color(0xFFE6D9A8);
+  static const _textCol   = Color(0xFFF5E6B5);
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final dividerColor = isDark
-        ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
+    final barTop = isDark ? _darkD : _tealL;
+    final barBot = isDark ? _darkL : _tealBot;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          height: 24,
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
-          ),
-          alignment: Alignment.center,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/logo/files/transparent/label.png',
-                height: 18,
-                color: isDark ? Colors.white.withValues(alpha: 0.80) : null,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 2),
-                child: Text(
-                  _toArabicNum(page),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF3D1C00),
-                  ),
+    const barH         = 80.0;
+    const pillOverflow = 30.0;
+
+    return SizedBox(
+      height: barH + pillOverflow + bottomInset,
+      width: double.infinity,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          // ── Main bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: barH + bottomInset,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [barTop, barBot],
                 ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(45),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, -8),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-        if (bottomInset > 0) SizedBox(height: bottomInset),
-      ],
+          // ── Ornamental frame (PNG) + page number
+          Positioned(
+            top: 0,
+            child: SizedBox(
+              width: 210,
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logo/files/page_number.png',
+                    width: 210,
+                    height: 60,
+                    color: _borderCol,
+                    colorBlendMode: BlendMode.srcIn,
+                    fit: BoxFit.fill,
+                  ),
+                  Text(
+                    _toArabicNum(page),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: _textCol,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+// ─── Ornamental dome footer painter ──────────────────────────────────────────
+
+/// Paints the Mushaf footer: a horizontal bar with rounded top corners and
+/// a smooth dome/arch extending upward from the center (ornamental cartouche
+/// for the page number). Matches the classic Mushaf reference design.
+class _MushafFooterShapePainter extends CustomPainter {
+  final Color colorTop;
+  final Color colorBottom;
+  final Color borderColor;
+
+  _MushafFooterShapePainter({
+    required this.colorTop,
+    required this.colorBottom,
+    required this.borderColor,
+  });
+
+  static const double _cR = 16.0;  // corner radius
+  static const double _dW = 94.0;  // dome width at bar level
+  static const double _dH = 28.0;  // dome height above bar
+
+  Path _footerPath(Size s) {
+    final cx = s.width / 2;
+    const barTop = _dH;
+    return Path()
+      ..moveTo(0, s.height)
+      ..lineTo(0, barTop + _cR)
+      ..quadraticBezierTo(0, barTop, _cR, barTop)
+      ..lineTo(cx - _dW / 2, barTop)
+      ..cubicTo(
+          cx - _dW * 0.28, barTop,
+          cx - _dW * 0.18, 1.5,
+          cx, 1.5)
+      ..cubicTo(
+          cx + _dW * 0.18, 1.5,
+          cx + _dW * 0.28, barTop,
+          cx + _dW / 2, barTop)
+      ..lineTo(s.width - _cR, barTop)
+      ..quadraticBezierTo(s.width, barTop, s.width, barTop + _cR)
+      ..lineTo(s.width, s.height)
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _footerPath(size);
+
+    // Soft shadow
+    canvas.drawPath(
+      path.shift(const Offset(0, -1)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.10)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+
+    // Gradient fill
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [colorTop, colorBottom],
+        ).createShader(Offset.zero & size),
+    );
+
+    // Gold border stroke
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MushafFooterShapePainter old) =>
+      old.colorTop != colorTop ||
+      old.colorBottom != colorBottom ||
+      old.borderColor != borderColor;
+}
+
 // ─── Continuous page text ─────────────────────────────────────────────────────
-// Verses are grouped by surah so a Basmala can be inserted between surahs.
 // Long-pressing the ayah text or its circle opens tafsir; tapping plays audio.
 // Highlight follows the audio cubit so the active ayah is visually marked.
 class _PageText extends StatefulWidget {

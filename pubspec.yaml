@@ -178,6 +178,7 @@ flutter:
     - assets/hadith/
     - assets/logo/button icons/hadith.png
     - assets/logo/button icons/calendar.png
+    - assets/logo/files/page_number.png
     # - assets/sound/ # Commented out to reduce size as it seems unused and contains images?
 
   # An image asset can refer to one or more resolution-specific "variants", see

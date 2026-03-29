@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -233,6 +234,10 @@ class _MushafPageViewState extends State<MushafPageView>
   // Tracks whether the QCF font for the current page is available on disk.
   bool _currentPageFontAvailable = true;
 
+  // ── Controls visibility (tap-to-show/hide) ─────────────────────────────────
+  bool _showControls = true;
+  Timer? _hideTimer;
+
   // ── Init / dispose ─────────────────────────────────────────────────────────
 
   int _getStartPage() {
@@ -247,6 +252,7 @@ class _MushafPageViewState extends State<MushafPageView>
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _bookmarkService = di.sl<BookmarkService>();
 
     // Restore tajweed mode from persisted settings.
@@ -289,15 +295,31 @@ class _MushafPageViewState extends State<MushafPageView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showTutorialIfNeeded();
     });
+
+    _resetHideTimer();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _highlightAnimationController.dispose();
     _pageController.dispose();
     _highlightsNotifier.dispose();
     _playerCollapsed.dispose();
     super.dispose();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _onPageTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _resetHideTimer();
   }
 
   void _showTutorialIfNeeded() {
@@ -588,13 +610,20 @@ class _MushafPageViewState extends State<MushafPageView>
         ? const Color(0xFFE8E8E8)
         : const Color(0xFF1A1A1A);
 
-    return BlocListener<AyahAudioCubit, AyahAudioState>(
-      listener: (_, state) => _syncAudioHighlights(state),
-      child: Scaffold(
-        key: _scaffoldKey,
-        body: SafeArea(
-          bottom: false,
-          child: Container(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: BlocListener<AyahAudioCubit, AyahAudioState>(
+        listener: (_, state) => _syncAudioHighlights(state),
+        child: Scaffold(
+          key: _scaffoldKey,
+          body: SafeArea(
+            bottom: false,
+            top: false,
+            child: Container(
             color: bgColor,
             child: Stack(
               children: [
@@ -629,55 +658,73 @@ class _MushafPageViewState extends State<MushafPageView>
                     bottom: playerVisible
                         ? (isCollapsed ? 0.0 : kPlayerHeight)
                         : 0.0,
-                    child: Column(
-                      children: [
-                        Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: _buildTopBar(isDark, _currentPageNum),
-                        ),
-                        Expanded(
-                          key: MushafTutorialKeys.quranPage,
-                          child: Stack(
-                            children: [
-                              ValueListenableBuilder<List<HighlightVerse>>(
-                                valueListenable: _highlightsNotifier,
-                                builder: (_, highlights, __) => QuranPageView(
-                                    pageController: _pageController,
-                                    highlights: highlights,
-                                    isDarkMode: isDark,
-                                    isTajweed: _tajweedMode,
-                                    onPageChanged: _handleDisplayedPageChanged,
-                                    onAyahTap: _onAyahTap,
-                                    onLongPress: (surah, verse, details) =>
-                                        _onLongPress(surah, verse),
-                                    ayahStyle: TextStyle(color: textColor),
-                                    fallbackPageBuilder: (ctx, pageNum) =>
-                                        QcfFallbackPage(
-                                          pageNumber: pageNum,
-                                          isDarkMode: isDark,
-                                        ),
-                                  ),
+                    child: GestureDetector(
+                      onTap: _onPageTap,
+                      behavior: HitTestBehavior.translucent,
+                      child: Column(
+                        children: [
+                          AnimatedOpacity(
+                            opacity: _showControls ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: IgnorePointer(
+                              ignoring: !_showControls,
+                              child: Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: _buildTopBar(isDark, _currentPageNum),
                               ),
-                              // ── Download-fonts banner (only when current page is fallback) ──
-                              if (!_currentPageFontAvailable)
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: _buildDownloadFontsBanner(isDark),
+                            ),
+                          ),
+                          Expanded(
+                            key: MushafTutorialKeys.quranPage,
+                            child: Stack(
+                              children: [
+                                ValueListenableBuilder<List<HighlightVerse>>(
+                                  valueListenable: _highlightsNotifier,
+                                  builder: (_, highlights, __) => QuranPageView(
+                                      pageController: _pageController,
+                                      highlights: highlights,
+                                      isDarkMode: isDark,
+                                      isTajweed: _tajweedMode,
+                                      onPageChanged: _handleDisplayedPageChanged,
+                                      onAyahTap: _onAyahTap,
+                                      onLongPress: (surah, verse, details) =>
+                                          _onLongPress(surah, verse),
+                                      ayahStyle: TextStyle(color: textColor),
+                                      fallbackPageBuilder: (ctx, pageNum) =>
+                                          QcfFallbackPage(
+                                            pageNumber: pageNum,
+                                            isDarkMode: isDark,
+                                          ),
+                                    ),
                                 ),
-                            ],
+                                // ── Download-fonts banner (only when current page is fallback) ──
+                                if (!_currentPageFontAvailable)
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: _buildDownloadFontsBanner(isDark),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Directionality(
-                          key: MushafTutorialKeys.pageFooter,
-                          textDirection: TextDirection.ltr,
-                          child: _buildDecorativeFooter(
-                            _currentPageNum,
-                            isDarkMode: isDark,
+                          AnimatedOpacity(
+                            opacity: _showControls ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: IgnorePointer(
+                              ignoring: !_showControls,
+                              child: Directionality(
+                                key: MushafTutorialKeys.pageFooter,
+                                textDirection: TextDirection.ltr,
+                                child: _buildDecorativeFooter(
+                                  _currentPageNum,
+                                  isDarkMode: isDark,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -699,7 +746,8 @@ class _MushafPageViewState extends State<MushafPageView>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildPageBookmarkButton(int pageNumber, {bool attachKey = false}) {
@@ -757,14 +805,14 @@ class _MushafPageViewState extends State<MushafPageView>
             setLocalState(() {});
           },
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          iconSize: 20,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+          iconSize: 22,
           icon: Icon(
             _bookmarkService.isBookmarked(pageId)
-                ? Icons.bookmark
-                : Icons.bookmark_border,
-            color: AppColors.secondary,
-            size: 20,
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            color: _kGoldText,
+            size: 22,
           ),
           tooltip: widget.isArabicUi ? 'إشارة مرجعية' : 'Bookmark',
         );
@@ -810,9 +858,11 @@ class _MushafPageViewState extends State<MushafPageView>
         final isPagePaused =
             isPageActive && audioState.status == AyahAudioStatus.paused;
 
-        return IconButton(
+        // Premium golden circle play button
+        final isActive = isPagePlaying || isPagePaused;
+        return GestureDetector(
           key: attachKey ? MushafTutorialKeys.playButton : null,
-          onPressed: () {
+          onTap: () {
             if (isPagePlaying) {
               context.read<AyahAudioCubit>().pause();
             } else if (isPagePaused) {
@@ -825,32 +875,52 @@ class _MushafPageViewState extends State<MushafPageView>
               );
             }
           },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          iconSize: 20,
-          icon: Icon(
-            isPagePlaying ? Icons.pause_circle : Icons.play_circle,
-            color: (isPagePlaying || isPagePaused)
-                ? AppColors.secondary
-                : AppColors.primary.withValues(alpha: 0.6),
-            size: 20,
+          child: Tooltip(
+            message: widget.isArabicUi ? 'تشغيل الصفحة' : 'Play page',
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isActive
+                      ? _kGoldText
+                      : _kGoldText.withValues(alpha: 0.55),
+                  width: 1.5,
+                ),
+                color: isActive
+                    ? _kGoldText.withValues(alpha: 0.12)
+                    : Colors.transparent,
+              ),
+              child: Center(
+                child: Icon(
+                  isPagePlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  color: isActive
+                      ? _kGoldText
+                      : _kGoldText.withValues(alpha: 0.7),
+                  size: 20,
+                ),
+              ),
+            ),
           ),
-          tooltip: widget.isArabicUi ? 'تشغيل الصفحة' : 'Play page',
         );
       },
     );
   }
 
   Widget _buildRecitationSettingsButton(bool isDark) {
-    final color = isDark
-        ? Colors.white.withValues(alpha: 0.65)
-        : AppColors.primary.withValues(alpha: 0.55);
     return IconButton(
       onPressed: () => _showMushafRecitationSettings(context),
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
       iconSize: 18,
-      icon: Icon(Icons.tune_rounded, color: color, size: 18),
+      icon: Icon(
+        Icons.tune_rounded,
+        color: _kGoldText.withValues(alpha: 0.65),
+        size: 18,
+      ),
       tooltip: 'إعدادات التلاوة',
     );
   }
@@ -921,53 +991,97 @@ class _MushafPageViewState extends State<MushafPageView>
     return widget.surah.name;
   }
 
+  // ── Premium Mushaf color constants ─────────────────────────────────────
+  static const _kBarTealLight = Color(0xFF3C9A80);
+  static const _kBarTealDark  = Color(0xFF2A7F6B);
+  static const _kBarTealDarkModeLight = Color(0xFF1A5244);
+  static const _kBarTealDarkModeDark  = Color(0xFF133D31);
+  static const _kGoldText   = Color(0xFFEDE3B7);
+  static const _kGoldBorder = Color(0xFFE6D9A8);
+
   Widget _buildTopBar(bool isDark, int pageNumber) {
     final isInitialPage = pageNumber == _startPage;
-    final textColor = isDark
-        ? Colors.white.withValues(alpha: 0.88)
-        : const Color(0xFF3D1C00);
-    final dividerColor = isDark
-        ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
+    final topInset      = MediaQuery.of(context).padding.top;
+
+    final gradientStart = isDark ? _kBarTealDarkModeLight : _kBarTealLight;
+    final gradientEnd   = isDark ? _kBarTealDarkModeDark  : _kBarTealDark;
+    final goldColor     = _kGoldText;
+    final goldBorder    = _kGoldBorder.withValues(alpha: 0.28);
+    final ornamentColor = goldColor.withValues(alpha: 0.50);
+
     final labelStyle = GoogleFonts.arefRuqaa(
-      fontSize: 12,
-      fontWeight: FontWeight.w700,
-      color: textColor,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: goldColor,
     );
+
     return Container(
       key: isInitialPage ? MushafTutorialKeys.topBar : null,
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.fromLTRB(10, topInset, 10, 0),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: dividerColor, width: 0.8)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _buildPagePlayButton(pageNumber, attachKey: isInitialPage),
-          _buildRecitationSettingsButton(isDark),
-          Text(
-            'الجزء ${_juzName(_juzForPage(pageNumber))}',
-            style: labelStyle,
-            textDirection: TextDirection.rtl,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [gradientStart, gradientEnd],
+        ),
+        border: Border.all(color: goldBorder, width: 0.7),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 25,
+            offset: const Offset(0, 8),
           ),
-          Expanded(
-            child: Center(
-              child: Text(
-                '❧',
-                style: TextStyle(color: dividerColor, fontSize: 14, height: 1),
+        ],
+      ),
+      foregroundDecoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 1.5,
+          colors: [
+            Color(0x1FEDE3B7), // subtle golden centre glow
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: SizedBox(
+        height: 50,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildPagePlayButton(pageNumber, attachKey: isInitialPage),
+            const SizedBox(width: 6),
+            _buildRecitationSettingsButton(isDark),
+            const SizedBox(width: 8),
+            Text(
+              'الجزء ${_juzName(_juzForPage(pageNumber))}',
+              style: labelStyle,
+              textDirection: TextDirection.rtl,
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '❧',
+                  style: TextStyle(
+                    color: ornamentColor,
+                    fontSize: 16,
+                    height: 1,
+                  ),
+                ),
               ),
             ),
-          ),
-          Text(
-            _pageLabel(pageNumber),
-            style: labelStyle,
-            textDirection: TextDirection.rtl,
-          ),
-          const SizedBox(width: 4),
-          _buildTajweedToggle(isDark, pageNumber),
-          _buildPageBookmarkButton(pageNumber, attachKey: isInitialPage),
-        ],
+            Text(
+              _pageLabel(pageNumber),
+              style: labelStyle,
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(width: 8),
+            _buildTajweedToggle(isDark, pageNumber),
+            const SizedBox(width: 4),
+            _buildPageBookmarkButton(pageNumber, attachKey: isInitialPage),
+          ],
+        ),
       ),
     );
   }
@@ -1038,26 +1152,24 @@ class _MushafPageViewState extends State<MushafPageView>
   Widget _buildTajweedToggle(bool isDark, int pageNumber) {
     if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
 
-    final activeColor = isDark
-        ? const Color(0xFF69F0AE)
-        : const Color(0xFF169200);
-    final inactiveColor = isDark
-        ? Colors.white.withValues(alpha: 0.45)
-        : AppColors.primary.withValues(alpha: 0.45);
+    final activeColor = const Color(0xFFB8E6C8);  // Soft mint — visible on teal
+    final inactiveColor = _kGoldText.withValues(alpha: 0.5);
     return GestureDetector(
       onTap: () => _toggleTajweed(pageNumber),
       onLongPress: () => _showTajweedLegend(isDark),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: BoxDecoration(
           color: _tajweedMode
-              ? activeColor.withValues(alpha: 0.15)
+              ? activeColor.withValues(alpha: 0.18)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: _tajweedMode ? activeColor : Colors.transparent,
+            color: _tajweedMode
+                ? activeColor.withValues(alpha: 0.6)
+                : Colors.transparent,
             width: 1,
           ),
         ),
@@ -1067,11 +1179,11 @@ class _MushafPageViewState extends State<MushafPageView>
             Icon(Icons.palette_rounded,
                 size: 14,
                 color: _tajweedMode ? activeColor : inactiveColor),
-            const SizedBox(width: 2),
+            const SizedBox(width: 3),
             Text(
               'تجويد',
               style: GoogleFonts.arefRuqaa(
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight:
                     _tajweedMode ? FontWeight.w700 : FontWeight.w500,
                 color: _tajweedMode ? activeColor : inactiveColor,
@@ -1249,44 +1361,84 @@ class _MushafPageViewState extends State<MushafPageView>
 
   Widget _buildDecorativeFooter(int pageNumber, {required bool isDarkMode}) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final dividerColor = isDarkMode
-        ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFFC8A84B).withValues(alpha: 0.55);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          height: 24,
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: dividerColor, width: 0.8)),
-          ),
-          alignment: Alignment.center,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/logo/files/transparent/label.png',
-                height: 18,
-                color: isDarkMode ? Colors.white.withValues(alpha: 0.80) : null,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 2),
-                // TODO: consider adding a subtle drop shadow to the text in light mode for better contrast against the decorative background.
-                child: Text(
-                  _toArabicNumerals(pageNumber),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.arefRuqaa(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: isDarkMode ? Colors.white : const Color(0xFF3D1C00),
-                  ),
+    const tealL    = Color(0xFF2A7F6B);
+    const tealD    = Color(0xFF1F6F5E);
+    const tealBot  = Color(0xFF3C9A80);
+    const darkL    = Color(0xFF1A5244);
+    const darkD    = Color(0xFF133D31);
+    const borderCol = Color(0xFFE6D9A8);
+    const textCol   = Color(0xFFF5E6B5);
+
+    final barTop = isDarkMode ? darkD : tealL;
+    final barBot = isDarkMode ? darkL : tealBot;
+
+    const barH         = 80.0;
+    const pillOverflow = 30.0;
+
+    return SizedBox(
+      height: barH + pillOverflow + bottomInset,
+      width: double.infinity,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          // ── Main bar ──────────────────────────────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: barH + bottomInset,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [barTop, barBot],
                 ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(45),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, -8),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-        if (bottomInset > 0) SizedBox(height: bottomInset),
-      ],
+          // ── Ornamental frame (PNG) + page number ──
+          Positioned(
+            top: 0,
+            child: SizedBox(
+              width: 210,
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logo/files/page_number.png',
+                    width: 210,
+                    height: 60,
+                    color: borderCol,
+                    colorBlendMode: BlendMode.srcIn,
+                    fit: BoxFit.fill,
+                  ),
+                  Text(
+                    _toArabicNumerals(pageNumber),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.arefRuqaa(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: textCol,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
