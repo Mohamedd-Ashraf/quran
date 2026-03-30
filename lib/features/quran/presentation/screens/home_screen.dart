@@ -213,18 +213,28 @@ class HomeScreenState extends State<HomeScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                isArabicUi ? 'نور الأيمان' : 'Noor Al-Imaan',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                isArabicUi ? 'نور الإيمان' : 'Noor Al-Imaan',
+                // style: const TextStyle(
+                //   color: Colors.white,
+                //   fontWeight: FontWeight.bold,
+                //   fontSize: 18,
+                //   fontFamily: GoogleFonts.amiriQuran().fon,
+                // ),
+                style: GoogleFonts.arefRuqaa(
                   fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
               Text(
                 dateStr,
-                style: const TextStyle(
-                  color: Colors.white70,
+                // style: const TextStyle(
+                //   color: Colors.white70,
+                //   fontSize: 11,
+                // ),
+                style: GoogleFonts.arefRuqaa(
                   fontSize: 11,
+                  color: Colors.white70,
                 ),
               ),
             ],

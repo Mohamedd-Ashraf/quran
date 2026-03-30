@@ -200,7 +200,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                                   color: _kGold.withValues(alpha: 0.7)),
                               const SizedBox(width: 8),
                               Text(
-                                'الحجم التقريبي: ٦٥ ميجابايت — يُنصح بـ Wi‑Fi',
+                                'الحجم التقريبي: ٦٥ ميجابايت (تحميل لمرة واحدة)',
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,
                                   color: _kGoldLight.withValues(alpha: 0.85),
