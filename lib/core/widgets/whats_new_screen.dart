@@ -424,16 +424,35 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
 
   // ─── v1.0.12 ─────────────────────────────────────────────────────────────────
   '1.0.12': [
-    // ── المجموعة 1: التعامل مع القرآن والتلاوة ────────────────────────────────────
     _WhatsNewEntry(
-      icon: Icons.record_voice_over_rounded,
-      titleAr: 'قراء جدد — المنشاوي وعبد الباسط والمزيد',
-      titleEn: 'New Reciters — Al-Minshawi, Abdul Basit & More',
+      icon: Icons.scatter_plot_rounded,
+      titleAr: 'ويدجت المسبحة للشاشة الرئيسية',
+      titleEn: 'Tasbeeh Home-Screen Widget',
       descAr:
-          'أُضيف حديثاً الشيخ محمد صديق المنشاوي (مرتل ومجود) والشيخ عبد الباسط عبد الصمد (مرتل ومجود)، وناصر القطامي، وياسر الدوسري، وماهر المعيقلي وغيرهم — اختر قارئك المفضل من إعدادات المصحف.',
+          'أضف ويدجت المسبحة على شاشتك الرئيسية لتسبيح سريع مع عداد ذكي واهتزاز عند الوصول للهدف.',
       descEn:
-          'Sheikh Muhammad Siddiq Al-Minshawi (Murattal & Mujawwad) and Sheikh Abdul Basit (Murattal & Mujawwad) are newly added, along with Nasser Al-Qatami, Yasser Ad-Dossari, Maher Al-Muaiqly and more — choose your favourite reciter in Mushaf Settings.',
-      color: const Color(0xFF1565C0),
+          'Add the Tasbeeh widget to your home screen for quick dhikr counting with smart counter and haptic feedback at goals.',
+      color: AppColors.secondary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.do_not_disturb_on_rounded,
+      titleAr: 'وضع الصمت أثناء الصلاة',
+      titleEn: 'Silent Mode During Prayer',
+      descAr:
+          'يُفعَّل وضع الصمت تلقائياً عند دخول وقت الصلاة لتجنب الإزعاج أثناء صلاتك — يمكنك ضبطه من إعدادات الأذان.',
+      descEn:
+          'Silent mode activates automatically at prayer time to avoid interruptions — customize it in Adhan Settings.',
+      color: const Color(0xFF37474F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.timer_rounded,
+      titleAr: 'وقت إقامة مخصص لكل صلاة',
+      titleEn: 'Customizable Iqama Time Per Prayer',
+      descAr:
+          'اضبط وقت الإقامة لكل صلاة على حدة — الفجر 20 دقيقة، الظهر 15، المغرب 5... كما تريد.',
+      descEn:
+          'Set iqama time for each prayer individually — Fajr 20 min, Dhuhr 15, Maghrib 5... as you prefer.',
+      color: const Color(0xFFE65100),
     ),
     _WhatsNewEntry(
       icon: Icons.play_circle_outline_rounded,
@@ -446,102 +465,14 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFF0277BD),
     ),
     _WhatsNewEntry(
-      icon: Icons.menu_book_rounded,
-      titleAr: 'الأحاديث النبوية — صحيح البخاري',
-      titleEn: 'Hadith — Sahih Al-Bukhari',
+      icon: Icons.calendar_today_rounded,
+      titleAr: 'تعديل التاريخ الهجري',
+      titleEn: 'Hijri Date Adjustment',
       descAr:
-          'أضفنا قسم الأحاديث النبوية الشريفة — تصفّح صحيح البخاري بالكامل حسب الكتاب والباب، مع بحث سريع وإشارات مرجعية وعرض جميل للنص.',
+          'إذا كان التاريخ الهجري في التطبيق يختلف عن تاريخ بلدك، يمكنك الآن تعديله يدوياً من إعدادات مواقيت الصلاة.',
       descEn:
-          'The Hadith section is now live — browse Sahih Al-Bukhari by book and chapter with fast search, bookmarks, and a polished text display.',
-      color: const Color(0xFF8E6C1F),
-    ),
-
-    // ── المجموعة 2: العبادة والأذكار والورد ────────────────────────────────────────
-    _WhatsNewEntry(
-      icon: Icons.do_not_disturb_on_rounded,
-      titleAr: 'وضع الصمت أثناء الصلاة',
-      titleEn: 'Silent Mode During Prayer',
-      descAr:
-          'يُفعَّل وضع الصمت تلقائياً عند دخول وقت الصلاة لتجنب الإزعاج أثناء صلاتك — يمكنك ضبطه من إعدادات الأذان.',
-      descEn:
-          'Silent mode activates automatically at prayer time to avoid interruptions — customize it in Adhan Settings.',
-      color: const Color(0xFF37474F),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.calendar_month_rounded,
-      titleAr: 'صفحة التقويم الهجري مع المناسبات',
-      titleEn: 'Hijri Calendar with Occasions',
-      descAr:
-          'صفحة تقويم هجري كاملة تعرض المناسبات الإسلامية والعطل، مع إمكانية تعديل التاريخ الهجري يدوياً (±3 أيام) حسب رؤيتك المحلية.',
-      descEn:
-          'A full Hijri calendar page showing Islamic occasions and holidays, with the ability to manually adjust the Hijri date (±3 days) based on your local observation.',
+          'If the Hijri date differs from your country, you can now adjust it manually in Prayer Times Settings.',
       color: const Color(0xFF6A1B9A),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.self_improvement_rounded,
-      titleAr: 'ويدجت الأذكار بعد الصلاة',
-      titleEn: 'Post-Prayer Adhkar Widget',
-      descAr:
-          'أضف ويدجت الأذكار على شاشتك الرئيسية — يعرض أذكار ما بعد الصلاة تلقائياً ويقلّب بينها بضغطة واحدة مع عداد التكرار.',
-      descEn:
-          'Add the Adhkar widget to your home screen — it displays post-prayer remembrances automatically and lets you cycle through them with one tap.',
-      color: const Color(0xFF2E7D32),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.event_note_rounded,
-      titleAr: 'إعداد خطة ختم القرآن',
-      titleEn: 'Quran Completion Plan Setup',
-      descAr:
-          'شاشة جديدة لإعداد ورد القرآن اليومي — حدد عدد الأيام أو الصفحات، اختر تاريخ البداية ووقت التذكير، والتطبيق يحسب خطتك تلقائياً.',
-      descEn:
-          'A new screen to set up your daily Quran wird — choose number of days or pages, set start date and reminder time, and the app builds your plan automatically.',
-      color: AppColors.primary,
-    ),
-
-    // ── المجموعة 3: الويدجتس والإضافات ─────────────────────────────────────────
-    _WhatsNewEntry(
-      icon: Icons.scatter_plot_rounded,
-      titleAr: 'ويدجت المسبحة للشاشة الرئيسية',
-      titleEn: 'Tasbeeh Home-Screen Widget',
-      descAr:
-          'أضف ويدجت المسبحة على شاشتك الرئيسية لتسبيح سريع مع عداد ذكي واهتزاز عند الوصول للهدف.',
-      descEn:
-          'Add the Tasbeeh widget to your home screen for quick dhikr counting with smart counter and haptic feedback at goals.',
-      color: AppColors.secondary,
-    ),
-
-    // ── المجموعة 4: التحسينات التقنية والتوافق ──────────────────────────────────
-    _WhatsNewEntry(
-      icon: Icons.phonelink_ring_rounded,
-      titleAr: 'إصلاح الأذان على أندرويد 15',
-      titleEn: 'Adhan Fixed on Android 15',
-      descAr:
-          'تم إصلاح مشاكل الأذان على أجهزة أندرويد 15 — الأذان الآن يعمل بشكل صحيح على جميع الأجهزة بما فيها أجهزة سامسونج.',
-      descEn:
-          'Adhan issues on Android 15 are now resolved — the adhan fires correctly on all devices including Samsung.',
-      color: const Color(0xFF2E7D32),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.battery_saver_rounded,
-      titleAr: 'تحسين استهلاك البطارية',
-      titleEn: 'Improved Battery Usage',
-      descAr:
-          'تم تقليل استهلاك البطارية بشكل ملحوظ — إصلاح مؤقت العد التنازلي للصلاة القادمة وتحسين خدمة الصوت الخلفية.',
-      descEn:
-          'Battery consumption significantly reduced — fixed the next prayer countdown timer and optimised the background audio service.',
-      color: const Color(0xFF00695C),
-    ),
-
-    // ── المجموعة 5: المزامنة والحساب ──────────────────────────────────────────────
-    _WhatsNewEntry(
-      icon: Icons.cloud_sync_rounded,
-      titleAr: 'تسجيل الدخول والمزامنة السحابية',
-      titleEn: 'Sign In & Cloud Sync',
-      descAr:
-          'سجّل دخولك بحساب Google أو بالبريد الإلكتروني لحفظ إشاراتك المرجعية وتقدمك في الورد على جميع أجهزتك.',
-      descEn:
-          'Sign in with Google or email to back up your bookmarks and Wird progress and sync them across all your devices.',
-      color: const Color(0xFF0277BD),
     ),
   ],
 };

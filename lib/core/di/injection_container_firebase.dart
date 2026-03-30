@@ -40,6 +40,7 @@ import '../services/ayah_audio_service.dart';
 import '../services/audio_edition_service.dart';
 import '../services/audio_download_state_service.dart';
 import '../services/audio_download_notification_service.dart';
+import '../services/update_download_notification_service.dart';
 import '../services/tafsir_auto_download_service.dart';
 import '../services/tafsir_download_state_service.dart';
 import '../services/location_service.dart';
@@ -189,6 +190,7 @@ Future<void> init() async {
     () => TafsirAutoDownloadService(sl(), sl(), sl(), sl(), sl()),
   );
   sl.registerLazySingleton(() => AudioDownloadNotificationService(sl(), sl()));
+  sl.registerLazySingleton(() => UpdateDownloadNotificationService(sl()));
   sl.registerFactory(
     () => DownloadManagerCubit(
       audioService: sl(),

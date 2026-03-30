@@ -1,23 +1,30 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show QcfFontLoader;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'qcf_font_download_service.dart';
 
-/// Global singleton that runs the QCF font download in the background and
-/// notifies listeners of progress so any widget can react without blocking
-/// the user.
+/// Global singleton that manages QCF font downloads in the background.
 ///
-/// Usage:
-///   FontDownloadManager.instance.addListener(myCallback);
-///   await FontDownloadManager.instance.startIfNeeded();
+/// Behaviour:
+///   • On Wi-Fi  → auto-starts download immediately when [startIfNeeded] is called.
+///   • On mobile data → sets [awaitingMobileDataConsent] = true and waits for
+///     the user to explicitly call [allowMobileDataDownload].
+///   • Supports resume: if the user closes the app mid-download the archive
+///     stays on disk and the next [startIfNeeded] continues from where it stopped.
+///
+/// Listen for state changes via [addListener] / [removeListener].
 class FontDownloadManager extends ChangeNotifier {
   FontDownloadManager._();
 
-  /// The single shared instance.
   static final FontDownloadManager instance = FontDownloadManager._();
+
+  // ── SharedPreferences key ────────────────────────────────────────────────
+  static const String _prefMobileConsent = 'font_dl_mobile_consent';
 
   // ── State ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +37,9 @@ class FontDownloadManager extends ChangeNotifier {
   bool _hasError = false;
   CancelToken? _cancelToken;
 
+  /// True when we're on mobile data and waiting for the user to confirm.
+  bool _awaitingMobileDataConsent = false;
+
   // ── Getters ─────────────────────────────────────────────────────────────────
 
   bool get isDownloading => _isDownloading;
@@ -39,16 +49,20 @@ class FontDownloadManager extends ChangeNotifier {
   int get totalPending => _totalPending;
   String get phase => _phase;
   bool get hasError => _hasError;
+  bool get awaitingMobileDataConsent => _awaitingMobileDataConsent;
 
-  /// True while fonts are being downloaded or after an error (download not done).
-  bool get isActive => _isDownloading || _hasError;
+  /// True while fonts are downloading or after an error (fonts not done).
+  bool get isActive => _isDownloading || _hasError || _awaitingMobileDataConsent;
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
-  /// Starts the background download if fonts are not fully downloaded.
-  /// Safe to call multiple times — no-op if already running or complete.
+  /// Checks font status and starts download if appropriate.
+  ///
+  /// On Wi-Fi:  starts immediately.
+  /// On mobile data: sets [awaitingMobileDataConsent] — the UI should ask first.
+  /// No-op if already downloading, complete, or awaiting consent.
   Future<void> startIfNeeded() async {
-    if (_isDownloading || _isComplete) return;
+    if (_isDownloading || _isComplete || _awaitingMobileDataConsent) return;
 
     final complete = await QcfFontDownloadService.isFullyDownloaded();
     if (complete) {
@@ -65,9 +79,41 @@ class FontDownloadManager extends ChangeNotifier {
       notifyListeners();
       return;
     }
-
     _totalPending = pending;
+
+    final connectivity = await Connectivity().checkConnectivity();
+    final isMobile = _isMobileData(connectivity);
+
+    if (isMobile) {
+      // Check if user already consented in a previous session.
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_prefMobileConsent) == true) {
+        _run();
+      } else {
+        _awaitingMobileDataConsent = true;
+        notifyListeners();
+      }
+    } else {
+      _run();
+    }
+  }
+
+  /// Called when the user accepts downloading over mobile data.
+  /// [remember] — if true, consent is persisted so we never ask again.
+  Future<void> allowMobileDataDownload({bool remember = false}) async {
+    if (remember) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefMobileConsent, true);
+    }
+    _awaitingMobileDataConsent = false;
+    notifyListeners();
     _run();
+  }
+
+  /// Called when the user declines to download over mobile data for now.
+  void denyMobileDataDownload() {
+    _awaitingMobileDataConsent = false;
+    notifyListeners();
   }
 
   /// Retry after a download error.
@@ -77,7 +123,7 @@ class FontDownloadManager extends ChangeNotifier {
     _run();
   }
 
-  /// Cancel the current download (can be resumed later via [startIfNeeded]).
+  /// Cancel the current download. Partial archive is kept for next resume.
   void cancel() {
     _cancelToken?.cancel('user_cancelled');
     _isDownloading = false;
@@ -85,6 +131,12 @@ class FontDownloadManager extends ChangeNotifier {
   }
 
   // ── Internal ─────────────────────────────────────────────────────────────────
+
+  static bool _isMobileData(List<ConnectivityResult> results) {
+    return results.contains(ConnectivityResult.mobile) &&
+        !results.contains(ConnectivityResult.wifi) &&
+        !results.contains(ConnectivityResult.ethernet);
+  }
 
   void _run() {
     if (_isDownloading) return;
@@ -106,11 +158,11 @@ class FontDownloadManager extends ChangeNotifier {
       onPageDone: (page) {
         _pagesDownloaded++;
         notifyListeners();
-        // Immediately load the font into the Flutter engine so QuranPageView
-        // can switch from the fallback renderer to QCF without a restart.
+        // Immediately register the font in the Flutter engine so QuranPageView
+        // switches from the fallback renderer to QCF without a restart.
         unawaited(
           QcfFontLoader.ensureFontLoaded(page).then((_) {
-            notifyListeners(); // trigger rebuild in MushafPageView listeners
+            notifyListeners();
           }).catchError((_) {}),
         );
       },

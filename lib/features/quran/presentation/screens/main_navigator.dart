@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/adhan_notification_service.dart';
+import '../../../../core/services/font_download_manager.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
@@ -27,7 +29,8 @@ class MainNavigator extends StatefulWidget {
 class _MainNavigatorState extends State<MainNavigator> {
   int _currentIndex = 0;
 
-  final GlobalKey<BookmarksScreenState> _bookmarksKey = GlobalKey<BookmarksScreenState>();
+  final GlobalKey<BookmarksScreenState> _bookmarksKey =
+      GlobalKey<BookmarksScreenState>();
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   late final List<Widget> _screens;
@@ -40,9 +43,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       BookmarksScreen(
         key: _bookmarksKey,
         onNavigateToHome: () {
-          setState(() {
-            _currentIndex = 0;
-          });
+          setState(() => _currentIndex = 0);
           _homeKey.currentState?.reload();
         },
       ),
@@ -51,7 +52,12 @@ class _MainNavigatorState extends State<MainNavigator> {
       const SettingsScreen(),
     ];
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showAdhanBannerIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAdhanBannerIfNeeded();
+      // Show mobile-data consent dialog if font download is waiting.
+      _checkFontMobileConsent();
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(Future.delayed(const Duration(seconds: 5), () async {
         if (!mounted) return;
@@ -60,12 +66,55 @@ class _MainNavigatorState extends State<MainNavigator> {
         await di.sl<WirdNotificationService>().requestPermissions();
         if (!mounted) return;
         await adhan.requestLocationIfNeeded();
-        // All startup dialogs / permission sheets / banners are done.
-        // Give a brief buffer for system dialog dismiss animations.
         await Future<void>.delayed(const Duration(milliseconds: 800));
         di.sl<TutorialService>().markAppReady();
       }));
     });
+
+    // Listen for mobile data consent so we can show the dialog after init.
+    FontDownloadManager.instance.addListener(_onFontManagerChanged);
+  }
+
+  @override
+  void dispose() {
+    FontDownloadManager.instance.removeListener(_onFontManagerChanged);
+    super.dispose();
+  }
+
+  void _onFontManagerChanged() {
+    if (!mounted) return;
+    if (FontDownloadManager.instance.awaitingMobileDataConsent) {
+      _showMobileDataConsentDialog();
+    }
+  }
+
+  void _checkFontMobileConsent() {
+    if (FontDownloadManager.instance.awaitingMobileDataConsent) {
+      _showMobileDataConsentDialog();
+    }
+  }
+
+  Future<void> _showMobileDataConsentDialog() async {
+    final isAr = context
+        .read<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => _MobileDataConsentDialog(isAr: isAr),
+    );
+
+    if (!mounted) return;
+    if (confirmed == true) {
+      await FontDownloadManager.instance
+          .allowMobileDataDownload(remember: true);
+    } else {
+      FontDownloadManager.instance.denyMobileDataDownload();
+    }
   }
 
   Future<void> _showAdhanBannerIfNeeded() async {
@@ -74,7 +123,12 @@ class _MainNavigatorState extends State<MainNavigator> {
     await settings.setAdhanBannerShown();
     if (!mounted) return;
 
-    final isAr = context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar');
+    final isAr = context
+        .read<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -97,14 +151,17 @@ class _MainNavigatorState extends State<MainNavigator> {
     setState(() => _currentIndex = index);
     if (index == 0) _homeKey.currentState?.reload();
     if (index == 1) _bookmarksKey.currentState?.reload();
-    // Notify all screens which tab is now visible so they can show their
-    // tutorial only when they're actually on screen.
     di.sl<TutorialService>().activeTabIndex.value = index;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isArabicUi = context.watch<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar');
+    final isArabicUi = context
+        .watch<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -133,6 +190,111 @@ class _MainNavigatorState extends State<MainNavigator> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mobile data consent dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileDataConsentDialog extends StatelessWidget {
+  final bool isAr;
+  const _MobileDataConsentDialog({required this.isAr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.signal_cellular_alt_rounded,
+                  color: AppColors.primary, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isAr ? 'تحميل خطوط المصحف' : 'Download Mushaf Fonts',
+                style: GoogleFonts.tajawal(
+                    fontWeight: FontWeight.w700, fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              isAr
+                  ? 'أنت متصل حالياً ببيانات الجوال.\n\nخطوط المصحف تحميل لمرة واحدة فقط (٦٥ ميجابايت). هل تريد التحميل الآن؟'
+                  : 'You\'re on mobile data.\n\nMushaf fonts are a one-time download (65 MB). Download now?',
+              style: GoogleFonts.tajawal(fontSize: 14, height: 1.6),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 15,
+                      color: AppColors.primary.withValues(alpha: 0.8)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isAr
+                          ? 'بعد التحميل لن تحتاج إنترنت لعرض المصحف'
+                          : 'After download, no internet needed for Mushaf',
+                      style: GoogleFonts.tajawal(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              isAr ? 'لاحقاً' : 'Later',
+              style: GoogleFonts.tajawal(color: Colors.grey.shade600),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: Text(
+              isAr ? 'تحميل الآن' : 'Download Now',
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.w700),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Custom Bottom Navigation Bar
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -155,19 +317,22 @@ class _AppBottomNavBar extends StatelessWidget {
     final borderColor = isDark ? AppColors.darkDivider : AppColors.cardBorder;
 
     final items = [
-      _NavItem(Icons.home_outlined, Icons.home_rounded, isArabicUi ? 'الرئيسية' : 'Home'),
-      _NavItem(Icons.bookmark_border_rounded, Icons.bookmark_rounded, isArabicUi ? 'الإشارات' : 'Bookmarks'),
-      _NavItem(Icons.auto_stories_outlined, Icons.auto_stories_rounded, isArabicUi ? 'الورد' : 'Wird'),
-      _NavItem(Icons.grid_view_outlined, Icons.grid_view_rounded, isArabicUi ? 'المزيد' : 'More'),
-      _NavItem(Icons.settings_outlined, Icons.settings_rounded, isArabicUi ? 'الإعدادات' : 'Settings'),
+      _NavItem(Icons.home_outlined, Icons.home_rounded,
+          isArabicUi ? 'الرئيسية' : 'Home'),
+      _NavItem(Icons.bookmark_border_rounded, Icons.bookmark_rounded,
+          isArabicUi ? 'الإشارات' : 'Bookmarks'),
+      _NavItem(Icons.auto_stories_outlined, Icons.auto_stories_rounded,
+          isArabicUi ? 'الورد' : 'Wird'),
+      _NavItem(Icons.grid_view_outlined, Icons.grid_view_rounded,
+          isArabicUi ? 'المزيد' : 'More'),
+      _NavItem(Icons.settings_outlined, Icons.settings_rounded,
+          isArabicUi ? 'الإعدادات' : 'Settings'),
     ];
 
     return Container(
       decoration: BoxDecoration(
         color: bgColor,
-        border: Border(
-          top: BorderSide(color: borderColor, width: 0.8),
-        ),
+        border: Border(top: BorderSide(color: borderColor, width: 0.8)),
       ),
       child: SafeArea(
         top: false,
@@ -218,8 +383,10 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = isDark ? AppColors.primaryLight : AppColors.primary;
-    final inactiveColor = isDark ? AppColors.darkTextSecondary : AppColors.textHint;
+    final activeColor =
+        isDark ? AppColors.primaryLight : AppColors.primary;
+    final inactiveColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textHint;
     final color = isSelected ? activeColor : inactiveColor;
 
     return InkWell(
@@ -229,7 +396,6 @@ class _NavBarItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Active indicator pill
           AnimatedContainer(
             duration: AppDesignSystem.durationNormal,
             curve: Curves.easeOutCubic,

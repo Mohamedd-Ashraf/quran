@@ -33,6 +33,8 @@ import '../screens/tafsir_screen.dart';
 import '../tutorials/mushaf_tutorial.dart';
 import 'ayah_share_card.dart';
 import 'islamic_audio_player.dart';
+import 'hizb_banner.dart';
+import '../../../../core/services/hizb_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Verse long-press options sheet
@@ -239,6 +241,11 @@ class _MushafPageViewState extends State<MushafPageView>
   bool _showControls = true;
   Timer? _hideTimer;
 
+  // ── Hizb notification system ──────────────────────────────────────────────
+  final _hizbService = HizbService();
+  final _hizbBannerController = HizbBannerController();
+  int? _lastShownHizbPage; // Prevent showing same notification twice
+
   // ── Init / dispose ─────────────────────────────────────────────────────────
 
   int _getStartPage() {
@@ -297,6 +304,8 @@ class _MushafPageViewState extends State<MushafPageView>
     // Tutorial trigger – fires once after the page tree has settled.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showTutorialIfNeeded();
+      // Check if initial page starts a Hizb quarter
+      _checkAndShowHizbBanner();
     });
 
     _resetHideTimer();
@@ -304,6 +313,7 @@ class _MushafPageViewState extends State<MushafPageView>
 
   @override
   void dispose() {
+    _hizbBannerController.dismiss();
     FontDownloadManager.instance.removeListener(_onFontDownloadProgress);
     _hideTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -496,6 +506,27 @@ class _MushafPageViewState extends State<MushafPageView>
       _resetHideTimer();
       // Load from disk if available, or reveal the download banner if not.
       _checkAndLoadPageFont(page);
+      // Show Hizb banner if this page starts a new quarter
+      _checkAndShowHizbBanner();
+    }
+  }
+
+  /// Check if current page starts a Hizb quarter and show banner
+  void _checkAndShowHizbBanner() {
+    final hizbInfo = _hizbService.getHizbInfoForPage(_currentPageNum);
+    if (hizbInfo != null) {
+      // Show banner if we're on a new Hizb page OR returning to a Hizb page from a non-Hizb page
+      if (_lastShownHizbPage != _currentPageNum) {
+        _lastShownHizbPage = _currentPageNum;
+        _hizbBannerController.show(
+          context: context,
+          hizbInfo: hizbInfo,
+          displayDuration: const Duration(milliseconds: 2500),
+        );
+      }
+    } else {
+      // Reset when leaving a Hizb page so banner shows again on return
+      _lastShownHizbPage = null;
     }
   }
 
