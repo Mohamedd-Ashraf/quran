@@ -53,6 +53,7 @@ dependencies:
   
   # Network Info
   internet_connection_checker: ^1.0.0+1
+  connectivity_plus: ^6.0.0
   
   # Local Storage
   shared_preferences: ^2.2.3

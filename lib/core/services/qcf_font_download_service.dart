@@ -122,9 +122,10 @@ class QcfFontDownloadService {
 
   /// Downloads the pub.dev package archive and extracts all non-bundled fonts.
   ///
-  /// [onProgress] — 0.0 → 0.6 during HTTP download, 0.6 → 1.0 during extraction.
-  /// [onPhase]    — called with a human-readable Arabic phase label.
-  /// [onPageDone] — called after each page font is saved.
+  /// [onProgress]   — 0.0 → 0.6 during HTTP download, 0.6 → 1.0 during extraction.
+  /// [onPhase]      — called with a human-readable Arabic phase label.
+  /// [onPageDone]   — called after each **newly** extracted page font is saved.
+  /// [skipExisting] — when true, pages already on disk are skipped (enables resume).
   ///
   /// Returns [true] on full success.
   static Future<bool> downloadAll({
@@ -132,6 +133,7 @@ class QcfFontDownloadService {
     void Function(String phase)? onPhase,
     void Function(int page)? onPageDone,
     CancelToken? cancelToken,
+    bool skipExisting = false,
   }) async {
     final fontDir = await _getFontDirectory();
     final tmpDir = await getTemporaryDirectory();
@@ -171,11 +173,21 @@ class QcfFontDownloadService {
         final pageNum = int.parse(match.group(2)!);
 
         if (!_BundledPages.isBundled(pageNum)) {
+          // Skip pages already on disk when resume mode is enabled.
+          final ttfFile = File('${fontDir.path}/$fontName.ttf');
+          if (skipExisting &&
+              ttfFile.existsSync() &&
+              ttfFile.lengthSync() > 1000) {
+            // Page already downloaded — count in progress but don't callback.
+            processed++;
+            onProgress?.call(0.6 + processed / fontEntries.length * 0.4);
+            continue;
+          }
+
           try {
             final zipBytes =
                 Uint8List.fromList(entry.content as List<int>);
             final ttfBytes = await compute(_extractFont, zipBytes);
-            final ttfFile = File('${fontDir.path}/$fontName.ttf');
             await ttfFile.writeAsBytes(ttfBytes, flush: true);
             onPageDone?.call(pageNum);
           } catch (e) {

@@ -12,7 +12,7 @@ import 'package:qcf_quran_lite/qcf_quran_lite.dart' show getPageData;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
-import '../screens/qcf_font_download_screen.dart';
+import '../../../../core/services/font_download_manager.dart';
 import 'qcf_fallback_page.dart';
 
 import '../../../../core/audio/ayah_audio_cubit.dart';
@@ -269,10 +269,12 @@ class _MushafPageViewState extends State<MushafPageView>
     _currentPageNum = startPage;
     _pageController = PageController(initialPage: startPage - 1);
 
-    // Check font availability for the initial page.
-    QcfFontDownloadService.isPageAvailable(startPage).then((available) {
-      if (mounted) setState(() => _currentPageFontAvailable = available);
-    });
+    // Check font availability for the initial page and load from disk if needed.
+    _checkAndLoadPageFont(startPage);
+
+    // Listen to background download progress to auto-refresh when a font
+    // for the current page finishes downloading.
+    FontDownloadManager.instance.addListener(_onFontDownloadProgress);
 
     if (widget.initialAyahNumber != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -302,6 +304,7 @@ class _MushafPageViewState extends State<MushafPageView>
 
   @override
   void dispose() {
+    FontDownloadManager.instance.removeListener(_onFontDownloadProgress);
     _hideTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _highlightAnimationController.dispose();
@@ -309,6 +312,45 @@ class _MushafPageViewState extends State<MushafPageView>
     _highlightsNotifier.dispose();
     _playerCollapsed.dispose();
     super.dispose();
+  }
+
+  /// Called whenever the background download makes progress.
+  /// Only triggers a rebuild if the current page's font just became available.
+  void _onFontDownloadProgress() {
+    if (!mounted) return;
+    final nowLoaded = QcfFontLoader.isFontLoaded(_currentPageNum);
+    if (nowLoaded && !_currentPageFontAvailable) {
+      setState(() => _currentPageFontAvailable = true);
+    }
+  }
+
+  /// Checks whether [page]'s font is available on disk and, if so, loads it
+  /// into the Flutter engine so [QuranPageView] can render with the QCF font
+  /// instead of the fallback — all without requiring a restart.
+  void _checkAndLoadPageFont(int page) {
+    if (QcfFontLoader.isFontLoaded(page)) {
+      if (!_currentPageFontAvailable) {
+        setState(() => _currentPageFontAvailable = true);
+      }
+      return;
+    }
+    QcfFontDownloadService.isPageAvailable(page).then((onDisk) async {
+      if (!mounted) return;
+      if (onDisk) {
+        // Font file exists on disk — load into engine, then refresh.
+        try {
+          await QcfFontLoader.ensureFontLoaded(page);
+        } catch (_) {}
+        if (mounted && _currentPageNum == page) {
+          setState(() => _currentPageFontAvailable = true);
+        }
+      } else {
+        // Font not on disk — show the download banner.
+        if (mounted && _currentPageNum == page) {
+          setState(() => _currentPageFontAvailable = false);
+        }
+      }
+    });
   }
 
   void _resetHideTimer() {
@@ -373,24 +415,10 @@ class _MushafPageViewState extends State<MushafPageView>
 
   // ── Font download prompt ───────────────────────────────────────────────────
 
-  void _promptFontDownload(BuildContext context) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => QcfFontDownloadScreen(
-          onDone: () async {
-            Navigator.of(context).pop();
-            // Re-check availability after download attempt.
-            final available = await QcfFontDownloadService.isPageAvailable(
-              _currentPageNum,
-            );
-            if (mounted) {
-              setState(() => _currentPageFontAvailable = available);
-            }
-          },
-        ),
-        fullscreenDialog: true,
-      ),
-    );
+  /// Starts the background download. The banner widget listens to
+  /// [FontDownloadManager] and updates itself automatically.
+  void _startFontDownload() {
+    FontDownloadManager.instance.startIfNeeded();
   }
 
   // ── Highlight helpers ──────────────────────────────────────────────────────
@@ -461,17 +489,14 @@ class _MushafPageViewState extends State<MushafPageView>
     if (mounted) {
       setState(() {
         _currentPageNum = page;
+        // Optimistically assume loaded if already in engine.
         _currentPageFontAvailable = QcfFontLoader.isFontLoaded(page);
-        // Show controls briefly on every page flip.
         _showControls = true;
       });
       _resetHideTimer();
+      // Load from disk if available, or reveal the download banner if not.
+      _checkAndLoadPageFont(page);
     }
-    QcfFontDownloadService.isPageAvailable(page).then((available) {
-      if (mounted && _currentPageFontAvailable != available) {
-        setState(() => _currentPageFontAvailable = available);
-      }
-    });
   }
 
   void _onAyahTap(int surahNumber, int ayahNumber) {
@@ -1084,69 +1109,182 @@ class _MushafPageViewState extends State<MushafPageView>
     );
   }
 
-  /// Compact banner shown when QCF Mushaf fonts are not yet downloaded.
-  /// Floats over the top of the fallback page and invites the user to
-  /// download the fonts for the full high-quality rendering.
+  /// Compact banner shown when the current page's QCF font is not yet loaded.
+  /// Adapts its content based on the global [FontDownloadManager] state:
+  ///   • downloading → live progress bar + percentage
+  ///   • error       → error message + retry button
+  ///   • idle        → prompt with a download button
   Widget _buildDownloadFontsBanner(bool isDark) {
     final bg = isDark
-        ? const Color(0xFF2A3A2E).withValues(alpha: 0.95)
-        : const Color(0xFFFFF3CD).withValues(alpha: 0.97);
-    final textCol = isDark ? const Color(0xFFFFE082) : const Color(0xFF7B4F00);
-    final btnCol = isDark ? const Color(0xFF4CAF50) : AppColors.primary;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Container(
-        decoration: BoxDecoration(
-          color: bg,
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
-                  : AppColors.primary.withValues(alpha: 0.3),
-              width: 0.8,
+        ? const Color(0xFF1E2E22).withValues(alpha: 0.97)
+        : const Color(0xFFFFF8E1).withValues(alpha: 0.97);
+    final borderColor = isDark
+        ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+        : AppColors.primary.withValues(alpha: 0.3);
+
+    return ListenableBuilder(
+      listenable: FontDownloadManager.instance,
+      builder: (context, _) {
+        final mgr = FontDownloadManager.instance;
+        final textCol =
+            isDark ? const Color(0xFFFFE082) : const Color(0xFF7B4F00);
+        final accentCol = isDark ? const Color(0xFF4CAF50) : AppColors.primary;
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              border: Border(
+                top: BorderSide(color: borderColor, width: 0.8),
+              ),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: mgr.isDownloading
+                ? _buildProgressContent(textCol, accentCol, mgr)
+                : mgr.hasError
+                    ? _buildErrorContent(textCol, accentCol)
+                    : _buildIdleContent(textCol, accentCol),
           ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
+        );
+      },
+    );
+  }
+
+  /// Banner content while download is running — shows phase + progress bar.
+  Widget _buildProgressContent(
+      Color textCol, Color accentCol, FontDownloadManager mgr) {
+    final percent = (mgr.progress * 100).clamp(0, 100).round();
+    final label = mgr.phase.isNotEmpty ? mgr.phase : 'جارٍ تحميل خطوط المصحف…';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Icon(Icons.download_for_offline_rounded, size: 16, color: btnCol),
-            const SizedBox(width: 6),
+            SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: accentCol,
+                value: mgr.progress > 0 ? mgr.progress : null,
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'خطوط المصحف غير مُحمَّلة',
+                label,
                 style: GoogleFonts.cairo(
-                  fontSize: 10,
-                  color: textCol,
-                  fontWeight: FontWeight.w600,
-                ),
+                    fontSize: 10,
+                    color: textCol,
+                    fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => _promptFontDownload(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: btnCol,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'تحميل',
-                  style: GoogleFonts.cairo(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+            Text(
+              '$percent٪',
+              style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  color: accentCol,
+                  fontWeight: FontWeight.w700),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: mgr.progress > 0 ? mgr.progress : null,
+            backgroundColor: accentCol.withValues(alpha: 0.18),
+            valueColor: AlwaysStoppedAnimation<Color>(accentCol),
+            minHeight: 3,
+          ),
+        ),
+        if (mgr.totalPending > 0 && mgr.pagesDownloaded > 0) ...[
+          const SizedBox(height: 3),
+          Text(
+            '${mgr.pagesDownloaded} / ${mgr.totalPending} صفحة',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(
+                fontSize: 9, color: textCol.withValues(alpha: 0.7)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Banner content after a download error.
+  Widget _buildErrorContent(Color textCol, Color accentCol) {
+    return Row(
+      children: [
+        Icon(Icons.wifi_off_rounded,
+            size: 15, color: Colors.redAccent.shade100),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'فشل التحميل — تحقق من الاتصال',
+            style: GoogleFonts.cairo(
+                fontSize: 10,
+                color: Colors.redAccent.shade100,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: FontDownloadManager.instance.retry,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.redAccent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'إعادة المحاولة',
+              style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Banner content when no download is running yet.
+  Widget _buildIdleContent(Color textCol, Color accentCol) {
+    return Row(
+      children: [
+        Icon(Icons.download_for_offline_rounded, size: 16, color: accentCol),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'خطوط المصحف غير مُحمَّلة',
+            style: GoogleFonts.cairo(
+                fontSize: 10,
+                color: textCol,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: _startFontDownload,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentCol,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'تحميل',
+              style: GoogleFonts.cairo(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

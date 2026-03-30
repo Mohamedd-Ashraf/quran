@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -5,7 +7,7 @@ import '../di/injection_container.dart' as di;
 import '../services/settings_service.dart';
 import '../services/whats_new_service.dart';
 import '../services/feedback_service.dart';
-import '../services/qcf_font_download_service.dart';
+import '../services/font_download_manager.dart';
 import '../settings/app_settings_cubit.dart';
 import '../widgets/whats_new_screen.dart';
 import '../widgets/feedback_dialog.dart';
@@ -15,7 +17,6 @@ import '../../features/auth/presentation/screens/auth_screen.dart';
 import '../../features/islamic/presentation/screens/onboarding_screen.dart';
 import '../../features/islamic/presentation/screens/splash_page.dart';
 import '../../features/quran/presentation/screens/main_navigator.dart';
-import '../../features/quran/presentation/screens/qcf_font_download_screen.dart';
 
 class OnboardingGate extends StatefulWidget {
   const OnboardingGate({super.key});
@@ -38,7 +39,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
   String? _lastSeenVersion;
   // Guard: feedback prompt shown at most once per app session.
   bool _feedbackCheckDone = false;
-  // null = not checked, true = show reminder, false = complete/skipped
+  // null = checking, false = done (background download handles it)
   bool? _showFontReminder;
 
   @override
@@ -110,21 +111,14 @@ class _OnboardingGateState extends State<OnboardingGate> {
     }
   }
 
-  // Checks whether the font download reminder should be shown this session.
+  // Starts the background font download if needed and proceeds to the app
+  // immediately — no blocking screen shown to the user.
   Future<void> _checkFontReminder() async {
-    final complete = await QcfFontDownloadService.isFullyDownloaded();
     if (!mounted) return;
-    setState(() => _showFontReminder = !complete);
-    if (complete) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _maybeShowFeedback(),
-      );
-    }
-  }
-
-  void _dismissFontReminder() {
-    if (!mounted) return;
+    // Never block — go to main app right away.
     setState(() => _showFontReminder = false);
+    // Kick off download in background (no await).
+    unawaited(FontDownloadManager.instance.startIfNeeded());
     _maybeShowFeedback();
   }
 
@@ -234,15 +228,11 @@ class _OnboardingGateState extends State<OnboardingGate> {
       );
     }
 
-    // ── 5b. Font download reminder (shown each launch until complete) ──────
+    // ── 5b. Font download runs in background — no blocking screen ─────────
+    // _showFontReminder is always false here; the download manager handles it.
     if (_showFontReminder == null) {
-      // Still checking font status — show spinner.
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_showFontReminder == true) {
-      return QcfFontDownloadScreen(onDone: _dismissFontReminder);
+      // Brief async gap before _checkFontReminder fires — show spinner.
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // ── 6. Main app ────────────────────────────────────────────────────────
