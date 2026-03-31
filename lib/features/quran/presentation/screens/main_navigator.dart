@@ -1,12 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/services/adhan_notification_service.dart';
 import '../../../../core/services/font_download_manager.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/services/tutorial_service.dart';
@@ -16,7 +17,6 @@ import 'home_screen.dart';
 import 'bookmarks_screen.dart';
 import 'settings_screen.dart';
 import '../../../wird/presentation/screens/wird_screen.dart';
-import '../../../wird/services/wird_notification_service.dart';
 import '../../../islamic/presentation/screens/more_screen.dart';
 
 class MainNavigator extends StatefulWidget {
@@ -58,15 +58,12 @@ class _MainNavigatorState extends State<MainNavigator> {
       _checkFontMobileConsent();
     });
 
+    // Note: Permission requests for notifications and location are now handled
+    // in PermissionFlowScreen before reaching MainNavigator.
+    // We only need to mark the app as ready for tutorials after a short delay.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(Future.delayed(const Duration(seconds: 5), () async {
+      unawaited(Future.delayed(const Duration(seconds: 2), () async {
         if (!mounted) return;
-        final adhan = di.sl<AdhanNotificationService>();
-        await adhan.requestPermissions();
-        await di.sl<WirdNotificationService>().requestPermissions();
-        if (!mounted) return;
-        await adhan.requestLocationIfNeeded();
-        await Future<void>.delayed(const Duration(milliseconds: 800));
         di.sl<TutorialService>().markAppReady();
       }));
     });
@@ -120,7 +117,24 @@ class _MainNavigatorState extends State<MainNavigator> {
   Future<void> _showAdhanBannerIfNeeded() async {
     final settings = di.sl<SettingsService>();
     if (settings.hasAdhanBannerShown()) return;
+    
+    // Check notification permission before showing the snackbar.
+    // Don't show "notifications enabled" message if permission is actually denied.
+    bool hasNotificationPermission = true;
+    if (!kIsWeb) {
+      try {
+        final status = await ph.Permission.notification.status;
+        hasNotificationPermission = status.isGranted;
+      } catch (_) {
+        // If we can't check, assume granted to avoid false negatives.
+      }
+    }
+    
+    // Mark as shown regardless, so we don't keep checking.
     await settings.setAdhanBannerShown();
+    
+    // Only show success snackbar if permission is actually granted.
+    if (!hasNotificationPermission) return;
     if (!mounted) return;
 
     final isAr = context

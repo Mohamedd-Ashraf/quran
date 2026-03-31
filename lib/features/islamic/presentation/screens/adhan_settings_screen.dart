@@ -6,11 +6,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/adhan_sounds.dart';
@@ -107,6 +109,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ── Force speaker ─────────────────────────────────────────────────────
   bool _forceSpeaker = false;
 
+  // ── Permission states ──────────────────────────────────────────────────
+  bool _notificationPermissionGranted = true;
+  bool _locationPermissionGranted = true;
+
   // ── Time jump for testing ──────────────────────────────────────────────
   int _jumpMinutes = 2;
   bool _timeJumpActive = false;
@@ -160,12 +166,32 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     _adhanChannel.setMethodCallHandler(_handleNativeCallback);
     _loadNextPrayer();
     _checkDndPermission();
+    _checkPermissions();
     // Show the "جديد" badge only for version 1.0.7
     PackageInfo.fromPlatform().then((info) {
       if (mounted) {
         setState(() => _showNewBadge = info.version == '1.0.7');
       }
     });
+  }
+
+  /// Check notification and location permissions to show appropriate warnings.
+  Future<void> _checkPermissions() async {
+    if (kIsWeb) return;
+    
+    try {
+      final notifStatus = await ph.Permission.notification.status;
+      final locStatus = await Geolocator.checkPermission();
+      
+      if (!mounted) return;
+      setState(() {
+        _notificationPermissionGranted = notifStatus.isGranted;
+        _locationPermissionGranted = locStatus == LocationPermission.always ||
+            locStatus == LocationPermission.whileInUse;
+      });
+    } catch (_) {
+      // If we can't check, assume granted to avoid false negatives.
+    }
   }
 
   Future<dynamic> _handleNativeCallback(MethodCall call) async {
@@ -231,6 +257,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _fetchAlarmVolume();
       _loadNextPrayer();
       _checkDndPermission();
+      _checkPermissions();
     }
   }
 
@@ -855,6 +882,31 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
+        // Show notification permission warning (critical - adhan won't work)
+        if (!_notificationPermissionGranted) ...[
+          _NotificationPermissionBanner(
+            isAr: isAr,
+            onTap: () async {
+              await ph.openAppSettings();
+              // Re-check permissions when returning
+              await Future.delayed(const Duration(seconds: 1));
+              _checkPermissions();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Show location warning (less critical - will use default location)
+        if (!_locationPermissionGranted && _notificationPermissionGranted) ...[
+          _LocationWarningBanner(
+            isAr: isAr,
+            onTap: () async {
+              await Geolocator.openAppSettings();
+              await Future.delayed(const Duration(seconds: 1));
+              _checkPermissions();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
         if (!_notificationsEnabled) ...[
           _DisabledBanner(isAr: isAr),
           const SizedBox(height: 12),
@@ -883,13 +935,49 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               icon: _notificationsEnabled
                   ? Icons.notifications_active_rounded
                   : Icons.notifications_off_rounded,
-              iconColor: _notificationsEnabled ? AppColors.primary : Colors.grey,
+              iconColor: _notificationsEnabled && _notificationPermissionGranted 
+                  ? AppColors.primary 
+                  : Colors.grey,
               titleAr: 'تفعيل الأذان',
               titleEn: 'Enable Adhan',
-              subtitleAr: 'تشغيل الأذان تلقائياً عند كل وقت صلاة',
-              subtitleEn: 'Auto-play adhan at each prayer time',
+              subtitleAr: _notificationPermissionGranted
+                  ? 'تشغيل الأذان تلقائياً عند كل وقت صلاة'
+                  : 'يتطلب صلاحية الإشعارات أولاً',
+              subtitleEn: _notificationPermissionGranted
+                  ? 'Auto-play adhan at each prayer time'
+                  : 'Requires notification permission first',
               value: _notificationsEnabled,
-              onChanged: (v) {
+              onChanged: (v) async {
+                if (v && !_notificationPermissionGranted) {
+                  // Show warning and open settings
+                  final shouldOpenSettings = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(isAr ? 'صلاحية الإشعارات مطلوبة' : 'Notification Permission Required'),
+                      content: Text(
+                        isAr 
+                            ? 'لتفعيل الأذان، يجب السماح بالإشعارات أولاً من إعدادات التطبيق.'
+                            : 'To enable Adhan, you must allow notifications from app settings first.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: Text(isAr ? 'إلغاء' : 'Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: Text(isAr ? 'فتح الإعدادات' : 'Open Settings'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (shouldOpenSettings == true) {
+                    await ph.openAppSettings();
+                    await Future.delayed(const Duration(seconds: 1));
+                    _checkPermissions();
+                  }
+                  return;
+                }
                 setState(() => _notificationsEnabled = v);
                 _autoSave();
               },
@@ -3199,6 +3287,114 @@ class _DisabledBanner extends StatelessWidget {
           style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w600),
         )),
       ]),
+    );
+  }
+}
+
+// ─── Notification Permission Warning Banner ─────────────────────────────────────
+
+class _NotificationPermissionBanner extends StatelessWidget {
+  final bool isAr;
+  final VoidCallback onTap;
+  const _NotificationPermissionBanner({required this.isAr, required this.onTap});
+  
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.4), width: 1.5),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.notifications_off_rounded, color: Colors.red, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAr ? 'صلاحية الإشعارات مطلوبة' : 'Notification Permission Required',
+                  style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isAr 
+                      ? 'الأذان لن يعمل بدون صلاحية الإشعارات. اضغط هنا لفتح الإعدادات.'
+                      : 'Adhan won\'t work without notification permission. Tap to open settings.',
+                  style: TextStyle(color: Colors.red.withValues(alpha: 0.8), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward_ios_rounded, color: Colors.red.withValues(alpha: 0.6), size: 16),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Location Warning Banner ─────────────────────────────────────────────────────
+
+class _LocationWarningBanner extends StatelessWidget {
+  final bool isAr;
+  final VoidCallback onTap;
+  const _LocationWarningBanner({required this.isAr, required this.onTap});
+  
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.location_off_rounded, color: Colors.amber, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAr ? 'صلاحية الموقع غير مفعلة' : 'Location Permission Not Granted',
+                  style: TextStyle(color: Colors.amber.shade800, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isAr 
+                      ? 'يتم استخدام موقع افتراضي — قد لا تكون المواعيد دقيقة لمنطقتك.'
+                      : 'Using default location — times may not be accurate for your area.',
+                  style: TextStyle(color: Colors.amber.shade700, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward_ios_rounded, color: Colors.amber.withValues(alpha: 0.6), size: 16),
+        ]),
+      ),
     );
   }
 }

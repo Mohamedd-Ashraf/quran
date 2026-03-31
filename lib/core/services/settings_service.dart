@@ -243,6 +243,17 @@ class SettingsService {
     return _prefs.getBool(_keyOnboardingComplete) ?? false;
   }
 
+  // Permission flow completed (shown once after onboarding/auth)
+  static const String _keyPermissionFlowComplete = 'permission_flow_complete';
+  
+  Future<bool> setPermissionFlowComplete(bool complete) async {
+    return await _prefs.setBool(_keyPermissionFlowComplete, complete);
+  }
+
+  bool getPermissionFlowComplete() {
+    return _prefs.getBool(_keyPermissionFlowComplete) ?? false;
+  }
+
   // Diacritics Color Mode
   // 'same' = all text same color (default)
   // 'subtle' = diacritics slightly lighter

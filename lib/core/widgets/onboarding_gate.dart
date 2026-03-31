@@ -11,6 +11,7 @@ import '../services/font_download_manager.dart';
 import '../settings/app_settings_cubit.dart';
 import '../widgets/whats_new_screen.dart';
 import '../widgets/feedback_dialog.dart';
+import '../widgets/permission_flow_screen.dart';
 import '../../features/auth/presentation/cubit/auth_cubit.dart';
 import '../../features/auth/presentation/cubit/auth_state.dart';
 import '../../features/auth/presentation/screens/auth_screen.dart';
@@ -33,6 +34,8 @@ class _OnboardingGateState extends State<OnboardingGate> {
   bool? _onboardingComplete;
   // Whether auth has been completed (or user is already signed in).
   bool _authComplete = false;
+  // Whether permission flow has been completed.
+  bool? _permissionFlowComplete;
   // null = not yet checked, true = show, false = skip
   bool? _showWhatsNew;
   String _appVersion = '';
@@ -48,6 +51,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
     _settings = di.sl<SettingsService>();
     _whatsNewService = di.sl<WhatsNewService>();
     _onboardingComplete = _settings.getOnboardingComplete();
+    _permissionFlowComplete = _settings.getPermissionFlowComplete();
   }
 
   // Called when the splash animation completes.
@@ -80,7 +84,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
     if (authState.status == AuthStatus.authenticated ||
         authState.status == AuthStatus.guest) {
       _authComplete = true;
-      _checkWhatsNew();
+      _checkPermissionFlowAndProceed();
     }
     // Otherwise, build() will show the AuthScreen.
   }
@@ -90,6 +94,25 @@ class _OnboardingGateState extends State<OnboardingGate> {
     if (!mounted) return;
     setState(() {
       _authComplete = true;
+    });
+    _checkPermissionFlowAndProceed();
+  }
+
+  // Check if permission flow was completed before.
+  void _checkPermissionFlowAndProceed() {
+    if (_permissionFlowComplete == true) {
+      // Permission flow already completed, skip to What's New.
+      _checkWhatsNew();
+    }
+    // Otherwise, build() will show the PermissionFlowScreen.
+  }
+
+  // Called when permission flow completes.
+  Future<void> _onPermissionFlowComplete() async {
+    await _settings.setPermissionFlowComplete(true);
+    if (!mounted) return;
+    setState(() {
+      _permissionFlowComplete = true;
     });
     _checkWhatsNew();
   }
@@ -211,14 +234,19 @@ class _OnboardingGateState extends State<OnboardingGate> {
       return AuthScreen(onAuthComplete: _onAuthComplete);
     }
 
-    // ── 4. What's New check loading ────────────────────────────────────────
+    // ── 4. Permission Flow (Location & Notifications) ──────────────────────
+    if (_permissionFlowComplete != true) {
+      return PermissionFlowScreen(onComplete: _onPermissionFlowComplete);
+    }
+
+    // ── 5. What's New check loading ────────────────────────────────────────
     if (_showWhatsNew == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // ── 5. What's New screen ───────────────────────────────────────────────
+    // ── 6. What's New screen ───────────────────────────────────────────────
     if (_showWhatsNew == true) {
       return WhatsNewScreen(
         whatsNewService: _whatsNewService,
@@ -228,14 +256,14 @@ class _OnboardingGateState extends State<OnboardingGate> {
       );
     }
 
-    // ── 5b. Font download runs in background — no blocking screen ─────────
+    // ── 6b. Font download runs in background — no blocking screen ─────────
     // _showFontReminder is always false here; the download manager handles it.
     if (_showFontReminder == null) {
       // Brief async gap before _checkFontReminder fires — show spinner.
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // ── 6. Main app ────────────────────────────────────────────────────────
+    // ── 7. Main app ────────────────────────────────────────────────────────
     return BlocBuilder<AuthCubit, AuthState>(
       buildWhen: (prev, curr) => prev.isSyncing != curr.isSyncing,
       builder: (context, authState) {

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(flutter analyze:*)",
-      "Bash(curl -s \"https://api.github.com/repos/hussein12347/qcf_quran_plus/contents/assets/fonts/qcf_tajweed\")"
+      "Bash(curl -s \"https://api.github.com/repos/hussein12347/qcf_quran_plus/contents/assets/fonts/qcf_tajweed\")",
+      "Bash(find /e/Quraan/quraan -type f -name *notif* -o -name *adhan* -o -name *prayer*)"
     ]
   }
 }
