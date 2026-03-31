@@ -5,34 +5,25 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Smart selection of pages bundled inside the APK (local fork of qcf_quran_plus).
+/// Pages bundled inside the APK — 9 pages covering key surah openings.
 ///
-/// Strategy — 66 pages covering:
+/// Strategy:
 ///   • Al-Fatiha + Al-Baqarah opening (1-4)
-///   • Juz boundary pages (22, 62, 81, 100 … 281) — one page per Juz 2–15
-///   • Ayat al-Kursi area (42-44)
-///   • Al-Baqarah last verses (49-50)
-///   • Al-Kahf full (293-297)
-///   • Yasin full (440-444)
-///   • Al-Rahman (531-533), Al-Waqiah (534-536)
-///   • Al-Hashr last 3 verses (548-549)
-///   • Al-Mulk (562-564)
-///   • Full Juz Amma (582-604)
+///   • Al-Imran opening (50)
+///   • An-Nisa opening (77)
+///   • Al-Maidah opening (106)
+///   • Al-An'am opening (128)
+///   • Al-A'raf opening (151)
+///
+/// All remaining 595 pages are downloaded online via QcfFontDownloadService.
 class _BundledPages {
   static const Set<int> pages = {
     1, 2, 3, 4,
-    22,
-    42, 43, 44,
-    49, 50,
-    62, 81, 100, 121, 141, 161, 181, 201, 221, 241, 261, 281,
-    293, 294, 295, 296, 297,
-    440, 441, 442, 443, 444,
-    531, 532, 533,
-    534, 535, 536,
-    548, 549,
-    562, 563, 564,
-    582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592,
-    593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604,
+    50,
+    77,
+    106,
+    128,
+    151,
   };
 
   static bool isBundled(int page) => pages.contains(page);

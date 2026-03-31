@@ -34,18 +34,16 @@ import 'features/hadith/data/repositories/hadith_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Pre-load only the bundled QCF page fonts (66 pages covering key surahs).
-  // Remaining 538 pages are downloaded on demand via QcfFontDownloadService.
+  // Pre-load only the bundled QCF page fonts (9 pages covering key surah openings).
+  // Remaining 595 pages are downloaded on demand via QcfFontDownloadService.
   // Matches the smart selection in _BundledPages inside qcf_font_download_service.dart.
   const Set<int> bundledPages = {
-    1, 2, 3, 4, 22, 42, 43, 44, 49, 50,
-    62, 81, 100, 121, 141, 161, 181, 201, 221, 241, 261, 281,
-    293, 294, 295, 296, 297,
-    440, 441, 442, 443, 444,
-    531, 532, 533, 534, 535, 536,
-    548, 549, 562, 563, 564,
-    582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592,
-    593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604,
+    1, 2, 3, 4,   // Al-Fatiha + Al-Baqarah opening
+    50,           // Al-Imran opening
+    77,           // An-Nisa opening
+    106,          // Al-Maidah opening
+    128,          // Al-An'am opening
+    151,          // Al-A'raf opening
   };
   for (final page in bundledPages) {
     await QcfFontLoader.ensureFontLoaded(page);
