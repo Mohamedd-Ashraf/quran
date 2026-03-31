@@ -97,6 +97,10 @@ class SettingsService {
   static const bool enableTajweedFeature = true;
   static const bool enableTutorialsFeature = false;
 
+  // TODO: Remove this flag after testing is complete
+  // Used to show/hide the Mushaf stress test screen from developer settings
+  static const bool enableMushafStressTest = false;
+
   // ── Mushaf continue-recitation settings ──────────────────────────────────
   static const String _keyMushafContinueTilawa = 'mushaf_continue_tilawa';
   static const String _keyMushafContinueScope = 'mushaf_continue_scope';

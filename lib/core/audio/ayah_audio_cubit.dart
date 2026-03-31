@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../services/ayah_audio_service.dart';
 import '../services/adhan_notification_service.dart';
@@ -191,13 +194,49 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Suppresses spurious `ProcessingState.completed` events that just_audio
   /// fires during the internal FLUSHING/RESUMING cycle of a seek operation.
   bool _isSeeking = false;
+  // ── Notification artwork URIs (extracted from assets on first init) ───────
+  Uri? _telawaArtUri;
+  Uri? _radioArtUri;
   AyahAudioCubit(this._service, this._adhanService)
     : _player = AudioPlayer(),
       super(const AyahAudioState.idle()) {
     _init();
   }
 
+  /// Returns the Arabic name for [surahNumber] (1-based).
+  String _surahNameFor(int surahNumber) {
+    if (surahNumber >= 1 && surahNumber <= _kSurahNames.length) {
+      return 'سورة ${_kSurahNames[surahNumber - 1]}';
+    }
+    return 'سورة $surahNumber';
+  }
+
+  /// Extracts a Flutter asset to a temp file and returns its [Uri].
+  /// Used so [MediaItem.artUri] can reference local artwork images.
+  Future<Uri?> _extractAssetToTemp(String assetPath, String fileName) async {
+    try {
+      final bytes = await rootBundle.load(assetPath);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsBytes(bytes.buffer.asUint8List());
+      return file.uri;
+    } catch (e) {
+      debugPrint('[Audio] Failed to extract asset $assetPath: $e');
+      return null;
+    }
+  }
+
   Future<void> _init() async {
+    // Extract notification artwork images from assets to temp files.
+    _telawaArtUri = await _extractAssetToTemp(
+      'assets/logo/files/quraan telawa.jpg',
+      'quraan_telawa_art.jpg',
+    );
+    _radioArtUri = await _extractAssetToTemp(
+      'assets/logo/files/islam radio.jpg',
+      'islam_radio_art.jpg',
+    );
+
     try {
       final session = await AudioSession.instance;
       // Configure for music/media playback with ducking support.
@@ -562,11 +601,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         ayahNumber: ayahNumber,
       );
 
+      // Single-ayah mode: title = ayah number, album = surah name.
       final mediaItem = MediaItem(
         id: '${surahNumber}_$ayahNumber',
         title: 'الآية $ayahNumber',
-        album: 'سورة $surahNumber',
+        album: _surahNameFor(surahNumber),
         artist: 'القرآن الكريم',
+        artUri: _telawaArtUri,
       );
       if (source.isLocal) {
         await _player.setAudioSource(
@@ -616,11 +657,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      // Radio mode: use radio artwork in the notification.
       final mediaItem = MediaItem(
         id: 'radio_${url.hashCode}',
         title: title,
         album: subtitle,
         artist: subtitle,
+        artUri: _radioArtUri,
         extras: const {'isLive': true},
       );
       await _player.setAudioSource(
@@ -773,11 +816,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       for (var i = 0; i < sources.length; i++) {
         final ayahNumber = i + 1;
         final s = sources[i];
+        // Full-surah mode: title = surah name, album = current ayah number.
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
-          title: 'الآية $ayahNumber',
-          album: 'سورة $surahNumber',
+          title: _surahNameFor(surahNumber),
+          album: 'الآية $ayahNumber',
           artist: 'القرآن الكريم',
+          artUri: _telawaArtUri,
         );
         if (s.isLocal) {
           children.add(AudioSource.file(s.localFilePath!, tag: mediaItem));
@@ -861,11 +906,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           ayahNumber: ayahNumber,
         );
 
+        // Ayah-range mode (from mushaf): title = ayah number, album = surah name.
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
           title: 'الآية $ayahNumber',
-          album: 'سورة $surahNumber',
+          album: _surahNameFor(surahNumber),
           artist: 'القرآن الكريم',
+          artUri: _telawaArtUri,
         );
         if (source.isLocal) {
           children.add(
@@ -1053,3 +1100,32 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     return super.close();
   }
 }
+
+// ── Notification metadata helpers ─────────────────────────────────────────────
+// Arabic surah names indexed 1–114.  Used to build human-readable MediaItem
+// titles in the system media notification / lock-screen player.
+const _kSurahNames = [
+  'الفاتحة', 'البقرة', 'آل عمران', 'النساء', 'المائدة',
+  'الأنعام', 'الأعراف', 'الأنفال', 'التوبة', 'يونس',
+  'هود', 'يوسف', 'الرعد', 'إبراهيم', 'الحجر',
+  'النحل', 'الإسراء', 'الكهف', 'مريم', 'طه',
+  'الأنبياء', 'الحج', 'المؤمنون', 'النور', 'الفرقان',
+  'الشعراء', 'النمل', 'القصص', 'العنكبوت', 'الروم',
+  'لقمان', 'السجدة', 'الأحزاب', 'سبأ', 'فاطر',
+  'يس', 'الصافات', 'ص', 'الزمر', 'غافر',
+  'فصلت', 'الشورى', 'الزخرف', 'الدخان', 'الجاثية',
+  'الأحقاف', 'محمد', 'الفتح', 'الحجرات', 'ق',
+  'الذاريات', 'الطور', 'النجم', 'القمر', 'الرحمن',
+  'الواقعة', 'الحديد', 'المجادلة', 'الحشر', 'الممتحنة',
+  'الصف', 'الجمعة', 'المنافقون', 'التغابن', 'الطلاق',
+  'التحريم', 'الملك', 'القلم', 'الحاقة', 'المعارج',
+  'نوح', 'الجن', 'المزمل', 'المدثر', 'القيامة',
+  'الإنسان', 'المرسلات', 'النبأ', 'النازعات', 'عبس',
+  'التكوير', 'الانفطار', 'المطففين', 'الانشقاق', 'البروج',
+  'الطارق', 'الأعلى', 'الغاشية', 'الفجر', 'البلد',
+  'الشمس', 'الليل', 'الضحى', 'الشرح', 'التين',
+  'العلق', 'القدر', 'البينة', 'الزلزلة', 'العاديات',
+  'القارعة', 'التكاثر', 'العصر', 'الهمزة', 'الفيل',
+  'قريش', 'الماعون', 'الكوثر', 'الكافرون', 'النصر',
+  'المسد', 'الإخلاص', 'الفلق', 'الناس',
+];

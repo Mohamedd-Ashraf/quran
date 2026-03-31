@@ -23,6 +23,7 @@ import '../../../../core/services/settings_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../tutorials/more_tutorial.dart';
 import 'hijri_calendar_screen.dart';
+import '../../../quran/presentation/screens/mushaf_stress_test_screen.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -310,6 +311,24 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
+
+          // ── Developer Tools (only visible when flags are enabled) ─────
+          if (SettingsService.enableMushafStressTest)
+            _NavCard(
+              title: isArabicUi ? 'اختبار المصحف' : 'Mushaf Stress Test',
+              subtitle: isArabicUi
+                  ? 'اختبار رسم صفحات المصحف تلقائياً'
+                  : 'Automated rendering test for all pages',
+              icon: Icons.speed_rounded,
+              badge: 'DEV',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const MushafStressTestScreen(),
+                  ),
+                );
+              },
+            ),
         ],
       );
         },

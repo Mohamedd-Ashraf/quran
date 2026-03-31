@@ -475,6 +475,40 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFF6A1B9A),
     ),
   ],
+
+  // ─── v1.0.13 ────────────────────────────────────────────────────
+  '1.0.13': [
+    _WhatsNewEntry(
+      icon: Icons.auto_fix_high_rounded,
+      titleAr: 'إصلاح صفحات المصحف',
+      titleEn: 'Mushaf Pages Fix',
+      descAr:
+          'تم إصلاح بعض صفحات المصحف التي كانت لا تظهر برسم المصحف الشريف بشكل صحيح.',
+      descEn:
+          'Fixed some Mushaf pages that were not displaying correctly with the Uthmanic script.',
+      color: const Color(0xFF2E7D32),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.record_voice_over_rounded,
+      titleAr: 'المصحف المجوّد',
+      titleEn: 'Tajweed Mushaf',
+      descAr:
+          'إضافة المصحف المجوّد الملوّن لتسهيل تعلّم أحكام التجويد أثناء التلاوة.',
+      descEn:
+          'Added the color-coded Tajweed Mushaf to help learn tajweed rules while reciting.',
+      color: const Color(0xFF6A1B9A),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.speed_rounded,
+      titleAr: 'تحسينات عامة',
+      titleEn: 'General Improvements',
+      descAr:
+          'تحسين الأداء العام للتطبيق وتجربة المستخدم لتصفّح أسرع وأكثر سلاسة.',
+      descEn:
+          'Improved overall app performance and user experience for faster and smoother browsing.',
+      color: const Color(0xFF00838F),
+    ),
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
