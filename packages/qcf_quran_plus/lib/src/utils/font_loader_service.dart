@@ -48,8 +48,11 @@ class QcfFontLoader {
     if (fontDir != null) {
       for (int i = 1; i <= totalPages; i++) {
         final fontName = _getFontName(i);
-        final file = File('${fontDir.path}/$fontName.ttf');
-        if (file.existsSync() && file.lengthSync() > 1000) {
+        // Count both new ZIP format and legacy TTF format.
+        final zipFile = File('${fontDir.path}/$fontName.zip');
+        final ttfFile = File('${fontDir.path}/$fontName.ttf');
+        if ((zipFile.existsSync() && zipFile.lengthSync() > 500) ||
+            (ttfFile.existsSync() && ttfFile.lengthSync() > 1000)) {
           existingFontsCount++;
         }
       }
@@ -88,23 +91,6 @@ class QcfFontLoader {
       fontDir.createSync(recursive: true);
     }
     return fontDir;
-  }
-
-  /// ================= BACKGROUND PROCESS =================
-  /// Extracts remaining fonts gradually without blocking UI
-  static Future<void> _processRemainingFonts(
-      int start,
-      int end,
-      Directory? fontDir,
-      ) async {
-    for (int i = start; i <= end; i++) {
-      try {
-        await _prepareFontFileIfNeeded(i, fontDir);
-      } catch (_) {}
-
-      /// Yield to UI thread to avoid frame drops
-      await Future(() {});
-    }
   }
 
   /// ================= PUBLIC METHODS =================
@@ -147,8 +133,8 @@ class QcfFontLoader {
         int next = currentPage + i;
         int prev = currentPage - i;
 
-        if (next <= totalPages) pages.add(next);
-        if (prev >= 1) pages.add(prev);
+        if (next <= totalPages) { pages.add(next); }
+        if (prev >= 1) { pages.add(prev); }
       }
     }
 
@@ -164,34 +150,52 @@ class QcfFontLoader {
   }
 
   /// ================= CORE LOADING =================
-  /// Loads font from disk or extracts it if missing
-
+  /// Loads font — checks disk (ZIP then TTF) then falls back to bundled asset.
+  ///
+  /// Priority order (permanentDisk mode):
+  ///   1. ZIP on disk  (~104KB, new format) → decompress in Isolate to memory
+  ///   2. TTF on disk  (~269KB, legacy format) → read directly (backward compat)
+  ///   3. ZIP in assets (bundled pages only) → decompress + write TTF to disk
   static Future<void> _loadFontInternal(int pageNumber) async {
     final fontName = _getFontName(pageNumber);
     Uint8List? fontBytes;
 
     if (_currentMode == FontStorageMode.permanentDisk) {
       final fontDir = await _getFontDirectory();
-      final fontPath = '${fontDir.path}/$fontName.ttf';
-      final file = File(fontPath);
 
-      // 1. فحص سريع وقراءة مباشرة من الذاكرة بدون Isolate (سريع جداً)
-      if (await file.exists() && await file.length() > 1000) {
-        fontBytes = await file.readAsBytes();
+      // Case 1: ZIP on disk (new compressed format — ~104KB each).
+      final zipFile = File('${fontDir.path}/$fontName.zip');
+      if (zipFile.existsSync() && zipFile.lengthSync() > 500) {
+        try {
+          final zipBytes = await zipFile.readAsBytes();
+          fontBytes = await Isolate.run(() => _extractFont(zipBytes));
+        } catch (_) {
+          // ZIP corrupt or unreadable — fall through to TTF check.
+        }
       }
-      // 2. لو الملف مش موجود، هنا بس نستخدم Isolate عشان نفك الضغط (أول مرة فقط)
-      else {
-        final zipBytes = await _loadZip(fontName);
 
+      // Case 2: TTF on disk (legacy uncompressed format — backward compat).
+      if (fontBytes == null) {
+        final ttfFile = File('${fontDir.path}/$fontName.ttf');
+        if (ttfFile.existsSync() && ttfFile.lengthSync() > 1000) {
+          fontBytes = await ttfFile.readAsBytes();
+        }
+      }
+
+      // Case 3: Neither on disk — load ZIP from bundled assets (9 bundled pages).
+      // Writes TTF to disk so subsequent launches read from disk (Case 2).
+      if (fontBytes == null) {
+        final assetZipBytes = await _loadZip(fontName);
+        final ttfFile = File('${fontDir.path}/$fontName.ttf');
         fontBytes = await Isolate.run(() {
-          final extracted = _extractFont(zipBytes);
-          file.parent.createSync(recursive: true);
-          file.writeAsBytesSync(extracted, flush: true);
+          final extracted = _extractFont(assetZipBytes);
+          ttfFile.parent.createSync(recursive: true);
+          ttfFile.writeAsBytesSync(extracted, flush: true);
           return extracted;
         });
       }
     } else {
-      /// Memory-only mode: extract directly
+      /// Memory-only mode: extract directly from bundled asset
       final zipBytes = await _loadZip(fontName);
       fontBytes = await Isolate.run(() => _extractFont(zipBytes));
     }
@@ -209,15 +213,19 @@ class QcfFontLoader {
     if (_currentMode != FontStorageMode.permanentDisk) return;
 
     final fontName = _getFontName(page);
-    final path = '${dir!.path}/$fontName.ttf';
-    final file = File(path);
 
-    if (file.existsSync() && file.lengthSync() > 1000) return;
+    // Already present as ZIP (new format) — nothing to do.
+    final zipFile = File('${dir!.path}/$fontName.zip');
+    if (zipFile.existsSync() && zipFile.lengthSync() > 500) return;
 
-    final zipBytes = await _loadZip(fontName);
+    // Already present as TTF (legacy format) — nothing to do.
+    final ttfFile = File('${dir.path}/$fontName.ttf');
+    if (ttfFile.existsSync() && ttfFile.lengthSync() > 1000) return;
 
-    final extracted = await Isolate.run(() => _extractFont(zipBytes));
-    await file.writeAsBytes(extracted, flush: true);
+    // Fall back to bundled asset ZIP.
+    final assetZipBytes = await _loadZip(fontName);
+    final extracted = await Isolate.run(() => _extractFont(assetZipBytes));
+    await ttfFile.writeAsBytes(extracted, flush: true);
   }
 
   /// Loads zipped font from assets

@@ -31,8 +31,11 @@ class _BundledPages {
 
 /// Downloads all remaining QCF tajweed fonts by fetching the official pub.dev
 /// package archive (`qcf_quran_plus-0.0.7.tar.gz`), extracting each font ZIP
-/// from the tarball, and persisting the TTF files to the same disk path that
+/// from the tarball, and persisting the ZIP files to the same disk path that
 /// [QcfFontLoader] checks first.
+///
+/// Fonts are stored as compressed ZIP files (~104KB each) instead of extracted
+/// TTF files (~269KB each), saving ~100MB of disk space across 595 pages.
 ///
 /// Resume support (correct implementation):
 ///   • Archive stored in **app documents dir** (survives app restarts + OS cleanup).
@@ -67,8 +70,7 @@ class QcfFontDownloadService {
       int count = 0;
       for (int i = 1; i <= _totalPages; i++) {
         if (_BundledPages.isBundled(i)) { count++; continue; }
-        final file = File('${dir.path}/${_getFontName(i)}.ttf');
-        if (file.existsSync() && file.lengthSync() > 1000) count++;
+        if (_hasFont(dir, i)) count++;
       }
       if (count == _totalPages) return true;
       await prefs.remove(_prefKey);
@@ -80,8 +82,7 @@ class QcfFontDownloadService {
   static Future<bool> isPageAvailable(int pageNumber) async {
     if (_BundledPages.isBundled(pageNumber)) return true;
     final dir = await _getFontDirectory();
-    final file = File('${dir.path}/${_getFontName(pageNumber)}.ttf');
-    return file.existsSync() && file.lengthSync() > 1000;
+    return _hasFont(dir, pageNumber);
   }
 
   static Future<int> pendingDownloadCount() async {
@@ -89,17 +90,19 @@ class QcfFontDownloadService {
     int pending = 0;
     for (int i = 1; i <= _totalPages; i++) {
       if (_BundledPages.isBundled(i)) continue;
-      final file = File('${dir.path}/${_getFontName(i)}.ttf');
-      if (!file.existsSync() || file.lengthSync() <= 1000) pending++;
+      if (!_hasFont(dir, i)) pending++;
     }
     return pending;
   }
 
   /// Downloads and extracts all non-bundled fonts.
   ///
+  /// Fonts are saved as ZIP files (~104KB) instead of extracted TTF (~269KB),
+  /// saving ~100MB of disk space across 595 pages.
+  ///
   /// [onProgress]   0.0→0.6 download phase, 0.6→1.0 extraction phase.
   /// [onPhase]      Arabic phase label.
-  /// [onPageDone]   called after each newly-extracted font.
+  /// [onPageDone]   called after each newly-saved font.
   /// [skipExisting] skip pages already on disk (resume after partial extraction).
   static Future<bool> downloadAll({
     void Function(double progress)? onProgress,
@@ -119,11 +122,9 @@ class QcfFontDownloadService {
       final remoteSize    = await _getRemoteFileSize();
 
       if (remoteSize != null && existingBytes >= remoteSize) {
-        // Archive already complete — skip directly to extraction.
         debugPrint('QcfFontDownloadService: archive already complete ($existingBytes bytes)');
         onProgress?.call(0.6);
       } else if (existingBytes > 0 && remoteSize != null && existingBytes < remoteSize) {
-        // Partial file: resume with HTTP Range + file append.
         debugPrint(
           'QcfFontDownloadService: resuming from $existingBytes / $remoteSize bytes',
         );
@@ -136,8 +137,7 @@ class QcfFontDownloadService {
           onProgress: (p) => onProgress?.call(p * 0.6),
         );
       } else {
-        // Fresh download (no partial file or size unknown).
-        if (existingBytes > 0) await archive.delete(); // discard corrupt partial
+        if (existingBytes > 0) await archive.delete();
         await _downloadFull(
           url: _archiveUrl,
           file: archive,
@@ -148,7 +148,7 @@ class QcfFontDownloadService {
 
       if (cancelToken?.isCancelled == true) return false;
 
-      // ── Phase 2: Extract fonts from tar.gz ────────────────────────────
+      // ── Phase 2: Extract ZIP files from tar.gz and save to disk ───────
       onPhase?.call('جارٍ استخراج الخطوط…');
       onProgress?.call(0.6);
 
@@ -168,18 +168,23 @@ class QcfFontDownloadService {
         final pageNum  = int.parse(match.group(2)!);
 
         if (!_BundledPages.isBundled(pageNum)) {
+          final zipFile = File('${fontDir.path}/$fontName.zip');
           final ttfFile = File('${fontDir.path}/$fontName.ttf');
 
-          if (skipExisting && ttfFile.existsSync() && ttfFile.lengthSync() > 1000) {
+          // Skip if already present (either new ZIP format or legacy TTF format).
+          if (skipExisting &&
+              ((zipFile.existsSync() && zipFile.lengthSync() > 500) ||
+               (ttfFile.existsSync() && ttfFile.lengthSync() > 1000))) {
             processed++;
             onProgress?.call(0.6 + processed / entries.length * 0.4);
             continue;
           }
 
           try {
+            // Save raw ZIP bytes — no decompression needed at download time.
+            // QcfFontLoader will decompress to memory when the page is rendered.
             final zipBytes = Uint8List.fromList(entry.content as List<int>);
-            final ttfBytes = await compute(_extractFont, zipBytes);
-            await ttfFile.writeAsBytes(ttfBytes, flush: true);
+            await zipFile.writeAsBytes(zipBytes, flush: true);
             onPageDone?.call(pageNum);
           } catch (e) {
             debugPrint('QcfFontDownloadService: skip page $pageNum – $e');
@@ -199,12 +204,22 @@ class QcfFontDownloadService {
       return remaining == 0;
     } catch (e) {
       debugPrint('QcfFontDownloadService: download failed – $e');
-      // Keep partial archive on disk for next resume attempt.
       return false;
     }
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  /// Returns true if a font for [page] exists on disk in either format:
+  /// - New format: `$fontName.zip` (~104KB compressed)
+  /// - Legacy format: `$fontName.ttf` (~269KB uncompressed, backward compat)
+  static bool _hasFont(Directory dir, int page) {
+    final fontName = _getFontName(page);
+    final zipFile  = File('${dir.path}/$fontName.zip');
+    if (zipFile.existsSync() && zipFile.lengthSync() > 500) return true;
+    final ttfFile  = File('${dir.path}/$fontName.ttf');
+    return ttfFile.existsSync() && ttfFile.lengthSync() > 1000;
+  }
 
   /// Full download (no resume): streams response body into [file] (write mode).
   static Future<void> _downloadFull({
@@ -253,7 +268,6 @@ class QcfFontDownloadService {
       ),
     );
     final body   = response.data!;
-    // Open in append mode — crucial for correct resume.
     final sink   = file.openWrite(mode: FileMode.append);
     int received = from;
     await for (final chunk in body.stream) {
@@ -297,16 +311,6 @@ class QcfFontDownloadService {
 
   static String _getFontName(int page) =>
       'QCF4_tajweed_${page.toString().padLeft(3, '0')}';
-
-  static Uint8List _extractFont(Uint8List zipBytes) {
-    final archive = ZipDecoder().decodeBytes(zipBytes);
-    for (final file in archive) {
-      if (file.name.endsWith('.ttf')) {
-        return Uint8List.fromList(file.content as List<int>);
-      }
-    }
-    throw Exception('QcfFontDownloadService: TTF not found in ZIP');
-  }
 
   static Future<void> _markComplete() async {
     final prefs = await SharedPreferences.getInstance();
