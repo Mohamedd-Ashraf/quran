@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../di/injection_container.dart' as di;
 import '../models/app_update_info.dart';
@@ -365,7 +366,15 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
 
         // Fallback: direct APK download with system notification progress.
         final notifService = di.sl<UpdateDownloadNotificationService>();
-        AppUpdateManager.instance.startDownload(widget.updateInfo.latestVersion);
+
+        // Check install permission BEFORE starting download so we can inform the user
+        final permissionStatus = await Permission.requestInstallPackages.status;
+        final needsInstallPermission = !permissionStatus.isGranted;
+
+        AppUpdateManager.instance.startDownload(
+          widget.updateInfo.latestVersion,
+          needsInstallPermission: needsInstallPermission,
+        );
 
         setState(() {
           _isUpdating = false;
@@ -393,17 +402,26 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
         final success = await widget.updateService.downloadAndInstallApk(
           url: widget.updateInfo.downloadUrl!,
           onProgress: (p) {
-            AppUpdateManager.instance.updateProgress(p);
+            final crossed90 = AppUpdateManager.instance.updateProgress(p);
             // Throttle notification calls to once per 1% to avoid Android
             // dropping rapid updates and the notification appearing frozen.
             final pct = (p * 100).round();
             if (pct != _lastNotifPct) {
               _lastNotifPct = pct;
-              unawaited(notifService.showProgress(
-                progress: p,
-                version: widget.updateInfo.latestVersion,
-                isArabic: isArabic,
-              ));
+              // Show special notification at 90%
+              if (crossed90) {
+                unawaited(notifService.showAlmostComplete(
+                  version: widget.updateInfo.latestVersion,
+                  isArabic: isArabic,
+                  needsInstallPermission: needsInstallPermission,
+                ));
+              } else {
+                unawaited(notifService.showProgress(
+                  progress: p,
+                  version: widget.updateInfo.latestVersion,
+                  isArabic: isArabic,
+                ));
+              }
             }
             if (mounted) setState(() => _downloadProgress = p);
           },

@@ -278,20 +278,21 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-        _NavCard(
-            title: isArabicUi ? 'الرقية الشرعية' : 'Ruqyah Shariah',
-            subtitle: isArabicUi
-                ? 'آيات الشفاء والحماية من القرآن الكريم'
-                : 'Quranic verses for healing & protection',
-            icon: Icons.healing_rounded,
-            imagePath: 'assets/logo/button icons/Roqia-mono.png',
-            monochromeImage: false,
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const RuqyahScreen()));
-            },
-          ),
+          //DO Not delete, may be added back in the future when Ruqyah content is ready
+        // _NavCard(
+        //     title: isArabicUi ? 'الرقية الشرعية' : 'Ruqyah Shariah',
+        //     subtitle: isArabicUi
+        //         ? 'آيات الشفاء والحماية من القرآن الكريم'
+        //         : 'Quranic verses for healing & protection',
+        //     icon: Icons.healing_rounded,
+        //     imagePath: 'assets/logo/button icons/Roqia-mono.png',
+        //     monochromeImage: false,
+        //     onTap: () {
+        //       Navigator.of(
+        //         context,
+        //       ).push(MaterialPageRoute(builder: (_) => const RuqyahScreen()));
+        //     },
+        //   ),
 
           _NavCard(
             title: isArabicUi ? 'التقويم الهجري' : 'Hijri Calendar',

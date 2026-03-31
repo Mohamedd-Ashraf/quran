@@ -79,6 +79,48 @@ class UpdateDownloadNotificationService {
     );
   }
 
+  /// Show "almost done — installation coming" notification at 90%.
+  Future<void> showAlmostComplete({
+    required String version,
+    bool isArabic = true,
+    bool needsInstallPermission = false,
+  }) async {
+    await _ensureChannel();
+
+    final title = isArabic ? 'التحديث على وشك الاكتمال' : 'Update Almost Complete';
+    final body = isArabic
+        ? needsInstallPermission
+            ? 'الإصدار $version جاهز للتثبيت — سيُطلب منك السماح بالتثبيت'
+            : 'الإصدار $version جاهز للتثبيت — اتبع خطوات التثبيت'
+        : needsInstallPermission
+            ? 'Version $version ready — you\'ll be asked to allow installation'
+            : 'Version $version ready — follow installation steps';
+
+    await _plugin.show(
+      _notifId,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          ongoing: false,
+          autoCancel: false,
+          showProgress: true,
+          maxProgress: 100,
+          progress: 90,
+          onlyAlertOnce: false, // Alert user at 90%
+          enableVibration: true,
+          playSound: true,
+          icon: '@drawable/ic_notification',
+        ),
+      ),
+    );
+  }
+
   /// Show "download complete — tap to install" notification.
   Future<void> showComplete({
     required String version,

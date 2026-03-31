@@ -3,13 +3,15 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-  show getPageNumber, getVerse, getVerseEndSymbol, QuranTextStyles, QcfFontLoader;
+    show
+        getPageNumber,
+        QcfFontLoader;
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../data/ruqyah_data.dart';
+import '../widgets/qcf_verses_widget.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ruqyah Screen
@@ -381,16 +383,49 @@ class _RuqyahSliverAppBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Quranic quote strip
+// Quranic quote strip — uses QCF font for authentic Quran rendering
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _QuoteStrip extends StatelessWidget {
+class _QuoteStrip extends StatefulWidget {
   final bool isArabicUi;
   const _QuoteStrip({required this.isArabicUi});
 
   @override
+  State<_QuoteStrip> createState() => _QuoteStripState();
+}
+
+class _QuoteStripState extends State<_QuoteStrip> {
+  bool _fontLoaded = false;
+  late final int _pageNumber;
+
+  // Al-Isra 17:82 — the healing verse
+  static const int _surahNumber = 17;
+  static const int _verseNumber = 82;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageNumber = getPageNumber(_surahNumber, _verseNumber);
+    _loadFont();
+  }
+
+  void _loadFont() {
+    if (QcfFontLoader.isFontLoaded(_pageNumber)) {
+      _fontLoaded = true;
+      return;
+    }
+    QcfFontLoader.ensureFontLoaded(_pageNumber).then((_) {
+      if (mounted) setState(() => _fontLoaded = true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark
+        ? AppColors.secondary.withValues(alpha: 0.95)
+        : AppColors.primary;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -414,23 +449,35 @@ class _QuoteStrip extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            '﴿ وَنُنَزِّلُ مِنَ ٱلْقُرْءَانِ مَا هُوَ شِفَآءٌ وَرَحْمَةٌ لِّلْمُؤْمِنِينَ ﴾',
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              fontFamily: 'Amiri',
-              fontSize: 17,
-              height: 1.9,
-              color: isDark
-                  ? AppColors.secondary.withValues(alpha: 0.95)
-                  : AppColors.primary,
-              fontWeight: FontWeight.w700,
+          if (_fontLoaded)
+            QcfVersesWidget(
+              surahNumber: _surahNumber,
+              firstVerse: _verseNumber,
+              lastVerse: _verseNumber,
+              textColor: textColor,
+              verseNumberColor: textColor,
+              fontSize: 24,
+              verseHeight: 1.85,
+              textAlign: TextAlign.center,
+              isDark: isDark,
+            )
+          else
+            // Fallback while font loads
+            Text(
+              '﴿ وَنُنَزِّلُ مِنَ ٱلْقُرْءَانِ مَا هُوَ شِفَآءٌ وَرَحْمَةٌ لِّلْمُؤْمِنِينَ ﴾',
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                fontFamily: 'Amiri',
+                fontSize: 17,
+                height: 1.9,
+                color: textColor,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
           const SizedBox(height: 6),
           Text(
-            isArabicUi ? '— سورة الإسراء: ٨٢' : '— Surah Al-Isra 17:82',
+            widget.isArabicUi ? '— سورة الإسراء: ٨٢' : '— Surah Al-Isra 17:82',
             style: TextStyle(
               fontSize: 11,
               color: isDark
@@ -1193,91 +1240,50 @@ class _ExpandedContentState extends State<_ExpandedContent> {
       } catch (_) {}
     }
 
-    if (pages.isEmpty || pages.every(QcfFontLoader.isFontLoaded)) {
+    if (pages.isEmpty) {
       _qcfFontsLoaded = true;
       return;
     }
 
+    // Check if all fonts are already loaded
+    if (pages.every(QcfFontLoader.isFontLoaded)) {
+      _qcfFontsLoaded = true;
+      return;
+    }
+
+    // Load all fonts
     Future.wait(pages.map(QcfFontLoader.ensureFontLoaded)).then((_) {
       if (mounted) setState(() => _qcfFontsLoaded = true);
     });
   }
 
-  Widget _buildQcfContent(bool isDark) {
+  Widget _buildVerseContent(bool isDark) {
     final audio = widget.section.audio;
-    final firstVerse = audio.type == RuqyahAudioType.fullSurah ? 1 : audio.startAyah!;
+    final surahNumber = audio.surahNumber;
+    final firstVerse =
+        audio.type == RuqyahAudioType.fullSurah ? 1 : audio.startAyah!;
     final lastVerse = audio.type == RuqyahAudioType.fullSurah
         ? audio.numberOfAyahs!
         : audio.endAyah!;
 
-    final textColor = isDark ? const Color(0xFFF3F3F3) : const Color(0xFF141414);
-    final numberColor = isDark ? const Color(0xFFE6E6E6) : const Color(0xFF222222);
-    return _buildStandardAyahs(
-      surahNumber: audio.surahNumber,
-      firstVerse: firstVerse,
-      lastVerse: lastVerse,
-      textColor: textColor,
-      numberColor: numberColor,
-    );
-  }
+    final textColor = isDark ? const Color(0xFFF5F0E6) : const Color(0xFF1A1A1A);
+    final verseNumberColor = isDark ? AppColors.secondary : AppColors.primary;
 
-  Widget _buildStandardAyahs({
-    required int surahNumber,
-    required int firstVerse,
-    required int lastVerse,
-    required Color textColor,
-    required Color numberColor,
-  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (firstVerse == 1 && surahNumber != 9)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              surahNumber == 97 || surahNumber == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: QuranTextStyles.basmallahStyle(
-                fontSize: 22,
-                color: textColor,
-              ),
-            ),
-          ),
-        for (int v = firstVerse; v <= lastVerse; v++)
-          Builder(builder: (context) {
-            String text;
-            final pageNumber = getPageNumber(surahNumber, v);
-            try {
-              text = getVerse(surahNumber, v);
-            } catch (_) {
-              return const SizedBox.shrink();
-            }
-            final endSymbol = getVerseEndSymbol(v, arabicNumeral: true);
-            return Text.rich(
-              TextSpan(
-                text: text,
-                style: QuranTextStyles.qcfStyle(
-                  pageNumber: pageNumber,
-                  color: textColor,
-                  fontSize: 26,
-                  height: 1.95,
-                ),
-                children: [
-                  TextSpan(
-                    text: ' ۝$endSymbol',
-                    style: GoogleFonts.amiriQuran(
-                      color: numberColor,
-                      fontSize: 18,
-                      height: 2.1,
-                    ),
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-            );
-          }),
+        // QCF Verses rendering (Mushaf drawing style)
+        QcfVersesWidget(
+          surahNumber: surahNumber,
+          firstVerse: firstVerse,
+          lastVerse: lastVerse,
+          textColor: textColor,
+          verseNumberColor: verseNumberColor,
+          fontSize: 28,
+          verseHeight: 2.0,
+          textAlign: TextAlign.center,
+          isDark: isDark,
+        ),
       ],
     );
   }
@@ -1303,49 +1309,31 @@ class _ExpandedContentState extends State<_ExpandedContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── QCF verse rendering ───────────────────────────────────────
-            Builder(builder: (context) {
-              final verseContainerColor = isDark
-                  ? const Color(0xFF11161C)
-                  : const Color(0xFFF3EEF3);
-              final verseBorderColor = isDark
-                  ? const Color(0xFF33414D)
-                  : const Color(0xFFD0CAD0);
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 22),
+            // ── Quranic verse rendering with QCF fonts ─────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: verseContainerColor,
+                  color: isDark ? const Color(0xFF11161C) : const Color(0xFFFFFDF8),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: verseBorderColor,
+                    color: isDark
+                        ? const Color(0xFF33414D)
+                        : const Color(0xFFD0CAD0),
                     width: 1.2,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
+                padding: const EdgeInsets.all(16),
                 child: _qcfFontsLoaded
-                    ? _buildQcfContent(isDark)
-                    : const SizedBox(
-                        height: 48,
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.primary,
-                            ),
-                          ),
+                    ? _buildVerseContent(isDark)
+                    : const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
                         ),
                       ),
-              );
-            }),
+              ),
+            ),
 
             const SizedBox(height: 12),
 

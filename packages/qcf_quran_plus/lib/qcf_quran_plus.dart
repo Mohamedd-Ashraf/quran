@@ -29,6 +29,7 @@ export 'src/data/quarters.dart';
 export 'src/data/juzs.dart';
 export 'src/data/page_data.dart';
 export 'src/data/suwar.dart';
+export 'src/data/quran_data.dart' show quran;
 // ---------------------------------------------------------------------------
 // 3. Quran Data Helper Functions
 // ---------------------------------------------------------------------------

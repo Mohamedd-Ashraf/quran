@@ -22,6 +22,8 @@ class AppUpdateManager extends ChangeNotifier {
   bool _hasError = false;
   double _progress = 0.0;
   String _latestVersion = '';
+  bool _has90PercentNotified = false;
+  bool _needsInstallPermission = false;
 
   // ── Getters ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,8 @@ class AppUpdateManager extends ChangeNotifier {
   bool get hasError => _hasError;
   double get progress => _progress;
   String get latestVersion => _latestVersion;
+  bool get has90PercentNotified => _has90PercentNotified;
+  bool get needsInstallPermission => _needsInstallPermission;
 
   /// True while a download is active (show persistent banner).
   bool get isActive => _isDownloading || _hasError;
@@ -38,19 +42,25 @@ class AppUpdateManager extends ChangeNotifier {
 
   /// Start tracking a new download. Called by the update dialog when the user
   /// taps "تحديث الآن".
-  void startDownload(String version) {
+  void startDownload(String version, {bool needsInstallPermission = false}) {
     _isDownloading = true;
     _isComplete = false;
     _hasError = false;
     _progress = 0.0;
     _latestVersion = version;
+    _has90PercentNotified = false;
+    _needsInstallPermission = needsInstallPermission;
     notifyListeners();
   }
 
   /// Update download progress (0.0 → 1.0). Called from the download callback.
-  void updateProgress(double progress) {
+  /// Returns true when progress crosses 90% for the first time.
+  bool updateProgress(double progress) {
+    final crossed90 = _progress < 0.90 && progress >= 0.90 && !_has90PercentNotified;
     _progress = progress;
+    if (crossed90) _has90PercentNotified = true;
     notifyListeners();
+    return crossed90;
   }
 
   /// Mark download as complete (triggers install prompt).
@@ -74,6 +84,8 @@ class AppUpdateManager extends ChangeNotifier {
     _isComplete = false;
     _hasError = false;
     _progress = 0.0;
+    _has90PercentNotified = false;
+    _needsInstallPermission = false;
     notifyListeners();
   }
 }
