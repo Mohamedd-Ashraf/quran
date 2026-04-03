@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
     show QuranPageView, HighlightVerse, getPageNumber, QcfFontLoader;
-import 'package:qcf_quran_lite/qcf_quran_lite.dart' show getPageData;
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getPageData;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';

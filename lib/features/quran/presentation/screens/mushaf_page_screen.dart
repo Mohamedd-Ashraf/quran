@@ -21,8 +21,7 @@ import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import 'tafsir_screen.dart';
-import 'package:qcf_quran_lite/qcf_quran_lite.dart' show getPageData;
-import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic;
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic, getPageData;
 import '../tutorials/mushaf_tutorial.dart';
 import '../widgets/ayah_share_card.dart';
 import '../widgets/mushaf_page_view.dart'
@@ -2408,7 +2407,7 @@ class _SurahHeader extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/surah_banner.png',
-                package: 'qcf_quran_lite',
+                package: 'qcf_quran_plus',
                 width: w,
                 fit: BoxFit.contain,
                 color: const Color.fromARGB(255, 43, 63, 48),
@@ -2451,7 +2450,7 @@ class _SurahHeader extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/surah_banner.png',
-                package: 'qcf_quran_lite',
+                package: 'qcf_quran_plus',
                 width: w,
                 fit: BoxFit.contain,
                 color: isDark ? const Color.fromARGB(255, 43, 63, 48) : null,

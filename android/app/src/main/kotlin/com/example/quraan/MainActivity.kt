@@ -492,6 +492,15 @@ class MainActivity : AudioServiceFragmentActivity() {
                         result.success(diag)
                     }
 
+                    "startPrayerTimesService" -> {
+                        startService(Intent(this, PrayerTimesService::class.java))
+                        result.success(null)
+                    }
+                    "stopPrayerTimesService" -> {
+                        stopService(Intent(this, PrayerTimesService::class.java))
+                        result.success(null)
+                    }
+
                     else -> result.notImplemented()
                 }
             }

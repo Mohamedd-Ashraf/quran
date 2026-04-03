@@ -48,6 +48,10 @@ class SettingsService {
   static const String _keyAdhanAudioStream = 'adhan_audio_stream';
   static const String _keyAdhanBannerShown = 'adhan_banner_shown';
 
+  // ── Persistent prayer-times foreground notification ─────────────────────────
+  static const String _keyPersistentPrayerNotification =
+      'persistent_prayer_notification';
+
   /// One-time migration flag: forces adhan stream to 'alarm' for all existing users.
   static const String _keyAdhanAlarmMigrated = 'adhan_alarm_stream_migrated_v1';
   static const String _keyShowAdhanTestButtons = 'show_adhan_test_buttons';
@@ -403,6 +407,12 @@ class SettingsService {
   bool hasAdhanBannerShown() => _prefs.getBool(_keyAdhanBannerShown) ?? false;
   Future<bool> setAdhanBannerShown() =>
       _prefs.setBool(_keyAdhanBannerShown, true);
+
+  // ── Persistent prayer-times foreground notification ─────────────────────────
+  bool getPersistentPrayerNotification() =>
+      _prefs.getBool(_keyPersistentPrayerNotification) ?? false;
+  Future<bool> setPersistentPrayerNotification(bool v) =>
+      _prefs.setBool(_keyPersistentPrayerNotification, v);
 
   // ── Show adhan test buttons (for testing individual prayers) ────────────────
   bool getShowAdhanTestButtons() =>

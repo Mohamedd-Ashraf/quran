@@ -306,11 +306,13 @@ class _HadithTab extends StatelessWidget {
                 ),
               ),
 
-              // Arabic text
+              // Arabic text — label depends on hadith source:
+              // offline (117 curated) → always matn → show "قال رسول الله ﷺ:"
+              // online Bukhari → may show full rawText (with isnad) → show "نص الحديث:"
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                 child: Text(
-                  'قال رسول الله ﷺ:',
+                  hadith.isOffline ? 'قال رسول الله ﷺ:' : 'نص الحديث:',
                   textAlign: TextAlign.right,
                   textDirection: TextDirection.rtl,
                   style: TextStyle(

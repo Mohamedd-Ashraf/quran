@@ -1029,13 +1029,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
-  qcf_quran_lite:
-    dependency: "direct main"
-    description:
-      path: "packages/qcf_quran_lite"
-      relative: true
-    source: path
-    version: "0.0.1"
   qcf_quran_plus:
     dependency: "direct main"
     description:

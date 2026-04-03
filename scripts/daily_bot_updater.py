@@ -26,6 +26,7 @@ import sys
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+import io
 
 # Force UTF-8 output
 if hasattr(sys.stdout, 'reconfigure'):
@@ -58,6 +59,13 @@ def main() -> None:
     
     if not update_script.exists():
         print(f"ERROR: Could not find {update_script}")
+        input("\nPress Enter to close...")
+        sys.exit(1)
+
+    sa_path = Path(args.service_account)
+    if not sa_path.exists():
+        print(f"ERROR: Service account file not found: {sa_path}")
+        input("\nPress Enter to close...")
         sys.exit(1)
     
     # Log file
@@ -72,33 +80,53 @@ def main() -> None:
     print(f"  Log file: {log_file}")
     print()
     
-    # Run update_quiz_bots.py
-    result = subprocess.run(
+    # Run update_quiz_bots.py — stream output live AND capture for log
+    output_lines: list[str] = []
+
+    proc = subprocess.Popen(
         [sys.executable, str(update_script), "-s", args.service_account],
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    
-    output = result.stdout + (result.stderr if result.stderr else "")
-    
+
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+        output_lines.append(line)
+
+    proc.wait()
+    returncode = proc.returncode
+    output = "".join(output_lines)
+
     # Write to log
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*70}\n")
         f.write(f"[{timestamp}] Bot Update Run\n")
         f.write(f"{'='*70}\n")
         f.write(output)
-        f.write(f"\nExit code: {result.returncode}\n")
-    
-    # Print to console
-    print(output)
-    
-    if result.returncode == 0:
+        f.write(f"\nExit code: {returncode}\n")
+
+    if returncode == 0:
         print(f"\n✓ Daily update completed successfully.")
         print(f"  Log saved to: {log_file}")
     else:
-        print(f"\n✗ Update failed with exit code {result.returncode}")
-        sys.exit(result.returncode)
+        print(f"\n✗ Update failed with exit code {returncode}")
+        print(f"  Check log: {log_file}")
+        input("\nPress Enter to close...")
+        sys.exit(returncode)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print(f"\n✗ Error: {exc}")
+        input("\nPress Enter to close...")
+        sys.exit(1)

@@ -216,34 +216,51 @@ class FirestoreHadith {
     this.subcategory = '',
   });
 
+  /// Returns true when the extracted [matn] begins with a dangling pronoun or
+  /// mid-narrative particle that makes it hard to understand without the
+  /// preceding context from the isnad (e.g. "فَقَالَ", "أَنَّهُ", "وَهِيَ").
+  static bool _matnStartsConfusingly(String matn) {
+    if (matn.isEmpty) return false;
+    // Strip diacritics for comparison
+    final clean = matn
+        .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '')
+        .trimLeft();
+    const confusingPrefixes = [
+      'فقال ',  'فقالت ', 'وقال ',  'وقالت ',
+      'فقال:', 'وقال:',
+      'أنه ',  'أنها ',  'أنهم ',  'أنهن ',
+      'وهى ',  'وهي ',  'وهو ',   'وهم ',
+      'فهو ',  'فهي ',  'فهم ',
+      'فكان ', 'فكانت ', 'وكان ',  'وكانت ',
+      'فأتى ', 'فأتت ', 'فجاء ',  'فجاءت ',
+      'وإنه ', 'وإنها ',
+    ];
+    return confusingPrefixes.any((p) => clean.startsWith(p));
+  }
+
   /// Convert to full [HadithItem] for detail screen.
   HadithItem toHadithItem({
     required String bookNameAr,
   }) {
     // ── Determine the best Arabic text to display ──────────────────────────
     // Priority:
-    //  1. arabicText (matn) from Firestore — the extracted matn stored by the
-    //     upload script.  Use it if it is non-empty AND substantial (at least
-    //     25 % of rawText length, or rawText is absent/short).
-    //  2. rawText (full original) — always complete, may include narrator chain.
-    //     Fall back to this when arabicText is missing or suspiciously short.
-    //  3. Runtime split of rawText — tries to strip the narrator chain via
-    //     known phrase markers.
-    //  4. If nothing is available, show an empty string.
+    //  1. arabicText (matn) is used if non-empty, substantial (≥ 25 % of
+    //     rawText), AND does not start with a dangling mid-sentence word that
+    //     would confuse the reader without the preceding isnad context.
+    //  2. rawText (full original) — always complete; used when matn is short,
+    //     missing, or starts confusingly (e.g. "فَقَالَ" / "أَنَّهُ" / "وَهِيَ").
+    //  3. Runtime split of rawText — used only when rawText is absent.
+    //  4. Empty string as last resort.
     final String effectiveArabicText;
     if (matn.isNotEmpty) {
-      // If rawText is available and arabicText is < 25 % of rawText, it likely
-      // missed narrative context — prefer the full rawText.
       final bool matnTooShort =
           text.isNotEmpty && text.length > 150 && matn.length < (text.length * 0.25);
-      if (matnTooShort) {
-        // Use a runtime split of rawText which may do better now
-        final splitResult = _splitSanadMatn(text);
-        final runtimeMatn = splitResult.$2;
-        // Accept runtime split only if it's substantially longer than stored matn
-        effectiveArabicText = (runtimeMatn.length > matn.length * 1.3)
-            ? runtimeMatn
-            : text; // last resort: full rawText
+      // When matn begins with a dangling pronoun/particle the rawText gives
+      // the full context including the narrator who provides the referent.
+      final bool matnConfusedStart =
+          text.isNotEmpty && _matnStartsConfusingly(matn);
+      if (matnTooShort || matnConfusedStart) {
+        effectiveArabicText = text; // rawText — complete, contextual
       } else {
         effectiveArabicText = matn;
       }

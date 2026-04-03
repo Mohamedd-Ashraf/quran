@@ -79,6 +79,35 @@ BOTS_INFO = [
 LEADERBOARD_COLLECTION = "quiz_leaderboard"
 
 
+# ── Display helpers ───────────────────────────────────────────────────────────
+
+def print_bots_table(bots_data: list[dict], title: str) -> None:
+    """Print a formatted table of bot scores."""
+    print(f"\n{'='*80}")
+    print(f"  {title}")
+    print(f"{'='*80}")
+    print(
+        f"  {'Name':<22}  {'Score':>7}  {'Correct':>7}  {'Answered':>8}  "
+        f"{'Streak':>6}  {'Last Date':<12}  {'Last Correct'}"
+    )
+    print(
+        f"  {'-'*22}  {'-'*7}  {'-'*7}  {'-'*8}  "
+        f"{'-'*6}  {'-'*12}  {'-'*12}"
+    )
+    for b in bots_data:
+        last_correct = "✓" if b.get("lastAnswerCorrect") else "✗"
+        print(
+            f"  {b.get('displayName', '?'):<22}  "
+            f"{b.get('totalScore', 0):>7}  "
+            f"{b.get('correctAnswers', 0):>7}  "
+            f"{b.get('totalAnswered', 0):>8}  "
+            f"{b.get('streak', 0):>6}  "
+            f"{b.get('lastAnsweredDate', 'N/A'):<12}  "
+            f"{last_correct}"
+        )
+    print()
+
+
 # ── Update logic ──────────────────────────────────────────────────────────────
 
 def get_today_str() -> str:
@@ -135,8 +164,10 @@ def update_bot_daily(bot_data: dict) -> dict:
             "totalAnswered": current_total_answered,  # Keep same
             "streak": 0,
             "lastAnswerCorrect": False,
+            "lastAnswerPoints": 0,
             "lastAnsweredDate": today,
             "lastUpdated": _fs.SERVER_TIMESTAMP,
+            "answeredIdsJson": "[]",  # Reset so bot always has fresh questions
         }
     
     # Bot answers today — determine if correct (78% success rate realistic)
@@ -171,6 +202,7 @@ def update_bot_daily(bot_data: dict) -> dict:
         "lastAnswerPoints": last_points,
         "lastAnsweredDate": today,
         "lastUpdated": _fs.SERVER_TIMESTAMP,
+        "answeredIdsJson": "[]",  # Reset so bot always has fresh questions
     }
 
 
@@ -232,92 +264,107 @@ def run(service_account_path: str, dry_run: bool) -> None:
         print("\n✓ All bots already updated today. Nothing to do.")
         return
 
-    # ── Apply random updates ───────────────────────────────────────────────────
-    print("\n" + "="*70)
-    print("SIMULATION: How many bots will answer today?")
-    print("="*70)
-    
-    answering_today = sum(1 for _ in range(len(bots_to_update)) if random.random() < 0.70)
+    # ── BEFORE table ───────────────────────────────────────────────────────────
+    print_bots_table(
+        [b["current_data"] for b in bots_to_update],
+        f"BEFORE UPDATE  ({today_str})"
+    )
+
+    # ── Compute random updates ─────────────────────────────────────────────────
     correct_count = 0
     updates = []
-    
+
     for bot in bots_to_update:
         update = update_bot_daily(bot["current_data"])
+        # Build the full merged "after" state for display
+        after_data = {
+            **bot["current_data"],
+            **{k: v for k, v in update.items() if k != "lastUpdated"},
+        }
         updates.append({
             "id": bot["id"],
             "display_name": bot["display_name"],
             "update": update,
             "old_data": bot["current_data"],
+            "after_data": after_data,
         })
         if update.get("lastAnswerCorrect"):
             correct_count += 1
-    
-    # Print results
-    print(f"\nResult: {correct_count}/{len(updates)} bots answered correctly today")
-    print()
-    
+
+    # ── Per-bot change summary ─────────────────────────────────────────────────
+    print(f"{'='*80}")
+    print(f"  CHANGES  —  {correct_count}/{len(updates)} answered correctly today")
+    print(f"{'='*80}")
+
     for item in updates:
-        old = item["old_data"]
+        old        = item["old_data"]
         new_update = item["update"]
-        
-        old_score = old.get("totalScore", 0)
-        new_score = new_update.get("totalScore", old_score)
+
+        old_score    = old.get("totalScore", 0)
+        new_score    = new_update.get("totalScore", old_score)
         score_change = new_score - old_score
-        
-        old_streak = old.get("streak", 0)
-        new_streak = new_update.get("streak", 0)
-        
-        is_correct = new_update.get("lastAnswerCorrect")
-        points = new_update.get("lastAnswerPoints", 0)
-        
+
+        old_streak  = old.get("streak", 0)
+        new_streak  = new_update.get("streak", 0)
+
+        is_correct  = new_update.get("lastAnswerCorrect")
+        points      = new_update.get("lastAnswerPoints", 0)
+
         old_answered = old.get("totalAnswered", 0)
         new_answered = new_update.get("totalAnswered", old_answered)
-        
+
+        old_correct  = old.get("correctAnswers", 0)
+        new_correct  = new_update.get("correctAnswers", old_correct)
+
         if is_correct:
-            # Determine difficulty from points
-            if points == 5:
-                difficulty = "EASY"
-            elif points == 10:
-                difficulty = "MEDIUM"
-            elif points == 20:
-                difficulty = "HARD"
-            else:
-                difficulty = "?"
-            badge = f"✓ CORRECT ({difficulty})"
+            diff_tag = "EASY" if points == 5 else ("MEDIUM" if points == 10 else "HARD")
+            badge = f"✓ CORRECT ({diff_tag},  +{points} pts)"
+        elif new_answered > old_answered:
+            badge = "✗ WRONG  (0 pts)"
         else:
-            if new_answered > old_answered:
-                badge = "✗ WRONG"
-            else:
-                badge = "⊘ SKIPPED"
-        
-        print(f"  {item['id']}  {item['display_name']:22s}")
-        print(f"      Score: {old_score} → {new_score} ({score_change:+d})")
-        print(f"      Streak: {old_streak} → {new_streak}")
-        print(f"      {badge}  [{points} pts]  Total: {old_answered} → {new_answered}")
-        print()
-    
+            badge = "⊘ SKIPPED"
+
+        print(
+            f"\n  {item['id']}  {item['display_name']}\n"
+            f"    Score       : {old_score:>6}  →  {new_score:>6}  ({score_change:+d})\n"
+            f"    Correct     : {old_correct:>6}  →  {new_correct:>6}\n"
+            f"    Answered    : {old_answered:>6}  →  {new_answered:>6}\n"
+            f"    Streak      : {old_streak:>6}  →  {new_streak:>6}\n"
+            f"    Date        : {old.get('lastAnsweredDate', 'N/A')}  →  {today_str}\n"
+            f"    answeredIds : reset to []\n"
+            f"    Result      : {badge}"
+        )
+
+    print()
+
+    # ── AFTER table ────────────────────────────────────────────────────────────
+    print_bots_table(
+        [item["after_data"] for item in updates],
+        f"AFTER UPDATE  ({today_str})"
+    )
+
     if dry_run:
-        print("="*70)
+        print("="*80)
         print("DRY RUN — no data will be written to Firestore.")
-        print("="*70)
+        print("="*80)
         print()
         print("Run without --dry-run to apply these updates.")
         return
-    
+
     # ── Write updates to Firestore ─────────────────────────────────────────────
-    print("="*70)
+    print("="*80)
     print("Writing updates to Firestore...")
-    print("="*70)
-    
+    print("="*80)
+
     batch = db.batch()
-    
+
     for item in updates:
         ref = db.collection(LEADERBOARD_COLLECTION).document(item["id"])
         batch.update(ref, item["update"])
-    
+
     batch.commit()
-    
-    print(f"\n✓ Done. {len(updates)} bots updated.")
+
+    print(f"\n✓ Done. {len(updates)} bots updated in Firestore.")
     print()
 
 

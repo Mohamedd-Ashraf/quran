@@ -20,6 +20,7 @@ import '../../../../core/constants/prayer_calculation_constants.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/services/adhan_notification_service.dart';
+import '../../../../core/services/prayer_foreground_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import 'adhan_diagnostics_screen.dart';
 import 'adhan_reliability_test_screen.dart';
@@ -108,6 +109,9 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
 
   // ── Force speaker ─────────────────────────────────────────────────────
   bool _forceSpeaker = false;
+
+  // ── Persistent prayer notification ────────────────────────────────────
+  bool _persistentNotification = false;
 
   // ── Permission states ──────────────────────────────────────────────────
   bool _notificationPermissionGranted = true;
@@ -247,6 +251,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _showAdhanTestButtons = _settings.getShowAdhanTestButtons();
       // Force speaker
       _forceSpeaker = _settings.getBool('adhan_force_speaker');
+      // Persistent prayer notification
+      _persistentNotification = _settings.getPersistentPrayerNotification();
     });
   }
 
@@ -1007,6 +1013,28 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             ],
             _buildDivider(),
             _buildStreamPickerRow(isAr),
+            _buildDivider(),
+            _buildSwitchRow(
+              icon: _persistentNotification
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_paused_outlined,
+              iconColor: _persistentNotification ? AppColors.primary : Colors.grey,
+              titleAr: 'إشعار مواقيت الصلاة الثابت',
+              titleEn: 'Persistent Prayer Times',
+              subtitleAr: 'إشعار ثابت يعرض الصلاة القادمة والوقت المتبقي',
+              subtitleEn: 'Always-on notification showing next prayer & remaining time',
+              value: _persistentNotification,
+              onChanged: (v) async {
+                setState(() => _persistentNotification = v);
+                await _settings.setPersistentPrayerNotification(v);
+                if (v) {
+                  PrayerForegroundService.start();
+                } else {
+                  PrayerForegroundService.stop();
+                }
+              },
+              isAr: isAr,
+            ),
           ],
         ),
         const SizedBox(height: 16),

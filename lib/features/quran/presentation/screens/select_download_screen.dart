@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic;
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/quran_structure.dart';
 import '../../../../core/constants/surah_names.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/offline_audio_service.dart';
-import 'package:qcf_quran_lite/qcf_quran_lite.dart' show getSurahNameArabic;
 
 class SelectDownloadScreen extends StatefulWidget {
   const SelectDownloadScreen({super.key});

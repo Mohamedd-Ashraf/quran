@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:qcf_quran_lite/qcf_quran_lite.dart'
+import 'package:qcf_quran_plus/qcf_quran_plus.dart'
     show getVerseCount, getVerse, getVerseEndSymbol, getSurahNameArabic;
 import 'package:share_plus/share_plus.dart';
 
@@ -696,7 +696,7 @@ class _SurahHeader extends StatelessWidget {
         // Ornamental frame
         Image.asset(
           'assets/surah_banner.png',
-          package: 'qcf_quran_lite',
+          package: 'qcf_quran_plus',
           width: headerWidth,
           fit: BoxFit.contain,
           color: isDarkMode ? const Color.fromARGB(255, 43, 63, 48) : null,

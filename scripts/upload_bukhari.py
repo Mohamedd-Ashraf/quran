@@ -1124,7 +1124,7 @@ def upload(
             'category':    hadith['category'],
             'subcategory': hadith['subcategory'],
             'title':       hadith['title'],
-            'preview':     (hadith['matn'][:140] + '\u2026') if len(hadith['matn']) > 140 else hadith['matn'],
+            'preview':     (hadith['matn'][:250] + '\u2026') if len(hadith['matn']) > 250 else hadith['matn'],
             'narrator':    hadith['narrator'],
             'source':      f"\u0635\u062d\u064a\u062d \u0627\u0644\u0628\u062e\u0627\u0631\u064a {hadith['number']}",
         }
@@ -1285,7 +1285,7 @@ def main() -> int:
                     'category':    h['category'],
                     'subcategory': h['subcategory'],
                     'title':       h['title'],
-                    'preview':     (h['matn'][:140] + '\u2026') if len(h['matn']) > 140 else h['matn'],
+                    'preview':     (h['matn'][:250] + '\u2026') if len(h['matn']) > 250 else h['matn'],
                     'narrator':    h['narrator'],
                     'source':      f"\u0635\u062d\u064a\u062d \u0627\u0644\u0628\u062e\u0627\u0631\u064a {h['number']}",
                 }

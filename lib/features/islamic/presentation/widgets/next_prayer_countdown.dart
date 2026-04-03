@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:adhan/adhan.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/services/prayer_times_cache_service.dart';
+import '../../../../core/services/prayer_time_helper.dart';
 
 /// A widget that displays a countdown to the next prayer time.
 class NextPrayerCountdown extends StatefulWidget {
@@ -15,8 +14,7 @@ class NextPrayerCountdown extends StatefulWidget {
 
 class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
   Timer? _timer;
-  ({Prayer prayer, String label, DateTime time})? _nextPrayer;
-  Duration? _timeRemaining;
+  NextPrayerInfo? _nextPrayer;
 
   @override
   void initState() {
@@ -34,84 +32,9 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
   }
 
   void _calculateNextPrayer() {
-    final cache = di.sl<PrayerTimesCacheService>();
-    
-    final today = DateTime.now();
-    final cachedTimes = cache.getCachedTimesForDate(today);
-    
-    if (cachedTimes == null) {
-      // Try tomorrow in case we're after Isha
-      final tomorrow = today.add(const Duration(days: 1));
-      final tomorrowTimes = cache.getCachedTimesForDate(tomorrow);
-      
-      if (tomorrowTimes == null) {
-        setState(() {
-          _nextPrayer = null;
-          _timeRemaining = null;
-        });
-        return;
-      }
-      
-      // Next is tomorrow's Fajr
-      final fajr = tomorrowTimes['fajr']!;
-      setState(() {
-        _nextPrayer = (prayer: Prayer.fajr, label: 'Fajr', time: fajr);
-        _timeRemaining = fajr.difference(DateTime.now());
-      });
-      return;
-    }
-
-    // Find next prayer from today's times
-    final now = DateTime.now();
-    final prayers = [
-      (prayer: Prayer.fajr,    label: 'Fajr',    time: cachedTimes['fajr']!),
-      (prayer: Prayer.sunrise, label: 'Sunrise', time: cachedTimes['sunrise']!),
-      (prayer: Prayer.dhuhr,   label: 'Dhuhr',   time: cachedTimes['dhuhr']!),
-      (prayer: Prayer.asr,     label: 'Asr',     time: cachedTimes['asr']!),
-      (prayer: Prayer.maghrib, label: 'Maghrib', time: cachedTimes['maghrib']!),
-      (prayer: Prayer.isha,    label: 'Isha',    time: cachedTimes['isha']!),
-    ];
-
-    for (final p in prayers) {
-      if (p.time.isAfter(now)) {
-        setState(() {
-          _nextPrayer = p;
-          _timeRemaining = p.time.difference(now);
-        });
-        return;
-      }
-    }
-
-    // All prayers passed, check tomorrow's Fajr
-    final tomorrow = today.add(const Duration(days: 1));
-    final tomorrowTimes = cache.getCachedTimesForDate(tomorrow);
-    
-    if (tomorrowTimes != null) {
-      final fajr = tomorrowTimes['fajr']!;
-      setState(() {
-        _nextPrayer = (prayer: Prayer.fajr, label: 'Fajr', time: fajr);
-        _timeRemaining = fajr.difference(now);
-      });
-    } else {
-      setState(() {
-        _nextPrayer = null;
-        _timeRemaining = null;
-      });
-    }
-  }
-
-  String _formatDuration(Duration duration) {
-    if (duration.isNegative) return '...';
-    
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    } else {
-      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
+    setState(() {
+      _nextPrayer = PrayerTimeHelper.getNextPrayer();
+    });
   }
 
   IconData _getPrayerIcon(Prayer prayer) {
@@ -135,27 +58,14 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
 
   String _getPrayerName(BuildContext context, Prayer prayer) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    switch (prayer) {
-      case Prayer.fajr:
-        return isArabic ? 'الفجر' : 'Fajr';
-      case Prayer.dhuhr:
-        return isArabic ? 'الظهر' : 'Dhuhr';
-      case Prayer.asr:
-        return isArabic ? 'العصر' : 'Asr';
-      case Prayer.maghrib:
-        return isArabic ? 'المغرب' : 'Maghrib';
-      case Prayer.isha:
-        return isArabic ? 'العشاء' : 'Isha';
-      case Prayer.sunrise:
-        return isArabic ? 'الشروق' : 'Sunrise';
-      default:
-        return '';
-    }
+    return isArabic
+        ? PrayerTimeHelper.getArabicName(prayer)
+        : PrayerTimeHelper.getEnglishName(prayer);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_nextPrayer == null || _timeRemaining == null) {
+    if (_nextPrayer == null) {
       return const SizedBox.shrink();
     }
 
@@ -237,7 +147,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _formatDuration(_timeRemaining!),
+                PrayerTimeHelper.formatDuration(_nextPrayer!.remaining),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontFeatures: const [FontFeature.tabularFigures()],
