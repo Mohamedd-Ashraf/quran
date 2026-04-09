@@ -173,6 +173,7 @@ flutter:
     - "assets/logo/button icons/Tafsir-icon.png"
     - "assets/logo/button icons/Tafsir-icon-mono.png"
     - assets/fonts/
+    - assets/google_fonts/
     - assets/hadith/
     - assets/logo/button icons/hadith.png
     - assets/logo/button icons/calendar.png

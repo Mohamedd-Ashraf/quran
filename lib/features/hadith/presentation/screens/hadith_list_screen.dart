@@ -5,10 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/theme/app_design_system.dart';
-import '../../data/datasources/hadith_firestore_datasource.dart';
 import '../../data/models/hadith_category_info.dart';
 import '../../data/models/hadith_item.dart';
 import '../../data/models/hadith_list_item.dart';
+import '../../data/models/remote_hadith.dart';
 import '../../data/repositories/hadith_repository.dart';
 import '../cubit/hadith_cubit.dart';
 import '../cubit/hadith_list_cubit.dart';
@@ -38,15 +38,15 @@ class HadithListScreen extends StatelessWidget {
 
 // ─── Online (Firestore/Bukhari) section list ──────────────────────────────────
 
-/// Wrapper for browsing a specific Bukhari book from Firestore.
+/// Wrapper for browsing a specific Bukhari section from the CDN API.
 class OnlineHadithListScreen extends StatelessWidget {
   final HadithCategoryInfo bookInfo;
-  final BukhariBook bukhariBook;
+  final RemoteSection remoteSection;
 
   const OnlineHadithListScreen({
     super.key,
     required this.bookInfo,
-    required this.bukhariBook,
+    required this.remoteSection,
   });
 
   @override
@@ -55,11 +55,11 @@ class OnlineHadithListScreen extends StatelessWidget {
       create: (context) => HadithListCubit(
         repository: context.read<HadithRepository>(),
         categoryId: bookInfo.id,
-        bukhariBook: bukhariBook,
+        remoteSection: remoteSection,
       )..loadInitial(),
       child: _HadithListView(
         category: bookInfo,
-        sectionTitle: bukhariBook.nameAr,
+        sectionTitle: remoteSection.nameAr,
       ),
     );
   }

@@ -7,9 +7,14 @@ import '../hadith_data.dart';
 ///
 /// v1: offline hadiths + bookmarks
 /// v2: cached_hadiths + cached_sections for online CDN data
+/// v4: invalidate online cache to rebuild Bukhari ids/matn/title display
+/// v5: rebuild online cache after improved matn splitting and display titles
+/// v6: rebuild online cache after normalized split and cleaner title derivation
+/// v7: rebuild online cache after robust sanad/matn split rewrite (Strategy C 80%,
+///     Strategy A normalized, Strategy B quote-based) and topicAr fix in _mapToItem
 class HadithDatabase {
   static const _dbName = 'hadiths.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 7;
 
   Database? _database;
 
@@ -47,6 +52,22 @@ class HadithDatabase {
     }
     if (oldVersion < 3) {
       await _insertMissingHadiths(db);
+    }
+    if (oldVersion < 4) {
+      await db.delete('cached_hadiths');
+      await db.delete('cached_sections');
+    }
+    if (oldVersion < 5) {
+      await db.delete('cached_hadiths');
+      await db.delete('cached_sections');
+    }
+    if (oldVersion < 6) {
+      await db.delete('cached_hadiths');
+      await db.delete('cached_sections');
+    }
+    if (oldVersion < 7) {
+      await db.delete('cached_hadiths');
+      await db.delete('cached_sections');
     }
   }
 

@@ -69,6 +69,11 @@ class _AuthScreenState extends State<AuthScreen>
     final screenHeight = MediaQuery.of(context).size.height;
 
     return BlocListener<AuthCubit, AuthState>(
+      // Only react when the auth STATUS itself changes, not when isLoading
+      // or isSyncing flip. Without this, emitting isLoading:true while
+      // still in guest status immediately fires onAuthComplete() and pushes
+      // the QuizScreen into the background before any login has occurred.
+      listenWhen: (prev, next) => prev.status != next.status,
       listener: (context, state) {
         if (state.status == AuthStatus.authenticated ||
             state.status == AuthStatus.guest) {

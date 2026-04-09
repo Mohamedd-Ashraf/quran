@@ -2,28 +2,34 @@ import 'dart:collection';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../datasources/hadith_firestore_datasource.dart';
+import '../datasources/hadith_cache_datasource.dart';
 import '../datasources/hadith_local_datasource.dart';
+import '../datasources/hadith_remote_datasource.dart';
 import '../models/hadith_category_info.dart';
 import '../models/hadith_item.dart';
 import '../models/hadith_list_item.dart';
+import '../models/remote_hadith.dart';
 import '../services/hadith_bookmark_sync_service.dart';
 
-/// Unified repository for offline + online (Firestore) hadiths.
+/// Unified repository for offline + online (CDN API) hadiths.
 ///
-/// Offline (120 curated hadiths):
-///   Served from the embedded SQLite database, fast and always available.
+/// Offline (curated hadiths):
+///   Served from the embedded SQLite database — fast and always available.
 ///
-/// Online (Sahih al-Bukhari – 7592 hadiths via Firestore):
-///   97 books/chapters fetched from Firestore with lazy pagination.
-///   Firestore SDK handles offline persistence automatically on mobile.
+/// Online (Sahih al-Bukhari via fawazahmed0/hadith-api CDN):
+///   Sections fetched from CDN, cached in SQLite for 24 h.
+///   Cache-first strategy: network only when cache is stale or absent.
 ///
 /// Bookmarks:
-///   Stored locally in SQLite and synced to Firestore per authenticated user.
+///   Stored locally in SQLite and synced to Firestore for authenticated users.
 class HadithRepository {
   final HadithLocalDataSource _local;
-  final HadithFirestoreDataSource _firestore;
+  final HadithRemoteDataSource _remote;
+  final HadithCacheDataSource _cache;
   final HadithBookmarkSyncService _bookmarkSync;
+
+  static const _bukhariEdition = 'ara-bukhari';
+  static const _bukhariNameAr = 'صحيح البخاري';
 
   /// In-memory LRU cache for full hadith details.
   final _detailCache = _LruCache<String, HadithItem>(maxSize: 50);
@@ -32,14 +38,10 @@ class HadithRepository {
   Map<String, int>? _categoryCounts;
   int? _totalCount;
 
-  /// Cached Bukhari book list (fetched once per session).
-  List<BukhariBook>? _bukhariBooks;
+  /// In-memory section list (fetched once per session).
+  List<RemoteSection>? _bukhariSections;
 
-  HadithRepository(
-    this._local,
-    this._firestore,
-    this._bookmarkSync,
-  );
+  HadithRepository(this._local, this._remote, this._cache, this._bookmarkSync);
 
   // ── Offline categories ─────────────────────────────────────────────────
 
@@ -50,9 +52,9 @@ class HadithRepository {
         .toList();
   }
 
-  /// Returns the online book categories (counts are section-based, fetched
-  /// lazily when the user opens a book).
-  List<HadithCategoryInfo> getOnlineCategories() => HadithCategoryInfo.allOnline;
+  /// Returns the online book categories.
+  List<HadithCategoryInfo> getOnlineCategories() =>
+      HadithCategoryInfo.allOnline;
 
   Future<int> getTotalCount() async {
     _totalCount ??= await _local.getTotalCount();
@@ -78,39 +80,73 @@ class HadithRepository {
     );
   }
 
-  // ── Online: Bukhari books ───────────────────────────────────────────
+  // ── Online: CDN sections ────────────────────────────────────────────────
 
-  /// Returns the 97 Bukhari book/chapter metadata.
-  /// Cached in memory after the first fetch.
-  Future<List<BukhariBook>> getBukhariBooks({
+  /// Returns sections for the Bukhari edition.
+  /// Sections are hardcoded — no SQLite cache needed.
+  Future<List<RemoteSection>> getBukhariSections({
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _bukhariBooks != null) return _bukhariBooks!;
-    _bukhariBooks = await _firestore.getBooks();
-    return _bukhariBooks!;
+    // 1. In-memory
+    if (!forceRefresh && _bukhariSections != null) return _bukhariSections!;
+
+    // 2. Hardcoded (no network call needed for Bukhari sections)
+    final sections = await _remote.fetchSections(_bukhariEdition);
+    _bukhariSections = sections;
+    return sections;
   }
 
-  // ── Online: paginated hadith list ──────────────────────────────────────
+  // ── Online: CDN section hadiths ────────────────────────────────────────
 
-  /// Returns a page of Bukhari hadiths for a specific book/chapter.
-  ///
-  /// Uses Firestore pagination with cursor-based loading.
-  Future<FirestoreHadithPage> getFirestoreHadithsPaginated({
-    required int bookNumber,
-    int limit = HadithFirestoreDataSource.defaultPageSize,
-    int? startAfterNumber,
-  }) {
-    return _firestore.getHadiths(
-      bookNumber: bookNumber,
-      limit: limit,
-      startAfterNumber: startAfterNumber,
+  /// Returns ALL hadiths for a section in one call (CDN returns full section).
+  /// Strategy: SQLite cache → CDN.
+  Future<List<HadithListItem>> getSectionHadiths({
+    required int sectionNumber,
+    required String sectionNameAr,
+    bool forceRefresh = false,
+  }) async {
+    // 1. Cache (fresh)
+    if (!forceRefresh) {
+      final cached = await _cache.isSectionCached(
+        _bukhariEdition,
+        sectionNumber,
+      );
+      if (cached) {
+        return _cache.getCachedHadiths(
+          book: _bukhariEdition,
+          sectionNumber: sectionNumber,
+          limit: 1000,
+        );
+      }
+    }
+
+    // 2. CDN
+    final hadiths = await _remote.fetchSectionHadiths(
+      _bukhariEdition,
+      sectionNumber,
+    );
+
+    // Persist to SQLite cache
+    await _cache.cacheHadiths(
+      book: _bukhariEdition,
+      sectionNumber: sectionNumber,
+      hadiths: hadiths,
+      bookNameAr: _bukhariNameAr,
+      sectionNameAr: sectionNameAr,
+    );
+
+    // Return as list items
+    return _cache.getCachedHadiths(
+      book: _bukhariEdition,
+      sectionNumber: sectionNumber,
+      limit: 1000,
     );
   }
 
-  // ── Detail (offline + online) ──────────────────────────────────────────
+  // ── Detail (offline + CDN) ─────────────────────────────────────────────
 
   /// Fetches a full hadith detail.
-  /// Checks memory LRU → offline SQLite → online SQLite cache.
+  /// Priority: memory LRU → offline SQLite → CDN cache → CDN fetch.
   Future<HadithItem?> getHadithDetail(String id) async {
     // 1. Memory LRU
     final lru = _detailCache.get(id);
@@ -123,31 +159,57 @@ class HadithRepository {
       return offline;
     }
 
-    // 3. Firestore (for Bukhari hadiths)
-    if (id.startsWith('bukhari_')) {
-      // id format: bukhari_{bookNumber}_{hadithNumber}
-      final parts = id.split('_');
-      if (parts.length >= 3) {
-        final hadithNumber = int.tryParse(parts.last);
-        final bookNumber = int.tryParse(parts[1]);
-        if (hadithNumber != null && bookNumber != null) {
-          final fsHadith = await _firestore.getHadith(hadithNumber);
-          if (fsHadith != null) {
-            // Resolve book name
-            final books = await getBukhariBooks();
-            final bookName = books
-                .where((b) => b.number == bookNumber)
-                .map((b) => b.nameAr)
-                .firstOrNull ?? '';
-            final detail = fsHadith.toHadithItem(bookNameAr: bookName);
-            _detailCache.put(id, detail);
-            return detail;
-          }
-        }
+    // 3. Online cache
+    final cached = await _cache.getCachedHadithDetail(id);
+    if (cached != null) {
+      _detailCache.put(id, cached);
+      return cached;
+    }
+
+    // 4. CDN fetch — supported id formats:
+    //    ara-bukhari_{sectionNumber}_{hadithNumber}
+    //    bukhari_{sectionNumber}_{hadithNumber}
+    final bukhariId = _parseOnlineBukhariId(id);
+    if (bukhariId != null) {
+      final (sectionNumber, hadithNumber) = bukhariId;
+
+      // Fetch the whole section to populate cache, then return detail.
+      final sections = await getBukhariSections();
+      final section = sections.firstWhere(
+        (s) => s.sectionNumber == sectionNumber,
+        orElse: () => RemoteSection(
+          sectionNumber: sectionNumber,
+          name: '',
+          hadithFirst: hadithNumber,
+          hadithLast: hadithNumber,
+        ),
+      );
+      await getSectionHadiths(
+        sectionNumber: sectionNumber,
+        sectionNameAr: section.nameAr,
+      );
+      final detail = await _cache.getCachedHadithDetail(id);
+      if (detail != null) {
+        _detailCache.put(id, detail);
+        return detail;
       }
     }
 
     return null;
+  }
+
+  (int sectionNumber, int hadithNumber)? _parseOnlineBukhariId(String id) {
+    if (!(id.startsWith('${_bukhariEdition}_') || id.startsWith('bukhari_'))) {
+      return null;
+    }
+
+    final parts = id.split('_');
+    if (parts.length < 3) return null;
+
+    final hadithNumber = int.tryParse(parts.last);
+    final sectionNumber = int.tryParse(parts[parts.length - 2]);
+    if (sectionNumber == null || hadithNumber == null) return null;
+    return (sectionNumber, hadithNumber);
   }
 
   /// Prefetches next [count] hadiths for offline categories.
@@ -185,18 +247,12 @@ class HadithRepository {
 
   // ── Search ─────────────────────────────────────────────────────────────
 
-  /// Searches offline hadiths only.
-  /// (Firestore does not support full-text / LIKE queries.)
   Future<List<HadithListItem>> searchHadiths({
     required String query,
     int limit = HadithLocalDataSource.defaultPageSize,
     int offset = 0,
   }) {
-    return _local.searchHadiths(
-      query: query,
-      limit: limit,
-      offset: offset,
-    );
+    return _local.searchHadiths(query: query, limit: limit, offset: offset);
   }
 
   // ── Bookmarks ──────────────────────────────────────────────────────────
@@ -215,11 +271,9 @@ class HadithRepository {
   Future<bool> isBookmarked(String hadithId) => _local.isBookmarked(hadithId);
 
   /// Syncs bookmarks with Firestore for the given authenticated user.
-  /// Merges local + cloud IDs. Returns the merged set.
   Future<Set<String>> syncBookmarks(User user) async {
     final localIds = await _local.getBookmarks();
     final merged = await _bookmarkSync.sync(user, localIds);
-    // Persist any newly pulled-in cloud IDs
     for (final id in merged) {
       if (!localIds.contains(id)) {
         await _local.addBookmark(id);

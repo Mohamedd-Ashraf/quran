@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../data/models/hadith_category_info.dart';
+import '../../data/models/remote_hadith.dart';
 import '../../data/repositories/hadith_repository.dart';
 import 'hadith_list_screen.dart';
+import 'hadith_sections_screen.dart';
 import 'hadith_search_screen.dart';
 
 class HadithCategoriesScreen extends StatefulWidget {
@@ -18,9 +21,11 @@ class HadithCategoriesScreen extends StatefulWidget {
 }
 
 class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _animCtrl;
+  TabController? _tabController;
   List<HadithCategoryInfo> _categories = [];
+  List<RemoteSection> _bukhariBooks = [];
   int _totalHadiths = 0;
   bool _loaded = false;
 
@@ -35,22 +40,55 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
   }
 
   Future<void> _loadCategories() async {
-    final repo = context.read<HadithRepository>();
-    final categories = await repo.getCategories();
-    final total = await repo.getTotalCount();
-    if (mounted) {
-      setState(() {
-        _categories = categories;
-        _totalHadiths = total;
-        _loaded = true;
-      });
-      _animCtrl.forward();
+    try {
+      final repo = context.read<HadithRepository>();
+      final categories = await repo.getCategories();
+      final total = await repo.getTotalCount();
+      
+      List<RemoteSection> bukhariBooks = [];
+      // Load online categories only if feature is enabled
+      if (SettingsService.enableHadithFeature) {
+        try {
+          bukhariBooks = await repo.getBukhariSections();
+        } catch (e) {
+          // Firestore unavailable (no internet) - continue with curated only
+          print('Bukhari books unavailable: $e');
+        }
+      }
+      
+      if (mounted) {
+        // Create TabController only if we have both curated AND online
+        final showBukhari =
+            SettingsService.enableHadithFeature && bukhariBooks.isNotEmpty;
+        if (showBukhari && _tabController == null) {
+          _tabController = TabController(length: 2, vsync: this);
+        } else if (!showBukhari && _tabController != null) {
+          _tabController?.dispose();
+          _tabController = null;
+        }
+        
+        setState(() {
+          _categories = categories;
+          _totalHadiths = total;
+          _bukhariBooks = bukhariBooks;
+          _loaded = true;
+        });
+        _animCtrl.forward();
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
+      if (mounted) {
+        setState(() {
+          _loaded = true;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     _animCtrl.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -65,132 +103,410 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final categories = _categories;
     final totalHadiths = _totalHadiths;
+    final bukhariBooks = _bukhariBooks;
+    final showOnlineTab = SettingsService.enableHadithFeature && bukhariBooks.isNotEmpty;
+    final tabController = _tabController;
 
     return Directionality(
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         body: _loaded
-            ? CustomScrollView(
-                slivers: [
-                  // ── Gradient AppBar ──
-                  SliverAppBar(
-                    expandedHeight: 220,
-                    pinned: true,
-                    stretch: true,
-                    leading: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.search_rounded,
-                          color: Colors.white,
-                        ),
-                        tooltip: isArabic
-                            ? 'بحث في الأحاديث'
-                            : 'Search hadiths',
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const HadithSearchScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                    flexibleSpace: FlexibleSpaceBar(
-                      centerTitle: true,
-                      title: Text(
-                        isArabic ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
-                        style: const TextStyle(
-                          fontFamily: 'Amiri',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: Colors.white,
-                        ),
-                      ),
-                      background: _HeaderBackground(
-                        isArabic: isArabic,
-                        totalHadiths: totalHadiths,
-                        totalCategories: categories.length,
-                      ),
-                    ),
-                  ),
-
-                  // ── Section Label: Curated ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-                      child: Row(
-                        children: [
-                          _GlowDot(color: AppColors.primary),
-                          const SizedBox(width: 10),
-                          Text(
-                            isArabic ? 'مختارات الأحاديث' : 'Curated Hadiths',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              height: 1.5,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColors.primary.withValues(alpha: 0.35),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // ── Offline Category Cards ──
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final cat = categories[index];
-                        return AnimatedBuilder(
-                          animation: _animCtrl,
-                          builder: (context, child) {
-                            final delay = index * 0.10;
-                            final t = Curves.easeOutCubic.transform(
-                              (_animCtrl.value - delay).clamp(0.0, 1.0),
-                            );
-                            return Transform.translate(
-                              offset: Offset(0, 30 * (1 - t)),
-                              child: Opacity(opacity: t, child: child),
-                            );
-                          },
-                          child: _CategoryCard(
-                            category: cat,
-                            index: index,
-                            isArabic: isArabic,
-                            isDark: isDark,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => HadithListScreen(category: cat),
-                              ),
-                            ),
-                          ),
-                        );
-                      }, childCount: categories.length),
-                    ),
-                  ),
-
-                ],
-              )
+            ? showOnlineTab && tabController != null
+                ? _buildTabbedView(
+                    context,
+                    isArabic,
+                    isDark,
+                    categories,
+                    totalHadiths,
+                    bukhariBooks,
+                    tabController,
+                  )
+                : _buildSimpleView(
+                    context,
+                    isArabic,
+                    isDark,
+                    categories,
+                    totalHadiths,
+                  )
             : const Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+
+  /// Builds the tabbed view (Curated + Bukhari tabs)
+  Widget _buildTabbedView(
+    BuildContext context,
+    bool isArabic,
+    bool isDark,
+    List<HadithCategoryInfo> categories,
+    int totalHadiths,
+    List<RemoteSection> bukhariBooks,
+    TabController tabController,
+  ) {
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        // ── Gradient AppBar ──
+        SliverAppBar(
+          expandedHeight: 220,
+          pinned: true,
+          stretch: true,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.search_rounded,
+                color: Colors.white,
+              ),
+              tooltip: isArabic ? 'بحث في الأحاديث' : 'Search hadiths',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const HadithSearchScreen(),
+                ),
+              ),
+            ),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            centerTitle: true,
+            title: Text(
+              isArabic ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
+              style: const TextStyle(
+                fontFamily: 'Amiri',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            background: _HeaderBackground(
+              isArabic: isArabic,
+              totalHadiths: totalHadiths,
+              totalCategories: categories.length,
+            ),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(50),
+            child: Container(
+              color: isDark
+                  ? Colors.transparent
+                  : AppColors.primary.withValues(alpha: 0.95),
+              child: TabBar(
+                controller: tabController,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: AppColors.secondary,
+                indicatorWeight: 3,
+                tabs: [
+                  Tab(
+                    text: isArabic ? 'مختارات' : 'Curated',
+                  ),
+                  Tab(
+                    text: isArabic ? 'صحيح البخاري' : 'Bukhari',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+      body: TabBarView(
+        controller: tabController,
+        children: [
+          // ── Tab 1: Offline/Curated Hadiths ──
+          _buildCuratedTab(
+            isArabic: isArabic,
+            isDark: isDark,
+            categories: categories,
+            onTap: (cat) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => HadithListScreen(category: cat),
+              ),
+            ),
+          ),
+          // ── Tab 2: Online Bukhari Hadiths ──
+          _buildBukhariTab(
+            isArabic: isArabic,
+            isDark: isDark,
+            bukhariBooks: bukhariBooks,
+            onTap: (book) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => HadithSectionsScreen(
+                  book: HadithCategoryInfo.findById('bukhari') ??
+                      const HadithCategoryInfo(
+                        id: 'bukhari',
+                        titleAr: 'صحيح البخاري',
+                        titleEn: 'Sahih al-Bukhari',
+                        subtitleAr: 'أصح كتاب بعد القرآن الكريم',
+                        subtitleEn: 'Most authentic hadith collection',
+                        icon: Icons.menu_book_rounded,
+                        color: Color(0xFF1A5276),
+                        isOnline: true,
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the simple view (Curated only, no tabs)
+  Widget _buildSimpleView(
+    BuildContext context,
+    bool isArabic,
+    bool isDark,
+    List<HadithCategoryInfo> categories,
+    int totalHadiths,
+  ) {
+    return CustomScrollView(
+      slivers: [
+        // ── Gradient AppBar ──
+        SliverAppBar(
+          expandedHeight: 220,
+          pinned: true,
+          stretch: true,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.search_rounded,
+                color: Colors.white,
+              ),
+              tooltip: isArabic ? 'بحث في الأحاديث' : 'Search hadiths',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const HadithSearchScreen(),
+                ),
+              ),
+            ),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            centerTitle: true,
+            title: Text(
+              isArabic ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
+              style: const TextStyle(
+                fontFamily: 'Amiri',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            background: _HeaderBackground(
+              isArabic: isArabic,
+              totalHadiths: totalHadiths,
+              totalCategories: categories.length,
+            ),
+          ),
+        ),
+        // Content
+        ...(_buildCuratedSlivers(
+          isArabic: isArabic,
+          isDark: isDark,
+          categories: categories,
+          onTap: (cat) => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => HadithListScreen(category: cat),
+            ),
+          ),
+        )),
+      ],
+    );
+  }
+
+  /// Returns slivers for the curated hadiths section
+  List<Widget> _buildCuratedSlivers({
+    required bool isArabic,
+    required bool isDark,
+    required List<HadithCategoryInfo> categories,
+    required Function(HadithCategoryInfo) onTap,
+  }) {
+    return [
+      // ── Section Label: Curated ──
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+          child: Row(
+            children: [
+              _GlowDot(color: AppColors.primary),
+              const SizedBox(width: 10),
+              Text(
+                isArabic ? 'مختارات الأحاديث' : 'Curated Hadiths',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.35),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      // ── Offline Category Cards ──
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final cat = categories[index];
+            return AnimatedBuilder(
+              animation: _animCtrl,
+              builder: (context, child) {
+                final delay = index * 0.10;
+                final t = Curves.easeOutCubic.transform(
+                  (_animCtrl.value - delay).clamp(0.0, 1.0),
+                );
+                return Transform.translate(
+                  offset: Offset(0, 30 * (1 - t)),
+                  child: Opacity(opacity: t, child: child),
+                );
+              },
+              child: _CategoryCard(
+                category: cat,
+                index: index,
+                isArabic: isArabic,
+                isDark: isDark,
+                onTap: () => onTap(cat),
+              ),
+            );
+          }, childCount: categories.length),
+        ),
+      ),
+    ];
+  }
+
+  /// Returns slivers for the Bukhari hadiths section
+  List<Widget> _buildBukhariSlivers({
+    required bool isArabic,
+    required bool isDark,
+    required List<RemoteSection> bukhariBooks,
+    required Function(RemoteSection) onTap,
+  }) {
+    return [
+      // ── Section Label: Bukhari ──
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+          child: Row(
+            children: [
+              _GlowDot(color: AppColors.secondary),
+              const SizedBox(width: 10),
+              Text(
+                isArabic ? 'صحيح البخاري' : 'Sahih al-Bukhari',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.secondary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.secondary.withValues(alpha: 0.35),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      // ── Bukhari Book Cards ──
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final book = bukhariBooks[index];
+            return AnimatedBuilder(
+              animation: _animCtrl,
+              builder: (context, child) {
+                final delay = index * 0.10;
+                final t = Curves.easeOutCubic.transform(
+                  (_animCtrl.value - delay).clamp(0.0, 1.0),
+                );
+                return Transform.translate(
+                  offset: Offset(0, 30 * (1 - t)),
+                  child: Opacity(opacity: t, child: child),
+                );
+              },
+              child: _BukhariBookCard(
+                book: book,
+                index: index,
+                isArabic: isArabic,
+                isDark: isDark,
+                onTap: () => onTap(book),
+              ),
+            );
+          }, childCount: bukhariBooks.length),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildCuratedTab({
+    required bool isArabic,
+    required bool isDark,
+    required List<HadithCategoryInfo> categories,
+    required Function(HadithCategoryInfo) onTap,
+  }) {
+    return CustomScrollView(
+      slivers: _buildCuratedSlivers(
+        isArabic: isArabic,
+        isDark: isDark,
+        categories: categories,
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildBukhariTab({
+    required bool isArabic,
+    required bool isDark,
+    required List<RemoteSection> bukhariBooks,
+    required Function(RemoteSection) onTap,
+  }) {
+    return CustomScrollView(
+      slivers: _buildBukhariSlivers(
+        isArabic: isArabic,
+        isDark: isDark,
+        bukhariBooks: bukhariBooks,
+        onTap: onTap,
       ),
     );
   }
@@ -554,6 +870,175 @@ class _CategoryCard extends StatelessWidget {
                             ? Icons.chevron_left_rounded
                             : Icons.chevron_right_rounded,
                         color: catColor.withValues(alpha: 0.5),
+                        size: 22,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+//  Bukhari Book Card
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+class _BukhariBookCard extends StatelessWidget {
+  final RemoteSection book;
+  final int index;
+  final bool isArabic;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _BukhariBookCard({
+    required this.book,
+    required this.index,
+    required this.isArabic,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const bookColor = AppColors.secondary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.white,
+              border: Border.all(
+                color: bookColor.withValues(alpha: isDark ? 0.3 : 0.15),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: bookColor.withValues(alpha: isDark ? 0.08 : 0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Decorative corner accent
+                Positioned(
+                  top: 0,
+                  right: isArabic ? null : 0,
+                  left: isArabic ? 0 : null,
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.only(
+                        topRight: isArabic
+                            ? Radius.zero
+                            : const Radius.circular(16),
+                        topLeft: isArabic
+                            ? const Radius.circular(16)
+                            : Radius.zero,
+                        bottomLeft: isArabic
+                            ? Radius.zero
+                            : const Radius.circular(40),
+                        bottomRight: isArabic
+                            ? const Radius.circular(40)
+                            : Radius.zero,
+                      ),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          bookColor.withValues(alpha: 0.15),
+                          bookColor.withValues(alpha: 0.02),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Main content
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      // Icon container with gradient
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              bookColor.withValues(alpha: 0.18),
+                              bookColor.withValues(alpha: 0.06),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: bookColor.withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.menu_book_rounded,
+                          color: bookColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Texts
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isArabic ? book.nameAr : book.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontFamily: 'Amiri',
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              book.count > 0
+                                  ? (isArabic
+                                      ? 'أحاديث: ${book.count}'
+                                      : 'Hadiths: ${book.count}')
+                                  : 'صحيح البخاري',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        isArabic
+                            ? Icons.chevron_left_rounded
+                            : Icons.chevron_right_rounded,
+                        color: bookColor.withValues(alpha: 0.5),
                         size: 22,
                       ),
                     ],

@@ -56,9 +56,10 @@ import '../../features/wird/services/wird_notification_service.dart';
 import '../../features/wird/presentation/cubit/wird_cubit.dart';
 import '../../features/adhkar/data/adhkar_progress_service.dart';
 import '../../features/adhkar/presentation/cubit/adhkar_progress_cubit.dart';
+import '../../features/hadith/data/datasources/hadith_cache_datasource.dart';
 import '../../features/hadith/data/datasources/hadith_database.dart';
-import '../../features/hadith/data/datasources/hadith_firestore_datasource.dart';
 import '../../features/hadith/data/datasources/hadith_local_datasource.dart';
+import '../../features/hadith/data/datasources/hadith_remote_datasource.dart';
 import '../../features/hadith/data/repositories/hadith_repository.dart';
 import '../../features/hadith/data/services/hadith_bookmark_sync_service.dart';
 import '../../features/hadith/presentation/cubit/hadith_cubit.dart';
@@ -209,14 +210,13 @@ Future<void> init() async {
   //! Features - Hadith
   sl.registerLazySingleton(() => HadithDatabase());
   sl.registerLazySingleton(() => HadithLocalDataSource(sl()));
-  sl.registerLazySingleton(
-    () => HadithFirestoreDataSource(FirebaseFirestore.instance),
-  );
+  sl.registerLazySingleton(() => HadithCacheDataSource(sl()));
+  sl.registerLazySingleton(() => HadithRemoteDataSource(sl()));
   sl.registerLazySingleton(
     () => HadithBookmarkSyncService(FirebaseFirestore.instance),
   );
   sl.registerLazySingleton(
-    () => HadithRepository(sl(), sl(), sl()),
+    () => HadithRepository(sl(), sl(), sl(), sl()),
   );
   sl.registerFactory(() => HadithCubit(sl(), sl()));
 

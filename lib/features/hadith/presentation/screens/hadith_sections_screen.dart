@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../data/datasources/hadith_firestore_datasource.dart';
+import '../../../../core/settings/app_settings_cubit.dart';
 import '../../data/models/hadith_category_info.dart';
+import '../../data/models/remote_hadith.dart';
 import '../../data/repositories/hadith_repository.dart';
 import '../cubit/hadith_sections_cubit.dart';
 import '../cubit/hadith_sections_state.dart';
@@ -33,6 +34,12 @@ class _SectionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = context
+        .watch<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
     final catColor = book.color;
 
     return Scaffold(
@@ -100,7 +107,7 @@ class _SectionsView extends StatelessWidget {
                       size: 14, color: catColor),
                   const SizedBox(width: 6),
                   Text(
-                    'يُحمَّل بالتدريج • يُحفظ تلقائيًا للاستخدام بدون إنترنت',
+                    'يُحمَّل من الإنترنت • يُحفظ تلقائيًا للاستخدام بدون إنترنت',
                     style: TextStyle(
                         fontSize: 12,
                         color: catColor,
@@ -111,12 +118,12 @@ class _SectionsView extends StatelessWidget {
             ),
           ),
 
-          // ── Books list ──
+          // ── Sections list ──
           BlocBuilder<HadithSectionsCubit, HadithSectionsState>(
             builder: (context, state) {
               if (state.status == HadithSectionsStatus.initial ||
                   (state.status == HadithSectionsStatus.loading &&
-                      state.books.isEmpty)) {
+                      state.sections.isEmpty)) {
                 return SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   sliver: HadithListSkeleton(isDark: isDark),
@@ -124,7 +131,7 @@ class _SectionsView extends StatelessWidget {
               }
 
               if (state.status == HadithSectionsStatus.error &&
-                  state.books.isEmpty) {
+                  state.sections.isEmpty) {
                 return SliverFillRemaining(
                   child: HadithErrorWidget(
                     message: state.errorMessage ?? '',
@@ -139,13 +146,15 @@ class _SectionsView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _BookTile(
-                      book: state.books[index],
+                    (context, index) => _SectionTile(
+                      section: state.sections[index],
                       bookInfo: book,
                       isDark: isDark,
+                      isArabic: isArabic,
                       catColor: catColor,
+                      index: index,
                     ),
-                    childCount: state.books.length,
+                    childCount: state.sections.length,
                   ),
                 ),
               );
@@ -159,89 +168,130 @@ class _SectionsView extends StatelessWidget {
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-class _BookTile extends StatelessWidget {
-  final BukhariBook book;
+class _SectionTile extends StatelessWidget {
+  final RemoteSection section;
   final HadithCategoryInfo bookInfo;
   final bool isDark;
+  final bool isArabic;
   final Color catColor;
+  final int index;
 
-  const _BookTile({
-    required this.book,
+  const _SectionTile({
+    required this.section,
     required this.bookInfo,
     required this.isDark,
+    required this.isArabic,
     required this.catColor,
+    required this.index,
   });
 
   @override
   Widget build(BuildContext context) {
+    final displayName = isArabic
+        ? section.nameAr
+        : (section.name.isNotEmpty ? section.name : 'Section ${section.sectionNumber}');
+    final hasCount = section.count > 0;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: isDark ? const Color(0xFF1A2E24) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => OnlineHadithListScreen(
                 bookInfo: bookInfo,
-                bukhariBook: book,
+                remoteSection: section,
               ),
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
+              color: isDark
+                  ? const Color(0xFF1A2634)
+                  : Colors.white,
               border: Border.all(
                 color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : catColor.withValues(alpha: 0.2),
+                    ? Colors.white.withValues(alpha: 0.07)
+                    : catColor.withValues(alpha: 0.18),
               ),
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: catColor.withValues(alpha: 0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
             ),
             child: Row(
               children: [
-                // Book number badge
+                // Colored accent left bar
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 4,
+                  height: 62,
                   decoration: BoxDecoration(
-                    color: catColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(14),
+                      bottomLeft: Radius.circular(14),
+                    ),
+                    color: (index % 4 == 0)
+                        ? catColor
+                        : (index % 4 == 1)
+                            ? catColor.withValues(alpha: 0.6)
+                            : (index % 4 == 2)
+                                ? catColor.withValues(alpha: 0.4)
+                                : catColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Section number badge
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: catColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '${book.number}',
+                    '${section.sectionNumber}',
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                       color: catColor,
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Book name
+                // Section name + count
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        book.nameAr.isNotEmpty
-                            ? book.nameAr
-                            : 'كتاب ${book.number}',
+                        displayName,
                         style: TextStyle(
-                          fontFamily: 'Amiri',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontFamily: isArabic ? 'Amiri' : null,
+                          fontSize: isArabic ? 15 : 14,
+                          fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white : AppColors.textPrimary,
                         ),
-                        textDirection: TextDirection.rtl,
+                        textDirection:
+                            isArabic ? TextDirection.rtl : TextDirection.ltr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${book.hadithCount} حديث',
+                        hasCount ? '${section.count} حديث' : 'صحيح البخاري',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
+                          fontFamily: 'Amiri',
                           color: isDark
                               ? Colors.white54
                               : AppColors.textSecondary,
@@ -250,12 +300,17 @@ class _BookTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Icon(
-                  Icons.chevron_left_rounded,
+                  isArabic
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
                   color: isDark
                       ? Colors.white38
-                      : catColor.withValues(alpha: 0.5),
+                      : catColor.withValues(alpha: 0.45),
+                  size: 20,
                 ),
+                const SizedBox(width: 10),
               ],
             ),
           ),
@@ -301,7 +356,6 @@ class _SectionsHeaderBackground extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.06),
             ),
           ),
-          // Firestore badge
           Positioned(
             left: 20,
             bottom: 50,
@@ -315,10 +369,10 @@ class _SectionsHeaderBackground extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.cloud_done_rounded, size: 13, color: Colors.white),
+                  Icon(Icons.public_rounded, size: 13, color: Colors.white),
                   SizedBox(width: 5),
                   Text(
-                    'Firestore',
+                    'CDN API',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,

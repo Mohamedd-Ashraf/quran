@@ -19,15 +19,102 @@ service cloud.firestore {
 
     // ── Quiz leaderboard ──────────────────────────────────────────────────
     //
-    // Any authenticated user can READ the full leaderboard (needed for
-    // displaying rankings and computing user rank via count queries).
-    //
+    // Any authenticated user can READ the full leaderboard.
     // Each user can only WRITE their own document (uid == docId).
     // Bot documents (bot_01 … bot_15) are written exclusively via the
-    // Admin SDK (seed_quiz_bots.py) which bypasses security rules entirely.
+    // Admin SDK which bypasses security rules entirely.
+    //
+    // Anti-cheat: every write is validated field-by-field to prevent
+    // score manipulation via direct Firestore API access.
     match /quiz_leaderboard/{docId} {
       allow get, list: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == docId;
+
+      // Delete is never allowed (no rule = denied by default).
+
+      // ── CREATE: first-time document (fresh authenticated start) ──────
+      // Score counters must be zeroed — score history from guest
+      // SharedPrefs is NOT migrated to prevent data inflation attacks
+      // (a rooted device can modify SharedPrefs before first sign-in).
+      // Only userSeed and question history are preserved client-side.
+      allow create: if request.auth != null
+        && request.auth.uid == docId
+        // All counters must start at zero.
+        && request.resource.data.totalScore == 0
+        && request.resource.data.streak == 0
+        && request.resource.data.correctAnswers == 0
+        && request.resource.data.totalAnswered == 0
+        // userSeed must be a valid integer.
+        && request.resource.data.userSeed is int
+        // Server timestamp required.
+        && request.resource.data.lastUpdated == request.time;
+
+      // ── UPDATE: answering a question (strict anti-cheat) ──────────
+      allow update: if request.auth != null
+        && request.auth.uid == docId
+        // ── Server timestamp required ─────────────────────────────
+        && request.resource.data.lastUpdated == request.time
+        // ── New UTC calendar day required (server time) ───────────
+        // Dividing epoch-milliseconds by 86400000 gives the UTC day
+        // number (integer division truncates). Requiring the new day
+        // number to be strictly greater than the stored one means the
+        // server clock has crossed midnight UTC — exactly one answer
+        // per calendar day, regardless of device-clock manipulation.
+        // A user answering at 23:55 may answer again at 00:01 the next
+        // day; advancing the device clock by any amount is irrelevant
+        // because request.time is the Firestore server clock.
+        && (!('lastAnsweredTimestamp' in resource.data)
+            || (request.time.toMillis() / 86400000)
+               > (resource.data.lastAnsweredTimestamp.toMillis() / 86400000))
+        && request.resource.data.lastAnsweredTimestamp == request.time
+        // ── totalAnswered must increase by exactly 1 ──────────────
+        && request.resource.data.totalAnswered is int
+        && request.resource.data.totalAnswered == resource.data.get('totalAnswered', 0) + 1
+        // ── Score increase bounded to valid points (0,5,10,20) ────
+        && request.resource.data.totalScore is int
+        && request.resource.data.totalScore >= resource.data.get('totalScore', 0)
+        && (request.resource.data.totalScore - resource.data.get('totalScore', 0)) in [0, 5, 10, 20]
+        // ── correctAnswers consistency ────────────────────────────
+        // Wrong answer (score unchanged) → correctAnswers unchanged
+        // Correct answer (score increased) → correctAnswers + 1
+        && request.resource.data.correctAnswers is int
+        && (
+          (request.resource.data.totalScore == resource.data.get('totalScore', 0)
+            && request.resource.data.correctAnswers == resource.data.get('correctAnswers', 0))
+          ||
+          (request.resource.data.totalScore > resource.data.get('totalScore', 0)
+            && request.resource.data.correctAnswers == resource.data.get('correctAnswers', 0) + 1)
+        )
+        // ── Streak consistency ────────────────────────────────────
+        // Wrong → streak = 0;  Correct → streak +1 or 1 (gap reset)
+        && request.resource.data.streak is int
+        && (
+          (request.resource.data.totalScore == resource.data.get('totalScore', 0)
+            && request.resource.data.streak == 0)
+          ||
+          (request.resource.data.totalScore > resource.data.get('totalScore', 0)
+            && (request.resource.data.streak == resource.data.get('streak', 0) + 1
+                || request.resource.data.streak == 1))
+        )
+        // ── lastAnswerCorrect must match score change ─────────────
+        && request.resource.data.lastAnswerCorrect == (request.resource.data.totalScore > resource.data.get('totalScore', 0))
+        // ── lastAnswerPoints must match actual increase ───────────
+        && request.resource.data.lastAnswerPoints == (request.resource.data.totalScore - resource.data.get('totalScore', 0))
+        // ── userSeed is immutable once set; allow setting it on docs
+        // that pre-date the field (userSeed may be absent in old docs) ──
+        && (!('userSeed' in resource.data) || request.resource.data.userSeed == resource.data.userSeed);
+    }
+
+    // ── Quiz server-time ping (anti device-clock-cheat) ───────────────────
+    // Each authenticated user can write exactly one field (ts = server time)
+    // to their own document in this collection.  The Flutter client reads it
+    // back immediately to learn the authoritative server UTC time, which is
+    // then used instead of DateTime.now() for the daily-quiz date check.
+    match /quiz_server_time/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['ts'])
+        && request.resource.data.ts == request.time;
     }
 
     // ── Default: deny everything else ─────────────────────────────────────

@@ -96,8 +96,8 @@ class SettingsService {
   // ── Feature Flags (for unreleased features) ────────────────────────────────
   // These are compile-time constants, not user preferences.
   // Set to true when the feature is ready for production.
-  static const bool enableQuizFeature = false;
-  static const bool enableHadithFeature = false;
+  static const bool enableQuizFeature = true;
+  static const bool enableHadithFeature = true;
   static const bool enableTajweedFeature = true;
   static const bool enableTutorialsFeature = false;
 

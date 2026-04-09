@@ -10,6 +10,7 @@ import '../../data/models/quiz_question_model.dart';
 import '../cubit/quiz_cubit.dart';
 import '../cubit/quiz_state.dart';
 import 'leaderboard_screen.dart';
+import 'quiz_admin_preview_screen.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -85,6 +86,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
                 );
               },
+              onLongPress: () {
+                if (QuizAdminPreviewScreen.isAdmin()) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const QuizAdminPreviewScreen(),
+                    ),
+                  );
+                }
+              },
             ),
           ],
         ),
@@ -97,6 +107,26 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 state is QuizAlreadyAnswered) {
               _timerController?.stop();
               _uiTimer?.cancel();
+            } else if (state is QuizSubmitError) {
+              // Restart the timer animation so the user can retry.
+              _startTimerAnimation(state.question.timerSeconds);
+              final isAr = context
+                  .read<AppSettingsCubit>()
+                  .state
+                  .appLanguageCode
+                  .toLowerCase()
+                  .startsWith('ar');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isAr
+                        ? 'تعذر حفظ إجابتك. تحقق من اتصالك وحاول مجدداً.'
+                        : 'Could not save your answer. Check your connection and try again.',
+                  ),
+                  backgroundColor: Colors.red.shade700,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
             }
           },
           builder: (context, state) {
@@ -124,6 +154,14 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             }
             if (state is QuizAlreadyAnswered) {
               return _buildAlreadyAnsweredView(context, state, isArabic: isArabic, isDark: isDark);
+            }
+            if (state is QuizSubmitError) {
+              // Show question again with previously selected answer still
+              // highlighted so the user can re-submit after the error.
+              return _buildQuestionView(
+                context, state.question, state.selectedIndex, 0, 0,
+                isArabic: isArabic, isDark: isDark,
+              );
             }
             return const SizedBox.shrink();
           },
@@ -189,7 +227,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
         SizedBox(height: streak > 0 ? 20 : 8),
 
-        // ── Timer (left/start) + Difficulty (right/end) ───────────────────────
+        // ── Timer (left/start) + Difficulty + ID (right/end) ─────────────────────
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -198,6 +236,27 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Question ID badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.secondary.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    'ID: ${question.id}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.secondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   isArabic ? 'الصعوبة' : 'DIFFICULTY',
                   style: TextStyle(
@@ -602,7 +661,14 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                     borderRadius: BorderRadius.circular(12),
                     border: isCorrectOption
                         ? Border.all(color: correctColor, width: 1.5)
-                        : null,
+                        : (isUserChoice && !state.isCorrect)
+                            ? Border.all(color: wrongColor, width: 1.5)
+                            : Border.all(
+                                color: isDark
+                                    ? AppColors.darkBorder.withValues(alpha: 0.6)
+                                    : Colors.grey.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
                   ),
                   child: Row(
                     children: [

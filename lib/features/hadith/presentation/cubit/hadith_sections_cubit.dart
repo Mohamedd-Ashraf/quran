@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/repositories/hadith_repository.dart';
 import 'hadith_sections_state.dart';
 
-/// Loads the 97 Bukhari book/chapter list from Firestore.
+/// Loads the Bukhari section list from the CDN API (cache-first).
 class HadithSectionsCubit extends Cubit<HadithSectionsState> {
   final HadithRepository _repository;
 
@@ -17,12 +17,12 @@ class HadithSectionsCubit extends Cubit<HadithSectionsState> {
     emit(state.copyWith(status: HadithSectionsStatus.loading));
 
     try {
-      final books = await _repository.getBukhariBooks(
+      final sections = await _repository.getBukhariSections(
         forceRefresh: forceRefresh,
       );
       emit(state.copyWith(
         status: HadithSectionsStatus.loaded,
-        books: books,
+        sections: sections,
       ));
     } catch (e) {
       emit(state.copyWith(

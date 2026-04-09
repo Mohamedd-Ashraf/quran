@@ -60,8 +60,8 @@ void main() async {
     await QcfFontLoader.setupFontsAtStartup(onProgress: (_) {});
   }
 
-  // Allow runtime fetching when online. Failures are handled gracefully below.
-  GoogleFonts.config.allowRuntimeFetching = true;
+  // Fonts are bundled locally in assets/google_fonts/ – no network needed.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   bool isGoogleFontsError(Object error) {
     final msg = error.toString().toLowerCase();

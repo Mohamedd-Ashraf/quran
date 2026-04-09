@@ -1,32 +1,32 @@
 import 'package:equatable/equatable.dart';
 
-import '../../data/datasources/hadith_firestore_datasource.dart';
+import '../../data/models/remote_hadith.dart';
 
 enum HadithSectionsStatus { initial, loading, loaded, error }
 
 class HadithSectionsState extends Equatable {
   final HadithSectionsStatus status;
-  final List<BukhariBook> books;
+  final List<RemoteSection> sections;
   final String? errorMessage;
 
   const HadithSectionsState({
     this.status = HadithSectionsStatus.initial,
-    this.books = const [],
+    this.sections = const [],
     this.errorMessage,
   });
 
   HadithSectionsState copyWith({
     HadithSectionsStatus? status,
-    List<BukhariBook>? books,
+    List<RemoteSection>? sections,
     String? errorMessage,
   }) {
     return HadithSectionsState(
       status: status ?? this.status,
-      books: books ?? this.books,
+      sections: sections ?? this.sections,
       errorMessage: errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [status, books, errorMessage];
+  List<Object?> get props => [status, sections, errorMessage];
 }

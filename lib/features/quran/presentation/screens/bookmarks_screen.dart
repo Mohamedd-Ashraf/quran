@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../ruqyah/presentation/widgets/qcf_verses_widget.dart';
 import '../../../../core/constants/mushaf_page_map.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -471,13 +472,29 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // ── Arabic text ────────────────────────────────────────
+                    // ── Arabic text (QCF Mushaf style) ─────────────────────
                     Builder(
                       builder: (ctx) {
                         final isDark = ctx
                             .read<AppSettingsCubit>()
                             .state
                             .darkMode;
+                        final surahNum = _surahNumberFromBookmark(bookmark);
+                        final ayahNum = _ayahNumberFromBookmark(bookmark);
+                        if (surahNum != null && ayahNum != null) {
+                          return QcfVersesWidget(
+                            surahNumber: surahNum,
+                            firstVerse: ayahNum,
+                            lastVerse: ayahNum,
+                            isDark: isDark,
+                            fontSize: 22,
+                            verseHeight: 1.8,
+                            textColor: AppColors.arabicText,
+                            verseNumberColor: AppColors.primary,
+                            textAlign: TextAlign.right,
+                            stripNewlines: true,
+                          );
+                        }
                         return Text(
                           bookmark['arabicText'] ??
                               'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
@@ -663,11 +680,27 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                     const SizedBox(height: 16),
                     Builder(
-                      builder: (context) {
-                        final isDark = context
+                      builder: (ctx) {
+                        final isDark = ctx
                             .read<AppSettingsCubit>()
                             .state
                             .darkMode;
+                        final surahNum = _surahNumberFromBookmark(bookmark);
+                        final ayahNum = _ayahNumberFromBookmark(bookmark);
+                        if (surahNum != null && ayahNum != null) {
+                          return QcfVersesWidget(
+                            surahNumber: surahNum,
+                            firstVerse: ayahNum,
+                            lastVerse: ayahNum,
+                            isDark: isDark,
+                            fontSize: 22,
+                            verseHeight: 1.8,
+                            textColor: AppColors.arabicText,
+                            verseNumberColor: AppColors.primary,
+                            textAlign: TextAlign.right,
+                            stripNewlines: true,
+                          );
+                        }
                         return Text(
                           bookmark['arabicText'] ??
                               'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',

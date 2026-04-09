@@ -125,3 +125,19 @@ class QuizTimeUp extends QuizState {
   @override
   List<Object?> get props => [question.id, totalScore, streak];
 }
+
+/// Answer submission failed (network or server-side rule rejection).
+class QuizSubmitError extends QuizState {
+  final QuizQuestion question;
+  final int selectedIndex;
+  final String message;
+
+  const QuizSubmitError({
+    required this.question,
+    required this.selectedIndex,
+    required this.message,
+  });
+
+  @override
+  List<Object?> get props => [question.id, selectedIndex, message];
+}

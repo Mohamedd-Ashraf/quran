@@ -1,14 +1,19 @@
-﻿import 'dart:ffi' show Abi;
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kDebugMode;
+﻿import 'dart:io' if (dart.library.html) 'stubs/mobile_platform_stub.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:in_app_update/in_app_update.dart' as iap;
+import 'package:in_app_update/in_app_update.dart' as iap
+    // ignore: uri_does_not_exist
+    if (dart.library.html) 'stubs/in_app_update_stub.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:open_file/open_file.dart'
+    // ignore: uri_does_not_exist
+    if (dart.library.html) 'stubs/open_file_permission_stub.dart';
+import 'package:permission_handler/permission_handler.dart'
+    // ignore: uri_does_not_exist
+    if (dart.library.html) 'stubs/open_file_permission_stub.dart';
 import '../models/app_update_info.dart';
 
 /// Premium app update service using Firebase Remote Config and In-App Updates
@@ -352,19 +357,23 @@ class AppUpdateServiceFirebase {
   ///   'arm64_v8a'   → 64-bit ARM  (most modern Android phones)
   ///   'armeabi_v7a' → 32-bit ARM  (older / low-end devices)
   ///   'x86_64'      → 64-bit x86  (emulators, some Chromebooks)
-  ///   ''            → unknown / iOS → fall back to generic download_url
+  ///   ''            → unknown / iOS / web → fall back to generic download_url
   String _detectAbi() {
+    if (kIsWeb) return '';
     if (!Platform.isAndroid) return '';
     try {
-      final abi = Abi.current();
-      if (abi == Abi.androidArm64) return 'arm64_v8a';
-      if (abi == Abi.androidArm)   return 'armeabi_v7a';
-      // androidX64 covers 64-bit x86 emulators.
-      // androidIA32 covers 32-bit x86 (extremely rare on real devices).
-      if (abi == Abi.androidX64 || abi == Abi.androidIA32) return 'x86_64';
+      // Use the platform version string to infer ABI without dart:ffi.
+      // e.g. "android-arm64", "android-arm", "android-x64"
+      final triple = Platform.version.toLowerCase();
+      if (triple.contains('arm64') || triple.contains('aarch64')) {
+        return 'arm64_v8a';
+      }
+      if (triple.contains('arm')) return 'armeabi_v7a';
+      if (triple.contains('x64') || triple.contains('x86_64')) {
+        return 'x86_64';
+      }
       return '';
     } catch (_) {
-      // dart:ffi.Abi.current() is unavailable on some restricted profiles.
       return '';
     }
   }

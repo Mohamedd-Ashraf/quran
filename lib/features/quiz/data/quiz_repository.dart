@@ -59,6 +59,21 @@ class QuizRepository {
   int _lastAnswerPoints = 0;
   int _userSeed = 0;
 
+  /// The shuffled question served today; used by [submitAnswer] to validate
+  /// the user's choice against the shuffled [correctIndex].
+  QuizQuestion? _todayShuffledQuestion;
+
+  /// The server-side timestamp of the user's last answer (from Firestore).
+  /// Stored as UTC. Used to derive [_lastAnsweredDate] so the date check
+  /// is based on server time, not the device clock.
+  DateTime? _lastAnsweredServerTimestamp;
+
+  /// The current UTC time as reported by the Firestore server, fetched once
+  /// per [loadData] call.  Used by [_todayString] so that device-clock
+  /// manipulation cannot trick the client into showing a new question when
+  /// the user has already answered today.
+  DateTime? _serverNowUtc;
+
   QuizRepository(this._firestore, this._auth, this._prefs);
 
   // ── Auth helpers ──────────────────────────────────────────────────────────
@@ -79,6 +94,7 @@ class QuizRepository {
   }
 
   void _loadFromPrefs() {
+    _serverNowUtc = null; // guests use device time; no server sync needed
     _userSeed = _ensureSeedInPrefs();
     _totalScore = _prefs.getInt(_kScore) ?? 0;
     _streak = _prefs.getInt(_kStreak) ?? 0;
@@ -104,18 +120,47 @@ class QuizRepository {
         _streak = d['streak'] as int? ?? 0;
         _correctAnswers = d['correctAnswers'] as int? ?? 0;
         _totalAnswered = d['totalAnswered'] as int? ?? 0;
-        _lastAnsweredDate = d['lastAnsweredDate'] as String?;
         _answeredIds = _parseIds(d['answeredIdsJson'] as String?);
         _lastAnswerCorrect = d['lastAnswerCorrect'] as bool?;
         _lastAnswerPoints = d['lastAnswerPoints'] as int? ?? 0;
+        // Derive _lastAnsweredDate from the SERVER timestamp (UTC).
+        // This is the key anti-cheat: the date string is always based on
+        // what Firestore recorded, never on the device clock at write time.
+        // Even if the user manipulates their device date, the next loadData()
+        // call restores the correct server-sourced date here.
+        final ts = d['lastAnsweredTimestamp'];
+        if (ts is Timestamp) {
+          _lastAnsweredServerTimestamp = ts.toDate().toUtc();
+          final dt = _lastAnsweredServerTimestamp!;
+          _lastAnsweredDate = '${dt.year}-'
+              '${dt.month.toString().padLeft(2, '0')}-'
+              '${dt.day.toString().padLeft(2, '0')}';
+        } else {
+          _lastAnsweredServerTimestamp = null;
+          _lastAnsweredDate = d['lastAnsweredDate'] as String?;
+        }
+        // Fetch authoritative server time so _todayString() is not
+        // influenced by the device clock (guards against clock-advance cheats).
+        if (_lastAnsweredServerTimestamp != null) {
+          _serverNowUtc = await _fetchServerNow();
+        }
         debugPrint('[Quiz] Loaded from Firestore for ${_user!.uid}');
       } else {
-        // First time — migrate any local prefs data to Firestore
-        _loadFromPrefs();
-        if (_totalAnswered > 0) {
-          unawaited(_saveToFirestore());
-          debugPrint('[Quiz] Migrated local data to Firestore for ${_user!.uid}');
-        }
+        // First sign-in: preserve question history and seed from local prefs
+        // so the user continues their question sequence and cannot re-answer
+        // questions. Score counters are intentionally reset to 0 on Firestore
+        // to prevent SharedPrefs manipulation (score inflation attack).
+        _userSeed = _ensureSeedInPrefs();
+        _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
+        _lastAnsweredDate = _prefs.getString(_kLastDate);
+        _totalScore = 0;
+        _streak = 0;
+        _correctAnswers = 0;
+        _totalAnswered = 0;
+        _lastAnswerCorrect = null;
+        _lastAnswerPoints = 0;
+        await _saveToFirestore();
+        debugPrint('[Quiz] Initialized Firestore document for ${_user!.uid}');
       }
     } catch (e, st) {
       debugPrint('[Quiz] Firestore load failed, using local prefs: $e\n$st');
@@ -125,11 +170,18 @@ class QuizRepository {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
-  Future<void> _saveToFirestore() async {
+  /// Saves quiz state to Firestore.
+  ///
+  /// When [isAnswer] is true (i.e. the user just answered a question),
+  /// a server-side `lastAnsweredTimestamp` is written so that Firestore
+  /// security rules can enforce the calendar-day check.
+  ///
+  /// Returns `true` on success, `false` on any failure.
+  Future<bool> _saveToFirestore({bool isAnswer = false}) async {
     final user = _user;
-    if (user == null || user.isAnonymous) return;
+    if (user == null || user.isAnonymous) return false;
     try {
-      await _firestore.collection(_collection).doc(user.uid).set({
+      final data = <String, dynamic>{
         'displayName': user.displayName ?? 'مستخدم',
         'photoUrl': user.photoURL,
         'totalScore': _totalScore,
@@ -142,10 +194,19 @@ class QuizRepository {
         'lastAnswerPoints': _lastAnswerPoints,
         'userSeed': _userSeed,
         'lastUpdated': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (isAnswer) {
+        data['lastAnsweredTimestamp'] = FieldValue.serverTimestamp();
+      }
+      await _firestore.collection(_collection).doc(user.uid).set(
+            data,
+            SetOptions(merge: true),
+          );
       debugPrint('[Quiz] Saved to Firestore for ${user.uid}');
+      return true;
     } catch (e, st) {
       debugPrint('[Quiz] Firestore save failed: $e\n$st');
+      return false;
     }
   }
 
@@ -174,29 +235,71 @@ class QuizRepository {
       _totalAnswered == 0 ? 0.0 : _correctAnswers / _totalAnswered;
 
   bool get hasAnsweredToday {
+    // _lastAnsweredDate is derived from the server timestamp (UTC) for
+    // authenticated users (see _loadFromFirestore). _todayString() also
+    // uses UTC. So this comparison is immune to device-clock manipulation:
+    // even if the user advances their device date, the server-sourced date
+    // is loaded fresh from Firestore on every app open and overrides any
+    // local value. The Firestore security rule (UTC day-number comparison)
+    // is the authoritative hard enforcement.
     final d = _lastAnsweredDate;
     return d != null && d.isNotEmpty && d == _todayString();
   }
 
   // ── Today's question ──────────────────────────────────────────────────────
 
+  /// Returns true if the currently signed-in user is the admin.
+  bool _isAdmin() {
+    final uid = _user?.uid;
+    return uid != null && uid == 'G0WMPKyBFdf2weY5zJa34t8d0f93';
+  }
+
+  /// Public getter so the cubit can also bypass admin checks.
+  bool get isAdmin => _isAdmin();
+
   /// Returns today's question, or null if already answered today.
+  /// Admin users bypass the daily answer limit and can answer multiple times.
   QuizQuestion? getTodayQuestion() {
-    if (hasAnsweredToday) return null;
+    // Allow admin to bypass the daily limit
+    if (hasAnsweredToday && !_isAdmin()) return null;
     final dayIndex = _answeredIds.length % quizQuestionsPool.length;
-    return quizQuestionsPool[_getShuffledOrder()[dayIndex]];
+    final base = quizQuestionsPool[_getShuffledOrder()[dayIndex]];
+    // Shuffle the four options using a deterministic seed derived from the
+    // user's personal seed and the question id, so the order is consistent
+    // if the app restarts mid-question but differs per-user and per-question.
+    final rng = Random(_userSeed ^ (base.id * 2654435761));
+    _todayShuffledQuestion = base.shuffleOptions(rng);
+    return _todayShuffledQuestion;
   }
 
   // ── Submit answer ─────────────────────────────────────────────────────────
 
   /// Records the answer, updates stats, persists to Firestore or prefs.
   /// Returns true if the answer was correct.
+  /// Throws [Exception] if the authenticated user's Firestore write is rejected
+  /// (e.g. security-rule violation), so the UI can show an error instead of
+  /// phantom points.
   Future<bool> submitAnswer(int questionId, int selectedIndex) async {
-    final question = quizQuestionsPool[questionId];
+    // Use the shuffled question (with updated correctIndex) if available;
+    // fall back to the pool entry for safety (e.g. admin re-answer flows).
+    final question = (_todayShuffledQuestion?.id == questionId)
+        ? _todayShuffledQuestion!
+        : quizQuestionsPool[questionId];
     final isCorrect = selectedIndex == question.correctIndex;
     final points = isCorrect ? question.points : 0;
 
-    // Update in-memory cache immediately
+    // Snapshot previous state so we can revert on failure.
+    final prevScore = _totalScore;
+    final prevStreak = _streak;
+    final prevCorrect = _correctAnswers;
+    final prevTotal = _totalAnswered;
+    final prevDate = _lastAnsweredDate;
+    final prevIds = List<int>.from(_answeredIds);
+    final prevLastCorrect = _lastAnswerCorrect;
+    final prevLastPoints = _lastAnswerPoints;
+    final prevServerTimestamp = _lastAnsweredServerTimestamp;
+
+    // Update in-memory cache immediately.
     _totalScore += points;
     if (isCorrect) {
       final wasYesterday = _wasYesterdayAnswered();
@@ -210,10 +313,27 @@ class QuizRepository {
     _answeredIds.add(questionId);
     _lastAnswerCorrect = isCorrect;
     _lastAnswerPoints = points;
+    // Approximate server timestamp; will be overwritten with real value
+    // from Firestore on the next loadData() call.
+    _lastAnsweredServerTimestamp = DateTime.now();
 
-    // Persist — fire-and-forget for Firestore (non-blocking), await for prefs
+    // Persist — await Firestore write to ensure server-side rules validate
+    // the submission (anti-cheat). For guests, save to local prefs.
     if (_isLoggedIn) {
-      unawaited(_saveToFirestore());
+      final saved = await _saveToFirestore(isAnswer: true);
+      if (!saved) {
+        // Revert in-memory state so UI stays consistent with Firestore.
+        _totalScore = prevScore;
+        _streak = prevStreak;
+        _correctAnswers = prevCorrect;
+        _totalAnswered = prevTotal;
+        _lastAnsweredDate = prevDate;
+        _answeredIds = prevIds;
+        _lastAnswerCorrect = prevLastCorrect;
+        _lastAnswerPoints = prevLastPoints;
+        _lastAnsweredServerTimestamp = prevServerTimestamp;
+        throw Exception('[Quiz] Answer rejected by server — possible rule violation or network error.');
+      }
     } else {
       await _saveToPrefs();
     }
@@ -298,8 +418,11 @@ class QuizRepository {
   }
 
   List<int> _getShuffledOrder() {
+    // When the user completes all 360 questions and cycles back, mix
+    // the seed with the cycle number so the order differs each round.
+    final cycle = _answeredIds.length ~/ quizQuestionsPool.length;
     final ids = List<int>.generate(quizQuestionsPool.length, (i) => i);
-    ids.shuffle(Random(_userSeed));
+    ids.shuffle(Random(_userSeed + cycle * 7919)); // 7919 = large prime
     return ids;
   }
 
@@ -312,8 +435,11 @@ class QuizRepository {
     }
   }
 
+  /// Returns today's date as "YYYY-MM-DD" using the Firestore server clock
+  /// ([_serverNowUtc]) when available, falling back to device UTC.
+  /// This prevents device-clock manipulation from bypassing the daily limit.
   String _todayString() {
-    final now = DateTime.now();
+    final now = _serverNowUtc ?? DateTime.now().toUtc();
     return '${now.year}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
@@ -324,12 +450,33 @@ class QuizRepository {
     if (d == null || d.isEmpty) return false;
     try {
       final last = DateTime.parse(d);
-      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterday =
+          (_serverNowUtc ?? DateTime.now().toUtc()).subtract(const Duration(days: 1));
       return last.year == yesterday.year &&
           last.month == yesterday.month &&
           last.day == yesterday.day;
     } catch (_) {
       return false;
     }
+  }
+
+  /// Writes a server timestamp to a lightweight per-user document and reads
+  /// it back, returning the Firestore server's current UTC time.
+  /// Costs 1 Firestore write + 1 read per call; only called when the user
+  /// has a prior quiz answer (to keep costs minimal for new users).
+  /// Uses the existing `users/{uid}/data/_quiz_ping` path whose rules
+  /// are already deployed, avoiding the need for a separate collection.
+  Future<DateTime?> _fetchServerNow() async {
+    try {
+      final ref =
+          _firestore.doc('users/${_user!.uid}/data/_quiz_ping');
+      await ref.set({'ts': FieldValue.serverTimestamp()});
+      final snap = await ref.get();
+      final ts = snap.get('ts');
+      if (ts is Timestamp) return ts.toDate().toUtc();
+    } catch (e) {
+      debugPrint('[Quiz] _fetchServerNow failed (falling back to device): $e');
+    }
+    return null;
   }
 }

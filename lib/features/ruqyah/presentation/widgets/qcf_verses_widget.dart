@@ -13,6 +13,7 @@ class QcfVersesWidget extends StatelessWidget {
   final double verseHeight;
   final TextAlign textAlign;
   final bool isDark;
+  final bool stripNewlines;
 
   const QcfVersesWidget({
     super.key,
@@ -25,6 +26,7 @@ class QcfVersesWidget extends StatelessWidget {
     this.verseHeight = 2.0,
     this.textAlign = TextAlign.center,
     this.isDark = false,
+    this.stripNewlines = false,
   });
 
   @override
@@ -76,6 +78,11 @@ class QcfVersesWidget extends StatelessWidget {
         // Remove leading \n for first verse
         if (verseNumber == firstVerse && verseTextWithoutNumber.startsWith('\n')) {
           verseTextWithoutNumber = verseTextWithoutNumber.replaceFirst('\n', '');
+        }
+
+        // Strip all newlines so text wraps naturally at container width
+        if (stripNewlines) {
+          verseTextWithoutNumber = verseTextWithoutNumber.replaceAll('\n', ' ');
         }
 
         // Build the font family name for this page

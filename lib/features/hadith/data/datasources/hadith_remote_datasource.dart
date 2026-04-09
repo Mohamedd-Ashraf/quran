@@ -26,9 +26,13 @@ class HadithRemoteDataSource {
   // ── Sections ──────────────────────────────────────────────────────────
 
   /// Fetches section metadata for an edition.
-  /// Uses section 1 to extract the full section map from the metadata block.
+  /// For 'ara-bukhari': returns a hardcoded list of all 96 books instantly
+  /// (the CDN per-section JSON only contains that section's metadata, not all).
   Future<List<RemoteSection>> fetchSections(String edition) async {
-    // The min.json for section 1 contains the full metadata map with all sections.
+    if (edition == 'ara-bukhari') {
+      return RemoteSection.hardcodedBukhari();
+    }
+    // Fallback for other editions: parse metadata from section 1 response.
     final uri = Uri.parse('$_base/$edition/sections/1.min.json');
     final body = await _get(uri);
     final json = jsonDecode(body) as Map<String, dynamic>;

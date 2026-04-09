@@ -238,7 +238,7 @@ class _HadithDetailViewState extends State<_HadithDetailView>
 //  Tab 1: Hadith Text
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _HadithTab extends StatelessWidget {
+class _HadithTab extends StatefulWidget {
   final HadithItem hadith;
   final bool isArabic;
   final bool isDark;
@@ -252,11 +252,23 @@ class _HadithTab extends StatelessWidget {
   });
 
   @override
+  State<_HadithTab> createState() => _HadithTabState();
+}
+
+class _HadithTabState extends State<_HadithTab> {
+  bool _showFullIsnad = false;
+
+  @override
   Widget build(BuildContext context) {
+    final hadith = widget.hadith;
+    final isArabic = widget.isArabic;
+    final isDark = widget.isDark;
+    final hasIsnad = !hadith.isOffline && hadith.sanad.trim().isNotEmpty;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: RepaintBoundary(
-        key: shareCardKey,
+        key: widget.shareCardKey,
         child: Container(
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.surface,
@@ -306,11 +318,196 @@ class _HadithTab extends StatelessWidget {
                 ),
               ),
 
-              // Arabic text — label depends on hadith source:
-              // offline (117 curated) → always matn → show "قال رسول الله ﷺ:"
-              // online Bukhari → may show full rawText (with isnad) → show "نص الحديث:"
+              // ── Toggle: show full isnad (only for online hadiths that have a sanad)
+              if (hasIsnad)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _showFullIsnad = !_showFullIsnad),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _showFullIsnad
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : (isDark
+                                  ? AppColors.darkCard
+                                  : AppColors.primary.withValues(alpha: 0.03)),
+                        borderRadius: BorderRadius.circular(
+                          AppDesignSystem.radiusSm,
+                        ),
+                        border: Border.all(
+                          color: _showFullIsnad
+                              ? AppColors.primary.withValues(alpha: 0.35)
+                              : (isDark
+                                    ? AppColors.darkBorder
+                                    : AppColors.primary.withValues(alpha: 0.12)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.account_tree_rounded,
+                            size: 17,
+                            color: _showFullIsnad
+                                ? AppColors.primary
+                                : (isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.textSecondary),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isArabic
+                                  ? (_showFullIsnad
+                                        ? 'إخفاء السند'
+                                        : 'عرض الحديث بالسند كاملاً')
+                                  : (_showFullIsnad
+                                        ? 'Hide Isnad'
+                                        : 'Show Full Hadith with Isnad'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _showFullIsnad
+                                    ? AppColors.primary
+                                    : (isDark
+                                          ? AppColors.darkTextSecondary
+                                          : AppColors.textSecondary),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _showFullIsnad
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 20,
+                            color: _showFullIsnad
+                                ? AppColors.primary
+                                : (isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Full isnad (sanad) section — shown when toggled on
+              if (hasIsnad && _showFullIsnad)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkCard
+                          : AppColors.primary.withValues(alpha: 0.025),
+                      borderRadius: BorderRadius.circular(
+                        AppDesignSystem.radiusSm,
+                      ),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.primary.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Label
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              isArabic ? 'الإسناد' : 'Isnad',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                                color: AppColors.primary.withValues(alpha: 0.55),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.link_rounded,
+                              size: 13,
+                              color: AppColors.primary.withValues(alpha: 0.45),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // Sanad text — muted color, tashkeel dimmed
+                        _arabicRichText(
+                          hadith.sanad,
+                          baseStyle: TextStyle(
+                            fontFamily: 'Amiri',
+                            fontSize: 16,
+                            height: 2.0,
+                            color: isDark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // ── Divider between isnad and matn when expanded
+              if (hasIsnad && _showFullIsnad)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: AppColors.secondary.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_downward_rounded,
+                              size: 13,
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              isArabic ? 'المتن' : 'Matn',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: AppColors.secondary.withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Matn label
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  (hasIsnad && _showFullIsnad) ? 8 : 24,
+                  20,
+                  8,
+                ),
                 child: Text(
                   hadith.isOffline ? 'قال رسول الله ﷺ:' : 'نص الحديث:',
                   textAlign: TextAlign.right,
@@ -319,22 +516,39 @@ class _HadithTab extends StatelessWidget {
                     fontFamily: 'Amiri',
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+                    color: _showFullIsnad ? AppColors.secondary : AppColors.primary,
                   ),
                 ),
               ),
+
+              // ── Matn text — highlighted with golden border when full isnad shown
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.04),
+                    color: _showFullIsnad
+                        ? AppColors.secondary.withValues(alpha: 0.07)
+                        : AppColors.primary.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(
                       AppDesignSystem.radiusMd,
                     ),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: _showFullIsnad
+                          ? AppColors.secondary.withValues(alpha: 0.45)
+                          : AppColors.primary.withValues(alpha: 0.1),
+                      width: _showFullIsnad ? 1.5 : 1.0,
                     ),
+                    boxShadow: _showFullIsnad
+                        ? [
+                            BoxShadow(
+                              color: AppColors.secondary.withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Text(
                     '« ${hadith.arabicText} »',
@@ -344,6 +558,8 @@ class _HadithTab extends StatelessWidget {
                       fontFamily: 'Amiri',
                       fontSize: 20,
                       height: 2.0,
+                      fontWeight:
+                          _showFullIsnad ? FontWeight.w700 : FontWeight.normal,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,

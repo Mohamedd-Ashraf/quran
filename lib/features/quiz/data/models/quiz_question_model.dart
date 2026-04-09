@@ -1,3 +1,5 @@
+import 'dart:math';
+
 /// Difficulty level for a quiz question.
 enum QuizDifficulty { easy, medium, hard }
 
@@ -24,6 +26,22 @@ class QuizQuestion {
     this.explanation,
   });
 
+  /// Returns a copy of this question with the options shuffled using [rng].
+  /// The [correctIndex] is updated to point to the correct answer's new position.
+  QuizQuestion shuffleOptions(Random rng) {
+    final shuffled = List<String>.from(options);
+    final correctAnswer = options[correctIndex];
+    shuffled.shuffle(rng);
+    return QuizQuestion(
+      id: id,
+      question: question,
+      options: shuffled,
+      correctIndex: shuffled.indexOf(correctAnswer),
+      difficulty: difficulty,
+      explanation: explanation,
+    );
+  }
+
   /// Points awarded for a correct answer based on difficulty.
   int get points {
     switch (difficulty) {
@@ -38,14 +56,7 @@ class QuizQuestion {
 
   /// Timer duration in seconds based on difficulty.
   int get timerSeconds {
-    switch (difficulty) {
-      case QuizDifficulty.easy:
-        return 20;
-      case QuizDifficulty.medium:
-        return 15;
-      case QuizDifficulty.hard:
-        return 10;
-    }
+    return 20; // All questions get 20 seconds regardless of difficulty
   }
 
   /// Arabic label for difficulty.
