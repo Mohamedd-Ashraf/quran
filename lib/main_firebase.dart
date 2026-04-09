@@ -33,8 +33,13 @@ import 'features/adhkar/presentation/cubit/adhkar_progress_cubit.dart';
 import 'features/hadith/presentation/cubit/hadith_cubit.dart';
 import 'features/hadith/data/repositories/hadith_repository.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // runZonedGuarded is the most reliable way to catch ALL uncaught async errors,
+  // including errors that escape PlatformDispatcher.instance.onError due to the
+  // google_fonts 6.3.3 bug where `.then()` without `.catchError()` creates
+  // unhandled rejections that bypass the platform error handler.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
   // Pre-load only the bundled QCF page fonts (9 pages covering key surah openings).
   // Remaining 595 pages are downloaded on demand via QcfFontDownloadService.
@@ -62,6 +67,28 @@ void main() async {
 
   // Fonts are bundled locally in assets/google_fonts/ – no network needed.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Pre-load all bundled Google Fonts into the engine NOW so that later
+  // widget builds never trigger an async loadFontIfNecessary that can race
+  // with the QCF font downloads and throw unhandled exceptions.
+  // Wrapped in try/catch because this runs before error handlers are installed
+  // – if a font variant is missing from the bundle it would otherwise crash.
+  try {
+    await GoogleFonts.pendingFonts([
+      GoogleFonts.cairo(),
+      GoogleFonts.amiriQuran(),
+      GoogleFonts.arefRuqaa(),
+      GoogleFonts.amiri(),
+      GoogleFonts.notoNaskhArabic(),
+      GoogleFonts.cinzel(),
+      GoogleFonts.poppins(),
+      // Only Bold is bundled in assets/google_fonts/ — Regular is not available.
+      GoogleFonts.notoSerif(fontWeight: FontWeight.bold),
+    ]);
+  } catch (_) {
+    // Some font variants may not be in the bundle – silently ignore.
+    // They will fall back to the default font when rendered.
+  }
 
   bool isGoogleFontsError(Object error) {
     final msg = error.toString().toLowerCase();
@@ -162,7 +189,12 @@ void main() async {
     androidNotificationIcon: 'drawable/ic_notification',
   );
 
-  runApp(const MyApp());
+    runApp(const MyApp());
+  }, (error, stack) {
+    // Catches all unhandled zone errors — including google_fonts async throws
+    // that escape PlatformDispatcher.instance.onError in google_fonts <8.0.2.
+    debugPrint('[Zone] Ignored unhandled error: $error');
+  });
 }
 
 /// Global lifecycle observer that keeps wird notifications alive regardless

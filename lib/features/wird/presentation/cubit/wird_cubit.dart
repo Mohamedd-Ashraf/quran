@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/wird_service.dart';
+import '../../data/quran_boundaries.dart';
 import '../../services/wird_notification_service.dart';
 import 'wird_state.dart';
 
@@ -108,6 +109,33 @@ class WirdCubit extends Cubit<WirdState> {
       }
     }
     load();
+  }
+
+  // ── Auto-complete days by page (for page-based plans) ──────────────────
+
+  /// For page-based plans: marks all days from [fromDay] onwards as complete
+  /// if the saved [page] covers their full page range.
+  Future<void> autoCompleteByPage(int fromDay, int page) async {
+    final currentState = state;
+    if (currentState is! WirdPlanLoaded) return;
+    final plan = currentState.plan;
+    if (!plan.isPagesBased || plan.pagesPerDay == null) return;
+
+    bool anyMarked = false;
+    for (int d = fromDay; d <= plan.targetDays; d++) {
+      if (plan.isDayComplete(d)) continue;
+      final dayRange = getPageRangeForDay(d, plan.pagesPerDay!);
+      if (page >= dayRange.endPage) {
+        await _wirdService.markDayComplete(d);
+        anyMarked = true;
+      } else {
+        break;
+      }
+    }
+    if (anyMarked) {
+      await _notifService.refreshFollowUps();
+      load();
+    }
   }
 
   // ── Reminder time ───────────────────────────────────────────────

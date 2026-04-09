@@ -41,8 +41,31 @@ String _fmtDateSS(DateTime d, {required bool isAr}) {
 }
 
 /// Full-page plan setup screen matching the Wird_plan design.
+///
+/// When [existingPlan] is provided, the screen opens in **edit mode**:
+/// the user can reconfigure the plan for the remaining portion of the Quran,
+/// keeping already-completed progress.
 class WirdSetupScreen extends StatefulWidget {
-  const WirdSetupScreen({super.key});
+  /// If non-null the screen is in "edit / reconfigure" mode.
+  final WirdPlan? existingPlan;
+
+  /// Number of remaining mushaf pages (604 minus what's been covered).
+  /// Only meaningful when [existingPlan] is set; defaults to 604.
+  final int remainingPages;
+
+  /// Existing reminder hour to pre-fill (edit mode only).
+  final int? existingReminderHour;
+
+  /// Existing reminder minute to pre-fill (edit mode only).
+  final int? existingReminderMinute;
+
+  const WirdSetupScreen({
+    super.key,
+    this.existingPlan,
+    this.remainingPages = _kSetupPages,
+    this.existingReminderHour,
+    this.existingReminderMinute,
+  });
 
   @override
   State<WirdSetupScreen> createState() => _WirdSetupScreenState();
@@ -52,16 +75,66 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
   static const _dayOpts = [7, 10, 14, 20, 30, 60];
   static const _pageOpts = [2, 3, 4, 5, 8, 10, 15, 20];
 
-  bool _pagesBased = false;
-  int _days = 20;
-  int _pagesPerDay = 10;
-  DateTime _start = DateTime.now();
+  late bool _pagesBased;
+  late int _days;
+  late int _pagesPerDay;
+  late DateTime _start;
   bool _reminderOn = true;
   TimeOfDay _reminderTime = const TimeOfDay(hour: 5, minute: 30);
   bool _customVisible = false;
   bool _customPagesVisible = false;
+
+  bool get _isEditMode => widget.existingPlan != null;
+  int get _totalPages => widget.remainingPages;
   final _customCtrl = TextEditingController();
   final _customPagesCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final plan = widget.existingPlan;
+    if (plan != null) {
+      // ── Edit mode ────────────────────────────────────────────────────
+      _pagesBased = plan.planMode == WirdPlanMode.pages;
+      _pagesPerDay = plan.pagesPerDay ?? 10;
+      _start = DateTime.now();
+
+      if (_pagesBased) {
+        // Pages-based: keep same pagesPerDay; days = ceil(remaining/pagesPerDay).
+        _days = (_totalPages / _pagesPerDay).ceil().clamp(1, 9999);
+        // If pagesPerDay isn't a preset chip, open the custom field pre-filled.
+        if (!_pageOpts.contains(_pagesPerDay)) {
+          _customPagesVisible = true;
+          _customPagesCtrl.text = _pagesPerDay.toString();
+        }
+      } else {
+        // Days-based: remaining days = original target − already completed.
+        final remainingDays =
+            (plan.targetDays - plan.completedDays.length).clamp(1, 9999);
+        _days = remainingDays;
+        if (!_dayOpts.contains(_days)) {
+          _customVisible = true;
+          _customCtrl.text = _days.toString();
+        }
+      }
+
+      // Pre-fill reminder time from the existing plan's reminder settings.
+      final rh = widget.existingReminderHour;
+      final rm = widget.existingReminderMinute;
+      if (rh != null && rm != null) {
+        _reminderOn = true;
+        _reminderTime = TimeOfDay(hour: rh, minute: rm);
+      } else {
+        _reminderOn = false;
+      }
+    } else {
+      // ── New plan mode ────────────────────────────────────────────────
+      _pagesBased = false;
+      _days = 20;
+      _pagesPerDay = 10;
+      _start = DateTime.now();
+    }
+  }
 
   @override
   void dispose() {
@@ -70,11 +143,19 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
     super.dispose();
   }
 
-  int get _targetDays =>
-      _pagesBased ? (_kSetupPages / _pagesPerDay).ceil() : _days;
+  int get _targetDays {
+    if (_pagesBased) {
+      final ppd = _pagesPerDay.clamp(1, _kSetupPages);
+      return (_totalPages / ppd).ceil().clamp(1, 9999);
+    }
+    return _days.clamp(1, 9999);
+  }
 
-  int get _pagesDisplay =>
-      _pagesBased ? _pagesPerDay : (_kSetupPages / _days).ceil();
+  int get _pagesDisplay {
+    if (_pagesBased) return _pagesPerDay.clamp(1, _kSetupPages);
+    final days = _days.clamp(1, 9999);
+    return (_totalPages / days).ceil().clamp(1, _kSetupPages);
+  }
 
   Future<void> _pickDate() async {
     final p = await showDatePicker(
@@ -95,16 +176,60 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
   }
 
   Future<void> _submit(bool isAr) async {
-    await context.read<WirdCubit>().setupPlan(
-      type: WirdType.regular,
-      targetDays: _targetDays,
-      startDate: _start,
-      planMode: _pagesBased ? WirdPlanMode.pages : WirdPlanMode.days,
-      pagesPerDay: _pagesBased ? _pagesPerDay : null,
-      completedDays: const [],
-      reminderHour: _reminderOn ? _reminderTime.hour : null,
-      reminderMinute: _reminderOn ? _reminderTime.minute : null,
-    );
+    if (_isEditMode) {
+      final plan = widget.existingPlan!;
+
+      final int newTargetDays;
+      final DateTime newStartDate;
+      final List<int> newCompletedDays;
+
+      if (_pagesBased) {
+        // ── Pages-based edit ────────────────────────────────────────────
+        // To keep reading from the correct page (not page 1), we back-date
+        // startDate by the number of days already "consumed" at the new pace.
+        // This makes currentDay = coveredDays + 1, so getPageRangeForDay()
+        // returns exactly the first unread page.
+        final coveredPages = (_kSetupPages - _totalPages).clamp(0, _kSetupPages);
+        final ppd = _pagesPerDay.clamp(1, _kSetupPages);
+        final coveredDays = coveredPages ~/ ppd; // integer division
+
+        newStartDate = DateTime.now().subtract(Duration(days: coveredDays));
+        newTargetDays = (_kSetupPages / ppd).ceil();
+        // Mark all previously-covered days as complete so progress bar is right.
+        newCompletedDays = List.generate(coveredDays, (i) => i + 1);
+      } else {
+        // ── Days-based edit ─────────────────────────────────────────────
+        // Keep the original startDate so currentDay stays aligned with the
+        // juz distribution. Extend targetDays by the new remaining days.
+        newStartDate = plan.startDate;
+        newTargetDays =
+            plan.completedDays.length + _days.clamp(1, 9999);
+        newCompletedDays = plan.completedDays;
+      }
+
+      await context.read<WirdCubit>().setupPlan(
+        type: plan.type, // preserve original type (regular vs Ramadan)
+        targetDays: newTargetDays,
+        startDate: newStartDate,
+        planMode: _pagesBased ? WirdPlanMode.pages : WirdPlanMode.days,
+        pagesPerDay: _pagesBased ? _pagesPerDay : null,
+        completedDays: newCompletedDays,
+        reminderHour: _reminderOn ? _reminderTime.hour : null,
+        reminderMinute: _reminderOn ? _reminderTime.minute : null,
+      );
+    } else {
+      // ── New plan ────────────────────────────────────────────────────────
+      await context.read<WirdCubit>().setupPlan(
+        type: WirdType.regular,
+        targetDays: _targetDays,
+        startDate: _start,
+        planMode: _pagesBased ? WirdPlanMode.pages : WirdPlanMode.days,
+        pagesPerDay: _pagesBased ? _pagesPerDay : null,
+        completedDays: const [],
+        reminderHour: _reminderOn ? _reminderTime.hour : null,
+        reminderMinute: _reminderOn ? _reminderTime.minute : null,
+      );
+    }
     if (mounted) Navigator.pop(context);
   }
 
@@ -134,7 +259,9 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            isAr ? 'إنشاء خطة تلاوة' : 'Create Reading Plan',
+            _isEditMode
+                ? (isAr ? 'تعديل الخطة' : 'Edit Plan')
+                : (isAr ? 'إنشاء خطة تلاوة' : 'Create Reading Plan'),
             style: GoogleFonts.notoSerif(
               fontWeight: FontWeight.bold,
               color: isDark ? AppColors.darkTextPrimary : const Color(0xFF003527),
@@ -147,9 +274,13 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isAr
-                    ? 'صمم رحلتك الروحية الخاصة مع القرآن الكريم'
-                    : 'Design your personal journey with the Holy Quran',
+                _isEditMode
+                    ? (isAr
+                        ? 'عدّل خطتك للجزء المتبقي (${_toArNum(_totalPages)} صفحة)'
+                        : 'Reconfigure for remaining $_totalPages pages')
+                    : (isAr
+                        ? 'صمم رحلتك الروحية الخاصة مع القرآن الكريم'
+                        : 'Design your personal journey with the Holy Quran'),
                 style: TextStyle(
                   color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -500,6 +631,7 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (!_isEditMode)
                   Expanded(
                     child: GestureDetector(
                       onTap: _pickDate,
@@ -554,6 +686,7 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                       ),
                     ),
                   ),
+                  if (!_isEditMode)
                   const SizedBox(width: 12),
                   Expanded(
                     child: _SetupCard(
@@ -665,7 +798,9 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                             : CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isAr ? 'ملخص الخطة' : 'Plan Summary',
+                            _isEditMode
+                                ? (isAr ? 'ملخص التعديل' : 'Edit Summary')
+                                : (isAr ? 'ملخص الخطة' : 'Plan Summary'),
                             style: const TextStyle(
                               color: AppColors.secondary,
                               fontWeight: FontWeight.bold,
@@ -682,9 +817,13 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                               ),
                               children: [
                                 TextSpan(
-                                  text: isAr
-                                      ? 'سيتم ختم القرآن في '
-                                      : 'Will complete in ',
+                                  text: _isEditMode
+                                      ? (isAr
+                                          ? 'سيتم إكمال الباقي (${_toArNum(_totalPages)} صفحة) في '
+                                          : 'Will finish remaining $_totalPages pages in ')
+                                      : (isAr
+                                          ? 'سيتم ختم القرآن في '
+                                          : 'Will complete in '),
                                 ),
                                 TextSpan(
                                   text: isAr
@@ -734,9 +873,13 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                 height: 58,
                 child: ElevatedButton.icon(
                   onPressed: () => _submit(isAr),
-                  icon: const Icon(Icons.rocket_launch_rounded),
+                  icon: Icon(_isEditMode
+                      ? Icons.check_rounded
+                      : Icons.rocket_launch_rounded),
                   label: Text(
-                    isAr ? 'ابدأ الآن' : 'Start Now',
+                    _isEditMode
+                        ? (isAr ? 'حفظ التعديلات' : 'Save Changes')
+                        : (isAr ? 'ابدأ الآن' : 'Start Now'),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,

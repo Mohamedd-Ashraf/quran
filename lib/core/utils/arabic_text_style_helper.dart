@@ -142,7 +142,9 @@ class ArabicTextStyleHelper {
     TextStyle base;
     switch (fontKey) {
       case 'scheherazade':
-        base = GoogleFonts.scheherazadeNew(
+        // ScheherazadeNew is not bundled in assets/google_fonts/ — fall back
+        // to Amiri Quran which is bundled and has full Quranic glyph coverage.
+        base = GoogleFonts.amiriQuran(
             fontSize: size, fontWeight: weight, height: height);
       case 'amiri':
       //TODO: consider switching to Amiri Regular for non-Quran text, as it has better readability and more complete glyph coverage than Amiri Quran
@@ -168,18 +170,15 @@ class ArabicTextStyleHelper {
             fontSize: size, fontWeight: weight, height: height);
       case 'cairo':
         // Cairo lacks full Quranic glyph coverage.
-        // Add Scheherazade New + Amiri Quran as fallbacks so special
-        // diacritics and Uthmani characters render correctly.
+        // Use Amiri Quran as fallback (bundled) for Quranic diacritics.
+        // ScheherazadeNew is NOT bundled — do not call GoogleFonts.scheherazadeNew()
+        // as it triggers an async load that throws at runtime.
         final cairoStyle = GoogleFonts.cairo(
             fontSize: size, fontWeight: weight, height: height);
-        final fallback = <String>[];
-        final sch = GoogleFonts.scheherazadeNew().fontFamily;
-        final aq  = GoogleFonts.amiriQuran().fontFamily;
-        if (sch != null) fallback.add(sch);
-        if (aq  != null) fallback.add(aq);
+        final aq = GoogleFonts.amiriQuran().fontFamily;
         base = cairoStyle.copyWith(
           fontFamilyFallback: [
-            ...fallback,
+            if (aq != null) aq,
             ...?cairoStyle.fontFamilyFallback,
           ],
         );

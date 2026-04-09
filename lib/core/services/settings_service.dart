@@ -444,7 +444,7 @@ class SettingsService {
   }
 
   String getQuranFont() {
-    return _prefs.getString(_keyQuranFont) ?? 'scheherazade';
+    return _prefs.getString(_keyQuranFont) ?? 'amiri_quran';
   }
 
   // ── Adhan short mode ───────────────────────────────────────────────────────
