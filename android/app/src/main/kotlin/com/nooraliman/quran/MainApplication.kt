@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.Application
 import android.app.NotificationChannel

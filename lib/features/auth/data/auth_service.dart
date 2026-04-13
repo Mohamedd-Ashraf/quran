@@ -249,10 +249,13 @@ class AuthService {
 
   // ── Account Deletion ────────────────────────────────────────────────────
 
-  /// Deletes the current user account.
-  Future<void> deleteAccount() async {
+  /// Deletes the current user account and returns the UID for Firestore cleanup.
+  /// Throws [FirebaseAuthException] with code 'requires-recent-login' if
+  /// re-authentication is needed.
+  Future<String> deleteAccount() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) throw FirebaseAuthException(code: 'no-user');
+    final uid = user.uid;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
         await GoogleSignInPlatform.instance.signOut();
@@ -263,6 +266,7 @@ class AuthService {
       } catch (_) {}
     }
     await user.delete();
+    return uid;
   }
 }
 

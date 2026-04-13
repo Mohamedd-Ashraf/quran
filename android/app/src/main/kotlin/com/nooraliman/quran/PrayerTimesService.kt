@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.*
 import android.content.Context
@@ -35,7 +35,7 @@ class PrayerTimesService : Service() {
 
         /** Sent as deleteIntent when the user swipes/clears the notification on Android 14+.
          *  Causes the service to immediately re-pin itself as a foreground notification. */
-        private const val ACTION_RESTORE = "com.example.quraan.RESTORE_PRAYER_NOTIF"
+        private const val ACTION_RESTORE = "com.nooraliman.quran.RESTORE_PRAYER_NOTIF"
 
         private const val PREFS_NAME        = "FlutterSharedPreferences"
         private const val KEY_PRAYER_TIMES  = "flutter.cached_prayer_times"

@@ -595,9 +595,9 @@ class _DisplayModeCard extends StatelessWidget {
           ),
           const Divider(height: 1, indent: 56, endIndent: 16),
           Builder(builder: (context) {
-            // Enabled only when Mushaf view is ON and QCF font is OFF
-            final wordByWordEnabled =
-                settings.useUthmaniScript && !settings.useQcfFont;
+            // Word-by-word is only available in QCF Plus Mushaf view,
+            // which requires both useUthmaniScript and useQcfFont to be active.
+            final wordByWordEnabled = settings.useUthmaniScript && settings.useQcfFont;
             return Opacity(
               opacity: wordByWordEnabled ? 1.0 : 0.4,
               child: SwitchListTile(
@@ -676,12 +676,8 @@ class _DisplayModeCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         isAr
-                            ? (settings.useQcfFont
-                                ? 'يتطلب إيقاف رسم المصحف QCF'
-                                : 'يتطلب تفعيل عرض المصحف الشريف')
-                            : (settings.useQcfFont
-                                ? 'Requires QCF font to be disabled'
-                                : 'Requires Mushaf View to be enabled'),
+                            ? 'يتطلب تفعيل عرض المصحف الشريف'
+                            : 'Requires Mushaf View to be enabled',
                         style: const TextStyle(
                             fontSize: 10, color: AppColors.textSecondary),
                       ),

@@ -1,13 +1,9 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../di/injection_container.dart' as di;
 import '../models/app_update_info.dart';
 import '../services/app_update_service_firebase.dart';
 import '../services/app_update_manager.dart';
-import '../services/update_download_notification_service.dart';
 
 /// Show premium update dialog
 Future<void> showPremiumUpdateDialog({
@@ -364,79 +360,8 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
           if (success) return;
         }
 
-        // Fallback: direct APK download with system notification progress.
-        final notifService = di.sl<UpdateDownloadNotificationService>();
-
-        // Check install permission BEFORE starting download so we can inform the user
-        final permissionStatus = await Permission.requestInstallPackages.status;
-        final needsInstallPermission = !permissionStatus.isGranted;
-
-        AppUpdateManager.instance.startDownload(
-          widget.updateInfo.latestVersion,
-          needsInstallPermission: needsInstallPermission,
-        );
-
-        setState(() {
-          _isUpdating = false;
-          _isDownloading = true;
-          _downloadProgress = 0.0;
-        });
-
-        // Show initial notification so user can see progress after dismissing dialog.
-        unawaited(notifService.showProgress(
-          progress: 0,
-          version: widget.updateInfo.latestVersion,
-          isArabic: isArabic,
-        ));
-
-        // For optional updates: briefly show "downloading in background" message,
-        // then auto-dismiss so the user can keep exploring.
-        if (!widget.updateInfo.isMandatory &&
-            !widget.updateInfo.isBelowMinimum &&
-            mounted) {
-          setState(() => _dismissedToBackground = true);
-          await Future<void>.delayed(const Duration(seconds: 2));
-          if (mounted) Navigator.of(context).pop();
-        }
-
-        final success = await widget.updateService.downloadAndInstallApk(
-          url: widget.updateInfo.downloadUrl!,
-          onProgress: (p) {
-            final crossed90 = AppUpdateManager.instance.updateProgress(p);
-            // Throttle notification calls to once per 1% to avoid Android
-            // dropping rapid updates and the notification appearing frozen.
-            final pct = (p * 100).round();
-            if (pct != _lastNotifPct) {
-              _lastNotifPct = pct;
-              // Show special notification at 90%
-              if (crossed90) {
-                unawaited(notifService.showAlmostComplete(
-                  version: widget.updateInfo.latestVersion,
-                  isArabic: isArabic,
-                  needsInstallPermission: needsInstallPermission,
-                ));
-              } else {
-                unawaited(notifService.showProgress(
-                  progress: p,
-                  version: widget.updateInfo.latestVersion,
-                  isArabic: isArabic,
-                ));
-              }
-            }
-            if (mounted) setState(() => _downloadProgress = p);
-          },
-        );
-
-        if (success) {
-          AppUpdateManager.instance.markComplete();
-          unawaited(notifService.showComplete(
-            version: widget.updateInfo.latestVersion,
-            isArabic: isArabic,
-          ));
-        } else {
-          AppUpdateManager.instance.markError();
-          unawaited(notifService.showError(isArabic: isArabic));
-        }
+        // Fallback: open store page.
+        await _openStore();
       } else {
         // iOS or no download URL — open store.
         await _openStore();

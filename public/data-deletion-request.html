@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>طلب حذف البيانات | نور الإيمان</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+        
+        .language-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #667eea;
+            z-index: 100;
+        }
+        
+        .language-toggle:hover {
+            background: #f0f0f0;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 35px;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .section-en h2 {
+            border-bottom: 2px solid #764ba2;
+            color: #764ba2;
+        }
+        
+        .subsection {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-right: 4px solid #667eea;
+            border-radius: 6px;
+        }
+        
+        .section-en .subsection {
+            border-right: none;
+            border-left: 4px solid #764ba2;
+        }
+        
+        .subsection h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .subsection p {
+            color: #555;
+            font-size: 0.95em;
+            line-height: 1.7;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.95em;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="email"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        
+        .checkbox-label {
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input + span {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .checkbox-label small {
+            display: block;
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-right: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #1976D2;
+        }
+        
+        .section-en .info-box {
+            border-right: none;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-right: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+        
+        .section-en .warning-box {
+            border-right: none;
+            border-left: 4px solid #ffc107;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .data-types {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #777;
+            font-size: 0.9em;
+        }
+        
+        .footer p {
+            margin-bottom: 8px;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .process-timeline {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .timeline-item {
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .timeline-item::before {
+            content: attr(data-step);
+            display: block;
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .timeline-item p {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.5em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .process-timeline {
+                flex-direction: column;
+            }
+        }
+        
+        .section-ar {
+            display: block;
+        }
+        
+        .section-en {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <button class="language-toggle" onclick="toggleLanguage()">English</button>
+    
+    <div class="container">
+        <!-- ARABIC VERSION -->
+        <div class="section-ar">
+            <header>
+                <h1>طلب حذف البيانات</h1>
+                <p>تحكّم في بياناتك الشخصية بأمان وخصوصية</p>
+            </header>
+            
+            <div class="content">
+                <div class="section">
+                    <h2>معلومات عن حذف البيانات</h2>
+                    
+                    <div class="info-box">
+                        <strong>نحترم خصوصيتك:</strong> يمكنك طلب حذف بياناتك في أي وقت. هذه العملية مختلفة عن حذف الحساب – فأنت تحتفظ بحسابك لكن نحذف البيانات المحددة.
+                    </div>
+                    
+                    <div class="subsection">
+                        <h3>أنواع البيانات التي يمكن حذفها:</h3>
+                        <p>
+                            • <strong>الإشارات المرجعية:</strong> جميع الآيات والصفحات المحفوظة<br>
+                            • <strong>الورد اليومي:</strong> سجل التقدم والأهداف والتذكيرات<br>
+                            • <strong>الإعدادات الشخصية:</strong> الخطوط والألوان والتفضيلات<br>
+                            • <strong>تاريخ التلاوة:</strong> سجل القراءة والاستماع<br>
+                            • <strong>جميع البيانات:</strong> حذف كل بياناتك دفعة واحدة
+                        </p>
+                    </div>
+                    
+                    <div class="subsection">
+                        <h3>ماذا يحدث بعد الطلب؟</h3>
+                        <p>
+                            ✓ نستقبل طلبك قبل الإجراء<br>
+                            ✓ نتحقق من أنك مالك الحساب<br>
+                            ✓ نحذف البيانات المحددة خلال 7 أيام عمل<br>
+                            ✓ نرسل لك تأكيد البريد الإلكتروني عند الانتهاء
+                        </p>
+                    </div>
+                    
+                    <div class="warning-box">
+                        <strong>⚠️ تنبيه:</strong> حذف البيانات لا يمكن التراجع عنه. تأكد من أنك تريد حذف البيانات المحددة قبل الإرسال.
+                    </div>
+                </div>
+                
+                <div class="process-timeline">
+                    <div class="timeline-item" data-step="1">
+                        <p>تقديم الطلب</p>
+                    </div>
+                    <div class="timeline-item" data-step="2">
+                        <p>التحقق</p>
+                    </div>
+                    <div class="timeline-item" data-step="3">
+                        <p>الحذف</p>
+                    </div>
+                    <div class="timeline-item" data-step="4">
+                        <p>التأكيد</p>
+                    </div>
+                </div>
+                
+                <div class="success-message" id="successMessage">
+                    ✓ تم استقبال طلبك! سنتاصل بك قريباً عبر البريد الإلكتروني.
+                </div>
+                
+                <form id="dataDeleteForm" onsubmit="handleSubmit(event)">
+                    <div class="section">
+                        <h2>نموذج الطلب</h2>
+                        
+                        <div class="form-group">
+                            <label for="email-ar">بريدك الإلكتروني (المرتبط بحسابك):</label>
+                            <input type="email" id="email-ar" name="email" required placeholder="your@email.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>اختر البيانات التي تريد حذفها:</label>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="bookmarks-ar" name="dataType" value="bookmarks">
+                                    <label for="bookmarks-ar" class="checkbox-label">
+                                        <span>الإشارات المرجعية</span>
+                                        <small>جميع الآيات والصفحات المحفوظة</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="wird-ar" name="dataType" value="wird">
+                                    <label for="wird-ar" class="checkbox-label">
+                                        <span>الورد اليومي</span>
+                                        <small>سجل التقدم والأهداف والتذكيرات</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="settings-ar" name="dataType" value="settings">
+                                    <label for="settings-ar" class="checkbox-label">
+                                        <span>الإعدادات الشخصية</span>
+                                        <small>الخطوط والألوان والتفضيلات</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="history-ar" name="dataType" value="history">
+                                    <label for="history-ar" class="checkbox-label">
+                                        <span>تاريخ التلاوة</span>
+                                        <small>سجل القراءة والاستماع</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="all-ar" name="dataType" value="all" onchange="toggleSelectAll(this, 'ar')">
+                                    <label for="all-ar" class="checkbox-label">
+                                        <span>حذف جميع البيانات</span>
+                                        <small>تحذير: سيؤدي هذا إلى حذف كل بياناتك</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reason-ar">السبب (اختياري):</label>
+                            <textarea id="reason-ar" name="reason" placeholder="أخبرنا لماذا تريد حذف هذه البيانات (لنتحسن إن أمكن)..."></textarea>
+                        </div>
+                        
+                        <button type="submit">إرسال طلب الحذف</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- ENGLISH VERSION -->
+        <div class="section-en">
+            <header>
+                <h1>Data Deletion Request</h1>
+                <p>Control your personal data with security and privacy</p>
+            </header>
+            
+            <div class="content">
+                <div class="section">
+                    <h2>About Data Deletion</h2>
+                    
+                    <div class="info-box">
+                        <strong>We respect your privacy:</strong> You can request deletion of your data anytime. This is different from account deletion – you keep your account but we delete specific data.
+                    </div>
+                    
+                    <div class="subsection">
+                        <h3>Types of Data You Can Delete:</h3>
+                        <p>
+                            • <strong>Bookmarks:</strong> All saved verses and pages<br>
+                            • <strong>Daily Wird:</strong> Progress, goals, and reminders<br>
+                            • <strong>Personal Settings:</strong> Fonts, colors, and preferences<br>
+                            • <strong>Recitation History:</strong> Reading and listening logs<br>
+                            • <strong>All Data:</strong> Delete everything at once
+                        </p>
+                    </div>
+                    
+                    <div class="subsection">
+                        <h3>What Happens After Submission?</h3>
+                        <p>
+                            ✓ We receive your request first<br>
+                            ✓ We verify you own the account<br>
+                            ✓ We delete your specified data within 7 business days<br>
+                            ✓ We send you email confirmation when done
+                        </p>
+                    </div>
+                    
+                    <div class="warning-box">
+                        <strong>⚠️ Warning:</strong> Data deletion cannot be undone. Make sure you want to delete the specified data before submitting.
+                    </div>
+                </div>
+                
+                <div class="process-timeline">
+                    <div class="timeline-item" data-step="1">
+                        <p>Submit Request</p>
+                    </div>
+                    <div class="timeline-item" data-step="2">
+                        <p>Verification</p>
+                    </div>
+                    <div class="timeline-item" data-step="3">
+                        <p>Deletion</p>
+                    </div>
+                    <div class="timeline-item" data-step="4">
+                        <p>Confirmation</p>
+                    </div>
+                </div>
+                
+                <div class="success-message" id="successMessageEn">
+                    ✓ Your request has been received! We'll contact you soon via email.
+                </div>
+                
+                <form id="dataDeleteFormEn" onsubmit="handleSubmitEn(event)">
+                    <div class="section">
+                        <h2>Request Form</h2>
+                        
+                        <div class="form-group">
+                            <label for="email-en">Your Email Address (linked to your account):</label>
+                            <input type="email" id="email-en" name="email" required placeholder="your@email.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Select data you want deleted:</label>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="bookmarks-en" name="dataType" value="bookmarks">
+                                    <label for="bookmarks-en" class="checkbox-label">
+                                        <span>Bookmarks</span>
+                                        <small>All saved verses and pages</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="wird-en" name="dataType" value="wird">
+                                    <label for="wird-en" class="checkbox-label">
+                                        <span>Daily Wird</span>
+                                        <small>Progress, goals, and reminders</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="settings-en" name="dataType" value="settings">
+                                    <label for="settings-en" class="checkbox-label">
+                                        <span>Personal Settings</span>
+                                        <small>Fonts, colors, and preferences</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="history-en" name="dataType" value="history">
+                                    <label for="history-en" class="checkbox-label">
+                                        <span>Recitation History</span>
+                                        <small>Reading and listening logs</small>
+                                    </label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="all-en" name="dataType" value="all" onchange="toggleSelectAll(this, 'en')">
+                                    <label for="all-en" class="checkbox-label">
+                                        <span>Delete All Data</span>
+                                        <small>Warning: This will delete all your data</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reason-en">Reason (optional):</label>
+                            <textarea id="reason-en" name="reason" placeholder="Tell us why you want to delete this data (so we can improve)..."></textarea>
+                        </div>
+                        
+                        <button type="submit">Submit Deletion Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>نور الإيمان | Quraan App</strong></p>
+            <p>
+                للأسئلة أو المخاوف: <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a><br>
+                Questions or concerns: <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a>
+            </p>
+            <p style="margin-top: 15px; font-size: 0.85em;">
+                <a href="/privacy">سياسة الخصوصية | Privacy Policy</a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        function toggleLanguage() {
+            const arSection = document.querySelector('.section-ar');
+            const enSection = document.querySelector('.section-en');
+            const button = document.querySelector('.language-toggle');
+            
+            if (arSection.style.display === 'none') {
+                arSection.style.display = 'block';
+                enSection.style.display = 'none';
+                button.textContent = 'English';
+                document.documentElement.lang = 'ar';
+            } else {
+                arSection.style.display = 'none';
+                enSection.style.display = 'block';
+                button.textContent = 'العربية';
+                document.documentElement.lang = 'en';
+            }
+        }
+        
+        function toggleSelectAll(checkbox, lang) {
+            const checkboxes = document.querySelectorAll(`[id$="-${lang}"][name="dataType"]:not([id$="all-${lang}"])`);
+            checkboxes.forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+        }
+        
+        function handleSubmit(event) {
+            event.preventDefault();
+            submitForm('ar');
+        }
+        
+        function handleSubmitEn(event) {
+            event.preventDefault();
+            submitForm('en');
+        }
+        
+        function submitForm(lang) {
+            const emailInput = document.getElementById(`email-${lang}`);
+            const checkboxes = document.querySelectorAll(`[id$="-${lang}"][name="dataType"]:checked`);
+            const reasonInput = document.getElementById(`reason-${lang}`);
+            const successMessage = document.getElementById(lang === 'ar' ? 'successMessage' : 'successMessageEn');
+            
+            const email = emailInput.value;
+            const dataTypes = Array.from(checkboxes).map(cb => cb.value);
+            const reason = reasonInput.value;
+            
+            if (dataTypes.length === 0) {
+                alert(lang === 'ar' ? 'يرجى اختيار نوع بيانات واحد على الأقل' : 'Please select at least one data type');
+                return;
+            }
+            
+            // Log submission (in production, this would send to a backend)
+            console.log({
+                email,
+                dataTypes,
+                reason,
+                timestamp: new Date().toISOString(),
+                app: 'Quraan - Noor Al-Iman'
+            });
+            
+            // Show success message
+            successMessage.style.display = 'block';
+            document.getElementById(`dataDelete${ lang === 'ar' ? 'Form' : 'FormEn'}`).reset();
+            
+            // Email user (via backend - this is placeholder)
+            console.log(`Email to ${email}: Your data deletion request has been submitted.`);
+            
+            // Scroll to success message
+            successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Hide success message after 10 seconds
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 10000);
+        }
+    </script>
+</body>
+</html>

@@ -143,6 +143,10 @@ class GetPage {
           final othmanicParts = aya.othmanicAyah.split('\n');
           final qcfParts = aya.qcfData.split('\n');
 
+          // Track cumulative word count across segments so each sub-ayah
+          // knows its word-start offset for word-by-word audio playback.
+          int wordOffset = 0;
+
           for (int i = 0; i < parts.length; i++) {
             final textPart = parts[i].trim();
             if (textPart.isEmpty) continue;
@@ -165,7 +169,12 @@ class GetPage {
               qcfData: qcfPart,
               ayaText: textPart,
               centered: aya.centered && i == parts.length - 2,
+              wordStartIndex: wordOffset,
             );
+
+            // Advance the word offset by the number of non-space characters
+            // in this segment's QCF data (each non-space char = one Quranic word).
+            wordOffset += qcfPart.runes.where((r) => r != 0x20).length;
 
             currentLineAyahs.add(subAyah);
 

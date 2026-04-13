@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -340,61 +340,6 @@ class MainActivity : AudioServiceFragmentActivity() {
                             .putBoolean("flutter.adhan_force_speaker", enabled)
                             .apply()
                         result.success(null)
-                    }
-
-                    // ── System time jump (developer testing tool) ──────────────
-                    "setSystemTime" -> {
-                        val timeMs = call.argument<Long>("timeMs") ?: run {
-                            result.error("INVALID_ARG", "timeMs required", null)
-                            return@setMethodCallHandler
-                        }
-                        try {
-                            // Save original time + monotonic clock so we can restore later.
-                            val realNow  = System.currentTimeMillis()
-                            val elapsedNow = android.os.SystemClock.elapsedRealtime()
-                            getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                                .edit()
-                                .putLong("flutter.time_test_original_ms",      realNow)
-                                .putLong("flutter.time_test_elapsed_at_set",   elapsedNow)
-                                .apply()
-                            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                            am.setTime(timeMs)
-                            result.success(null)
-                        } catch (e: SecurityException) {
-                            result.error(
-                                "PERMISSION_DENIED",
-                                "SET_TIME permission not granted. Grant it via:\nadb shell pm grant $packageName android.permission.SET_TIME",
-                                e.message
-                            )
-                        } catch (e: Exception) {
-                            result.error("FAILED", e.message, null)
-                        }
-                    }
-
-                    "restoreSystemTime" -> {
-                        try {
-                            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                            val originalMs  = prefs.getLong("flutter.time_test_original_ms",    0L)
-                            val elapsedAtSet = prefs.getLong("flutter.time_test_elapsed_at_set", 0L)
-                            if (originalMs <= 0L || elapsedAtSet <= 0L) {
-                                result.error("NOT_MODIFIED", "No saved time to restore", null)
-                                return@setMethodCallHandler
-                            }
-                            // elapsedRealtime() is monotonic — not affected by setTime() calls.
-                            val elapsedSince = android.os.SystemClock.elapsedRealtime() - elapsedAtSet
-                            val restored     = originalMs + elapsedSince
-                            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                            am.setTime(restored)
-                            prefs.edit()
-                                .remove("flutter.time_test_original_ms")
-                                .remove("flutter.time_test_elapsed_at_set")
-                                .apply()
-                            result.success(null)
-                        } catch (e: SecurityException) {
-                            result.error("PERMISSION_DENIED", "SET_TIME permission not granted", e.message)
-                        } catch (e: Exception) {
-                            result.error("FAILED", e.message, null)
-                        }
                     }
 
                     // ── Silent mode during prayer ────────────────────────────

@@ -43,7 +43,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   static const MethodChannel _adhanChannel = MethodChannel('quraan/adhan_player');
     static final Uri _kPreviewArtUri =
-      Uri.parse('android.resource://com.example.quraan/drawable/adhan_art');
+      Uri.parse('android.resource://com.nooraliman.quran/drawable/adhan_art');
 
   late final SettingsService _settings;
   late final AdhanNotificationService _adhanService;

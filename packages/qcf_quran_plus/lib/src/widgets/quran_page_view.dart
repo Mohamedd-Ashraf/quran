@@ -39,6 +39,10 @@ class QuranPageView extends StatelessWidget {
   // Pre-loaded list of Quran pages
   final List<QuranPage> pages;
 
+  /// Called when the user taps a single word in word-by-word mode.
+  /// [wordIndex] is 1-based within the ayah.
+  final void Function(int surahNumber, int verseNumber, int wordIndex)? onWordTap;
+
   QuranPageView({
     super.key,
     required this.pageController,
@@ -46,6 +50,7 @@ class QuranPageView extends StatelessWidget {
     required this.highlights,
     this.onLongPress,
     this.onAyahTap,
+    this.onWordTap,
     this.quranPagesCount = 604, // Default to the standard 604 pages of the Madani Mushaf
     this.topBar,
     this.bottomBar,
@@ -111,6 +116,7 @@ class QuranPageView extends StatelessWidget {
                     highlights: highlights, // Pass the static list of highlights
                     onLongPress: onLongPress,
                     onAyahTap: onAyahTap,
+                    onWordTap: onWordTap,
                     pageController: pageController,
                     surahHeaderBuilder: surahHeaderBuilder,
                     basmallahBuilder: basmallahBuilder,
@@ -139,6 +145,11 @@ class QuranSinglePageWidget extends StatelessWidget {
   final List<HighlightVerse> highlights;
   final void Function(int, int, LongPressStartDetails)? onLongPress;
   final void Function(int surahNumber, int verseNumber)? onAyahTap;
+
+  /// Called when the user taps a single word in word-by-word mode.
+  /// [wordIndex] is 1-based within the ayah.
+  final void Function(int surahNumber, int verseNumber, int wordIndex)? onWordTap;
+
   final PageController pageController;
   final Widget Function(BuildContext context, int surahNumber)? surahHeaderBuilder;
   final Widget Function(BuildContext context, int surahNumber)? basmallahBuilder;
@@ -153,6 +164,7 @@ class QuranSinglePageWidget extends StatelessWidget {
     required this.highlights,
     this.onLongPress,
     this.onAyahTap,
+    this.onWordTap,
     required this.pageController,
     this.surahHeaderBuilder,
     this.basmallahBuilder,
@@ -292,6 +304,7 @@ class QuranSinglePageWidget extends StatelessWidget {
         boxFit: boxFit,
         onLongPress: onLongPress,
         onTap: onAyahTap,
+        onWordTap: onWordTap,
         ayahStyle: ayahStyle,
         isTajweed: isTajweed,
         isDark: isDark,

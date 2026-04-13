@@ -668,7 +668,7 @@ class _FbPageTextState extends State<_FbPageText> {
             // When QCF is enabled the user is on this fallback page because the
             // QCF font for this page hasn't downloaded yet. Force settings that
             // best match the QCF mushaf appearance until it loads.
-            final effectiveFontKey = settings.useQcfFont ? 'scheherazade' : settings.quranFont;
+            final effectiveFontKey = settings.useQcfFont ? 'noto_naskh' : settings.quranFont;
             final effectiveFontSize = settings.useQcfFont ? 18.0 : settings.arabicFontSize;
 
             final baseStyle = ArabicTextStyleHelper.quranFontStyle(

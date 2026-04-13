@@ -35,7 +35,7 @@ class LocationService {
   Future<Position> getPosition({Duration timeout = const Duration(seconds: 12)}) async {
     try {
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
+        desiredAccuracy: LocationAccuracy.low,
         timeLimit: timeout,
       );
     } on TimeoutException {

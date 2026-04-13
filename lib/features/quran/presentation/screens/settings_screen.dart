@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
@@ -22,6 +23,7 @@ import 'offline_audio_screen.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/settings_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -1018,6 +1020,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const FeedbackScreen()),
+                ),
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(Icons.privacy_tip_outlined,
+                      color: Colors.teal, size: 18),
+                ),
+                title: _TileTitle(
+                    isAr ? 'سياسة الخصوصية' : 'Privacy Policy'),
+                subtitle: _TileSubtitle(isAr
+                    ? 'كيف نحمي بياناتك'
+                    : 'How we protect your data'),
+                trailing: const Icon(Icons.chevron_right_rounded,
+                    color: Colors.grey),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => PrivacyPolicyScreen(
+                            isArabic: isAr,
+                          )),
                 ),
               ),
             ]),
@@ -2097,6 +2124,54 @@ class _AccountSection extends StatelessWidget {
                   ),
                   onTap: () => _confirmSignOut(context, isAr),
                 ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded,
+                        color: Colors.orange, size: 18),
+                  ),
+                  title: Text(
+                    isAr ? 'طلب حذف البيانات' : 'Request Data Deletion',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  subtitle: _TileSubtitle(isAr
+                      ? 'حذف بيانات محددة دون حذف الحساب'
+                      : 'Delete specific data without account deletion'),
+                  onTap: () => _openDataDeletionRequest(context),
+                ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(Icons.delete_forever_rounded,
+                        color: Colors.red, size: 18),
+                  ),
+                  title: Text(
+                    isAr ? 'حذف الحساب والبيانات' : 'Delete Account & Data',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Colors.red,
+                    ),
+                  ),
+                  subtitle: _TileSubtitle(isAr
+                      ? 'حذف كل بياناتك نهائياً - لا يمكن التراجع'
+                      : 'Permanently delete all your data - irreversible'),
+                  onTap: () => _confirmDeleteAccount(context, isAr),
+                ),
               ],
             ],
           ),
@@ -2408,6 +2483,106 @@ class _AccountSection extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             child: Text(isAr ? 'تسجيل الخروج' : 'Sign Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDataDeletionRequest(BuildContext context) async {
+    const url = 'https://quraan-dd543.web.app/data-deletion-request';
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open deletion request page')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error opening URL: $e');
+    }
+  }
+
+  void _confirmDeleteAccount(BuildContext context, bool isAr) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          isAr ? '⚠️ حذف الحساب' : '⚠️ Delete Account',
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isAr
+                  ? 'هل أنت متأكد من رغبتك في حذف حسابك والبيانات الخاصة بك بشكل نهائي؟'
+                  : 'Are you sure you want to permanently delete your account and all your data?',
+              textAlign: isAr ? TextAlign.right : TextAlign.left,
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                isAr
+                    ? '⚠️ لا يمكن التراجع عن هذا الإجراء. سيتم حذف:\n• حسابك\n• جميع البيانات المحفوظة\n• المزامنة السحابية'
+                    : '⚠️ This action cannot be undone. The following will be deleted:\n• Your account\n• All saved data\n• Cloud backups',
+                textAlign: isAr ? TextAlign.right : TextAlign.left,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              isAr ? 'لا، إلغاء' : 'No, Cancel',
+              style: const TextStyle(color: AppColors.primary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthCubit>().deleteAccount();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isAr
+                        ? 'جاري حذف الحساب والبيانات...'
+                        : 'Deleting account and data...',
+                    textAlign: TextAlign.center,
+                  ),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(isAr ? 'نعم، احذف' : 'Yes, Delete'),
           ),
         ],
       ),

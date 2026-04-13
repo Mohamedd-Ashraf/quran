@@ -2,19 +2,15 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Required on Android 14+ for download progress notifications / persistent prayer times -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.SET_TIME" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Required to change ringer mode / enable Do-Not-Disturb during prayer -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -91,7 +87,7 @@
             android:name=".AdhanAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.quraan.ADHAN_FIRE" />
+                <action android:name="com.nooraliman.quran.ADHAN_FIRE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -106,7 +102,7 @@
             android:name=".IqamaAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.quraan.IQAMA_FIRE" />
+                <action android:name="com.nooraliman.quran.IQAMA_FIRE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -121,7 +117,7 @@
             android:name=".ApproachingAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.quraan.APPROACHING_FIRE" />
+                <action android:name="com.nooraliman.quran.APPROACHING_FIRE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -136,7 +132,7 @@
             android:name=".SalawatAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.quraan.SALAWAT_FIRE" />
+                <action android:name="com.nooraliman.quran.SALAWAT_FIRE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -151,8 +147,8 @@
             android:name=".SilentModeAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.quraan.SILENT_MODE_START" />
-                <action android:name="com.example.quraan.SILENT_MODE_END" />
+                <action android:name="com.nooraliman.quran.SILENT_MODE_START" />
+                <action android:name="com.nooraliman.quran.SILENT_MODE_END" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
@@ -194,8 +190,8 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.USER_PRESENT" />
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
-                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.PRAYER_WIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -211,10 +207,10 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.example.quraan.TASBEEH_INCREMENT" />
-                <action android:name="com.example.quraan.TASBEEH_RESET" />
-                <action android:name="com.example.quraan.TASBEEH_NEXT" />
-                <action android:name="com.example.quraan.TASBEEH_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.TASBEEH_INCREMENT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_RESET" />
+                <action android:name="com.nooraliman.quran.TASBEEH_NEXT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_WIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -237,9 +233,9 @@
                 <!-- Refresh when screen unlocks -->
                 <action android:name="android.intent.action.USER_PRESENT" />
                 <!-- Refresh when adhan starts -->
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
                 <!-- Custom 1-minute refresh alarm -->
-                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.PRAYER_WIDGET_UPDATE" />
             </intent-filter>
             <!-- Widget metadata -->
             <meta-data
@@ -256,10 +252,10 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.example.quraan.TASBEEH_INCREMENT" />
-                <action android:name="com.example.quraan.TASBEEH_RESET" />
-                <action android:name="com.example.quraan.TASBEEH_NEXT" />
-                <action android:name="com.example.quraan.TASBEEH_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.TASBEEH_INCREMENT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_RESET" />
+                <action android:name="com.nooraliman.quran.TASBEEH_NEXT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_WIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -278,8 +274,8 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.USER_PRESENT" />
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
-                <action android:name="com.example.quraan.PRAYER_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.PRAYER_WIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -295,10 +291,10 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.example.quraan.TASBEEH_INCREMENT" />
-                <action android:name="com.example.quraan.TASBEEH_RESET" />
-                <action android:name="com.example.quraan.TASBEEH_NEXT" />
-                <action android:name="com.example.quraan.TASBEEH_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.TASBEEH_INCREMENT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_RESET" />
+                <action android:name="com.nooraliman.quran.TASBEEH_NEXT" />
+                <action android:name="com.nooraliman.quran.TASBEEH_WIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -316,11 +312,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_AUTO_ADVANCE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -338,11 +334,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_AUTO_ADVANCE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -360,11 +356,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.example.quraan.ADHAN_STARTED" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_TAP" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_RESET" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_UPDATE" />
-                <action android:name="com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE" />
+                <action android:name="com.nooraliman.quran.ADHAN_STARTED" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_TAP" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_RESET" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.ADHKAR_WIDGET_AUTO_ADVANCE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

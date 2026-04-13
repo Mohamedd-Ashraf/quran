@@ -8,7 +8,7 @@
 # - Kotlin companion-object static methods (scheduleAlarms, cancelAlarms, etc.) called
 #   from MainActivity via MethodChannel are not inlined/removed by R8
 # - Reflection-based lookups (e.g. AlarmManager PendingIntent reconstruction) are stable
--keep class com.example.quraan.** { *; }
+-keep class com.nooraliman.quran.** { *; }
 
 # Firebase
 -keep class com.google.firebase.** { *; }

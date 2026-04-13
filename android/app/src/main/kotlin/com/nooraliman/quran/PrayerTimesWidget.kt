@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -20,8 +20,8 @@ import java.util.TimeZone
 
 private const val PREFS_NAME = "FlutterSharedPreferences"
 private const val KEY_CACHED_CONTENT = "flutter.cached_prayer_times"
-private const val ACTION_UPDATE_WIDGET = "com.example.quraan.PRAYER_WIDGET_UPDATE"
-private const val ACTION_ADHAN_STARTED = "com.example.quraan.ADHAN_STARTED"
+private const val ACTION_UPDATE_WIDGET = "com.nooraliman.quran.PRAYER_WIDGET_UPDATE"
+private const val ACTION_ADHAN_STARTED = "com.nooraliman.quran.ADHAN_STARTED"
 private const val UPDATE_INTERVAL_MS = 1 * 60 * 1000L  // 1 minute instead of 15 minutes
 
 object PrayerWidgetUpdateDispatcher {

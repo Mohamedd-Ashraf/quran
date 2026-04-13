@@ -121,7 +121,7 @@ class AdhanNotificationService {
     const iosInit = DarwinInitializationSettings();
     const windowsInit = WindowsInitializationSettings(
       appName: 'Quraan',
-      appUserModelId: 'com.example.quraan',
+      appUserModelId: 'com.nooraliman.quran',
       guid: 'a8d4b6e2-3f1c-4a7d-9e2b-5c0f8a1d3e6b',
     );
 

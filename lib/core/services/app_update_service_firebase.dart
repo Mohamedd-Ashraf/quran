@@ -1,4 +1,4 @@
-﻿import 'dart:io' if (dart.library.html) 'stubs/mobile_platform_stub.dart';
+import 'dart:io' if (dart.library.html) 'stubs/mobile_platform_stub.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -6,14 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_update/in_app_update.dart' as iap
     // ignore: uri_does_not_exist
     if (dart.library.html) 'stubs/in_app_update_stub.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart'
-    // ignore: uri_does_not_exist
-    if (dart.library.html) 'stubs/open_file_permission_stub.dart';
-import 'package:permission_handler/permission_handler.dart'
-    // ignore: uri_does_not_exist
-    if (dart.library.html) 'stubs/open_file_permission_stub.dart';
 import '../models/app_update_info.dart';
 
 /// Premium app update service using Firebase Remote Config and In-App Updates
@@ -34,7 +26,7 @@ class AppUpdateServiceFirebase {
   static const String _keyIsMandatory = 'is_mandatory';
   // Backward-compat aliases still used in some Firebase templates.
   static const String _keyIsMandatoryLegacy = 'mandatory_update';
-  // Generic download URL — used for iOS and as fallback when an ABI-specific URL
+  // Generic download URL � used for iOS and as fallback when an ABI-specific URL
   // is not set in Remote Config.
   static const String _keyDownloadUrl = 'download_url';
   // Per-ABI download URLs for split-per-ABI Android APKs.
@@ -70,7 +62,7 @@ class AppUpdateServiceFirebase {
 
   /// Initialize Firebase Remote Config with default values
   Future<void> initialize() async {
-    print('🚀 Initializing Firebase Remote Config...');
+    print('?? Initializing Firebase Remote Config...');
     try {
       await _remoteConfig.setConfigSettings(
         RemoteConfigSettings(
@@ -82,7 +74,7 @@ class AppUpdateServiceFirebase {
               kDebugMode ? Duration.zero : const Duration(hours: 12),
         ),
       );
-      print('✅ Remote Config settings configured');
+      print('? Remote Config settings configured');
 
       // Set default values - these will be overridden by Firebase Console
       await _remoteConfig.setDefaults({
@@ -91,7 +83,7 @@ class AppUpdateServiceFirebase {
         _keyIsMandatory: false,
         _keyIsMandatoryLegacy: false,
         _keyDownloadUrl: '',
-        // ABI-specific defaults — empty means "fall back to generic download_url"
+        // ABI-specific defaults � empty means "fall back to generic download_url"
         _keyDownloadUrlArm64: '',
         _keyDownloadUrlArmeabi: '',
         _keyDownloadUrlX86_64: '',
@@ -102,13 +94,13 @@ class AppUpdateServiceFirebase {
         _keyEnableInAppUpdateLegacy: true,
         _keyUpdatePriority: 3,
       });
-      print('✅ Remote Config defaults set');
+      print('? Remote Config defaults set');
 
       // Fetch and activate
       final activated = await _remoteConfig.fetchAndActivate();
-      print('✅ Remote Config fetched and activated: $activated');
+      print('? Remote Config fetched and activated: $activated');
     } catch (e) {
-      print('❌ Error initializing Remote Config: $e');
+      print('? Error initializing Remote Config: $e');
       // If Remote Config fails, use defaults
       // This ensures the app still works without Firebase
     }
@@ -117,17 +109,17 @@ class AppUpdateServiceFirebase {
   /// Check for app updates using Firebase Remote Config
   Future<AppUpdateInfo?> checkForUpdate({bool forceRefresh = false}) async {
     try {
-      print('🔄 Checking for updates...');
+      print('?? Checking for updates...');
 
       // Fetch latest config from Firebase.
       // forceRefresh=true bypasses cache (used by manual check).
       await _refreshRemoteConfig(force: forceRefresh);
-      print('✅ Remote Config fetched and activated');
+      print('? Remote Config fetched and activated');
 
       // Get current app version
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
-      print('📱 Current version: $currentVersion');
+      print('?? Current version: $currentVersion');
 
       // Get update info from Remote Config and log value source for diagnostics.
       // This makes it obvious whether a value came from Firebase Console
@@ -147,18 +139,18 @@ class AppUpdateServiceFirebase {
       final releaseDateStr = _remoteConfig.getString(_keyReleaseDate);
 
       if (latestVersion.trim().isEmpty) {
-        print('⚠️ latest_version is empty in Remote Config');
+        print('?? latest_version is empty in Remote Config');
         return null;
       }
 
-      print('🆕 Latest version: $latestVersion');
-      print('📦 Minimum version: $minimumVersion');
-      print('🧭 latest_version source: ${latestVersionValue.source}');
-      print('🧭 minimum_version source: ${minimumVersionValue.source}');
-        print('⚠️ Mandatory: $isMandatory '
+      print('?? Latest version: $latestVersion');
+      print('?? Minimum version: $minimumVersion');
+      print('?? latest_version source: ${latestVersionValue.source}');
+      print('?? minimum_version source: ${minimumVersionValue.source}');
+        print('?? Mandatory: $isMandatory '
           '(is_mandatory=${_remoteConfig.getBool(_keyIsMandatory)}, '
           'mandatory_update=${_remoteConfig.getBool(_keyIsMandatoryLegacy)})');
-      print('🔗 Download URL (ABI-resolved): $downloadUrl');
+      print('?? Download URL (ABI-resolved): $downloadUrl');
 
       // Build changelog map
       final changelogMap = <String, String>{};
@@ -188,23 +180,23 @@ class AppUpdateServiceFirebase {
 
       // If no update available, return null
       if (!updateInfo.hasUpdate) {
-        print('ℹ️ No update available');
+        print('?? No update available');
         return null;
       }
 
-      print('🎯 Update available!');
-      print('🔍 isBelowMinimum: ${updateInfo.isBelowMinimum}');
-      print('🔍 isMandatory from config: ${updateInfo.isMandatory}');
+      print('?? Update available!');
+      print('?? isBelowMinimum: ${updateInfo.isBelowMinimum}');
+      print('?? isMandatory from config: ${updateInfo.isMandatory}');
       
       // If current version is below minimum, it's mandatory
       final shouldBeMandatory = updateInfo.isBelowMinimum || updateInfo.isMandatory;
-      print('🎯 Final mandatory status: $shouldBeMandatory');
+      print('?? Final mandatory status: $shouldBeMandatory');
       
       // If update is optional and user skipped this version, return null
       if (!shouldBeMandatory) {
         final skippedVersion = _prefs.getString(_keySkippedVersion);
         if (skippedVersion == updateInfo.latestVersion) {
-          print('⏭️ User skipped this version');
+          print('?? User skipped this version');
           return null;
         }
       }
@@ -220,7 +212,7 @@ class AppUpdateServiceFirebase {
         releaseDate: updateInfo.releaseDate,
       );
     } catch (e) {
-      print('❌ Error checking for update: $e');
+      print('? Error checking for update: $e');
       return null;
     }
   }
@@ -354,10 +346,10 @@ class AppUpdateServiceFirebase {
   /// empty string if the ABI cannot be determined (e.g. non-Android platforms).
   ///
   /// Possible return values:
-  ///   'arm64_v8a'   → 64-bit ARM  (most modern Android phones)
-  ///   'armeabi_v7a' → 32-bit ARM  (older / low-end devices)
-  ///   'x86_64'      → 64-bit x86  (emulators, some Chromebooks)
-  ///   ''            → unknown / iOS / web → fall back to generic download_url
+  ///   'arm64_v8a'   ? 64-bit ARM  (most modern Android phones)
+  ///   'armeabi_v7a' ? 32-bit ARM  (older / low-end devices)
+  ///   'x86_64'      ? 64-bit x86  (emulators, some Chromebooks)
+  ///   ''            ? unknown / iOS / web ? fall back to generic download_url
   String _detectAbi() {
     if (kIsWeb) return '';
     if (!Platform.isAndroid) return '';
@@ -390,109 +382,11 @@ class AppUpdateServiceFirebase {
       final key     = 'download_url_$abiSuffix';
       final abiUrl  = _remoteConfig.getString(key);
       if (abiUrl.isNotEmpty) {
-        print('📲 [Update] ABI=$abiSuffix → using per-ABI URL ($key)');
+        print('?? [Update] ABI=$abiSuffix ? using per-ABI URL ($key)');
         return abiUrl;
       }
-      print('📲 [Update] ABI=$abiSuffix → per-ABI URL empty, falling back to generic');
+      print('?? [Update] ABI=$abiSuffix ? per-ABI URL empty, falling back to generic');
     }
     return _remoteConfig.getString(_keyDownloadUrl);
-  }
-
-  /// Download APK file directly from URL with progress callback
-  /// Returns the path to the downloaded file
-  Future<String?> downloadApk({
-    required String url,
-    required void Function(double progress) onProgress,
-  }) async {
-    try {
-      print('📥 Starting APK download from: $url');
-      
-      // Get temporary directory
-      final dir = await getTemporaryDirectory();
-      final filePath = '${dir.path}/app_update.apk';
-      
-      // Delete old file if exists
-      final file = File(filePath);
-      if (await file.exists()) {
-        await file.delete();
-        print('🗑️ Deleted old APK file');
-      }
-
-      // Download with progress
-      final dio = Dio();
-      await dio.download(
-        url,
-        filePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            final progress = received / total;
-            onProgress(progress);
-            print('📊 Download progress: ${(progress * 100).toStringAsFixed(1)}%');
-          }
-        },
-      );
-
-      print('✅ APK downloaded successfully to: $filePath');
-      return filePath;
-    } catch (e) {
-      print('❌ Error downloading APK: $e');
-      return null;
-    }
-  }
-
-  /// Install APK file (opens installation prompt)
-  Future<bool> installApk(String filePath) async {
-    if (!Platform.isAndroid) {
-      print('⚠️ APK installation only supported on Android');
-      return false;
-    }
-
-    try {
-      print('� Checking install packages permission...');
-      
-      // Request permission to install packages
-      var status = await Permission.requestInstallPackages.status;
-      print('📋 Current permission status: $status');
-      
-      if (!status.isGranted) {
-        print('🙏 Requesting install packages permission...');
-        status = await Permission.requestInstallPackages.request();
-        print('📋 New permission status: $status');
-      }
-      
-      if (!status.isGranted) {
-        print('❌ Install packages permission denied');
-        return false;
-      }
-      
-      print('✅ Permission granted, opening APK for installation: $filePath');
-      
-      final result = await OpenFile.open(filePath);
-      
-      if (result.type == ResultType.done) {
-        print('✅ APK installation started');
-        return true;
-      } else {
-        print('❌ Failed to open APK: ${result.message}');
-        return false;
-      }
-    } catch (e) {
-      print('❌ Error installing APK: $e');
-      return false;
-    }
-  }
-
-  /// Download and install APK in one step
-  Future<bool> downloadAndInstallApk({
-    required String url,
-    required void Function(double progress) onProgress,
-  }) async {
-    final filePath = await downloadApk(url: url, onProgress: onProgress);
-    
-    if (filePath == null) {
-      return false;
-    }
-
-    return await installApk(filePath);
   }
 }

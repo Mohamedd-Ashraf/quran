@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -26,7 +26,7 @@ import java.util.Calendar
 class SalawatAlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_FIRE    = "com.example.quraan.SALAWAT_FIRE"
+        const val ACTION_FIRE    = "com.nooraliman.quran.SALAWAT_FIRE"
         private const val TAG         = "SalawatAlarmReceiver"
         private const val PREFS_NAME  = "FlutterSharedPreferences"
         private const val KEY_ENABLED  = "flutter.salawat_enabled"

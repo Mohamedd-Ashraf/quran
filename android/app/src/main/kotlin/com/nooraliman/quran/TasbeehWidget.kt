@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -31,10 +31,10 @@ private const val KEY_TARGET  = "flutter.tasbeeh_custom_target_v2"
 // Flag: true = last reset action was a soft-reset that landed on 0 (next press = hard reset)
 private const val KEY_RESET_WAS_ZERO = "widget_reset_was_zero"
 
-private const val ACTION_TASBEEH_INCREMENT  = "com.example.quraan.TASBEEH_INCREMENT"
-private const val ACTION_TASBEEH_RESET      = "com.example.quraan.TASBEEH_RESET"
-private const val ACTION_TASBEEH_NEXT       = "com.example.quraan.TASBEEH_NEXT"
-private const val ACTION_TASBEEH_UPDATE     = "com.example.quraan.TASBEEH_WIDGET_UPDATE"
+private const val ACTION_TASBEEH_INCREMENT  = "com.nooraliman.quran.TASBEEH_INCREMENT"
+private const val ACTION_TASBEEH_RESET      = "com.nooraliman.quran.TASBEEH_RESET"
+private const val ACTION_TASBEEH_NEXT       = "com.nooraliman.quran.TASBEEH_NEXT"
+private const val ACTION_TASBEEH_UPDATE     = "com.nooraliman.quran.TASBEEH_WIDGET_UPDATE"
 
 // ─── Preset data (mirrors _kPresets in tasbeeh_screen.dart) ──────────────────
 

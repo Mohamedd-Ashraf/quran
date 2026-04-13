@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.Notification
@@ -32,7 +32,7 @@ import java.util.Date
 class AdhanAlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_FIRE   = "com.example.quraan.ADHAN_FIRE"
+        const val ACTION_FIRE   = "com.nooraliman.quran.ADHAN_FIRE"
         private const val TAG         = "AdhanAlarmReceiver"
         private const val PREFS_NAME  = "FlutterSharedPreferences"
         private const val KEY_ENABLED       = "flutter.adhan_notifications_enabled"

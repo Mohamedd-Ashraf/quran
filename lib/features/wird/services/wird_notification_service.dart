@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -262,14 +263,13 @@ class WirdNotificationService {
     final body = _pickRotating(
       _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_main_msg_counter');
 
-    await _plugin.zonedSchedule(
-      _idMainReminder,
-      '📖 حان وقت الورد اليومي',
-      body,
-      scheduled,
-      _buildDetails(isFollowUp: false),
-      androidScheduleMode: _scheduleMode(),
-      matchDateTimeComponents: DateTimeComponents.time, // Repeats every day.
+    await _zonedScheduleSafe(
+      id: _idMainReminder,
+      title: '📖 حان وقت الورد اليومي',
+      body: body,
+      scheduledDate: scheduled,
+      details: _buildDetails(isFollowUp: false),
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 
@@ -316,13 +316,12 @@ class WirdNotificationService {
           : _pickRotating(_followUpBodiesAr, _followUpBodiesEn,
               'wird_followup_msg_counter');
 
-      await _plugin.zonedSchedule(
-        _followUpIds[i],
-        '🌙 تذكير: الورد اليومي',
-        body,
-        followUpTime,
-        _buildDetails(isFollowUp: true),
-        androidScheduleMode: _scheduleMode(),
+      await _zonedScheduleSafe(
+        id: _followUpIds[i],
+        title: '🌙 تذكير: الورد اليومي',
+        body: body,
+        scheduledDate: followUpTime,
+        details: _buildDetails(isFollowUp: true),
       );
       scheduledCount++;
     }
@@ -395,8 +394,43 @@ class WirdNotificationService {
     );
   }
 
-  // Uses AlarmManager.setAlarmClock() — fires reliably regardless of
-  // battery optimisation or SCHEDULE_EXACT_ALARM permission status.
-  // Identical to how the native Adhan AlarmReceiver schedules its alarms.
-  AndroidScheduleMode _scheduleMode() => AndroidScheduleMode.alarmClock;
+  /// Tries to schedule with [alarmClock] mode (exact) and silently falls back
+  /// to [inexact] if the SCHEDULE_EXACT_ALARM permission is not granted.
+  Future<void> _zonedScheduleSafe({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledDate,
+    required NotificationDetails details,
+    DateTimeComponents? matchDateTimeComponents,
+  }) async {
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.alarmClock,
+        matchDateTimeComponents: matchDateTimeComponents,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        // Exact alarms not granted — fall back to inexact (slightly less
+        // precise but never crashes).
+        await _plugin.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexact,
+          matchDateTimeComponents: matchDateTimeComponents,
+        );
+        debugPrint('📿 [Wird] Exact alarm not permitted, used inexact for id=$id');
+      } else {
+        rethrow;
+      }
+    }
+  }
 }

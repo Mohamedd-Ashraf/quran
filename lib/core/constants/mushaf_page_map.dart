@@ -1,4 +1,4 @@
-﻿// Auto-generated mapping: Quran page number -> surah numbers on that page
+// Auto-generated mapping: Quran page number -> surah numbers on that page
 // Used for offline bundled-asset fallback in MushafPageScreen
 
 const Map<int, List<int>> kMushafPageToSurahs = {

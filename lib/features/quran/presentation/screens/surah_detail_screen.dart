@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/surah/surah_bloc.dart';
@@ -288,10 +288,10 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                     );
                 }
 
-                // ── Old Mushaf style (text font, paged) ──────────────────
+                // -- Old Mushaf style (text font, paged) ------------------
                 // Shown when the QCF toggle is OFF. MushafPageScreen renders
                 // pages 1-604 with the user-selected Arabic font (Shahrzad,
-                // Amiri, Naskh, …) instead of QCF bitmap glyphs.
+                // Amiri, Naskh, �) instead of QCF bitmap glyphs.
                 final initialPage = widget.initialPageNumber ??
                     _findPageForAyah(
                         surah.ayahs, widget.initialAyahNumber ?? 1) ??
@@ -337,7 +337,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                           );
                         },
                         icon: const Icon(Icons.refresh),
-                        label: Text(isArabicUi ? 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©' : 'Retry'),
+                        label: Text(isArabicUi ? 'إعادة المحاولة' : 'Retry'),
                       ),
                     ],
                   ),
@@ -347,7 +347,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                 },
                 ),
               ),
-              // ── Audio player overlay ─────────────────────────────────
+              // -- Audio player overlay ---------------------------------
               // When in QCF mode MushafPageView renders its own player
               // internally. For all other views the player floats here
               // at the bottom without affecting the body layout.
@@ -596,7 +596,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
             .startsWith('ar');
         setState(() {
           _translationError = isArabicUi
-              ? 'ÙØ´Ù„ ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©'
+              ? 'فشل تحميل الترجمة'
               : 'Failed to load translation';
           _isLoadingTranslation = false;
         });

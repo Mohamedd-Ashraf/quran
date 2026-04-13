@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
 
-// ── Palette ───────────────────────────────────────────────────────────────────
+// -- Palette -------------------------------------------------------------------
 const _kBgTop     = Color(0xFF061510);
 const _kBgBottom  = Color(0xFF0C2318);
 const _kGold      = Color(0xFFC8A84B);
@@ -17,7 +17,7 @@ const _kSubText   = Color(0xFF90A898);
 const _kBarBg     = Color(0xFF1A3524);
 const _kDivider   = Color(0xFF2A4535);
 
-/// Full‑screen widget shown on first launch (or when fonts are incomplete) to
+/// Full-screen widget shown on first launch (or when fonts are incomplete) to
 /// let the user download the remaining 538 QCF tajweed font files.
 class QcfFontDownloadScreen extends StatefulWidget {
   /// Called when the user taps "لاحقاً" (skip) or when the download completes.
@@ -105,7 +105,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
     super.dispose();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // -- Build -----------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -123,10 +123,10 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
             textDirection: TextDirection.rtl,
             child: Column(
               children: [
-                // ── Ornamental header ──────────────────────────────────────
+                // -- Ornamental header --------------------------------------
                 _OrnamentalHeader(glowAnim: _glowAnim),
 
-                // ── Scrollable body ────────────────────────────────────────
+                // -- Scrollable body ----------------------------------------
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
@@ -163,7 +163,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         ),
                         const SizedBox(height: 24),
 
-                        // ── Decorative divider ─────────────────────────────
+                        // -- Decorative divider -----------------------------
                         const _OrnamentalDivider(),
                         const SizedBox(height: 20),
 
@@ -181,7 +181,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // ── Size notice ────────────────────────────────────
+                        // -- Size notice ------------------------------------
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 18, vertical: 12),
@@ -211,7 +211,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         ),
                         const SizedBox(height: 28),
 
-                        // ── Progress area ──────────────────────────────────
+                        // -- Progress area ----------------------------------
                         if (_state == _DLState.downloading ||
                             _state == _DLState.done) ...[
                           _ProgressSection(
@@ -224,7 +224,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                           const SizedBox(height: 24),
                         ],
 
-                        // ── Error ──────────────────────────────────────────
+                        // -- Error ------------------------------------------
                         if (_state == _DLState.error) ...[
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -241,7 +241,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'فشل التحميل — تحقق من الاتصال بالإنترنت',
+                                    'فشل التحميل - تحقق من الاتصال بالإنترنت',
                                     style: GoogleFonts.tajawal(
                                       color: Colors.redAccent.shade100,
                                       fontSize: 13,
@@ -254,7 +254,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                           const SizedBox(height: 20),
                         ],
 
-                        // ── Primary button ─────────────────────────────────
+                        // -- Primary button ---------------------------------
                         if (_state != _DLState.done)
                           _GoldButton(
                             label: _state == _DLState.error
@@ -268,7 +268,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
 
                         const SizedBox(height: 14),
 
-                        // ── Skip ───────────────────────────────────────────
+                        // -- Skip -------------------------------------------
                         if (_state != _DLState.done &&
                             _state != _DLState.downloading)
                           GestureDetector(
@@ -277,7 +277,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                               padding:
                                   const EdgeInsets.symmetric(vertical: 6),
                               child: Text(
-                                'لاحقاً — تصفح القرآن بالعرض المبسّط',
+                                'لاحقاً - تصفح القرآن بالعرض المبسّط',
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,
@@ -303,7 +303,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
   }
 }
 
-// ── Ornamental header ─────────────────────────────────────────────────────────
+// -- Ornamental header ---------------------------------------------------------
 
 class _OrnamentalHeader extends StatelessWidget {
   final Animation<double> glowAnim;
@@ -363,7 +363,7 @@ class _OrnamentalHeader extends StatelessWidget {
   }
 }
 
-// ── Star-ring custom painter ──────────────────────────────────────────────────
+// -- Star-ring custom painter --------------------------------------------------
 
 class _StarRingPainter extends CustomPainter {
   final Color color;
@@ -407,7 +407,7 @@ class _StarRingPainter extends CustomPainter {
   bool shouldRepaint(_StarRingPainter old) => old.color != color;
 }
 
-// ── Ornamental divider ────────────────────────────────────────────────────────
+// -- Ornamental divider --------------------------------------------------------
 
 class _OrnamentalDivider extends StatelessWidget {
   const _OrnamentalDivider();
@@ -447,7 +447,7 @@ class _OrnamentalDivider extends StatelessWidget {
   }
 }
 
-// ── Progress section ──────────────────────────────────────────────────────────
+// -- Progress section ----------------------------------------------------------
 
 class _ProgressSection extends StatelessWidget {
   final double progress;
@@ -492,7 +492,7 @@ class _ProgressSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isDone ? 'اكتمل التحميل  ✓' : phase,
+                    isDone ? 'اكتمل التحميل ✓' : phase,
                     style: GoogleFonts.tajawal(
                       fontSize: 13,
                       color: isDone ? _kGold : _kCream.withValues(alpha: 0.85),
@@ -501,7 +501,7 @@ class _ProgressSection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$percent٪',
+                  '$percent%',
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: _kGoldLight,
@@ -551,7 +551,7 @@ class _ProgressSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
 
-        // Count label — only shown during extraction phase (not archive-download phase)
+        // Count label - only shown during extraction phase (not archive-download phase)
         if (!isDone && pending > 0 && (done > 0 || phase.contains('استخراج')))
           Text(
             '$done / $pending صفحة',
@@ -566,7 +566,7 @@ class _ProgressSection extends StatelessWidget {
   }
 }
 
-// ── Gold button ───────────────────────────────────────────────────────────────
+// -- Gold button ---------------------------------------------------------------
 
 class _GoldButton extends StatelessWidget {
   final String label;

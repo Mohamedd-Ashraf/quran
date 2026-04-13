@@ -48,6 +48,58 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1039427063284:android:2e74138c1dcab5dd0fbda1",
+        "android_client_info": {
+          "package_name": "com.nooraliman.quran"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1039427063284-7efdv5mujo1inihv26kid41cel4p3s4i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nooraliman.quran",
+            "certificate_hash": "77245632b537bfbe211d3b966ad60c2ee059209f"
+          }
+        },
+        {
+          "client_id": "1039427063284-80n1tqio4uhq3v4f4ta1parbqloh33f0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nooraliman.quran",
+            "certificate_hash": "68b42abbc8cceaae2baab694c8a1e41ba0fa87d6"
+          }
+        },
+        {
+          "client_id": "1039427063284-md9k0adeefljpu1rr0vg8sksboq7el7u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAchR3hvc6n3y3d6LT4Y3QopHLCCHNNwvI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1039427063284-md9k0adeefljpu1rr0vg8sksboq7el7u.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1039427063284-918ajsigfcimpbrpbmktuhb193t7jhcj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.quraan"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

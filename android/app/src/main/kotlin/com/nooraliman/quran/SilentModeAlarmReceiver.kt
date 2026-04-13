@@ -1,4 +1,4 @@
-﻿package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -14,27 +14,27 @@ import org.json.JSONArray
  * BroadcastReceiver that silences the phone during prayer time.
  *
  * Two actions:
- *   ACTION_SILENT_START — triggered at (prayer_time + delay_minutes): silences the phone.
- *   ACTION_SILENT_END   — triggered at (prayer_time + delay_minutes + duration_minutes):
+ *   ACTION_SILENT_START � triggered at (prayer_time + delay_minutes): silences the phone.
+ *   ACTION_SILENT_END   � triggered at (prayer_time + delay_minutes + duration_minutes):
  *                         restores the original ringer mode.
  *
  * Also handles BOOT_COMPLETED / time-change events to reschedule from persisted JSON.
  *
- * ── Overlap handling (e.g. Maghrib end overlaps Isha start) ───────────────────
+ * -- Overlap handling (e.g. Maghrib end overlaps Isha start) -------------------
  * Uses an INT counter (KEY_ACTIVE_COUNT) instead of a boolean flag so that
  * overlapping START/END pairs never restore the ringer too early.
- * Rule: silence when count 0→1; restore when count 1→0.
+ * Rule: silence when count 0?1; restore when count 1?0.
  *
- * ── ID offset scheme (prevents PendingIntent collisions) ─────────────────────
+ * -- ID offset scheme (prevents PendingIntent collisions) ---------------------
  * Base adhan IDs are ~202_000_000.  +200_000 / +250_000 offsets push us to
- * ~202_200_000 / ~202_250_000 — still far from all other receivers ranges
+ * ~202_200_000 / ~202_250_000 � still far from all other receivers ranges
  * (iqama: 600M+50k, approaching: 300M+100k, salawat: unique IDs+150k).
  */
 class SilentModeAlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_SILENT_START = "com.example.quraan.SILENT_MODE_START"
-        const val ACTION_SILENT_END   = "com.example.quraan.SILENT_MODE_END"
+        const val ACTION_SILENT_START = "com.nooraliman.quran.SILENT_MODE_START"
+        const val ACTION_SILENT_END   = "com.nooraliman.quran.SILENT_MODE_END"
 
         private const val TAG        = "SilentModeReceiver"
         private const val PREFS_NAME = "FlutterSharedPreferences"
@@ -49,7 +49,7 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
         const val OFFSET_START = 200_000
         const val OFFSET_END   = 250_000
 
-        // ── Public API ──────────────────────────────────────────────────────
+        // -- Public API ------------------------------------------------------
 
         /**
          * Schedule a list of silent-mode alarms via AlarmManager.
@@ -123,7 +123,7 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
             }
         }
 
-        // ── Private helpers ─────────────────────────────────────────────────
+        // -- Private helpers -------------------------------------------------
 
         private fun startPendingIntent(context: Context, id: Int): PendingIntent =
             PendingIntent.getBroadcast(
@@ -194,7 +194,7 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    // ── BroadcastReceiver ──────────────────────────────────────────────────
+    // -- BroadcastReceiver --------------------------------------------------
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -212,7 +212,7 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    // ── Silence ─────────────────────────────────────────────────────────────
+    // -- Silence -------------------------------------------------------------
 
     private fun handleSilentStart(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -244,7 +244,7 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    // ── Restore ─────────────────────────────────────────────────────────────
+    // -- Restore -------------------------------------------------------------
 
     private fun handleSilentEnd(context: Context) {
         val prefs   = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -282,13 +282,13 @@ class SilentModeAlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    // ── Boot rescue ─────────────────────────────────────────────────────────
+    // -- Boot rescue ---------------------------------------------------------
 
     private fun handleBoot(context: Context) {
         // Restore ringer if we were actively silencing before the reboot/update,
         // then reset the counter (restoreNow() handles both steps).
         // On a real reboot the OS already restores the ringer, so restoreNow is a safe no-op.
-        // On an app update (MY_PACKAGE_REPLACED) the ringer may still be silent — restoreNow fixes it.
+        // On an app update (MY_PACKAGE_REPLACED) the ringer may still be silent � restoreNow fixes it.
         restoreNow(context)
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

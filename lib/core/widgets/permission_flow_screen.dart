@@ -8,9 +8,14 @@ import 'package:permission_handler/permission_handler.dart' as ph;
 import '../constants/app_colors.dart';
 import '../di/injection_container.dart' as di;
 import '../services/adhan_notification_service.dart';
+import '../services/prayer_times_cache_service.dart';
+import '../services/reverse_geocoding_service.dart';
+import '../services/settings_service.dart';
 import '../settings/app_settings_cubit.dart';
 
 enum _Step {
+  offerLocationChoice,
+  enterCityManually,
   checkingGpsService,
   gpsServiceDisabled,
   requestingLocation,
@@ -33,20 +38,29 @@ class PermissionFlowScreen extends StatefulWidget {
 
 class _PermissionFlowScreenState extends State<PermissionFlowScreen>
     with WidgetsBindingObserver {
-  _Step _step = _Step.checkingGpsService;
+  _Step _step = _Step.offerLocationChoice;
   bool _waitingForGpsSettings = false;
   bool _locationRationaleShown = false;
   bool _notificationRationaleShown = false;
+
+  // Manual city entry state
+  final TextEditingController _cityController = TextEditingController();
+  List<CitySearchResult> _cityResults = [];
+  bool _citySearching = false;
+  String? _cityError;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkGpsAndProceed());
+    // Start with the choice screen
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _cityController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -70,6 +84,52 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen>
     } catch (_) {
       return false;
     }
+  }
+
+  // ── Step 0: Location choice ───────────────────────────────────────────────
+
+  void _goToManualCity() {
+    setState(() {
+      _step = _Step.enterCityManually;
+      _cityResults = [];
+      _cityError = null;
+    });
+    _cityController.clear();
+  }
+
+  void _skipToGpsLocation() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkGpsAndProceed());
+    setState(() => _step = _Step.checkingGpsService);
+  }
+
+  void _onCityQueryChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().length < 2) {
+      setState(() { _cityResults = []; _cityError = null; });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 600), () => _searchCity(query));
+  }
+
+  Future<void> _searchCity(String query) async {
+    setState(() { _citySearching = true; _cityError = null; });
+    final results = await ReverseGeocodingService.searchCity(query);
+    if (!mounted) return;
+    setState(() {
+      _citySearching = false;
+      _cityResults = results;
+      if (results.isEmpty) _cityError = _isArabic ? 'لم يُعثر على نتائج' : 'No results found';
+    });
+  }
+
+  Future<void> _selectCity(CitySearchResult city) async {
+    final settings = di.sl<SettingsService>();
+    await settings.setLastKnownCoordinates(city.lat, city.lng);
+    await di.sl<PrayerTimesCacheService>().cachePrayerTimes(
+      city.lat, city.lng, locationName: city.name,
+    );
+    if (!mounted) return;
+    await _requestNotification();
   }
 
   // ── Step 1: GPS service ───────────────────────────────────────────────────
@@ -239,6 +299,12 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen>
       case _Step.done:
         return const Center(child: CircularProgressIndicator());
 
+      case _Step.offerLocationChoice:
+        return _buildLocationChoice(isDark, isAr);
+
+      case _Step.enterCityManually:
+        return _buildCityEntry(isDark, isAr);
+
       case _Step.gpsServiceDisabled:
         return _PermissionCard(
           isDark: isDark,
@@ -314,6 +380,167 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen>
           onSecondary: _onNotificationRationaleIgnore,
         );
     }
+  }
+  Widget _buildLocationChoice(bool isDark, bool isAr) {
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final bgColor = isDark ? AppColors.darkBackground : AppColors.background;
+    final cardColor = isDark ? AppColors.darkCard : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          Container(
+            width: 100, height: 100,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.location_on_rounded, size: 52, color: AppColors.primary),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            isAr ? 'تحديد موقعك' : 'Set Your Location',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: textPrimary, fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isAr
+                ? 'نحتاج معرفة مدينتك لعرض مواقيت الصلاة بدقة.\nيمكنك إدخال اسم المدينة يدوياً أو السماح للتطبيق باستخدام موقعك التقريبي.'
+                : 'We need your city to show accurate prayer times.\nYou can enter your city name manually or allow the app to use your approximate location.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: textSecondary, height: 1.65,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 36),
+          // Manual city entry button
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.edit_location_alt_rounded),
+              label: Text(isAr ? 'أدخل اسم مدينتك' : 'Enter City Name'),
+              onPressed: _goToManualCity,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Use approximate location button
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.my_location_rounded),
+              label: Text(isAr ? 'استخدام موقعي التقريبي' : 'Use My Approximate Location'),
+              onPressed: _skipToGpsLocation,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCityEntry(bool isDark, bool isAr) {
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final cardColor = isDark ? AppColors.darkCard : Colors.white;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.divider;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
+                onPressed: () => setState(() => _step = _Step.offerLocationChoice),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isAr ? 'ابحث عن مدينتك' : 'Search for your city',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: textPrimary, fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isAr
+                ? 'اكتب اسم مدينتك لعرض مواقيت الصلاة بدقة'
+                : 'Type your city name for accurate prayer times',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: textSecondary),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _cityController,
+            autofocus: true,
+            onChanged: _onCityQueryChanged,
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+            decoration: InputDecoration(
+              hintText: isAr ? 'مثال: القاهرة أو Riyadh' : 'e.g. Cairo or الرياض',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _citySearching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  : null,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: cardColor,
+            ),
+          ),
+          if (_cityError != null) ...[
+            const SizedBox(height: 12),
+            Text(_cityError!, style: TextStyle(color: AppColors.error), textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _cityResults.length,
+              separatorBuilder: (_, __) => Divider(color: borderColor, height: 1),
+              itemBuilder: (context, i) {
+                final city = _cityResults[i];
+                return ListTile(
+                  leading: const Icon(Icons.location_city_rounded, color: AppColors.primary),
+                  title: Text(city.name, style: TextStyle(color: textPrimary)),
+                  onTap: () => _selectCity(city),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _skipToGpsLocation,
+            child: Text(
+              isAr ? 'استخدم موقعي التقريبي بدلاً من ذلك' : 'Use my approximate location instead',
+              style: const TextStyle(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

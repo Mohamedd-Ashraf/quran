@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -45,10 +45,10 @@ private const val KEY_AW_LAST_RESET    = "adhkar_widget_last_reset"    // "praye
 private const val KEY_AW_DHIKR_DONE    = "adhkar_widget_dhikr_done"   // true = dhikr just completed, show full ring before advancing
 private const val KEY_AW_PHASE_ANNOUNCE = "adhkar_widget_phase_announce" // non-empty = show phase-change announcement screen
 
-private const val ACTION_ADHKAR_TAP          = "com.example.quraan.ADHKAR_WIDGET_TAP"
-private const val ACTION_ADHKAR_RESET        = "com.example.quraan.ADHKAR_WIDGET_RESET"
-private const val ACTION_ADHKAR_UPDATE       = "com.example.quraan.ADHKAR_WIDGET_UPDATE"
-private const val ACTION_ADHKAR_AUTO_ADVANCE = "com.example.quraan.ADHKAR_WIDGET_AUTO_ADVANCE"
+private const val ACTION_ADHKAR_TAP          = "com.nooraliman.quran.ADHKAR_WIDGET_TAP"
+private const val ACTION_ADHKAR_RESET        = "com.nooraliman.quran.ADHKAR_WIDGET_RESET"
+private const val ACTION_ADHKAR_UPDATE       = "com.nooraliman.quran.ADHKAR_WIDGET_UPDATE"
+private const val ACTION_ADHKAR_AUTO_ADVANCE = "com.nooraliman.quran.ADHKAR_WIDGET_AUTO_ADVANCE"
 private const val ADHKAR_REFRESH_MS          = 5 * 60 * 1000L   // 5 min auto-refresh (for prayer change detect)
 private const val DHIKR_AUTO_ADVANCE_DELAY_MS = 900L             // brief pause to show full ring before auto-advance
 
@@ -256,7 +256,7 @@ abstract class BaseAdhkarWidget : AppWidgetProvider() {
                 Intent.ACTION_MY_PACKAGE_REPLACED,
                 "android.intent.action.QUICKBOOT_POWERON",
                 "com.htc.intent.action.QUICKBOOT_POWERON",
-                "com.example.quraan.ADHAN_STARTED" -> {
+                "com.nooraliman.quran.ADHAN_STARTED" -> {
                     refreshWidgets(context)
                 }
             }

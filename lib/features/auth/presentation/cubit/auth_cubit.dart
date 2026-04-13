@@ -170,11 +170,19 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> deleteAccount() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      await _authService.deleteAccount();
+      final uid = await _authService.deleteAccount();
+      // Delete Firestore data after the auth account is removed.
+      await _syncService.deleteUserData(uid);
+      // _onAuthChanged(null) fires automatically via authStateChanges,
+      // which transitions us to unauthenticated. No extra emit needed.
     } catch (e) {
+      final isFbException = e is FirebaseAuthException;
+      final needsReauth = isFbException && e.code == 'requires-recent-login';
       emit(state.copyWith(
         isLoading: false,
-        errorMessage: _mapError(e),
+        errorMessage: needsReauth
+            ? 'يرجى تسجيل الخروج ثم تسجيل الدخول مجدداً قبل حذف الحساب'
+            : _mapError(e),
       ));
     }
   }

@@ -17,6 +17,7 @@ class QuranLine extends StatefulWidget {
         this.boxFit = BoxFit.fill,
         this.onLongPress,
         this.onTap,
+        this.onWordTap,
         this.ayahStyle,
         this.isTajweed = true,
         this.isDark = false,
@@ -27,6 +28,11 @@ class QuranLine extends StatefulWidget {
   final BoxFit boxFit;
   final void Function(int surahNumber, int verseNumber, LongPressStartDetails details)? onLongPress;
   final void Function(int surahNumber, int verseNumber)? onTap;
+
+  /// Called when the user taps a single word in word-by-word mode.
+  /// [wordIndex] is 1-based within the ayah.
+  final void Function(int surahNumber, int verseNumber, int wordIndex)? onWordTap;
+
   final TextStyle? ayahStyle;
   final bool isTajweed;
   final bool isDark;
@@ -37,7 +43,7 @@ class QuranLine extends StatefulWidget {
 
 class _QuranLineState extends State<QuranLine> {
   /// Pre-processed data (text, glyph, etc.) stored in memory
-  late final List<_AyahDisplayData> _displayData;
+  late List<_AyahDisplayData> _displayData;
 
   @override
   void initState() {
@@ -60,6 +66,7 @@ class _QuranLineState extends State<QuranLine> {
         hasGlyph: hasGlyph,
         surahNumber: ayah.surahNumber,
         ayahNumber: ayah.ayahNumber,
+        wordStartIndex: ayah.wordStartIndex,
       );
     }).toList();
   }
@@ -69,7 +76,9 @@ class _QuranLineState extends State<QuranLine> {
     super.didUpdateWidget(oldWidget);
     // Re-process only if the actual line data has changed
     if (oldWidget.line != widget.line) {
-      _processData();
+      setState(() {
+        _displayData = _processData();
+      });
     }
   }
 
@@ -140,6 +149,20 @@ class _QuranLineState extends State<QuranLine> {
             );
           }
 
+          // ── Word-by-word mode ──────────────────────────────────────────────
+          // When onWordTap is provided, render each QCF glyph character as its
+          // own tappable widget so the user can tap individual words.
+          if (widget.onWordTap != null) {
+            return _buildWordByWordSpan(
+              data: data,
+              mainTextStyle: mainTextStyle,
+              numberTextStyle: numberTextStyle,
+              isHighlighted: isHighlighted,
+              highlight: highlight,
+            );
+          }
+
+          // ── Normal (ayah-level) rendering ──────────────────────────────────
           final ayahTextWidget = Text.rich(
         TextSpan(
               children: [
@@ -157,7 +180,7 @@ class _QuranLineState extends State<QuranLine> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4.0),
-                  color: isHighlighted ? highlight?.color.withOpacity(0.4) : null,
+                  color: isHighlighted ? highlight?.color.withValues(alpha: 0.4) : null,
                 ),
                 child: ayahTextWidget,
               ),
@@ -173,6 +196,62 @@ class _QuranLineState extends State<QuranLine> {
       child: textWidget,
     );
   }
+
+  /// Builds a [WidgetSpan] where each QCF glyph character is individually
+  /// tappable, enabling word-by-word audio playback.
+  WidgetSpan _buildWordByWordSpan({
+    required _AyahDisplayData data,
+    required TextStyle mainTextStyle,
+    required TextStyle numberTextStyle,
+    required bool isHighlighted,
+    required HighlightVerse? highlight,
+  }) {
+    // Build one widget per character in textWithoutGlyph:
+    // - non-space chars  → each is a tappable word with its own GestureDetector
+    // - space chars      → rendered as plain text (layout separator)
+    // The verse-number glyph is appended at the end (non-tappable).
+    int wordIdx = data.wordStartIndex;
+    final wordWidgets = <Widget>[];
+
+    for (final rune in data.textWithoutGlyph.runes) {
+      final char = String.fromCharCode(rune);
+      if (char == ' ') {
+        // Layout separator – not a separate Quranic word.
+        wordWidgets.add(Text(char, style: mainTextStyle));
+      } else {
+        final capturedSurah = data.surahNumber;
+        final capturedAyah  = data.ayahNumber;
+        final capturedIdx   = ++wordIdx; // 1-based within the ayah
+        wordWidgets.add(
+          GestureDetector(
+            onTap: () => widget.onWordTap?.call(capturedSurah, capturedAyah, capturedIdx),
+            onLongPressStart: (details) =>
+                widget.onLongPress?.call(capturedSurah, capturedAyah, details),
+            child: Text(char, style: mainTextStyle),
+          ),
+        );
+      }
+    }
+
+    // Verse-number glyph at the end (not a word, not tappable for audio).
+    if (data.hasGlyph) {
+      wordWidgets.add(Text(data.glyph, style: numberTextStyle));
+    }
+
+    return WidgetSpan(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4.0),
+          color: isHighlighted ? highlight?.color.withValues(alpha: 0.4) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          textDirection: TextDirection.rtl,
+          children: wordWidgets,
+        ),
+      ),
+    );
+  }
 }
 
 /// Lightweight immutable data class.
@@ -184,11 +263,16 @@ class _AyahDisplayData {
   final int surahNumber;
   final int ayahNumber;
 
+  /// 0-based index of the first word in this (sub-)ayah within its parent ayah.
+  /// Needed to compute correct 1-based word indices for word-by-word audio.
+  final int wordStartIndex;
+
   const _AyahDisplayData({
     required this.textWithoutGlyph,
     required this.glyph,
     required this.hasGlyph,
     required this.surahNumber,
     required this.ayahNumber,
+    required this.wordStartIndex,
   });
 }

@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -22,7 +22,7 @@ import org.json.JSONArray
 class IqamaAlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_FIRE   = "com.example.quraan.IQAMA_FIRE"
+        const val ACTION_FIRE   = "com.nooraliman.quran.IQAMA_FIRE"
         private const val TAG         = "IqamaAlarmReceiver"
         private const val PREFS_NAME  = "FlutterSharedPreferences"
         private const val KEY_ENABLED       = "flutter.iqama_enabled"

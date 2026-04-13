@@ -181,7 +181,7 @@ void main() {
   // Must be called before runApp so AyahAudioCubit's AudioPlayer can connect
   // to the MediaBrowserServiceCompat when the widget tree is built.
   await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.example.quraan.channel.audio',
+    androidNotificationChannelId: 'com.nooraliman.quran.channel.audio',
     androidNotificationChannelName: 'تلاوة القرآن الكريم',
     androidNotificationOngoing: true,
     androidStopForegroundOnPause: true,

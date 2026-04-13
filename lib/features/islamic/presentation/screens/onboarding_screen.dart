@@ -35,7 +35,7 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 48),
               Text(
-                isArabicUi ? 'مرحباً بك في تطبيق القرآن الكريم' : 'Welcome to Quran App',
+                isArabicUi ? 'مرحباً بك في تطبيق نور الإيمان' : 'Welcome to Noor Al-Imaan App',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,

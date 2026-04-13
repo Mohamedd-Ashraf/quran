@@ -58,6 +58,11 @@ class Ayah {
   /// Indicates if the user has marked this Ayah as a favorite/bookmark.
   bool isFavorite;
 
+  /// For sub-ayahs produced by splitting a multi-line ayah across page lines,
+  /// this is the 0-based index of the first word in this segment within its
+  /// parent ayah.  Single-line ayahs always have [wordStartIndex] == 0.
+  final int wordStartIndex;
+
   /// Creates a new [Ayah] instance.
   Ayah({
     required this.id,
@@ -78,6 +83,7 @@ class Ayah {
     required this.ayahText,
     required this.sajda,
     required this.centered,
+    this.wordStartIndex = 0,
   });
 
   /// Converts the [Ayah] instance into a JSON map.
@@ -152,6 +158,7 @@ class Ayah {
     required String qcfData,
     required String ayaText,
     bool centered = false,
+    int wordStartIndex = 0,
   }) =>
       Ayah(
         id: ayah.id,
@@ -172,6 +179,7 @@ class Ayah {
         ayahText: ayaText,
         sajda: false,
         centered: centered,
+        wordStartIndex: wordStartIndex,
       );
 }
 

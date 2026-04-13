@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1039427063284',
     projectId: 'quraan-dd543',
     storageBucket: 'quraan-dd543.firebasestorage.app',
-    iosBundleId: 'com.example.quraan',
+    iosBundleId: 'com.nooraliman.quran',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1039427063284',
     projectId: 'quraan-dd543',
     storageBucket: 'quraan-dd543.firebasestorage.app',
-    iosBundleId: 'com.example.quraan',
+    iosBundleId: 'com.nooraliman.quran',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -1,4 +1,4 @@
-package com.example.quraan
+package com.nooraliman.quran
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -24,7 +24,7 @@ import org.json.JSONArray
 class ApproachingAlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_FIRE    = "com.example.quraan.APPROACHING_FIRE"
+        const val ACTION_FIRE    = "com.nooraliman.quran.APPROACHING_FIRE"
         private const val TAG         = "ApproachingAlarmReceiver"
         private const val PREFS_NAME  = "FlutterSharedPreferences"
         private const val KEY_ENABLED  = "flutter.approaching_enabled"

@@ -55,6 +55,10 @@ class _QiblahScreenState extends State<QiblahScreen>
   /// true while we're waiting for the user to choose cached vs. fresh GPS.
   bool _showingLocationChoice = false;
 
+  // ── Calibration step ────────────────────────────────────────────────────────
+  /// true while showing calibration instructions before entering compass.
+  bool _showCalibrationStep = false;
+
   // ── View mode toggle ───────────────────────────────────────────────────────
   /// true = Qibla Map view, false = Compass view (default)
   bool _showMap = false;
@@ -188,67 +192,74 @@ class _QiblahScreenState extends State<QiblahScreen>
         .startsWith('ar');
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0F1F14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.sensors_off_rounded, color: Colors.amber, size: 22),
-            const SizedBox(width: 10),
-            Text(
-              isAr ? 'البوصلة تحتاج معايرة' : 'Compass Calibration Needed',
-              style: const TextStyle(
-                color: Colors.amber,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+      builder: (ctx) {
+        final isDialogDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDialogDark
+              ? const Color(0xFF0F1F14)
+              : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.sensors_off_rounded, color: Colors.amber, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                isAr ? 'البوصلة تحتاج معايرة' : 'Compass Calibration Needed',
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isAr
-                  ? 'دقة بوصلتك منخفضة، مما قد يؤثر على اتجاه القبلة. اتبع الخطوات التالية لإعادة المعايرة:'
-                  : 'Your compass accuracy is low, which may affect Qiblah direction. Follow these steps to recalibrate:',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.80),
-                fontSize: 13,
-                height: 1.55,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                '∞',
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isAr
+                    ? 'دقة بوصلتك منخفضة، مما قد يؤثر على اتجاه القبلة. اتبع الخطوات التالية لإعادة المعايرة:'
+                    : 'Your compass accuracy is low, which may affect Qiblah direction. Follow these steps to recalibrate:',
                 style: TextStyle(
-                  fontSize: 56,
-                  color: Colors.amber.withValues(alpha: 0.85),
-                  height: 1.0,
+                  color: isDialogDark
+                      ? Colors.white.withValues(alpha: 0.80)
+                      : AppColors.textPrimary.withValues(alpha: 0.85),
+                  fontSize: 13,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  '∞',
+                  style: TextStyle(
+                    fontSize: 56,
+                    color: Colors.amber.withValues(alpha: 0.85),
+                    height: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _CalibDialogStep(n: '1', text: isAr ? 'أمسك الهاتف أفقياً أمامك.' : 'Hold the phone flat in front of you.'),
+              const SizedBox(height: 8),
+              _CalibDialogStep(n: '2', text: isAr ? 'حرك الهاتف ببطء على شكل رمز ∞ (3–5 مرات)، مبتعداً عن المعادن.' : 'Slowly move it in a figure-8 pattern 3–5 times, away from metal.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                isAr ? 'فهمت' : 'Got it',
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            _CalibDialogStep(n: '1', text: isAr ? 'أمسك الهاتف أفقياً أمامك.' : 'Hold the phone flat in front of you.'),
-            const SizedBox(height: 8),
-            _CalibDialogStep(n: '2', text: isAr ? 'حرك الهاتف ببطء على شكل رمز ∞ (3–5 مرات)، مبتعداً عن المعادن.' : 'Slowly move it in a figure-8 pattern 3–5 times, away from metal.'),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              isAr ? 'فهمت' : 'Got it',
-              style: const TextStyle(
-                color: Colors.amber,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -340,18 +351,10 @@ class _QiblahScreenState extends State<QiblahScreen>
       _lat = coords.latitude;
       _lng = coords.longitude;
       _locationFromCache = fromCache;
+      _showCalibrationStep = true;
+      _calibrationDialogShown = true; // skip auto-dialog; step screen shown
     });
     _fetchPlaceName(coords.latitude, coords.longitude);
-    // If a poor-accuracy reading already arrived while the location-choice
-    // screen was showing, trigger the calibration dialog now.
-    if (!_calibrationDialogShown &&
-        _compassAccuracy != null &&
-        _needsCalibration(_compassAccuracy!)) {
-      _calibrationDialogShown = true;
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) _showCalibrationDialog();
-      });
-    }
   }
 
   Future<void> _fetchPlaceName(double lat, double lng) async {
@@ -404,6 +407,16 @@ class _QiblahScreenState extends State<QiblahScreen>
           decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
+          if (!_showingLocationChoice &&
+              !_loading &&
+              _error == null &&
+              !_showCalibrationStep &&
+              _hasCompass)
+            IconButton(
+              icon: const Icon(Icons.explore_rounded),
+              tooltip: isAr ? 'معايرة البوصلة' : 'Calibrate Compass',
+              onPressed: () => setState(() => _showCalibrationStep = true),
+            ),
           if (_updatingLocation)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 14),
@@ -430,7 +443,9 @@ class _QiblahScreenState extends State<QiblahScreen>
               ? _buildLoading(isAr)
               : _error != null
                   ? _buildError(isAr)
-                  : _buildCompassBody(isAr),
+                  : _showCalibrationStep
+                      ? _buildCalibrationStep(isAr)
+                      : _buildCompassBody(isAr),
     );
   }
 
@@ -440,159 +455,181 @@ class _QiblahScreenState extends State<QiblahScreen>
     final cached = di.sl<SettingsService>().getLastKnownCoordinates();
     final latStr = cached?.latitude.toStringAsFixed(4) ?? '';
     final lngStr = cached?.longitude.toStringAsFixed(4) ?? '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return _DarkGradientBackground(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? const [
+                  Color(0xFF0A1C12),
+                  Color(0xFF071309),
+                  Color(0xFF040D07),
+                ]
+              : const [
+                  Color(0xFFF8F5EE),
+                  Color(0xFFF2EDE0),
+                  Color(0xFFEBE4D4),
+                ],
+        ),
+      ),
       child: Stack(
         children: [
-          // ── Decorative Islamic arches at top ──────────────────────────
+          // ── Arch painter – full bleed behind safe area ────────────────
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SizedBox(
-              height: 220,
-              child: CustomPaint(painter: _IslamicArchPainter()),
+              height: 210,
+              child: CustomPaint(painter: _IslamicArchPainter(isDark: isDark)),
             ),
           ),
 
-          // ── Main content ──────────────────────────────────────────────
+          // ── Content ───────────────────────────────────────────────────
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 26),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 30),
 
-                  // ── Logo badge ──────────────────────────────────────────
-                  Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [
-                          Color(0xFF1E5C3A),
-                          Color(0xFF0C2018),
-                        ],
-                        radius: 0.85,
-                      ),
-                      border: Border.all(
-                        color: AppColors.secondary.withValues(alpha: 0.55),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.secondary.withValues(alpha: 0.40),
-                          blurRadius: 28,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Image.asset(
-                          'assets/logo/files/transparent/Splash_dark_transparent.png',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  // ── Bismillah decoration ──────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                            color: AppColors.secondary.withValues(alpha: 0.30),
-                            width: 0.8),
-                        bottom: BorderSide(
-                            color: AppColors.secondary.withValues(alpha: 0.30),
-                            width: 0.8),
-                      ),
-                    ),
-                    child: Text(
-                      '✦  ${isAr ? 'اختَر موقعك' : 'Choose Your Location'}  ✦',
-                      style: GoogleFonts.amiri(
-                        fontSize: isAr ? 22 : 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.secondary,
-                        letterSpacing: isAr ? 0 : 0.5,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Text(
-                    isAr
-                        ? 'لديك موقع محفوظ. هل تستخدمه أم تأخذ إحداثيات جديدة؟'
-                        : 'A saved location was found. Use it or fetch fresh coordinates?',
-                    style: TextStyle(
-                      color: AppColors.secondary.withValues(alpha: 0.60),
-                      fontSize: 13,
-                      height: 1.55,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 36),
-
-                  // ── Option A: Use saved ──────────────────────────────
-                  _LocationChoiceButton(
-                    icon: Icons.history_rounded,
-                    title: isAr ? 'استخدام الموقع المحفوظ' : 'Use Saved Location',
-                    subtitle: _placeName ?? '$latStr°,  $lngStr°',
-                    isPrimary: true,
-                    onTap: _useCachedLocation,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Option B: Fresh GPS ──────────────────────────────
-                  _LocationChoiceButton(
-                    icon: Icons.my_location_rounded,
-                    title: isAr ? 'تحديد موقع جديد (GPS)' : 'Get Fresh GPS Fix',
-                    subtitle: isAr
-                        ? 'أدق · يستغرق بضع ثوانٍ'
-                        : 'More accurate · takes a few seconds',
-                    isPrimary: false,
-                    onTap: _requestFreshLocation,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── Decorative bottom line ────────────────────────────
-                  Row(
+                // ── Hero badge ─────────────────────────────────────────
+                AnimatedBuilder(
+                  animation: _glowAnim,
+                  builder: (_, __) => Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Expanded(
-                        child: Divider(
-                          color: AppColors.secondary.withValues(alpha: 0.18),
-                          thickness: 0.8,
+                      Container(
+                        width: 116,
+                        height: 116,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.secondary.withValues(
+                                  alpha: 0.28 * _glowAnim.value),
+                              blurRadius: 40 * _glowAnim.value,
+                              spreadRadius: 6 * _glowAnim.value,
+                            ),
+                          ],
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          '✦',
-                          style: TextStyle(
-                            color: AppColors.secondary.withValues(alpha: 0.35),
-                            fontSize: 12,
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const SweepGradient(
+                            colors: [
+                              AppColors.secondary,
+                              AppColors.accent,
+                              AppColors.secondary,
+                            ],
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: Divider(
-                          color: AppColors.secondary.withValues(alpha: 0.18),
-                          thickness: 0.8,
+                      Container(
+                        width: 86,
+                        height: 86,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: isDark
+                                ? const [Color(0xFF1E5C3A), Color(0xFF0C2018)]
+                                : const [Color(0xFF1A8A58), Color(0xFF0D5E3A)],
+                            radius: 0.85,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.my_location_rounded,
+                          size: 40,
+                          color: AppColors.secondary,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Title ──────────────────────────────────────────────
+                Text(
+                  isAr ? 'حدِّد موقعك' : 'Set Your Location',
+                  style: GoogleFonts.amiri(
+                    fontSize: isAr ? 28 : 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.secondary,
+                    shadows: [
+                      Shadow(
+                        color: AppColors.secondary.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                  child: Text(
+                    isAr
+                        ? 'يحتاج التطبيق إلى موقعك لحساب اتجاه القِبلة بدقة'
+                        : 'Your location is needed to determine the Qibla direction',
+                    style: TextStyle(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.40)
+                          : AppColors.textSecondary.withValues(alpha: 0.80),
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // ── Choice cards ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Column(
+                    children: [
+                      // Primary: use saved
+                      _LocationCard(
+                        labelText: isAr ? 'الموقع المحفوظ' : 'Saved Location',
+                        icon: Icons.bookmark_rounded,
+                        title: isAr ? 'استخدام الموقع المحفوظ' : 'Use Saved Location',
+                        subtitle: _placeName ?? '$latStr°,  $lngStr°',
+                        isPrimary: true,
+                        onTap: _useCachedLocation,
+                      ),
+                      const SizedBox(height: 14),
+                      // Secondary: fresh GPS
+                      _LocationCard(
+                        labelText: isAr ? 'موقع جديد / GPS' : 'GPS / New Location',
+                        icon: Icons.gps_fixed_rounded,
+                        title: isAr ? 'تحديد موقع جديد (GPS)' : 'Get Fresh GPS Location',
+                        subtitle: isAr
+                            ? 'أدق · يستغرق بضع ثوانٍ'
+                            : 'More precise · takes a few seconds',
+                        isPrimary: false,
+                        onTap: _requestFreshLocation,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(),
+                // ── Bottom ornament ─────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Text(
+                    '❧',
+                    style: TextStyle(
+                      fontSize: 22,
+                      color: AppColors.secondary.withValues(alpha: 0.25),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -687,6 +724,288 @@ class _QiblahScreenState extends State<QiblahScreen>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── Calibration step (shown before compass) ─────────────────────────────
+
+  Widget _buildCalibrationStep(bool isAr) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? const [
+                  Color(0xFF0A1C12),
+                  Color(0xFF071309),
+                  Color(0xFF040D07),
+                ]
+              : const [
+                  Color(0xFFF8F5EE),
+                  Color(0xFFF2EDE0),
+                  Color(0xFFEBE4D4),
+                ],
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+
+              // ── Animated compass hero ───────────────────────────────────
+              AnimatedBuilder(
+                animation: _glowAnim,
+                builder: (_, __) => Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow ring
+                    Container(
+                      width: 124,
+                      height: 124,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.secondary
+                                .withValues(alpha: 0.22 * _glowAnim.value),
+                            blurRadius: 36 * _glowAnim.value,
+                            spreadRadius: 8 * _glowAnim.value,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Ring
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: SweepGradient(
+                          colors: [
+                            AppColors.secondary.withValues(alpha: 0.80),
+                            AppColors.accent.withValues(alpha: 0.40),
+                            AppColors.secondary.withValues(alpha: 0.80),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Inner disc
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [Color(0xFF1A3D28), Color(0xFF0C1E12)],
+                          radius: 0.85,
+                        ),
+                      ),
+                      child: Transform.rotate(
+                        angle: _glowAnim.value * math.pi * 0.15,
+                        child: const Icon(
+                          Icons.explore_rounded,
+                          size: 44,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // ── Title ───────────────────────────────────────────────────
+              Text(
+                isAr ? 'معايرة البوصلة' : 'Compass Calibration',
+                style: GoogleFonts.amiri(
+                  fontSize: isAr ? 28 : 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.secondary,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+
+              // ── Subtitle ────────────────────────────────────────────────
+              Text(
+                isAr
+                    ? 'اتبع الخطوات للحصول على اتجاه قِبلة دقيق'
+                    : 'Follow the steps for an accurate Qibla direction',
+                style: TextStyle(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.45)
+                      : AppColors.textSecondary.withValues(alpha: 0.80),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 26),
+
+              // ── Figure-8 banner ─────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            AppColors.primary.withValues(alpha: 0.70),
+                            AppColors.primary.withValues(alpha: 0.40),
+                          ]
+                        : [
+                            AppColors.primary.withValues(alpha: 0.06),
+                            AppColors.primary.withValues(alpha: 0.03),
+                          ],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: isDark ? 0.30 : 0.45),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '∞',
+                      style: TextStyle(
+                        fontSize: 64,
+                        color: AppColors.secondary.withValues(alpha: 0.92),
+                        height: 1.0,
+                        shadows: [
+                          Shadow(
+                            color: AppColors.secondary.withValues(alpha: 0.55),
+                            blurRadius: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isAr
+                          ? 'حرّك الهاتف على شكل الرمز أعلاه'
+                          : 'Move the phone in the pattern above',
+                      style: TextStyle(
+                        color: AppColors.secondary.withValues(alpha: 0.70),
+                        fontSize: 12,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // ── Step cards ──────────────────────────────────────────────
+              _CalibStepCard(
+                num: '1',
+                icon: Icons.phone_android_rounded,
+                isAr: isAr,
+                text: isAr
+                    ? 'أمسك الهاتف أفقياً أمامك بعيداً عن أي أجسام معدنية.'
+                    : 'Hold the phone flat in front of you, away from metal objects.',
+              ),
+              const SizedBox(height: 10),
+              _CalibStepCard(
+                num: '2',
+                icon: Icons.air_rounded,
+                isAr: isAr,
+                text: isAr
+                    ? 'حرّك الهاتف ببطء في الهواء على شكل ∞ من ثلاث إلى خمس مرات.'
+                    : 'Slowly swing the phone in a figure-8 (∞) pattern 3–5 times.',
+              ),
+              const SizedBox(height: 10),
+              _CalibStepCard(
+                num: '3',
+                icon: Icons.rotate_90_degrees_ccw_rounded,
+                isAr: isAr,
+                text: isAr
+                    ? 'أدِر الهاتف على محاوره الثلاثة (أفقي، رأسي، جانبي) أثناء الحركة.'
+                    : 'Tilt and rotate the phone on all three axes while moving.',
+              ),
+              const SizedBox(height: 10),
+              _CalibStepCard(
+                num: '4',
+                icon: Icons.speaker_rounded,
+                isAr: isAr,
+                iconColor: const Color(0xFFEF9A9A),
+                text: isAr
+                    ? 'ابتعد عن المغناطيس ومكبرات الصوت والأجهزة الإلكترونية القريبة.'
+                    : 'Stay away from magnets, speakers, and nearby electronics.',
+              ),
+              const SizedBox(height: 24),
+
+              // ── CTA button ──────────────────────────────────────────────
+              GestureDetector(
+                onTap: () => setState(() => _showCalibrationStep = false),
+                child: Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [AppColors.secondary, AppColors.accent],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.secondary.withValues(alpha: 0.45),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF0A1C12),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        isAr
+                            ? 'تمّت المعايرة — انتقل للبوصلة'
+                            : 'Done — Open Compass',
+                        style: GoogleFonts.cairo(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0A1C12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Skip hint ───────────────────────────────────────────────
+              TextButton(
+                onPressed: () => setState(() => _showCalibrationStep = false),
+                child: Text(
+                  isAr ? 'تخطي المعايرة' : 'Skip calibration',
+                  style: TextStyle(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.30)
+                        : AppColors.textSecondary.withValues(alpha: 0.55),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1618,18 +1937,20 @@ class _AlignmentBanner extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  LOCATION CHOICE BUTTON
+//  LOCATION CARD  (replaces old _LocationChoiceButton)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _LocationChoiceButton extends StatelessWidget {
+class _LocationCard extends StatelessWidget {
   final IconData icon;
+  final String labelText;
   final String title;
   final String subtitle;
   final bool isPrimary;
   final VoidCallback onTap;
 
-  const _LocationChoiceButton({
+  const _LocationCard({
     required this.icon,
+    required this.labelText,
     required this.title,
     required this.subtitle,
     required this.isPrimary,
@@ -1641,91 +1962,230 @@ class _LocationChoiceButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+      child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
         decoration: BoxDecoration(
           gradient: isPrimary
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.secondary, AppColors.accent],
+                  colors: [AppColors.secondary, Color(0xFFB8860B)],
                 )
-              : null,
-          color: isPrimary
-              ? null
-              : (isDark ? const Color(0xFF112316) : Colors.white),
-          borderRadius: BorderRadius.circular(18),
+              : isDark
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF152B1E), Color(0xFF0E1D14)],
+                    )
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.white, Color(0xFFF8F5EE)],
+                    ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isPrimary
-                ? AppColors.secondary
-                : AppColors.secondary.withValues(alpha: 0.25),
-            width: 1.5,
+                ? AppColors.secondary.withValues(alpha: 0.0)
+                : (isDark
+                    ? AppColors.secondary.withValues(alpha: 0.22)
+                    : AppColors.primary.withValues(alpha: 0.20)),
+            width: 1.2,
           ),
           boxShadow: isPrimary
               ? [
                   BoxShadow(
-                    color: AppColors.secondary.withValues(alpha: 0.30),
-                    blurRadius: 18,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
+                    color: AppColors.secondary.withValues(alpha: 0.40),
+                    blurRadius: 22,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 6),
                   ),
                 ]
-              : [],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isPrimary
-                    ? Colors.black.withValues(alpha: 0.18)
-                    : AppColors.secondary.withValues(alpha: 0.12),
-              ),
-              child: Icon(
-                icon,
-                color: isPrimary ? Colors.black87 : AppColors.secondary,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isPrimary
-                          ? Colors.black
-                          : (isDark ? Colors.white : AppColors.textPrimary),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: isPrimary
-                          ? Colors.black54
-                          : (isDark ? Colors.white38 : AppColors.textSecondary),
-                      fontSize: 12,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+              : [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.30)
+                        : Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Badge label ──────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isPrimary
+                    ? Colors.black.withValues(alpha: 0.18)
+                    : (isDark
+                        ? AppColors.secondary.withValues(alpha: 0.12)
+                        : AppColors.primary.withValues(alpha: 0.10)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                labelText,
+                style: TextStyle(
+                  color: isPrimary
+                      ? const Color(0xFF0A1C12)
+                      : (isDark ? AppColors.secondary : AppColors.primary),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: isPrimary ? Colors.black54 : AppColors.secondary,
+            const SizedBox(height: 12),
+            // ── Main row: text + icon ────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: isPrimary
+                              ? const Color(0xFF0A1C12)
+                              : (isDark
+                                  ? Colors.white.withValues(alpha: 0.90)
+                                  : AppColors.textPrimary),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: isPrimary
+                              ? const Color(0xFF0A1C12).withValues(alpha: 0.60)
+                              : (isDark
+                                  ? Colors.white.withValues(alpha: 0.38)
+                                  : AppColors.textSecondary),
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Icon circle on right
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isPrimary
+                        ? Colors.black.withValues(alpha: 0.15)
+                        : (isDark
+                            ? AppColors.secondary.withValues(alpha: 0.10)
+                            : AppColors.primary.withValues(alpha: 0.08)),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isPrimary
+                        ? const Color(0xFF0A1C12)
+                        : (isDark ? AppColors.secondary : AppColors.primary),
+                    size: 22,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CALIB STEP CARD  – horizontal icon + text row for calibration page
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CalibStepCard extends StatelessWidget {
+  final String num;
+  final String text;
+  final IconData icon;
+  final bool isAr;
+  final Color? iconColor;
+
+  const _CalibStepCard({
+    required this.num,
+    required this.text,
+    required this.icon,
+    required this.isAr,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color col = iconColor ?? AppColors.secondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0E2218) : Colors.white.withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: col.withValues(alpha: isDark ? 0.18 : 0.28),
+          width: 1.0,
+        ),
+      ),
+      child: Row(
+        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+        children: [
+          // Number badge
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  col.withValues(alpha: 0.30),
+                  col.withValues(alpha: 0.12),
+                ],
+              ),
+              border: Border.all(color: col.withValues(alpha: 0.40), width: 1),
+            ),
+            child: Center(
+              child: Text(
+                num,
+                style: TextStyle(
+                  color: col,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Icon
+          Icon(icon, color: col.withValues(alpha: 0.65), size: 20),
+          const SizedBox(width: 12),
+          // Text
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.72)
+                    : AppColors.textPrimary.withValues(alpha: 0.82),
+                fontSize: 13,
+                height: 1.45,
+              ),
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1959,10 +2419,13 @@ class _CalibDialogStep extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _IslamicArchPainter extends CustomPainter {
+  final bool isDark;
+  const _IslamicArchPainter({this.isDark = true});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final goldLight = AppColors.secondary.withValues(alpha: 0.18);
-    final goldMid   = AppColors.secondary.withValues(alpha: 0.10);
+    final goldLight = AppColors.secondary.withValues(alpha: isDark ? 0.18 : 0.35);
+    final goldMid   = AppColors.secondary.withValues(alpha: isDark ? 0.10 : 0.22);
     final bgPaint   = Paint()..color = goldMid;
     final strokePaint = Paint()
       ..color = goldLight
@@ -2027,7 +2490,7 @@ class _IslamicArchPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant _IslamicArchPainter old) => old.isDark != isDark;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

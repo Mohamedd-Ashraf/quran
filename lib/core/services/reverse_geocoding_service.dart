@@ -64,4 +64,46 @@ class ReverseGeocodingService {
 
     return null;
   }
+
+  /// Searches for cities matching [query] and returns a list of results with
+  /// display name, latitude, and longitude. Uses OpenStreetMap Nominatim API.
+  /// Results are limited to 5 and filtered to place types (city/town/village/state).
+  static Future<List<CitySearchResult>> searchCity(String query) async {
+    if (query.trim().isEmpty) return [];
+
+    final uri = Uri.parse(
+      'https://nominatim.openstreetmap.org/search'
+      '?q=${Uri.encodeComponent(query.trim())}'
+      '&format=json&limit=5&accept-language=ar,en',
+    );
+
+    try {
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'QuranApp/1.0',
+      }).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list.map((item) {
+          final m = item as Map<String, dynamic>;
+          final lat = double.tryParse(m['lat']?.toString() ?? '') ?? 0;
+          final lng = double.tryParse(m['lon']?.toString() ?? '') ?? 0;
+          final display = m['display_name'] as String? ?? '';
+          // Shorten: take first two parts only
+          final parts = display.split(', ');
+          final name = parts.take(2).join('، ');
+          return CitySearchResult(name: name, lat: lat, lng: lng);
+        }).toList();
+      }
+    } catch (_) {}
+
+    return [];
+  }
+}
+
+class CitySearchResult {
+  final String name;
+  final double lat;
+  final double lng;
+  const CitySearchResult({required this.name, required this.lat, required this.lng});
 }

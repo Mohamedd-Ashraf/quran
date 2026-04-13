@@ -202,7 +202,7 @@ class _QiblahMapWidgetState extends State<QiblahMapWidget>
                   : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
               subdomains: const ['a', 'b', 'c', 'd'],
               retinaMode: RetinaMode.isHighDensity(context),
-              userAgentPackageName: 'com.example.quraan',
+              userAgentPackageName: 'com.nooraliman.quran',
               minNativeZoom: 0,
               maxNativeZoom: 18,
               maxZoom: 19,

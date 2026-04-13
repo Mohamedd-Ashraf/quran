@@ -394,4 +394,30 @@ class CloudSyncService {
     if (str == null) return null;
     return DateTime.tryParse(str);
   }
+
+  // ── Delete user data ────────────────────────────────────────────────────
+
+  /// Deletes all Firestore data for [uid] and clears the local sync keys.
+  /// Call this AFTER [user.delete()] succeeds.
+  Future<void> deleteUserData(String uid) async {
+    try {
+      final userDoc = _firestore.collection('users').doc(uid);
+      // Delete sub-collection docs
+      for (final sub in ['bookmarks', 'wird', 'settings']) {
+        try {
+          await userDoc.collection('data').doc(sub).delete();
+        } catch (_) {}
+      }
+      // Delete the user profile doc
+      try {
+        await userDoc.delete();
+      } catch (_) {}
+    } catch (e) {
+      debugPrint('CloudSyncService: deleteUserData error: $e');
+    }
+    // Clear local sync keys for this user
+    await _prefs.remove(_syncTimeKey(uid));
+    await _prefs.remove(_keyLastSyncTime);
+    await _prefs.remove(_keyLastSyncedUid);
+  }
 }
