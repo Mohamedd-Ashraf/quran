@@ -121,7 +121,7 @@ class _MoreScreenState extends State<MoreScreen> {
                     gradient: AppColors.primaryGradient,
                   ),
                   child: Text(
-                    isArabicUi ? 'تطبيق القرآن الكريم' : 'Quran Application',
+                    isArabicUi ? 'تطبيق نور الإيمان' : 'Noor Al-Imaan App',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,

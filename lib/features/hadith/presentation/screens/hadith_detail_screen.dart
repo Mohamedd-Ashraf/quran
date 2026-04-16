@@ -655,7 +655,7 @@ class _HadithTabState extends State<_HadithTab> {
                       ),
                     ),
                     Text(
-                      isArabic ? 'تطبيق القرآن الكريم' : 'Quran App',
+                      isArabic ? 'تطبيق نور الإيمان' : 'Noor Al-Imaan App',
                       style: TextStyle(
                         fontSize: 10,
                         color: isDark
