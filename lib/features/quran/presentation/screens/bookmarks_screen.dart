@@ -87,7 +87,9 @@ class BookmarksScreenState extends State<BookmarksScreen> {
   void _onTabActivated() {
     if (di.sl<TutorialService>().activeTabIndex.value != 1) return;
     _tutorialShown = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showTutorialIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showTutorialIfNeeded(),
+    );
   }
 
   void _loadBookmarks() {

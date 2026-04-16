@@ -95,8 +95,7 @@ class _SearchScreenState extends State<SearchScreen> {
   // AppBar
   // ─────────────────────────────────────────────────────────────────────────────
 
-  PreferredSizeWidget _buildAppBar(
-      BuildContext ctx, bool isAr, bool isDark) {
+  PreferredSizeWidget _buildAppBar(BuildContext ctx, bool isAr, bool isDark) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -126,7 +125,11 @@ class _SearchScreenState extends State<SearchScreen> {
   // ─────────────────────────────────────────────────────────────────────────────
 
   Widget _buildBody(
-      BuildContext context, SearchState state, bool isAr, bool isDark) {
+    BuildContext context,
+    SearchState state,
+    bool isAr,
+    bool isDark,
+  ) {
     switch (state.status) {
       case SearchStatus.initial:
         return _InitialHint(isAr: isAr, isDark: isDark);
@@ -190,8 +193,7 @@ class _SearchField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         onChanged: onChanged,
-        textDirection:
-            isAr ? TextDirection.rtl : TextDirection.ltr,
+        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
         style: const TextStyle(
           color: Colors.white,
           fontSize: 15,
@@ -199,22 +201,26 @@ class _SearchField extends StatelessWidget {
         ),
         cursorColor: AppColors.secondary,
         decoration: InputDecoration(
-          hintText: isAr
-              ? 'ابحث في القرآن الكريم…'
-              : 'Search the Holy Quran…',
+          hintText: isAr ? 'ابحث في القرآن الكريم…' : 'Search the Holy Quran…',
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.7),
             fontSize: 14,
             fontFamily: 'Amiri',
           ),
-          prefixIcon: const Icon(Icons.search_rounded,
-              color: Colors.white70, size: 20),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: Colors.white70,
+            size: 20,
+          ),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (_, val, _) => val.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: onClear,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -225,8 +231,10 @@ class _SearchField extends StatelessWidget {
           isDense: true,
           filled: true,
           fillColor: Colors.transparent,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 10,
+            horizontal: 4,
+          ),
         ),
       ),
     );
@@ -262,8 +270,11 @@ class _InitialHint extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.search_rounded,
-                color: Colors.white, size: 44),
+            child: const Icon(
+              Icons.search_rounded,
+              color: Colors.white,
+              size: 44,
+            ),
           ),
           const SizedBox(height: 24),
           Text(
@@ -310,8 +321,11 @@ class _QuickTip extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String text;
-  const _QuickTip(
-      {required this.icon, required this.color, required this.text});
+  const _QuickTip({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -327,9 +341,14 @@ class _QuickTip extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
-          Text(text,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -415,8 +434,11 @@ class _EmptyView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off_rounded,
-              size: 72, color: AppColors.textSecondary.withValues(alpha: 0.4)),
+          Icon(
+            Icons.search_off_rounded,
+            size: 72,
+            color: AppColors.textSecondary.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 18),
           Text(
             isAr ? 'لا توجد نتائج' : 'No results found',
@@ -455,8 +477,11 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline_rounded,
-              size: 64, color: AppColors.error),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 64,
+            color: AppColors.error,
+          ),
           const SizedBox(height: 16),
           Text(
             isAr ? 'حدث خطأ أثناء البحث' : 'An error occurred',
@@ -472,7 +497,9 @@ class _ErrorView extends StatelessWidget {
               message!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary),
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ],
@@ -590,7 +617,9 @@ class _ResultsList extends StatelessWidget {
                   Text(
                     isAr ? 'جارٍ البحث في الآيات…' : 'Scanning ayahs…',
                     style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13),
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -625,12 +654,12 @@ class _ResultsCountBar extends StatelessWidget {
         color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.15)),
+          color: AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.15),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded,
-              color: AppColors.primary, size: 15),
+          Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 15),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -689,16 +718,20 @@ class _SectionHeader extends StatelessWidget {
               children: [
                 Icon(icon, color: Colors.white, size: 14),
                 const SizedBox(width: 6),
-                Text(label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.5,
-                    )),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
+                ),
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(10),
@@ -837,9 +870,7 @@ class _SurahResultCard extends StatelessWidget {
               ),
               // Chevron
               Icon(
-                isAr
-                    ? Icons.chevron_left_rounded
-                    : Icons.chevron_right_rounded,
+                isAr ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
                 color: AppColors.primary.withValues(alpha: 0.5),
                 size: 22,
               ),
@@ -911,7 +942,9 @@ class _AyahResultCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -942,10 +975,11 @@ class _AyahResultCard extends StatelessWidget {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color:
-                          AppColors.secondary.withValues(alpha: 0.12),
+                      color: AppColors.secondary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1128,15 +1162,17 @@ class _HighlightedText extends StatelessWidget {
       // IMPORTANT: We do NOT change fontWeight here because changing
       // font-weight alters ascent/descent metrics and causes the vertical
       // displacement ("حتة طالعة وحتة نازلة") seen with Arabic diacritics.
-      spans.add(TextSpan(
-        text: text.substring(start, end.clamp(0, text.length)),
-        style: TextStyle(
-          color: highlightBackground ? Colors.white : highlightColor,
-          background: highlightBackground
-              ? (Paint()..color = AppColors.secondary)
-              : null,
+      spans.add(
+        TextSpan(
+          text: text.substring(start, end.clamp(0, text.length)),
+          style: TextStyle(
+            color: highlightBackground ? Colors.white : highlightColor,
+            background: highlightBackground
+                ? (Paint()..color = AppColors.secondary)
+                : null,
+          ),
         ),
-      ));
+      );
 
       cursor = end.clamp(0, text.length);
     }

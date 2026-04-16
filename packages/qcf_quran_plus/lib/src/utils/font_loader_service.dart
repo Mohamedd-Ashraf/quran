@@ -62,7 +62,9 @@ class QcfFontLoader {
       const int batchSize = 50;
 
       for (int i = 1; i <= totalPages; i += batchSize) {
-        int end = (i + batchSize - 1 < totalPages) ? i + batchSize - 1 : totalPages;
+        int end = (i + batchSize - 1 < totalPages)
+            ? i + batchSize - 1
+            : totalPages;
 
         List<Future<void>> batchTasks = [];
         for (int j = i; j <= end; j++) {
@@ -72,8 +74,7 @@ class QcfFontLoader {
         await Future.wait(batchTasks);
         onProgress(end / totalPages);
       }
-    }
-    else {
+    } else {
       for (int i = 1; i <= totalPages; i++) {
         await ensureFontLoaded(i);
         onProgress(i / totalPages);
@@ -106,11 +107,13 @@ class QcfFontLoader {
 
     _loadingTasks[pageNumber] = task;
 
-    task.then((_) {
-      _loadedPages.add(pageNumber);
-    }).whenComplete(() {
-      _loadingTasks.remove(pageNumber);
-    });
+    task
+        .then((_) {
+          _loadedPages.add(pageNumber);
+        })
+        .whenComplete(() {
+          _loadingTasks.remove(pageNumber);
+        });
 
     return task;
   }
@@ -122,8 +125,7 @@ class QcfFontLoader {
 
   /// ================= SMART PRELOADING =================
   /// Preloads nearby pages for smooth scrolling
-  static Future<void> preloadPages(int currentPage,
-      {int radius = 5}) async {
+  static Future<void> preloadPages(int currentPage, {int radius = 5}) async {
     List<int> pages = [];
 
     for (int i = 0; i <= radius; i++) {
@@ -133,14 +135,18 @@ class QcfFontLoader {
         int next = currentPage + i;
         int prev = currentPage - i;
 
-        if (next <= totalPages) { pages.add(next); }
-        if (prev >= 1) { pages.add(prev); }
+        if (next <= totalPages) {
+          pages.add(next);
+        }
+        if (prev >= 1) {
+          pages.add(prev);
+        }
       }
     }
 
     for (int page in pages) {
-      if (_loadedPages.contains(page) ||
-          _loadingTasks.containsKey(page)) continue;
+      if (_loadedPages.contains(page) || _loadingTasks.containsKey(page))
+        continue;
 
       await ensureFontLoaded(page);
 

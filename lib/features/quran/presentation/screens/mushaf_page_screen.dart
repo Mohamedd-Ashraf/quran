@@ -21,7 +21,8 @@ import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import 'tafsir_screen.dart';
-import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic, getPageData;
+import 'package:qcf_quran_plus/qcf_quran_plus.dart'
+    show getSurahNameArabic, getPageData;
 import '../tutorials/mushaf_tutorial.dart';
 import '../widgets/ayah_share_card.dart';
 import '../widgets/mushaf_page_view.dart'
@@ -314,7 +315,10 @@ Future<Map<String, String>?> _fetchTajweedPage(int page) async {
     final uri = Uri.parse(
       'https://api.alquran.cloud/v1/page/$page/quran-tajweed',
     );
-    final res = await http.get(uri, headers: const {'Accept': 'application/json'});
+    final res = await http.get(
+      uri,
+      headers: const {'Accept': 'application/json'},
+    );
     if (res.statusCode != 200) return null;
 
     final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -450,7 +454,8 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
 
   /// Fetches tajweed overlay for a given page (if not cached yet).
   Future<void> _loadTajweed(int page) async {
-    if (_tajweedCache.containsKey(page) || _tajweedLoading[page] == true) return;
+    if (_tajweedCache.containsKey(page) || _tajweedLoading[page] == true)
+      return;
     if (mounted) setState(() => _tajweedLoading[page] = true);
     try {
       final data = await _fetchTajweedPage(page);
@@ -506,58 +511,59 @@ class _MushafPageScreenState extends State<MushafPageScreen> {
           bottom: false,
           top: false,
           child: Container(
-          color: bgColor,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: IslamicPatternPainter(color: AppColors.primary),
-                ),
-              ),
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: BorderOrnamentPainter(color: AppColors.primary),
-                ),
-              ),
-              Positioned.fill(
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: PageView.builder(
-                    controller: _pageCtrl,
-                    itemCount: 604,
-                    onPageChanged: _onPageChanged,
-                    itemBuilder: (context, idx) {
-                      final page = idx + 1;
-                      return _MushafPage(
-                        page: page,
-                        verses: _cache[page],
-                        isLoading: _loading[page] == true,
-                        error: _errors[page],
-                        onRetry: () => _load(page),
-                        isInitialPage: page == widget.initialPage,
-                        focusSurahNumber: page == widget.initialPage
-                            ? widget.focusSurahNumber
-                            : null,
-                        focusAyahNumber: page == widget.initialPage
-                            ? widget.focusAyahNumber
-                            : null,
-                        playerCollapsedNotifier: widget.playerCollapsedNotifier,
-                        tajweedMode: _tajweedMode,
-                        tajweedTexts: _tajweedCache[page],
-                        tajweedLoading: _tajweedLoading[page] == true,
-                        onToggleTajweed: _toggleTajweed,
-                        showControls: _showControls,
-                        onTap: _onPageTap,
-                      );
-                    },
+            color: bgColor,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: IslamicPatternPainter(color: AppColors.primary),
                   ),
                 ),
-              ),
-            ],
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: BorderOrnamentPainter(color: AppColors.primary),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: PageView.builder(
+                      controller: _pageCtrl,
+                      itemCount: 604,
+                      onPageChanged: _onPageChanged,
+                      itemBuilder: (context, idx) {
+                        final page = idx + 1;
+                        return _MushafPage(
+                          page: page,
+                          verses: _cache[page],
+                          isLoading: _loading[page] == true,
+                          error: _errors[page],
+                          onRetry: () => _load(page),
+                          isInitialPage: page == widget.initialPage,
+                          focusSurahNumber: page == widget.initialPage
+                              ? widget.focusSurahNumber
+                              : null,
+                          focusAyahNumber: page == widget.initialPage
+                              ? widget.focusAyahNumber
+                              : null,
+                          playerCollapsedNotifier:
+                              widget.playerCollapsedNotifier,
+                          tajweedMode: _tajweedMode,
+                          tajweedTexts: _tajweedCache[page],
+                          tajweedLoading: _tajweedLoading[page] == true,
+                          onToggleTajweed: _toggleTajweed,
+                          showControls: _showControls,
+                          onTap: _onPageTap,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }
@@ -808,19 +814,19 @@ class _MushafTopBar extends StatelessWidget {
 
   // ── Premium Mushaf color constants ──
   static const _kBarTealLight = Color(0xFF3C9A80);
-  static const _kBarTealDark  = Color(0xFF2A7F6B);
+  static const _kBarTealDark = Color(0xFF2A7F6B);
   static const _kBarTealDarkModeLight = Color(0xFF1A5244);
-  static const _kBarTealDarkModeDark  = Color(0xFF133D31);
-  static const _kGoldText   = Color(0xFFEDE3B7);
+  static const _kBarTealDarkModeDark = Color(0xFF133D31);
+  static const _kGoldText = Color(0xFFEDE3B7);
   static const _kGoldBorder = Color(0xFFE6D9A8);
 
   @override
   Widget build(BuildContext context) {
-    final topInset      = MediaQuery.of(context).padding.top;
+    final topInset = MediaQuery.of(context).padding.top;
     final gradientStart = isDark ? _kBarTealDarkModeLight : _kBarTealLight;
-    final gradientEnd   = isDark ? _kBarTealDarkModeDark  : _kBarTealDark;
-    final goldColor     = _kGoldText;
-    final goldBorder    = _kGoldBorder.withValues(alpha: 0.28);
+    final gradientEnd = isDark ? _kBarTealDarkModeDark : _kBarTealDark;
+    final goldColor = _kGoldText;
+    final goldBorder = _kGoldBorder.withValues(alpha: 0.28);
     final ornamentColor = goldColor.withValues(alpha: 0.50);
     final labelStyle = GoogleFonts.cairo(
       fontSize: 13,
@@ -830,7 +836,7 @@ class _MushafTopBar extends StatelessWidget {
 
     return Container(
       key: attachKeys ? MushafTutorialKeys.topBar : null,
-      padding: EdgeInsets.fromLTRB(10, topInset*0.5, 10, 0),
+      padding: EdgeInsets.fromLTRB(10, topInset * 0.5, 10, 0),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
         gradient: LinearGradient(
@@ -898,7 +904,9 @@ class _MushafTopBar extends StatelessWidget {
             ),
             _TopBarBookmarkButton(
               page: page,
-              tutorialKey: attachKeys ? MushafTutorialKeys.bookmarkButton : null,
+              tutorialKey: attachKeys
+                  ? MushafTutorialKeys.bookmarkButton
+                  : null,
             ),
           ],
         ),
@@ -961,9 +969,7 @@ class _TopBarPlayButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isActive
-                    ? goldColor
-                    : goldColor.withValues(alpha: 0.55),
+                color: isActive ? goldColor : goldColor.withValues(alpha: 0.55),
                 width: 1.5,
               ),
               color: isActive
@@ -972,12 +978,8 @@ class _TopBarPlayButton extends StatelessWidget {
             ),
             child: Center(
               child: Icon(
-                isPagePlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                color: isActive
-                    ? goldColor
-                    : goldColor.withValues(alpha: 0.7),
+                isPagePlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: isActive ? goldColor : goldColor.withValues(alpha: 0.7),
                 size: 20,
               ),
             ),
@@ -1008,7 +1010,7 @@ class _TajweedToggleButton extends StatelessWidget {
     // Hide button if tajweed feature flag is disabled (compile-time gate)
     if (!SettingsService.enableTajweedFeature) return const SizedBox.shrink();
 
-    final activeColor = const Color(0xFFB8E6C8);  // Soft mint visible on teal
+    final activeColor = const Color(0xFFB8E6C8); // Soft mint visible on teal
     final inactiveColor = const Color(0xFFD4B877).withValues(alpha: 0.5);
 
     return Row(
@@ -1286,14 +1288,8 @@ class _RecitationSettingsSheet extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: textColor,
         );
-        final labelStyle = GoogleFonts.cairo(
-          fontSize: 14,
-          color: textColor,
-        );
-        final noteStyle = GoogleFonts.cairo(
-          fontSize: 11,
-          color: subTextColor,
-        );
+        final labelStyle = GoogleFonts.cairo(fontSize: 14, color: textColor);
+        final noteStyle = GoogleFonts.cairo(fontSize: 11, color: subTextColor);
 
         return SafeArea(
           child: Directionality(
@@ -1301,8 +1297,9 @@ class _RecitationSettingsSheet extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: bg,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Column(
@@ -1322,13 +1319,20 @@ class _RecitationSettingsSheet extends StatelessWidget {
                     ),
                   ),
                   // Title
-                  Text('إعدادات التلاوة', style: titleStyle, textAlign: TextAlign.center),
+                  Text(
+                    'إعدادات التلاوة',
+                    style: titleStyle,
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 16),
                   Divider(color: dividerColor, height: 1),
                   const SizedBox(height: 12),
 
                   // ── القارئ ────────────────────────────────────────────────
-                  _RsReciterRow(labelStyle: labelStyle, subTextColor: subTextColor),
+                  _RsReciterRow(
+                    labelStyle: labelStyle,
+                    subTextColor: subTextColor,
+                  ),
                   const SizedBox(height: 12),
                   Divider(color: dividerColor, height: 1),
                   const SizedBox(height: 12),
@@ -1372,12 +1376,16 @@ class _RecitationSettingsSheet extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text('تكملة التلاوة عند الضغط', style: labelStyle),
+                        child: Text(
+                          'تكملة التلاوة عند الضغط',
+                          style: labelStyle,
+                        ),
                       ),
                       Switch(
                         value: settings.mushafContinueTilawa,
-                        onChanged: (v) =>
-                            ctx.read<AppSettingsCubit>().setMushafContinueTilawa(v),
+                        onChanged: (v) => ctx
+                            .read<AppSettingsCubit>()
+                            .setMushafContinueTilawa(v),
                         activeColor: AppColors.secondary,
                         inactiveThumbColor: isDark
                             ? Colors.white.withValues(alpha: 0.55)
@@ -1394,13 +1402,17 @@ class _RecitationSettingsSheet extends StatelessWidget {
                       segments: [
                         ButtonSegment(
                           value: 'page',
-                          label: Text('إلى نهاية الصفحة',
-                              style: GoogleFonts.cairo(fontSize: 12)),
+                          label: Text(
+                            'إلى نهاية الصفحة',
+                            style: GoogleFonts.cairo(fontSize: 12),
+                          ),
                         ),
                         ButtonSegment(
                           value: 'surah',
-                          label: Text('إلى نهاية السورة',
-                              style: GoogleFonts.cairo(fontSize: 12)),
+                          label: Text(
+                            'إلى نهاية السورة',
+                            style: GoogleFonts.cairo(fontSize: 12),
+                          ),
                         ),
                       ],
                       selected: {settings.mushafContinueScope},
@@ -1415,7 +1427,9 @@ class _RecitationSettingsSheet extends StatelessWidget {
                         ),
                         backgroundColor: WidgetStateProperty.resolveWith(
                           (states) => states.contains(WidgetState.selected)
-                              ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.12)
+                              ? AppColors.primary.withValues(
+                                  alpha: isDark ? 0.30 : 0.12,
+                                )
                               : Colors.transparent,
                         ),
                         side: WidgetStateProperty.all(
@@ -1500,8 +1514,8 @@ class _RsReciterRowState extends State<_RsReciterRow> {
             .firstOrNull;
         final settings = ctx.read<AppSettingsCubit>().state;
         final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
-        final name = edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ??
-            currentId;
+        final name =
+            edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ?? currentId;
         return Row(
           children: [
             Expanded(
@@ -1509,11 +1523,13 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('القارئ', style: widget.labelStyle),
-                  Text(name,
-                      style: widget.labelStyle.copyWith(
-                        color: widget.subTextColor,
-                        fontSize: 12,
-                      )),
+                  Text(
+                    name,
+                    style: widget.labelStyle.copyWith(
+                      color: widget.subTextColor,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1554,8 +1570,7 @@ class _MushafReciterPickerSheet extends StatefulWidget {
       _MushafReciterPickerSheetState();
 }
 
-class _MushafReciterPickerSheetState
-    extends State<_MushafReciterPickerSheet> {
+class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   late String _selected;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
@@ -1579,8 +1594,9 @@ class _MushafReciterPickerSheetState
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final surfaceColor =
-        isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF5F5F5);
+    final surfaceColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFF5F5F5);
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final subtleColor = isDark
         ? Colors.white.withValues(alpha: 0.40)
@@ -1607,8 +1623,7 @@ class _MushafReciterPickerSheetState
         child: Container(
           decoration: BoxDecoration(
             color: bg,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1628,8 +1643,10 @@ class _MushafReciterPickerSheetState
 
               // ── Header ───────────────────────────────────────────────
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -1639,8 +1656,11 @@ class _MushafReciterPickerSheetState
                         color: accent.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.record_voice_over_rounded,
-                          color: accent, size: 18),
+                      child: const Icon(
+                        Icons.record_voice_over_rounded,
+                        color: accent,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -1655,7 +1675,9 @@ class _MushafReciterPickerSheetState
                     Text(
                       '${all.length} قارئ',
                       style: GoogleFonts.cairo(
-                          fontSize: 12, color: subtleColor),
+                        fontSize: 12,
+                        color: subtleColor,
+                      ),
                     ),
                   ],
                 ),
@@ -1663,30 +1685,41 @@ class _MushafReciterPickerSheetState
 
               // ── Search bar ───────────────────────────────────────────
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: TextField(
                   controller: _searchController,
                   textDirection: TextDirection.rtl,
-                  style:
-                      GoogleFonts.cairo(fontSize: 13, color: textColor),
+                  style: GoogleFonts.cairo(fontSize: 13, color: textColor),
                   decoration: InputDecoration(
                     hintText: 'ابحث عن قارئ…',
                     hintStyle: GoogleFonts.cairo(
-                        fontSize: 13, color: subtleColor),
-                    prefixIcon: Icon(Icons.search_rounded,
-                        color: subtleColor, size: 20),
+                      fontSize: 13,
+                      color: subtleColor,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: subtleColor,
+                      size: 20,
+                    ),
                     suffixIcon: _query.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.close_rounded,
-                                size: 18, color: subtleColor),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: subtleColor,
+                            ),
                             onPressed: () => _searchController.clear(),
                           )
                         : null,
                     filled: true,
                     fillColor: surfaceColor,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -1697,10 +1730,11 @@ class _MushafReciterPickerSheetState
 
               // ── Divider ──────────────────────────────────────────────
               Divider(
-                  height: 1,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06)),
+                height: 1,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
 
               // ── List ─────────────────────────────────────────────────
               ConstrainedBox(
@@ -1713,20 +1747,24 @@ class _MushafReciterPickerSheetState
                         child: Text(
                           'لا توجد نتائج',
                           style: GoogleFonts.cairo(
-                              fontSize: 13, color: subtleColor),
+                            fontSize: 13,
+                            color: subtleColor,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 4),
+                        separatorBuilder: (_, __) => const SizedBox(height: 4),
                         itemBuilder: (ctx, i) {
                           final e = filtered[i];
                           final name = e.displayNameForAppLanguage(
-                              widget.isAr ? 'ar' : 'en');
+                            widget.isAr ? 'ar' : 'en',
+                          );
                           final isSelected = e.identifier == _selected;
                           return Material(
                             color: isSelected
@@ -1736,8 +1774,7 @@ class _MushafReciterPickerSheetState
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () async {
-                                setState(
-                                    () => _selected = e.identifier);
+                                setState(() => _selected = e.identifier);
                                 await widget.onSelected(e.identifier);
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
@@ -1745,7 +1782,9 @@ class _MushafReciterPickerSheetState
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 11),
+                                  horizontal: 14,
+                                  vertical: 11,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -1771,9 +1810,10 @@ class _MushafReciterPickerSheetState
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Icon(
-                                            Icons.check_rounded,
-                                            color: Colors.white,
-                                            size: 14),
+                                          Icons.check_rounded,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
                                       ),
                                   ],
                                 ),
@@ -1799,13 +1839,13 @@ class _MushafFooter extends StatelessWidget {
   final bool isDark;
   const _MushafFooter({super.key, required this.page, required this.isDark});
 
-  static const _tealL    = Color(0xFF2A7F6B);
+  static const _tealL = Color(0xFF2A7F6B);
   static const _tealD    = Color(0xFF1F6F5E);
-  static const _tealBot  = Color(0xFF3C9A80);
-  static const _darkL    = Color(0xFF1A5244);
-  static const _darkD    = Color(0xFF133D31);
+  static const _tealBot = Color(0xFF3C9A80);
+  static const _darkL = Color(0xFF1A5244);
+  static const _darkD = Color(0xFF133D31);
   static const _borderCol = Color(0xFFE6D9A8);
-  static const _textCol   = Color(0xFFF5E6B5);
+  static const _textCol = Color(0xFFF5E6B5);
 
   @override
   Widget build(BuildContext context) {
@@ -1822,9 +1862,7 @@ class _MushafFooter extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [barTop, barBot],
         ),
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(32),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -1856,7 +1894,7 @@ class _MushafFooter extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: _textCol,
-                    height: 1.0
+                    height: 1.0,
                   ),
                 ),
               ),
@@ -2002,10 +2040,9 @@ class _PageTextState extends State<_PageText> {
     if (settings.mushafContinueTilawa) {
       if (settings.mushafContinueScope == 'surah') {
         final idx = surahNumber - 1;
-        final totalAyahs =
-            idx >= 0 && idx < _kSurahAyahCounts.length
-                ? _kSurahAyahCounts[idx]
-                : ayahNumber;
+        final totalAyahs = idx >= 0 && idx < _kSurahAyahCounts.length
+            ? _kSurahAyahCounts[idx]
+            : ayahNumber;
         cubit.playAyahRange(
           surahNumber: surahNumber,
           startAyah: ayahNumber,
@@ -2026,10 +2063,7 @@ class _PageTextState extends State<_PageText> {
         );
       }
     } else {
-      cubit.togglePlayAyah(
-        surahNumber: surahNumber,
-        ayahNumber: ayahNumber,
-      );
+      cubit.togglePlayAyah(surahNumber: surahNumber, ayahNumber: ayahNumber);
     }
   }
 
@@ -2122,7 +2156,8 @@ class _PageTextState extends State<_PageText> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SizedBox(
-                        width: 12, height: 12,
+                        width: 12,
+                        height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 1.5,
                           color: isDark
@@ -2160,10 +2195,9 @@ class _PageTextState extends State<_PageText> {
                   section.entries.first.verse.ayah == 1 &&
                   section.surahNum != 1 &&
                   section.surahNum != 9) {
-                children.add(_Basmala(
-                  isDark: isDark,
-                  quranFont: settings.quranFont,
-                ));
+                children.add(
+                  _Basmala(isDark: isDark, quranFont: settings.quranFont),
+                );
               }
 
               // Whether we showed a basmala header for this section.
@@ -2196,7 +2230,12 @@ class _PageTextState extends State<_PageText> {
                   }
                   ..onTap = () {
                     HapticFeedback.selectionClick();
-                    _playVerse(cubit, settings, capturedVerse.surah, capturedVerse.ayah);
+                    _playVerse(
+                      cubit,
+                      settings,
+                      capturedVerse.surah,
+                      capturedVerse.ayah,
+                    );
                   };
                 _recognizers.add(tapRec);
 
@@ -2209,7 +2248,8 @@ class _PageTextState extends State<_PageText> {
                 if (widget.tajweedMode && widget.tajweedTexts != null) {
                   tajweedRaw = widget.tajweedTexts!['${v.surah}:${v.ayah}'];
                 }
-                final bool useTajweed = tajweedRaw != null &&
+                final bool useTajweed =
+                    tajweedRaw != null &&
                     tajweedRaw.isNotEmpty &&
                     hasTajweedMarkers(tajweedRaw);
 
@@ -2231,10 +2271,7 @@ class _PageTextState extends State<_PageText> {
                     isDark: isDark,
                   );
                   spans.add(
-                    TextSpan(
-                      children: tajweedSpans,
-                      recognizer: tapRec,
-                    ),
+                    TextSpan(children: tajweedSpans, recognizer: tapRec),
                   );
                 } else {
                   // Normal rendering (or tajweed data not yet loaded).
@@ -2441,8 +2478,7 @@ class _SurahHeader extends StatelessWidget {
         final double w = portrait
             ? constraints.maxWidth * 0.95
             : constraints.maxWidth * 0.8;
-        final double fs =
-            portrait ? w * 0.065 : constraints.maxWidth * 0.045;
+        final double fs = portrait ? w * 0.065 : constraints.maxWidth * 0.045;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Stack(
@@ -2477,10 +2513,7 @@ class _SurahHeader extends StatelessWidget {
 class _Basmala extends StatelessWidget {
   final bool isDark;
   final String quranFont;
-  const _Basmala({
-    required this.isDark,
-    required this.quranFont,
-  });
+  const _Basmala({required this.isDark, required this.quranFont});
 
   @override
   Widget build(BuildContext context) {
@@ -2569,18 +2602,18 @@ String _toArabicNum(int n) {
 
 /// Ayah counts per surah (index 0 = surah 1).
 const List<int> _kSurahAyahCounts = [
-   7, 286, 200, 176, 120, 165, 206,  75, 129, 109, // 1-10
- 123, 111,  43,  52,  99, 128, 111, 110,  98, 135, // 11-20
- 112,  78, 118,  64,  77, 227,  93,  88,  69,  60, // 21-30
-  34,  30,  73,  54,  45,  83, 182,  88,  75,  85, // 31-40
-  54,  53,  89,  59,  37,  35,  38,  29,  18,  45, // 41-50
-  60,  49,  62,  55,  78,  96,  29,  22,  24,  13, // 51-60
-  14,  11,  11,  18,  12,  12,  30,  52,  52,  44, // 61-70
-  28,  28,  20,  56,  40,  31,  50,  40,  46,  42, // 71-80
-  29,  19,  36,  25,  22,  17,  19,  26,  30,  20, // 81-90
-  15,  21,  11,   8,   8,  19,   5,   8,   8,  11, // 91-100
-  11,   8,   3,   9,   5,   4,   7,   3,   6,   3, // 101-110
-   5,   4,   5,   6,                               // 111-114
+  7, 286, 200, 176, 120, 165, 206, 75, 129, 109, // 1-10
+  123, 111, 43, 52, 99, 128, 111, 110, 98, 135, // 11-20
+  112, 78, 118, 64, 77, 227, 93, 88, 69, 60, // 21-30
+  34, 30, 73, 54, 45, 83, 182, 88, 75, 85, // 31-40
+  54, 53, 89, 59, 37, 35, 38, 29, 18, 45, // 41-50
+  60, 49, 62, 55, 78, 96, 29, 22, 24, 13, // 51-60
+  14, 11, 11, 18, 12, 12, 30, 52, 52, 44, // 61-70
+  28, 28, 20, 56, 40, 31, 50, 40, 46, 42, // 71-80
+  29, 19, 36, 25, 22, 17, 19, 26, 30, 20, // 81-90
+  15, 21, 11, 8, 8, 19, 5, 8, 8, 11, // 91-100
+  11, 8, 3, 9, 5, 4, 7, 3, 6, 3, // 101-110
+  5, 4, 5, 6, // 111-114
 ];
 
 const _kSurahNames = [
