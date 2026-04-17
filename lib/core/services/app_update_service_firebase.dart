@@ -20,6 +20,10 @@ class AppUpdateServiceFirebase {
   final FirebaseRemoteConfig _remoteConfig;
   final SharedPreferences _prefs;
 
+  static const String _androidPackageId = 'com.nooraliman.quran';
+  static const String _androidPlayStoreWebUrl =
+      'https://play.google.com/store/apps/details?id=$_androidPackageId';
+
   // Remote Config keys
   static const String _keyLatestVersion = 'latest_version';
   static const String _keyMinimumVersion = 'minimum_version';
@@ -131,9 +135,10 @@ class AppUpdateServiceFirebase {
         final isMandatory =
           _remoteConfig.getBool(_keyIsMandatory) ||
           _remoteConfig.getBool(_keyIsMandatoryLegacy);
-      // Resolve the correct download URL for this device's CPU architecture.
-      // For split-per-ABI builds each ABI has its own APK with a separate URL.
-      final downloadUrl = _getAbiSpecificDownloadUrl();
+      // Resolve URL from Remote Config, then sanitize for current platform.
+      // On Android we only allow Play Store destinations.
+      final rawDownloadUrl = _getAbiSpecificDownloadUrl();
+      final downloadUrl = _sanitizeDownloadUrl(rawDownloadUrl);
       final changelogAr = _remoteConfig.getString(_keyChangelogAr);
       final changelogEn = _remoteConfig.getString(_keyChangelogEn);
       final releaseDateStr = _remoteConfig.getString(_keyReleaseDate);
@@ -150,7 +155,8 @@ class AppUpdateServiceFirebase {
         print('?? Mandatory: $isMandatory '
           '(is_mandatory=${_remoteConfig.getBool(_keyIsMandatory)}, '
           'mandatory_update=${_remoteConfig.getBool(_keyIsMandatoryLegacy)})');
-      print('?? Download URL (ABI-resolved): $downloadUrl');
+      print('?? Download URL (raw): $rawDownloadUrl');
+      print('?? Download URL (sanitized): $downloadUrl');
 
       // Build changelog map
       final changelogMap = <String, String>{};
@@ -374,7 +380,7 @@ class AppUpdateServiceFirebase {
   ///
   /// Priority:
   ///   1. ABI-specific Remote Config key  (e.g. download_url_arm64_v8a)
-  ///   2. Generic download_url key        (Play Store / direct link)
+  ///   2. Generic download_url key
   ///   3. Empty string if nothing is set
   String _getAbiSpecificDownloadUrl() {
     final abiSuffix = _detectAbi();
@@ -388,5 +394,49 @@ class AppUpdateServiceFirebase {
       print('?? [Update] ABI=$abiSuffix ? per-ABI URL empty, falling back to generic');
     }
     return _remoteConfig.getString(_keyDownloadUrl);
+  }
+
+  /// Enforces platform-specific URL policy.
+  ///
+  /// Android policy:
+  /// - Only Play Store URLs are allowed.
+  /// - Any non-Play link (including direct APK links) falls back to the
+  ///   official Play listing for this package.
+  String _sanitizeDownloadUrl(String rawUrl) {
+    final candidate = rawUrl.trim();
+
+    if (!Platform.isAndroid) {
+      return candidate;
+    }
+
+    if (candidate.isEmpty) {
+      return _androidPlayStoreWebUrl;
+    }
+
+    final uri = Uri.tryParse(candidate);
+    if (uri == null) {
+      return _androidPlayStoreWebUrl;
+    }
+
+    final appId = uri.queryParameters['id'];
+    final isPlayWeb =
+        uri.scheme == 'https' &&
+        uri.host == 'play.google.com' &&
+        uri.path.startsWith('/store/apps/details') &&
+        appId == _androidPackageId;
+
+    final isPlayMarket =
+        uri.scheme == 'market' &&
+        uri.host == 'details' &&
+        appId == _androidPackageId;
+
+    if (isPlayWeb || isPlayMarket) {
+      return candidate;
+    }
+
+    if (kDebugMode) {
+      print('?? [Update] Blocked non-Play Android URL: $candidate');
+    }
+    return _androidPlayStoreWebUrl;
   }
 }

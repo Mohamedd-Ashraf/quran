@@ -41,6 +41,13 @@ class AppUpdateDialogPremium extends StatefulWidget {
 }
 
 class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
+  static const String _androidPackageId = 'com.nooraliman.quran';
+  static final Uri _androidMarketUri =
+      Uri.parse('market://details?id=$_androidPackageId');
+  static final Uri _androidPlayWebUri = Uri.parse(
+    'https://play.google.com/store/apps/details?id=$_androidPackageId',
+  );
+
   bool _isUpdating = false;
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
@@ -334,7 +341,7 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
     setState(() => _isUpdating = true);
 
     try {
-      if (Platform.isAndroid && widget.updateInfo.downloadUrl != null) {
+      if (Platform.isAndroid) {
         // Try in-app update first (Google Play).
         final inAppAvailable =
             await widget.updateService.checkInAppUpdateAvailability();
@@ -389,9 +396,27 @@ class _AppUpdateDialogPremiumState extends State<AppUpdateDialogPremium> {
   }
 
   Future<void> _openStore() async {
-    if (widget.updateInfo.downloadUrl != null) {
-      final url = Uri.parse(widget.updateInfo.downloadUrl!);
-      if (await canLaunchUrl(url)) {
+    if (Platform.isAndroid) {
+      if (await canLaunchUrl(_androidMarketUri)) {
+        final opened = await launchUrl(
+          _androidMarketUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!opened && await canLaunchUrl(_androidPlayWebUri)) {
+          await launchUrl(
+            _androidPlayWebUri,
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      } else if (await canLaunchUrl(_androidPlayWebUri)) {
+        await launchUrl(
+          _androidPlayWebUri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } else if (widget.updateInfo.downloadUrl != null) {
+      final url = Uri.tryParse(widget.updateInfo.downloadUrl!);
+      if (url != null && await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       }
     }

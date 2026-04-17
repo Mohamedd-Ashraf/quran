@@ -291,7 +291,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                 // -- Old Mushaf style (text font, paged) ------------------
                 // Shown when the QCF toggle is OFF. MushafPageScreen renders
                 // pages 1-604 with the user-selected Arabic font (Shahrzad,
-                // Amiri, Naskh, …) instead of QCF bitmap glyphs.
+                // Amiri, Naskh, etc.) instead of QCF bitmap glyphs.
                 final initialPage = widget.initialPageNumber ??
                     _findPageForAyah(
                         surah.ayahs, widget.initialAyahNumber ?? 1) ??

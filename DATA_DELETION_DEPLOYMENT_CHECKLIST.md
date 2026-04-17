@@ -104,9 +104,10 @@ firebase deploy --only hosting:public/privacy.html
 ## Testing Checklist
 
 - [ ] Deploy data-deletion-request.html to Firebase
+- [ ] Deploy updated firestore.rules to Firebase
 - [ ] Verify URL is accessible at https://quraan-dd543.web.app/data-deletion-request
 - [ ] Test language toggle works
-- [ ] Test form submission (should log to console in development)
+- [ ] Test form submission (should create a new document in Firestore collection `data_deletion_requests`)
 - [ ] Verify privacy.html links point to correct URLs
 - [ ] Build and run Flutter app in Android/iOS
 - [ ] Verify Settings screen button opens data deletion page
@@ -114,10 +115,10 @@ firebase deploy --only hosting:public/privacy.html
 
 ## Notes
 
-- The data-deletion-request.html form currently logs submissions to browser console in production
-- For actual processing, integrate with a backend service (e.g., Cloud Functions)
-- Email verification should be implemented server-side
-- Deletion should be processed by backend service, not on client
+- The data-deletion-request.html form now writes requests to Firestore collection `data_deletion_requests`
+- Firestore security rules were updated to allow create-only validated submissions for this collection
+- Email verification and deletion execution workflow still need server-side automation (next phase)
+- Actual deletion should be processed by a protected backend/admin workflow, not by the public form
 
 ## Files Summary
 
@@ -133,4 +134,4 @@ e:\Quraan\quraan\
 └── PLAY_CONSOLE_GUIDE_AR.md (UPDATED)
 ```
 
-All files are production-ready and comply with Google Play's Policy on Data Deletion Requests.
+First implementation step is now live: request capture is real (Firestore-backed) instead of placeholder logging.

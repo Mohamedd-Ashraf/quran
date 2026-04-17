@@ -8,7 +8,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/search_tutorial.dart';
 import '../cubit/search/search_cubit.dart';
 import '../cubit/search/search_state.dart';
-import 'surah_detail_screen.dart';
+import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});

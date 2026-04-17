@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:quraan/core/services/app_update_service.dart';
-import 'package:quraan/core/utils/update_checker.dart';
-import 'package:quraan/core/di/injection_container.dart' as di;
+import 'package:noor_al_imaan/core/services/app_update_service.dart';
+import 'package:noor_al_imaan/core/utils/update_checker.dart';
+import 'package:noor_al_imaan/core/di/injection_container.dart' as di;
 
 /// Example of how to add "Check for Updates" button in your settings screen
 /// 

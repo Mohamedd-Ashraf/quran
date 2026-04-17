@@ -32,10 +32,7 @@ class PrayerTimesService : Service() {
         private const val TAG        = "PrayerTimesService"
         const  val CHANNEL_ID        = "prayer_times_persistent"
         const  val NOTIF_ID          = 7_700
-
-        /** Sent as deleteIntent when the user swipes/clears the notification on Android 14+.
-         *  Causes the service to immediately re-pin itself as a foreground notification. */
-        private const val ACTION_RESTORE = "com.nooraliman.quran.RESTORE_PRAYER_NOTIF"
+        private const val ACTION_STOP = "com.nooraliman.quran.STOP_PRAYER_NOTIF"
 
         private const val PREFS_NAME        = "FlutterSharedPreferences"
         private const val KEY_PRAYER_TIMES  = "flutter.cached_prayer_times"
@@ -75,18 +72,24 @@ class PrayerTimesService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_RESTORE) {
-            // On Android 14+ the user dismissed the notification; re-pin it immediately.
-            startForeground(NOTIF_ID, buildNotification())
-            Log.d(TAG, "Notification restored after user dismissal")
-            return START_STICKY
+        if (intent?.action == ACTION_STOP) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            stopSelf()
+            Log.d(TAG, "Stopped by notification action")
+            return START_NOT_STICKY
         }
+
         startForeground(NOTIF_ID, buildNotification())
         // Schedule periodic updates; first tick in 60 s (we just built on start).
         handler.removeCallbacks(updateRunnable)
         handler.postDelayed(updateRunnable, 60_000L)
         Log.d(TAG, "Started")
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -133,11 +136,10 @@ class PrayerTimesService : Service() {
             )
         }
 
-        // On Android 14+ users can dismiss foreground-service notifications.
-        // When that happens, call back into the service to re-pin immediately.
-        val restorePi = PendingIntent.getService(
+        // Explicit stop action so user keeps direct control from the shade.
+        val stopPi = PendingIntent.getService(
             this, 42,
-            Intent(this, PrayerTimesService::class.java).setAction(ACTION_RESTORE),
+            Intent(this, PrayerTimesService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -159,15 +161,15 @@ class PrayerTimesService : Service() {
 
         if (largeIcon != null) builder.setLargeIcon(largeIcon)
         if (openPi   != null) builder.setContentIntent(openPi)
-        builder.setDeleteIntent(restorePi)
+        val stopLabel = if (isArabic) "إيقاف" else "Stop"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            builder.addAction(Notification.Action.Builder(null, stopLabel, stopPi).build())
+        } else {
+            @Suppress("DEPRECATION")
+            builder.addAction(0, stopLabel, stopPi)
+        }
 
-        val notif = builder.build()
-        // FLAG_ONGOING_EVENT — excluded from "Clear all" swipe
-        // FLAG_NO_CLEAR      — explicitly blocks user-initiated removal
-        notif.flags = notif.flags or
-                Notification.FLAG_ONGOING_EVENT or
-                Notification.FLAG_NO_CLEAR
-        return notif
+        return builder.build()
     }
 
     private fun ensureNotificationChannel() {

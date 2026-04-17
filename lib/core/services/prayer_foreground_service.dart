@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 /// - The actual work is done by [PrayerTimesService.kt] — a pure native
 ///   Android foreground service.  All data is read from SharedPreferences
 ///   inside the native service, so no Dart isolate is involved.
-/// - The notification is created with FLAG_ONGOING_EVENT | FLAG_NO_CLEAR,
-///   so it cannot be dismissed via "Clear all".
+/// - The notification is user-enabled from settings and includes a stop action
+///   so users can disable it directly from the notification shade.
 /// - The notification icon uses Splash_dark_transparent.png from Flutter
 ///   assets (same as AdhanAlarmReceiver).
 /// - Operations are forwarded to native via the existing `quraan/adhan_player`

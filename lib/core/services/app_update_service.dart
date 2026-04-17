@@ -1,3 +1,4 @@
+import 'dart:io' if (dart.library.html) 'stubs/mobile_platform_stub.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -8,6 +9,10 @@ import '../models/app_update_info.dart';
 class AppUpdateService {
   final http.Client _client;
   final SharedPreferences _prefs;
+
+  static const String _androidPackageId = 'com.nooraliman.quran';
+  static const String _androidPlayStoreWebUrl =
+      'https://play.google.com/store/apps/details?id=$_androidPackageId';
 
   // You can host this JSON file on your server, GitHub, or Firebase
   // Example: https://your-domain.com/app-config/update-info.json
@@ -45,41 +50,95 @@ class AppUpdateService {
 
       final jsonData = json.decode(response.body) as Map<String, dynamic>;
       final updateInfo = AppUpdateInfo.fromJson(jsonData, currentVersion);
+      final safeDownloadUrl = _sanitizeDownloadUrl(updateInfo.downloadUrl);
+
+      final safeUpdateInfo = AppUpdateInfo(
+        latestVersion: updateInfo.latestVersion,
+        currentVersion: updateInfo.currentVersion,
+        minimumVersion: updateInfo.minimumVersion,
+        isMandatory: updateInfo.isMandatory,
+        downloadUrl: safeDownloadUrl,
+        changelogByLanguage: updateInfo.changelogByLanguage,
+        releaseDate: updateInfo.releaseDate,
+      );
 
       // Update last check time
       await _saveLastCheckTime();
 
       // If no update available, return null
-      if (!updateInfo.hasUpdate) {
+      if (!safeUpdateInfo.hasUpdate) {
         return null;
       }
 
       // If update is optional and user skipped this version, return null
-      if (!updateInfo.isMandatory && !updateInfo.isBelowMinimum) {
+      if (!safeUpdateInfo.isMandatory && !safeUpdateInfo.isBelowMinimum) {
         final skippedVersion = _prefs.getString(_keySkippedVersion);
-        if (skippedVersion == updateInfo.latestVersion) {
+        if (skippedVersion == safeUpdateInfo.latestVersion) {
           return null;
         }
       }
 
       // If current version is below minimum, it's mandatory
-      if (updateInfo.isBelowMinimum) {
+      if (safeUpdateInfo.isBelowMinimum) {
         return AppUpdateInfo(
-          latestVersion: updateInfo.latestVersion,
-          currentVersion: updateInfo.currentVersion,
-          minimumVersion: updateInfo.minimumVersion,
+          latestVersion: safeUpdateInfo.latestVersion,
+          currentVersion: safeUpdateInfo.currentVersion,
+          minimumVersion: safeUpdateInfo.minimumVersion,
           isMandatory: true, // Force mandatory
-          downloadUrl: updateInfo.downloadUrl,
-          changelogByLanguage: updateInfo.changelogByLanguage,
-          releaseDate: updateInfo.releaseDate,
+          downloadUrl: safeUpdateInfo.downloadUrl,
+          changelogByLanguage: safeUpdateInfo.changelogByLanguage,
+          releaseDate: safeUpdateInfo.releaseDate,
         );
       }
 
-      return updateInfo;
+      return safeUpdateInfo;
     } catch (e) {
       // Log error if needed
       return null;
     }
+  }
+
+  /// Enforces platform-specific update URL policy.
+  ///
+  /// Android: only Play Store links are allowed.
+  /// Any other link falls back to the official Play listing.
+  String? _sanitizeDownloadUrl(String? rawUrl) {
+    if (rawUrl == null) {
+      return Platform.isAndroid ? _androidPlayStoreWebUrl : null;
+    }
+
+    final candidate = rawUrl.trim();
+
+    if (!Platform.isAndroid) {
+      return candidate.isEmpty ? null : candidate;
+    }
+
+    if (candidate.isEmpty) {
+      return _androidPlayStoreWebUrl;
+    }
+
+    final uri = Uri.tryParse(candidate);
+    if (uri == null) {
+      return _androidPlayStoreWebUrl;
+    }
+
+    final appId = uri.queryParameters['id'];
+    final isPlayWeb =
+        uri.scheme == 'https' &&
+        uri.host == 'play.google.com' &&
+        uri.path.startsWith('/store/apps/details') &&
+        appId == _androidPackageId;
+
+    final isPlayMarket =
+        uri.scheme == 'market' &&
+        uri.host == 'details' &&
+        appId == _androidPackageId;
+
+    if (isPlayWeb || isPlayMarket) {
+      return candidate;
+    }
+
+    return _androidPlayStoreWebUrl;
   }
 
   /// Check if enough time has passed since last check (to avoid frequent checks)

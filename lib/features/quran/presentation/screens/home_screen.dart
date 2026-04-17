@@ -23,7 +23,7 @@ import 'offline_audio_screen.dart';
 import 'quran_radio_screen.dart';
 import 'juz_list_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
-import 'surah_detail_screen.dart';
+import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 import '../../../islamic/presentation/screens/qiblah_screen.dart';
 import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
 import 'search_screen.dart';

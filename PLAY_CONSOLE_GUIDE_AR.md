@@ -252,13 +252,41 @@ https://play.google.com/console/u/0/developers/[id]/app/com.nooraliman.quran/dat
 
 **المسار:**
 1. من sidebar → **Policy** → **App content** أو **Setup** → **Permissions**
-2. ابحث عن `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
-3. اختر: **Alarms & reminders**
-4. في حقل التفسير اكتب:
+2. راجع التصاريح الحساسة المتبقية التالية:
+   - `SCHEDULE_EXACT_ALARM`
+   - `ACCESS_NOTIFICATION_POLICY`
+   - Foreground Service `specialUse`
+3. استخدم وصفًا مطابقًا للسلوك الفعلي داخل التطبيق (بدون مبالغة)
+4. ملاحظة مهمة:
+
+- `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` تم إزالته من Manifest لتقليل حساسية المراجعة.
+- التطبيق يكتفي بتوجيه المستخدم لإعدادات النظام العامة للبطارية بدون طلب إعفاء مباشر.
+
+**نص مقترح لـ SCHEDULE_EXACT_ALARM:**
 
 ```
-Used to ensure Adhan (Islamic prayer call) alarms fire precisely on time without being delayed by Android battery optimization.
+Used to schedule prayer-time alerts (Adhan) at exact times.
+The app is time-sensitive by nature (religious prayer reminders), and inexact delivery can miss the prayer window.
 ```
+
+**نص مقترح لـ ACCESS_NOTIFICATION_POLICY:**
+
+```
+Used only when the user enables silent-during-prayer mode, to temporarily control ringer behavior during configured prayer windows.
+The feature is optional and can be disabled any time from settings.
+```
+
+**نص مقترح لـ Foreground Service (specialUse):**
+
+```
+Used for an optional, user-enabled persistent prayer-times notification showing next prayer and remaining time.
+Users can disable it from app settings or directly from the notification action.
+```
+
+**مرجع جاهز للاستخدام السريع:**
+
+- راجع ملف: `PLAY_CONSOLE_SENSITIVE_PERMISSIONS_DECLARATION.md`
+- وملف: `PLAY_CONSOLE_FGS_DECLARATION.md`
 
 ---
 

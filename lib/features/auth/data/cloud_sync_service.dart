@@ -34,11 +34,32 @@ class CloudSyncService {
   /// Used to detect account switches and as a migration fallback.
   static const String _keyLastSyncedUid = 'cloud_last_synced_uid';
 
+  /// Tracks who owns the current local synced data snapshot.
+  /// Values:
+  /// - guest
+  /// - uid:{firebaseUid}
+  static const String _keyLocalDataOwner = 'cloud_local_data_owner';
+  static const String _localDataOwnerGuest = 'guest';
+  static String _localDataOwnerUser(String uid) => 'uid:$uid';
+
   // ── Auto-sync (debounced) ────────────────────────────────────────────────
   /// Provides the currently signed-in user. Set via [setUserProvider].
   User? Function()? _userProvider;
   Timer? _uploadDebounce;
   static const Duration _uploadDebounceDelay = Duration(seconds: 5);
+  int _activeSyncOperations = 0;
+
+  bool get _isSyncInProgress => _activeSyncOperations > 0;
+
+  void _startSyncOperation() {
+    _activeSyncOperations++;
+  }
+
+  void _finishSyncOperation() {
+    if (_activeSyncOperations > 0) {
+      _activeSyncOperations--;
+    }
+  }
 
   /// Register a provider so `scheduleUpload` can retrieve the active user
   /// without creating a circular dependency.
@@ -51,7 +72,17 @@ class CloudSyncService {
   /// Safe to call from any service whenever local data changes.
   void scheduleUpload() {
     final user = _userProvider?.call();
-    if (user == null || user.isAnonymous) return;
+
+    if (user == null || user.isAnonymous) {
+      // Local mutations while signed out/guest should not be attributed
+      // to the previously signed-in account.
+      unawaited(_setLocalDataOwnerGuest());
+      return;
+    }
+
+    unawaited(_setLocalDataOwnerUser(user.uid));
+    if (_isSyncInProgress) return;
+
     _uploadDebounce?.cancel();
     _uploadDebounce = Timer(_uploadDebounceDelay, () => uploadAll(user));
   }
@@ -74,6 +105,8 @@ class CloudSyncService {
     final doc = _userDoc(user);
     if (doc == null) return;
 
+    _startSyncOperation();
+
     try {
       await Future.wait([
         _uploadProfile(doc, user),
@@ -81,14 +114,12 @@ class CloudSyncService {
         _uploadWird(doc),
         _uploadSettings(doc),
       ]);
-      await _prefs.setString(
-        _syncTimeKey(user.uid),
-        DateTime.now().toIso8601String(),
-      );
-      await _prefs.setString(_keyLastSyncedUid, user.uid);
+      await _recordSuccessfulSync(user);
       debugPrint('CloudSync: uploaded all data for ${user.uid}');
     } catch (e, st) {
       debugPrint('CloudSync: upload failed: $e\n$st');
+    } finally {
+      _finishSyncOperation();
     }
   }
 
@@ -97,20 +128,20 @@ class CloudSyncService {
     final doc = _userDoc(user);
     if (doc == null) return;
 
+    _startSyncOperation();
+
     try {
       await Future.wait([
         _downloadBookmarks(doc),
         _downloadWird(doc),
         _downloadSettings(doc),
       ]);
-      await _prefs.setString(
-        _syncTimeKey(user.uid),
-        DateTime.now().toIso8601String(),
-      );
-      await _prefs.setString(_keyLastSyncedUid, user.uid);
+      await _recordSuccessfulSync(user);
       debugPrint('CloudSync: downloaded all data for ${user.uid}');
     } catch (e, st) {
       debugPrint('CloudSync: download failed: $e\n$st');
+    } finally {
+      _finishSyncOperation();
     }
   }
 
@@ -124,11 +155,21 @@ class CloudSyncService {
     final doc = _userDoc(user);
     if (doc == null) return;
 
+    _startSyncOperation();
+
     try {
       final profileSnap = await doc.get();
+      final localOwnedByDifferentSignedInUser =
+          _isLocalDataOwnedByDifferentSignedInUser(user);
 
       if (!profileSnap.exists) {
-        // Brand-new user: no cloud data yet → upload whatever is local.
+        // For a new cloud profile:
+        // - If local data belongs to a different signed-in account, wipe first
+        //   so old-account data is never copied to this account.
+        // - Otherwise (guest data / same account), keep local and upload.
+        if (localOwnedByDifferentSignedInUser) {
+          await _clearLocalSyncedData();
+        }
         await uploadAll(user);
         return;
       }
@@ -149,7 +190,9 @@ class CloudSyncService {
 
       if (!hasLocalForThisUser) {
         // First time on this device for this user (or account switch):
-        // always restore the user's own cloud data.
+        // clear local synced scope first, then restore the user's cloud data.
+        // This prevents showing/storing leftovers from another account.
+        await _clearLocalSyncedData();
         await downloadAll(user);
         return;
       }
@@ -179,6 +222,51 @@ class CloudSyncService {
       debugPrint('CloudSync: syncAll failed: $e\n$st');
       // Do NOT fall back to uploadAll on error — uploading empty/stale local
       // data could silently destroy the user's cloud data.
+    } finally {
+      _finishSyncOperation();
+    }
+  }
+
+  Future<void> _recordSuccessfulSync(User user) async {
+    final now = DateTime.now().toIso8601String();
+    await _prefs.setString(_syncTimeKey(user.uid), now);
+    // Keep legacy key updated for migration/UI compatibility.
+    await _prefs.setString(_keyLastSyncTime, now);
+    await _prefs.setString(_keyLastSyncedUid, user.uid);
+    await _setLocalDataOwnerUser(user.uid);
+  }
+
+  Future<void> _setLocalDataOwnerGuest() async {
+    await _prefs.setString(_keyLocalDataOwner, _localDataOwnerGuest);
+  }
+
+  Future<void> _setLocalDataOwnerUser(String uid) async {
+    await _prefs.setString(_keyLocalDataOwner, _localDataOwnerUser(uid));
+  }
+
+  bool _isLocalDataOwnedByDifferentSignedInUser(User user) {
+    final owner = _prefs.getString(_keyLocalDataOwner);
+
+    if (owner != null && owner.isNotEmpty) {
+      if (owner == _localDataOwnerGuest) return false;
+      return owner != _localDataOwnerUser(user.uid);
+    }
+
+    // Migration fallback for older app versions that only tracked
+    // "last synced uid".
+    final lastSyncedUid = _prefs.getString(_keyLastSyncedUid);
+    return lastSyncedUid != null &&
+        lastSyncedUid.isNotEmpty &&
+        lastSyncedUid != user.uid;
+  }
+
+  Future<void> _clearLocalSyncedData() async {
+    await _bookmarkService.clearAllBookmarks();
+    await _wirdService.clearPlan();
+    await _wirdService.clearReminderTime();
+
+    for (final key in _syncedSettingsKeys) {
+      await _prefs.remove(key);
     }
   }
 
@@ -386,11 +474,31 @@ class CloudSyncService {
   }
 
   /// Whether this device has ever synced.
-  bool get hasSynced => _prefs.containsKey(_keyLastSyncTime);
+  bool get hasSynced {
+    final user = _userProvider?.call();
+    if (user == null || user.isAnonymous) {
+      return _prefs.containsKey(_keyLastSyncTime);
+    }
+
+    return _prefs.containsKey(_syncTimeKey(user.uid)) ||
+        (_prefs.getString(_keyLastSyncedUid) == user.uid &&
+            _prefs.containsKey(_keyLastSyncTime));
+  }
 
   /// Last sync timestamp.
   DateTime? get lastSyncTime {
-    final str = _prefs.getString(_keyLastSyncTime);
+    final user = _userProvider?.call();
+
+    String? str;
+    if (user != null && !user.isAnonymous) {
+      str = _prefs.getString(_syncTimeKey(user.uid));
+      if (str == null && _prefs.getString(_keyLastSyncedUid) == user.uid) {
+        str = _prefs.getString(_keyLastSyncTime);
+      }
+    } else {
+      str = _prefs.getString(_keyLastSyncTime);
+    }
+
     if (str == null) return null;
     return DateTime.tryParse(str);
   }
@@ -417,7 +525,14 @@ class CloudSyncService {
     }
     // Clear local sync keys for this user
     await _prefs.remove(_syncTimeKey(uid));
-    await _prefs.remove(_keyLastSyncTime);
-    await _prefs.remove(_keyLastSyncedUid);
+
+    if (_prefs.getString(_keyLastSyncedUid) == uid) {
+      await _prefs.remove(_keyLastSyncTime);
+      await _prefs.remove(_keyLastSyncedUid);
+    }
+
+    if (_prefs.getString(_keyLocalDataOwner) == _localDataOwnerUser(uid)) {
+      await _prefs.remove(_keyLocalDataOwner);
+    }
   }
 }

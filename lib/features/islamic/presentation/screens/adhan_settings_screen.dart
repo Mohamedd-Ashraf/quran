@@ -198,6 +198,66 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     }
   }
 
+  /// Best-effort notification permission flow.
+  ///
+  /// - Try runtime request first (Android 13+).
+  /// - If not granted, offer app settings as an optional next step.
+  Future<bool> _ensureNotificationPermission({required bool isAr}) async {
+    if (kIsWeb) return true;
+
+    try {
+      final current = await ph.Permission.notification.status;
+      if (current.isGranted) {
+        if (mounted) setState(() => _notificationPermissionGranted = true);
+        return true;
+      }
+
+      final requested = await ph.Permission.notification.request();
+      await _checkPermissions();
+      if (requested.isGranted || _notificationPermissionGranted) {
+        return true;
+      }
+
+      if (!mounted) return false;
+      final shouldOpenSettings = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(
+                isAr ? 'صلاحية الإشعارات غير مفعلة' : 'Notification Permission Not Granted',
+              ),
+              content: Text(
+                isAr
+                    ? 'يمكنك المتابعة بدونها، لكن الأذان والإشعارات لن تظهر بشكل موثوق حتى يتم السماح بها.'
+                      '\n\nهل تريد فتح إعدادات التطبيق الآن؟'
+                    : 'You can continue without it, but Adhan alerts may not be delivered reliably until notification permission is granted.'
+                      '\n\nOpen app settings now?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(isAr ? 'لاحقاً' : 'Later'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(isAr ? 'فتح الإعدادات' : 'Open Settings'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (shouldOpenSettings) {
+        await ph.openAppSettings();
+        await Future.delayed(const Duration(seconds: 1));
+        await _checkPermissions();
+      }
+
+      return _notificationPermissionGranted;
+    } catch (_) {
+      return _notificationPermissionGranted;
+    }
+  }
+
   Future<dynamic> _handleNativeCallback(MethodCall call) async {
     if (call.method == 'previewCompleted' && mounted) {
       setState(() {
@@ -893,10 +953,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           _NotificationPermissionBanner(
             isAr: isAr,
             onTap: () async {
-              await ph.openAppSettings();
-              // Re-check permissions when returning
-              await Future.delayed(const Duration(seconds: 1));
-              _checkPermissions();
+              await _ensureNotificationPermission(isAr: isAr);
             },
           ),
           const SizedBox(height: 12),
@@ -955,34 +1012,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               value: _notificationsEnabled,
               onChanged: (v) async {
                 if (v && !_notificationPermissionGranted) {
-                  // Show warning and open settings
-                  final shouldOpenSettings = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(isAr ? 'صلاحية الإشعارات مطلوبة' : 'Notification Permission Required'),
-                      content: Text(
-                        isAr 
-                            ? 'لتفعيل الأذان، يجب السماح بالإشعارات أولاً من إعدادات التطبيق.'
-                            : 'To enable Adhan, you must allow notifications from app settings first.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: Text(isAr ? 'إلغاء' : 'Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: Text(isAr ? 'فتح الإعدادات' : 'Open Settings'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (shouldOpenSettings == true) {
-                    await ph.openAppSettings();
-                    await Future.delayed(const Duration(seconds: 1));
-                    _checkPermissions();
+                  final granted = await _ensureNotificationPermission(isAr: isAr);
+                  if (!granted) {
+                    return;
                   }
-                  return;
                 }
                 setState(() => _notificationsEnabled = v);
                 _autoSave();
@@ -1021,8 +1054,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               iconColor: _persistentNotification ? AppColors.primary : Colors.grey,
               titleAr: 'إشعار مواقيت الصلاة الثابت',
               titleEn: 'Persistent Prayer Times',
-              subtitleAr: 'إشعار ثابت يعرض الصلاة القادمة والوقت المتبقي',
-              subtitleEn: 'Always-on notification showing next prayer & remaining time',
+              subtitleAr: 'يعرض الصلاة القادمة والوقت المتبقي، ويمكن إيقافه من الإشعار أو الإعدادات',
+              subtitleEn: 'Shows next prayer and remaining time; can be stopped from notification or settings',
               value: _persistentNotification,
               onChanged: (v) async {
                 setState(() => _persistentNotification = v);
@@ -1364,17 +1397,16 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           onChanged: _notificationsEnabled
               ? (v) async {
                   if (v && !_dndPermissionGranted) {
-                    // Must grant DND permission first.
+                    // DND permission is required only for this optional feature.
                     final ok = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: Text(isAr ? 'مطلوب صلاحية الإزعاج' : 'DND Permission Required'),
+                        title: Text(isAr ? 'صلاحية عدم الإزعاج لهذه الميزة' : 'DND Access for This Feature'),
                         content: Text(isAr
-                            ? 'لتصميت الهاتف تلقائياً يجب منح التطبيق صلاحية "عدم الإزعاج".\n'
-                              'سيُفتح الإعداد الآن — فعّل التطبيق ثم عُد.'
-                            : 'To silence the phone automatically, please grant the app '
-                              '"Do Not Disturb" access.\n'
-                              'The settings screen will open — enable the app then come back.'),
+                            ? 'ميزة تصميت الهاتف أثناء الصلاة اختيارية.\n'
+                              'إذا رغبت في تفعيلها، امنح صلاحية "عدم الإزعاج" من الإعدادات.'
+                            : 'Silent-during-prayer is optional.\n'
+                              'If you want to use it, grant Do Not Disturb access in settings.'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
@@ -3676,8 +3708,8 @@ class _BatteryWarningCard extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: titleColor)),
             const SizedBox(height: 4),
             Text(
-              isAr ? 'لضمان سماع الأذان دائماً، اضغط أدناه واختر "غير مقيَّد"'
-                  : 'For reliable Adhan, tap below and select "Unrestricted"',
+              isAr ? 'اختياري: لتحسين ثبات التنبيهات على بعض الأجهزة، افتح إعدادات البطارية واختر "غير مقيَّد" إن رغبت.'
+                : 'Optional: to improve reliability on some devices, open battery settings and choose "Unrestricted" if desired.',
               style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5),
             ),
           ])),
@@ -3690,7 +3722,7 @@ class _BatteryWarningCard extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 11), elevation: 0),
           icon: const Icon(Icons.battery_charging_full_rounded, size: 18),
-          label: Text(isAr ? 'افتح إعدادات البطارية' : 'Open Battery Settings',
+          label: Text(isAr ? 'افتح إعدادات البطارية (اختياري)' : 'Open Battery Settings (Optional)',
               style: const TextStyle(fontWeight: FontWeight.bold)))),
       ]),
     );

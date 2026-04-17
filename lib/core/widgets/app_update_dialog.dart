@@ -1,3 +1,4 @@
+import 'dart:io' if (dart.library.html) '../services/stubs/mobile_platform_stub.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/app_update_info.dart';
@@ -5,6 +6,13 @@ import '../services/app_update_service.dart';
 
 /// Dialog widget for showing app update notification
 class AppUpdateDialog extends StatelessWidget {
+  static const String _androidPackageId = 'com.nooraliman.quran';
+  static final Uri _androidMarketUri =
+      Uri.parse('market://details?id=$_androidPackageId');
+  static final Uri _androidPlayWebUri = Uri.parse(
+    'https://play.google.com/store/apps/details?id=$_androidPackageId',
+  );
+
   final AppUpdateInfo updateInfo;
   final AppUpdateService updateService;
   final String languageCode;
@@ -137,9 +145,27 @@ class AppUpdateDialog extends StatelessWidget {
           // "Update" button
           FilledButton(
             onPressed: () async {
-              if (updateInfo.downloadUrl != null) {
-                final url = Uri.parse(updateInfo.downloadUrl!);
-                if (await canLaunchUrl(url)) {
+              if (Platform.isAndroid) {
+                if (await canLaunchUrl(_androidMarketUri)) {
+                  final opened = await launchUrl(
+                    _androidMarketUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (!opened && await canLaunchUrl(_androidPlayWebUri)) {
+                    await launchUrl(
+                      _androidPlayWebUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                } else if (await canLaunchUrl(_androidPlayWebUri)) {
+                  await launchUrl(
+                    _androidPlayWebUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              } else if (updateInfo.downloadUrl != null) {
+                final url = Uri.tryParse(updateInfo.downloadUrl!);
+                if (url != null && await canLaunchUrl(url)) {
                   await launchUrl(url, mode: LaunchMode.externalApplication);
                 }
               }

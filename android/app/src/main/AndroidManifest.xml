@@ -8,9 +8,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- Required on Android 14+ for download progress notifications / persistent prayer times -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Android 14+ special-use foreground service permission for optional prayer-times pin -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Required to change ringer mode / enable Do-Not-Disturb during prayer -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -59,11 +58,16 @@
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
-        <!-- Persistent prayer-times foreground notification (native PrayerTimesService) -->
+        <!-- Optional user-enabled prayer-times foreground notification -->
         <service
             android:name=".PrayerTimesService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <!-- Required for specialUse foreground service type on Android 14+ -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="user_enabled_persistent_prayer_times_notification" />
+        </service>
 
         <!-- just_audio_background: keeps Quran audio alive with screen off -->
         <service

@@ -20,26 +20,25 @@ download_url:
   Type: String
   Value: "https://play.google.com/store/apps/details?id=com.yourcompany.quraan"
   Description: |
-    Fallback download URL used when:
-      • The device is running iOS (App Store link)
-      • The app is distributed via a single universal APK
-      • No ABI-specific URL is set for the device's architecture
-    Leave empty if you always use per-ABI URLs below.
+    Update destination URL.
+    Android production policy: use Google Play listing URL only.
+    iOS: use the App Store listing URL.
+    Non-store direct APK links are blocked by app code on Android.
 
 download_url_arm64_v8a:
   Type: String
   Value: ""
-  Description: "Direct download URL for the arm64-v8a APK."
+  Description: "Deprecated for Android production. Keep empty."
 
 download_url_armeabi_v7a:
   Type: String
   Value: ""
-  Description: "Direct download URL for the armeabi-v7a APK."
+  Description: "Deprecated for Android production. Keep empty."
 
 download_url_x86_64:
   Type: String
   Value: ""
-  Description: "Direct download URL for the x86_64 APK (emulators / Chromebooks)."
+  Description: "Deprecated for Android production. Keep empty."
 
 changelog_ar:
   Type: String

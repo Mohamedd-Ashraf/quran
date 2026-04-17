@@ -10,9 +10,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:quraan/core/services/settings_service.dart';
-import 'package:quraan/core/settings/app_settings_cubit.dart';
-import 'package:quraan/features/islamic/presentation/screens/onboarding_screen.dart';
+import 'package:noor_al_imaan/core/services/settings_service.dart';
+import 'package:noor_al_imaan/core/settings/app_settings_cubit.dart';
+import 'package:noor_al_imaan/features/islamic/presentation/screens/onboarding_screen.dart';
 
 void main() {
   setUpAll(() async {

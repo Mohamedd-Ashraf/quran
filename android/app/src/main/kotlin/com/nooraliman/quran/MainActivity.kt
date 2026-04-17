@@ -520,25 +520,23 @@ class MainActivity : AudioServiceFragmentActivity() {
     // ── Battery optimization ───────────────────────────────────────────────
 
     /**
-     * Tries to open the system dialog to whitelist this app from battery optimization.
-     * On Android 6+ this launches the REQUEST_IGNORE_BATTERY_OPTIMIZATIONS intent which
-     * directly asks the user for this app. Falls back to the general settings page.
+     * Opens battery optimization settings pages only.
+     *
+     * We intentionally avoid launching the direct per-app exemption dialog to keep
+     * permission behavior conservative for Play policy review.
      */
     private fun openBatterySettings() {
         try {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                    // Direct per-app dialog – user taps "Allow" and we're whitelisted.
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
-                    return
-                }
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                return
             }
-            // Already whitelisted or < Android 6 — open the general settings page.
-            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+
+            // < Android 6 fallback: app details settings.
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
         } catch (e: Exception) {
             Log.w("MainActivity", "Cannot open battery settings: ${e.message}")
             // Final fallback: open main app settings

@@ -242,6 +242,22 @@
             margin-bottom: 20px;
             display: none;
         }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        button:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
         
         .data-types {
             display: flex;
@@ -396,6 +412,10 @@
                 <div class="success-message" id="successMessage">
                     ✓ تم استقبال طلبك! سنتاصل بك قريباً عبر البريد الإلكتروني.
                 </div>
+
+                <div class="error-message" id="errorMessage">
+                    حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى بعد قليل.
+                </div>
                 
                 <form id="dataDeleteForm" onsubmit="handleSubmit(event)">
                     <div class="section">
@@ -450,6 +470,11 @@
                         <div class="form-group">
                             <label for="reason-ar">السبب (اختياري):</label>
                             <textarea id="reason-ar" name="reason" placeholder="أخبرنا لماذا تريد حذف هذه البيانات (لنتحسن إن أمكن)..."></textarea>
+                        </div>
+
+                        <div style="display: none;">
+                            <label for="website-ar">Website</label>
+                            <input type="text" id="website-ar" name="website" autocomplete="off" tabindex="-1">
                         </div>
                         
                         <button type="submit">إرسال طلب الحذف</button>
@@ -517,6 +542,10 @@
                 <div class="success-message" id="successMessageEn">
                     ✓ Your request has been received! We'll contact you soon via email.
                 </div>
+
+                <div class="error-message" id="errorMessageEn">
+                    An error occurred while submitting your request. Please try again.
+                </div>
                 
                 <form id="dataDeleteFormEn" onsubmit="handleSubmitEn(event)">
                     <div class="section">
@@ -572,6 +601,11 @@
                             <label for="reason-en">Reason (optional):</label>
                             <textarea id="reason-en" name="reason" placeholder="Tell us why you want to delete this data (so we can improve)..."></textarea>
                         </div>
+
+                        <div style="display: none;">
+                            <label for="website-en">Website</label>
+                            <input type="text" id="website-en" name="website" autocomplete="off" tabindex="-1">
+                        </div>
                         
                         <button type="submit">Submit Deletion Request</button>
                     </div>
@@ -591,80 +625,180 @@
         </div>
     </div>
     
-    <script>
-        function toggleLanguage() {
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+        import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: 'AIzaSyCCk24viuidMpVSJrWGMqNC1pcsI3TvmgM',
+            authDomain: 'quraan-dd543.firebaseapp.com',
+            projectId: 'quraan-dd543',
+            storageBucket: 'quraan-dd543.firebasestorage.app',
+            messagingSenderId: '1039427063284',
+            appId: '1:1039427063284:web:353305a1f9360e910fbda1',
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const collectionRef = collection(db, 'data_deletion_requests');
+
+        const submitState = {
+            ar: false,
+            en: false,
+        };
+
+        function getFormId(lang) {
+            return lang === 'ar' ? 'dataDeleteForm' : 'dataDeleteFormEn';
+        }
+
+        function getSuccessElement(lang) {
+            return document.getElementById(lang === 'ar' ? 'successMessage' : 'successMessageEn');
+        }
+
+        function getErrorElement(lang) {
+            return document.getElementById(lang === 'ar' ? 'errorMessage' : 'errorMessageEn');
+        }
+
+        function setSubmittingState(lang, isSubmitting) {
+            submitState[lang] = isSubmitting;
+            const form = document.getElementById(getFormId(lang));
+            if (!form) return;
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (!submitButton) return;
+            submitButton.disabled = isSubmitting;
+            submitButton.textContent = isSubmitting
+                ? (lang === 'ar' ? 'جارٍ الإرسال...' : 'Submitting...')
+                : (lang === 'ar' ? 'إرسال طلب الحذف' : 'Submit Deletion Request');
+        }
+
+        function showSuccess(lang) {
+            const successMessage = getSuccessElement(lang);
+            const errorMessage = getErrorElement(lang);
+            if (errorMessage) errorMessage.style.display = 'none';
+            if (successMessage) {
+                successMessage.style.display = 'block';
+                successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 10000);
+            }
+        }
+
+        function showError(lang, errorText) {
+            const successMessage = getSuccessElement(lang);
+            const errorMessage = getErrorElement(lang);
+            if (successMessage) successMessage.style.display = 'none';
+            if (errorMessage) {
+                errorMessage.textContent = errorText;
+                errorMessage.style.display = 'block';
+                errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                alert(errorText);
+            }
+        }
+
+        function normalizeTypes(dataTypes) {
+            const unique = [...new Set(dataTypes)];
+            if (unique.includes('all')) return ['all'];
+            return unique;
+        }
+
+        window.toggleLanguage = function toggleLanguage() {
             const arSection = document.querySelector('.section-ar');
             const enSection = document.querySelector('.section-en');
             const button = document.querySelector('.language-toggle');
-            
+
             if (arSection.style.display === 'none') {
                 arSection.style.display = 'block';
                 enSection.style.display = 'none';
                 button.textContent = 'English';
                 document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
             } else {
                 arSection.style.display = 'none';
                 enSection.style.display = 'block';
                 button.textContent = 'العربية';
                 document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
             }
-        }
-        
-        function toggleSelectAll(checkbox, lang) {
+        };
+
+        window.toggleSelectAll = function toggleSelectAll(checkbox, lang) {
             const checkboxes = document.querySelectorAll(`[id$="-${lang}"][name="dataType"]:not([id$="all-${lang}"])`);
-            checkboxes.forEach(cb => {
+            checkboxes.forEach((cb) => {
                 cb.checked = checkbox.checked;
             });
-        }
-        
-        function handleSubmit(event) {
+        };
+
+        window.handleSubmit = async function handleSubmit(event) {
             event.preventDefault();
-            submitForm('ar');
-        }
-        
-        function handleSubmitEn(event) {
+            await submitForm('ar');
+        };
+
+        window.handleSubmitEn = async function handleSubmitEn(event) {
             event.preventDefault();
-            submitForm('en');
-        }
-        
-        function submitForm(lang) {
+            await submitForm('en');
+        };
+
+        async function submitForm(lang) {
+            if (submitState[lang]) return;
+
             const emailInput = document.getElementById(`email-${lang}`);
             const checkboxes = document.querySelectorAll(`[id$="-${lang}"][name="dataType"]:checked`);
             const reasonInput = document.getElementById(`reason-${lang}`);
-            const successMessage = document.getElementById(lang === 'ar' ? 'successMessage' : 'successMessageEn');
-            
-            const email = emailInput.value;
-            const dataTypes = Array.from(checkboxes).map(cb => cb.value);
-            const reason = reasonInput.value;
-            
-            if (dataTypes.length === 0) {
-                alert(lang === 'ar' ? 'يرجى اختيار نوع بيانات واحد على الأقل' : 'Please select at least one data type');
+            const honeypotInput = document.getElementById(`website-${lang}`);
+            const form = document.getElementById(getFormId(lang));
+
+            if (!emailInput || !reasonInput || !form) return;
+
+            const email = emailInput.value.trim().toLowerCase();
+            const reason = reasonInput.value.trim();
+            const dataTypes = normalizeTypes(Array.from(checkboxes).map((cb) => cb.value));
+            const honeypot = honeypotInput?.value?.trim() ?? '';
+
+            if (honeypot.length > 0) {
                 return;
             }
-            
-            // Log submission (in production, this would send to a backend)
-            console.log({
-                email,
-                dataTypes,
-                reason,
-                timestamp: new Date().toISOString(),
-                app: 'Quraan - Noor Al-Iman'
-            });
-            
-            // Show success message
-            successMessage.style.display = 'block';
-            document.getElementById(`dataDelete${ lang === 'ar' ? 'Form' : 'FormEn'}`).reset();
-            
-            // Email user (via backend - this is placeholder)
-            console.log(`Email to ${email}: Your data deletion request has been submitted.`);
-            
-            // Scroll to success message
-            successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            
-            // Hide success message after 10 seconds
-            setTimeout(() => {
-                successMessage.style.display = 'none';
-            }, 10000);
+
+            if (dataTypes.length === 0) {
+                showError(
+                    lang,
+                    lang === 'ar'
+                        ? 'يرجى اختيار نوع بيانات واحد على الأقل.'
+                        : 'Please select at least one data type.'
+                );
+                return;
+            }
+
+            setSubmittingState(lang, true);
+
+            try {
+                await addDoc(collectionRef, {
+                    email,
+                    dataTypes,
+                    reason,
+                    language: lang,
+                    source: 'public_data_deletion_form',
+                    status: 'pending',
+                    app: 'Quraan - Noor Al-Iman',
+                    clientTimestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent || '',
+                    createdAt: serverTimestamp(),
+                });
+
+                form.reset();
+                showSuccess(lang);
+            } catch (error) {
+                console.error('Data deletion request submit failed:', error);
+                showError(
+                    lang,
+                    lang === 'ar'
+                        ? 'حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.'
+                        : 'Failed to submit request. Please try again.'
+                );
+            } finally {
+                setSubmittingState(lang, false);
+            }
         }
     </script>
 </body>

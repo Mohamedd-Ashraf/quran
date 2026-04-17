@@ -9,7 +9,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
-import 'surah_detail_screen.dart';
+import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/bookmarks_tutorial.dart';
 

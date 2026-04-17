@@ -8,7 +8,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../quran/data/models/juz_data.dart';
 import '../../../quran/presentation/bloc/surah/surah_bloc.dart';
 import '../../../quran/presentation/bloc/surah/surah_state.dart';
-import '../../../quran/presentation/screens/surah_detail_screen.dart';
+import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 import '../cubit/wird_cubit.dart';
 import '../cubit/wird_state.dart';
 import '../../data/wird_service.dart';

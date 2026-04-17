@@ -181,7 +181,7 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
                           await _channel.invokeMethod('openExactAlarmSettings');
                         },
                         icon: const Icon(Icons.alarm),
-                        label: const Text('فتح إعدادات المنبهات الدقيقة'),
+                        label: const Text('فتح إعدادات المنبهات الدقيقة (مهم للأذان)'),
                       ),
                     ),
                   if (_diag['batteryOptimizationDisabled'] != true)
@@ -196,7 +196,7 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
                           );
                         },
                         icon: const Icon(Icons.battery_saver),
-                        label: const Text('إلغاء تحسين البطارية'),
+                        label: const Text('فتح إعدادات البطارية (اختياري)'),
                       ),
                     ),
                   const SizedBox(height: 32),

@@ -117,6 +117,44 @@ service cloud.firestore {
         && request.resource.data.ts == request.time;
     }
 
+    // ── Public data-deletion requests (hosting form) ─────────────────────
+    // Create-only endpoint used by /data-deletion-request page.
+    // No read/list/update/delete from clients.
+    match /data_deletion_requests/{requestId} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'email',
+            'dataTypes',
+            'reason',
+            'language',
+            'source',
+            'status',
+            'app',
+            'clientTimestamp',
+            'userAgent',
+            'createdAt'
+          ])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && request.resource.data.dataTypes is list
+        && request.resource.data.dataTypes.size() > 0
+        && request.resource.data.dataTypes.size() <= 5
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 1000
+        && request.resource.data.language in ['ar', 'en']
+        && request.resource.data.source == 'public_data_deletion_form'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.app == 'Quraan - Noor Al-Iman'
+        && request.resource.data.clientTimestamp is string
+        && request.resource.data.clientTimestamp.size() <= 64
+        && request.resource.data.userAgent is string
+        && request.resource.data.userAgent.size() <= 512
+        && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
+    }
+
     // ── Default: deny everything else ─────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

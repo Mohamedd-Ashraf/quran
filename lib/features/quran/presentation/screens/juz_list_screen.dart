@@ -6,7 +6,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../data/models/juz_data.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
-import 'surah_detail_screen.dart';
+import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 
 // ── Arabic surah name map ──────────────────────────────────────────────────
 const Map<int, String> _surahArabicNames = {
