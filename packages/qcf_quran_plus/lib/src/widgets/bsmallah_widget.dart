@@ -20,8 +20,8 @@ class BasmallahWidget extends StatelessWidget {
             // Some Surahs (like 97 and 95) require a specific glyph variant
             // depending on the font's character mapping for optimal layout.
             surahNumber == 97 || surahNumber == 95
-                ? "齃𧻓𥳐龎"
-                : '齃𧻓𥳐𥉉',
+                ? '\uFAD8\uFAD7\uFAD6\uFAD9'
+                : '\uFAD8\uFAD7\uFAD6\uFAD5',
             // Utilizing the helper class for consistent Quranic typography
             style: QuranTextStyles.basmallahStyle(
               fontSize: 20,

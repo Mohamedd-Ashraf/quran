@@ -405,7 +405,7 @@ class _NavBarItem extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      splashColor: activeColor.withValues(alpha: 0.08),
+      splashColor: activeColor.withValues(alpha: 0.10),
       highlightColor: Colors.transparent,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -413,21 +413,21 @@ class _NavBarItem extends StatelessWidget {
           AnimatedContainer(
             duration: AppDesignSystem.durationNormal,
             curve: Curves.easeOutCubic,
-            width: isSelected ? 32 : 0,
-            height: 3,
-            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? activeColor : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
+              color: isSelected
+                  ? activeColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          AnimatedScale(
-            scale: isSelected ? 1.1 : 1.0,
-            duration: AppDesignSystem.durationFast,
-            child: Icon(
-              icon,
-              size: AppDesignSystem.bottomNavIconSize,
-              color: color,
+            child: AnimatedScale(
+              scale: isSelected ? 1.12 : 1.0,
+              duration: AppDesignSystem.durationFast,
+              child: Icon(
+                icon,
+                size: AppDesignSystem.bottomNavIconSize,
+                color: color,
+              ),
             ),
           ),
           const SizedBox(height: 3),

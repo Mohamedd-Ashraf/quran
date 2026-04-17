@@ -26,6 +26,7 @@ import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../wird/data/quran_boundaries.dart' show kSurahAyahCounts;
 import '../../domain/entities/surah.dart';
+import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';

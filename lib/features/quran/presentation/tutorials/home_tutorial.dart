@@ -45,12 +45,12 @@ class HomeTutorial {
       ),
       TutorialStep(
         key: HomeTutorialKeys.categoriesSection,
-        titleAr: 'الأقسام والخدمات',
-        titleEn: 'Sections & Services',
+        titleAr: 'الوصول السريع',
+        titleEn: 'Quick Access',
         descriptionAr:
-            'اختصارات سريعة لمواقيت الصلاة، الأذكار، الأذان، الصوت، الأجزاء، القبلة، السبحة، والإذاعة',
+            'اختصارات سريعة للأذكار، الأجزاء، الصوت، والقبلة. اضغط "المزيد" لعرض جميع الأقسام',
         descriptionEn:
-            'Quick access to Prayer Times, Adhkar, Adhan, Audio, Juz, Qibla, Tasbeeh, and Radio',
+            'Quick shortcuts for Adhkar, Juz, Audio, and Qibla. Tap "More" to see all sections',
         align: ContentAlign.bottom,
       ),
       TutorialStep(

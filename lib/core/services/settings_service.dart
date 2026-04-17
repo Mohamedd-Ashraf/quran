@@ -622,4 +622,29 @@ class SettingsService {
     if (result) onDataChanged?.call();
     return result;
   }
+
+  // ── Last-read position (for "Continue Reading" on home screen) ────────────
+  static const String _keyLastReadSurahNumber = 'last_read_surah_number';
+  static const String _keyLastReadSurahNameAr = 'last_read_surah_name_ar';
+  static const String _keyLastReadSurahNameEn = 'last_read_surah_name_en';
+  static const String _keyLastReadAyah = 'last_read_ayah';
+
+  int? getLastReadSurahNumber() => _prefs.getInt(_keyLastReadSurahNumber);
+  String? getLastReadSurahNameAr() => _prefs.getString(_keyLastReadSurahNameAr);
+  String? getLastReadSurahNameEn() => _prefs.getString(_keyLastReadSurahNameEn);
+  int? getLastReadAyah() => _prefs.getInt(_keyLastReadAyah);
+
+  Future<void> setLastReadPosition({
+    required int surahNumber,
+    required String surahNameAr,
+    required String surahNameEn,
+    int? ayah,
+  }) async {
+    await _prefs.setInt(_keyLastReadSurahNumber, surahNumber);
+    await _prefs.setString(_keyLastReadSurahNameAr, surahNameAr);
+    await _prefs.setString(_keyLastReadSurahNameEn, surahNameEn);
+    if (ayah != null) {
+      await _prefs.setInt(_keyLastReadAyah, ayah);
+    }
+  }
 }

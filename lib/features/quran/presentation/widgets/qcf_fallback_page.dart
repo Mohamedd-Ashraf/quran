@@ -967,21 +967,22 @@ class _FbSurahHeader extends StatelessWidget {
             );
           },
         ),
-        // QCF basmala glyphs from the bundled QCF4_BSML font.
+        // Basmala in plain Unicode Arabic — rendered with Amiri Quran (bundled
+        // and pre-loaded at startup) so it always displays correctly on the
+        // fallback page, even before any QCF fonts have been downloaded.
         if (surahNum != 1 && surahNum != 9)
           Center(
-            child: ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  surahNum == 97 || surahNum == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
-                  style: QuranTextStyles.basmallahStyle(
-                    fontSize: 20,
-                    color: basmalaColor,
-                  ),
-                  textAlign: TextAlign.center,
-                  textDirection: TextDirection.rtl,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                style: _cachedAmiriQuran.copyWith(
+                  fontSize: 22,
+                  color: basmalaColor,
+                  height: 1.8,
                 ),
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
               ),
             ),
           ),

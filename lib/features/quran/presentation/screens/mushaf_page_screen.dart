@@ -22,7 +22,7 @@ import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import 'tafsir_screen.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show getSurahNameArabic, getPageData;
+    show getSurahNameArabic, getPageData, QuranTextStyles;
 import '../tutorials/mushaf_tutorial.dart';
 import '../widgets/ayah_share_card.dart';
 import '../widgets/mushaf_page_view.dart'
@@ -2196,7 +2196,7 @@ class _PageTextState extends State<_PageText> {
                   section.surahNum != 1 &&
                   section.surahNum != 9) {
                 children.add(
-                  _Basmala(isDark: isDark, quranFont: settings.quranFont),
+                  _Basmala(isDark: isDark, surahNum: section.surahNum),
                 );
               }
 
@@ -2512,24 +2512,29 @@ class _SurahHeader extends StatelessWidget {
 // ─── Basmala separator ────────────────────────────────────────────────────────
 class _Basmala extends StatelessWidget {
   final bool isDark;
-  final String quranFont;
-  const _Basmala({required this.isDark, required this.quranFont});
+  final int surahNum;
+  const _Basmala({required this.isDark, required this.surahNum});
 
   @override
   Widget build(BuildContext context) {
     final color = isDark ? const Color(0xFFD4A855) : AppColors.primary;
-    // Regular Arabic font — matches the ayah text font the user selected.
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Text(
-        '\u0628\u0650\u0633\u0652\u0645\u0650 \u0671\u0644\u0644\u0651\u064e\u0647\u0650 \u0671\u0644\u0631\u0651\u064e\u062d\u0652\u0645\u064e\u0670\u0646\u0650 \u0671\u0644\u0631\u0651\u064e\u062d\u0650\u064a\u0645\u0650',
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.rtl,
-        style: ArabicTextStyleHelper.quranFontStyle(
-          fontKey: quranFont,
-          fontSize: 22.0,
-          color: color,
-          height: 2.0,
+    // QCF4_BSML calligraphic basmala glyphs (PUA codepoints from the bundled
+    // QCF4_BSML font in the qcf_quran_plus package).
+    return ExcludeSemantics(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10.0),
+          child: Text(
+            surahNum == 97 || surahNum == 95
+                ? '\ufad8\ufad7\ufad6\ufad9'
+                : '\ufad8\ufad7\ufad6\ufad5',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
+            style: QuranTextStyles.basmallahStyle(
+              fontSize: 20,
+              color: color,
+            ),
+          ),
         ),
       ),
     );

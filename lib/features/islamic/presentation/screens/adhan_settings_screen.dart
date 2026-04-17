@@ -22,6 +22,7 @@ import '../../../../core/services/settings_service.dart';
 import '../../../../core/services/adhan_notification_service.dart';
 import '../../../../core/services/prayer_foreground_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import 'adhan_advanced_screen.dart';
 import 'adhan_diagnostics_screen.dart';
 import 'adhan_reliability_test_screen.dart';
 import 'oem_battery_optimization_screen.dart';
@@ -945,91 +946,165 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ─── Tab 1: الأذان ────────────────────────────────────────────────────────
 
   Widget _buildAdhanTab(bool isAr) {
+    final enabledCount = [_includeFajr, _enableDhuhr, _enableAsr, _enableMaghrib, _enableIsha]
+        .where((e) => e).length;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
-        // Show notification permission warning (critical - adhan won't work)
-        if (!_notificationPermissionGranted) ...[
-          _NotificationPermissionBanner(
-            isAr: isAr,
-            onTap: () async {
-              await _ensureNotificationPermission(isAr: isAr);
-            },
+        // ── Hero Card: Master toggle + status + inline warnings ──────────
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _notificationsEnabled
+                  ? [AppColors.primary.withValues(alpha: 0.08), AppColors.primary.withValues(alpha: 0.03)]
+                  : [Colors.grey.withValues(alpha: 0.08), Colors.grey.withValues(alpha: 0.03)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _notificationsEnabled
+                  ? AppColors.primary.withValues(alpha: 0.25)
+                  : Colors.grey.withValues(alpha: 0.25),
+              width: 1.5,
+            ),
           ),
-          const SizedBox(height: 12),
-        ],
-        // Show location warning (less critical - will use default location)
-        if (!_locationPermissionGranted && _notificationPermissionGranted) ...[
-          _LocationWarningBanner(
-            isAr: isAr,
-            onTap: () async {
-              await Geolocator.openAppSettings();
-              await Future.delayed(const Duration(seconds: 1));
-              _checkPermissions();
-            },
+          child: Column(
+            children: [
+              // Main toggle row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: _notificationsEnabled
+                            ? const LinearGradient(colors: [AppColors.gradientStart, AppColors.gradientEnd])
+                            : null,
+                        color: _notificationsEnabled ? null : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        _notificationsEnabled ? Icons.mosque_rounded : Icons.notifications_off_rounded,
+                        color: Colors.white, size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAr ? 'الأذان التلقائي' : 'Automatic Adhan',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: _notificationsEnabled ? AppColors.primary : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Status chips
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              _StatusChip(
+                                label: isAr ? '$enabledCount صلوات' : '$enabledCount prayers',
+                                color: _notificationsEnabled ? AppColors.primary : Colors.grey,
+                              ),
+                              if (_shortMode)
+                                _StatusChip(
+                                  label: isAr ? 'مختصر' : 'Short',
+                                  color: AppColors.secondary,
+                                ),
+                              if (_adhanAudioStream == 'alarm')
+                                _StatusChip(
+                                  label: isAr ? 'منبه' : 'Alarm',
+                                  color: Colors.deepPurple,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: 1.15,
+                      child: Switch.adaptive(
+                        value: _notificationsEnabled,
+                        activeColor: AppColors.primary,
+                        onChanged: (v) async {
+                          if (v && !_notificationPermissionGranted) {
+                            final granted = await _ensureNotificationPermission(isAr: isAr);
+                            if (!granted) return;
+                          }
+                          setState(() => _notificationsEnabled = v);
+                          _autoSave();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Inline warnings (compact, inside hero card)
+              if (!_notificationPermissionGranted) ...[
+                const SizedBox(height: 10),
+                _InlineWarning(
+                  icon: Icons.notifications_off_rounded,
+                  color: Colors.red,
+                  text: isAr ? 'صلاحية الإشعارات مطلوبة — اضغط هنا' : 'Notification permission required — tap here',
+                  onTap: () => _ensureNotificationPermission(isAr: isAr),
+                ),
+              ],
+              if (!_locationPermissionGranted && _notificationPermissionGranted) ...[
+                const SizedBox(height: 8),
+                _InlineWarning(
+                  icon: Icons.location_off_rounded,
+                  color: Colors.amber.shade700,
+                  text: isAr ? 'الموقع غير مفعّل — مواقيت تقريبية' : 'Location off — using approximate times',
+                  onTap: () async {
+                    await Geolocator.openAppSettings();
+                    await Future.delayed(const Duration(seconds: 1));
+                    _checkPermissions();
+                  },
+                ),
+              ],
+              if (!_batteryUnrestricted) ...[
+                const SizedBox(height: 8),
+                _InlineWarning(
+                  icon: Icons.battery_alert_rounded,
+                  color: Colors.amber.shade700,
+                  text: isAr ? 'تحسين البطارية قد يمنع الأذان' : 'Battery optimization may block adhan',
+                  onTap: () async {
+                    try {
+                      await _adhanChannel.invokeMethod('openBatterySettings');
+                      await Future.delayed(const Duration(seconds: 1));
+                      _checkBatteryStatus();
+                    } catch (_) {}
+                  },
+                ),
+              ],
+              const SizedBox(height: 14),
+            ],
           ),
-          const SizedBox(height: 12),
-        ],
-        if (!_notificationsEnabled) ...[
-          _DisabledBanner(isAr: isAr),
-          const SizedBox(height: 12),
-        ],
-        if (!_batteryUnrestricted) ...[
-          _BatteryWarningCard(
-            isAr: isAr,
-            onTap: () async {
-              try {
-                await _adhanChannel.invokeMethod('openBatterySettings');
-                await Future.delayed(const Duration(seconds: 1));
-                _checkBatteryStatus();
-              } catch (_) {}
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-        // الأذان والإشعارات
+        ),
+        const SizedBox(height: 16),
+
+        // ── Quick Settings Card ─────────────────────────────────────────
         _buildSection(
-          icon: Icons.notifications_active_rounded,
-          titleAr: 'الأذان والإشعارات',
-          titleEn: 'Adhan & Notifications',
+          icon: Icons.tune_rounded,
+          titleAr: 'إعدادات سريعة',
+          titleEn: 'Quick Settings',
           isAr: isAr,
           children: [
-            _buildSwitchRow(
-              icon: _notificationsEnabled
-                  ? Icons.notifications_active_rounded
-                  : Icons.notifications_off_rounded,
-              iconColor: _notificationsEnabled && _notificationPermissionGranted 
-                  ? AppColors.primary 
-                  : Colors.grey,
-              titleAr: 'تفعيل الأذان',
-              titleEn: 'Enable Adhan',
-              subtitleAr: _notificationPermissionGranted
-                  ? 'تشغيل الأذان تلقائياً عند كل وقت صلاة'
-                  : 'يتطلب صلاحية الإشعارات أولاً',
-              subtitleEn: _notificationPermissionGranted
-                  ? 'Auto-play adhan at each prayer time'
-                  : 'Requires notification permission first',
-              value: _notificationsEnabled,
-              onChanged: (v) async {
-                if (v && !_notificationPermissionGranted) {
-                  final granted = await _ensureNotificationPermission(isAr: isAr);
-                  if (!granted) {
-                    return;
-                  }
-                }
-                setState(() => _notificationsEnabled = v);
-                _autoSave();
-              },
-              isAr: isAr,
-            ),
-            _buildDivider(),
             _buildSwitchRow(
               icon: Icons.compress_rounded,
               iconColor: _shortMode ? AppColors.secondary : Colors.grey,
               titleAr: 'الأذان المختصر',
-              titleEn: 'Short Adhan (2 Takbeers)',
+              titleEn: 'Short Adhan',
               subtitleAr: 'تكبيرتان فقط بدلاً من الأذان الكامل',
-              subtitleEn: 'Only two Takbeers instead of the full Adhan',
+              subtitleEn: 'Only 2 Takbeers instead of full Adhan',
               value: _shortMode,
               onChanged: _notificationsEnabled
                   ? (v) {
@@ -1040,10 +1115,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               isAr: isAr,
               badge: _showNewBadge ? (isAr ? 'جديد' : 'New') : null,
             ),
-            if (_shortMode) ...[
-              _buildDivider(),
-              _buildShortModeExplanation(isAr),
-            ],
             _buildDivider(),
             _buildStreamPickerRow(isAr),
             _buildDivider(),
@@ -1052,10 +1123,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
                   ? Icons.notifications_active_outlined
                   : Icons.notifications_paused_outlined,
               iconColor: _persistentNotification ? AppColors.primary : Colors.grey,
-              titleAr: 'إشعار مواقيت الصلاة الثابت',
-              titleEn: 'Persistent Prayer Times',
-              subtitleAr: 'يعرض الصلاة القادمة والوقت المتبقي، ويمكن إيقافه من الإشعار أو الإعدادات',
-              subtitleEn: 'Shows next prayer and remaining time; can be stopped from notification or settings',
+              titleAr: 'إشعار الصلاة الثابت',
+              titleEn: 'Persistent Prayer Alert',
+              subtitleAr: 'يعرض الصلاة القادمة والوقت المتبقي',
+              subtitleEn: 'Shows next prayer & remaining time',
               value: _persistentNotification,
               onChanged: (v) async {
                 setState(() => _persistentNotification = v);
@@ -1068,44 +1139,14 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               },
               isAr: isAr,
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // الصلوات المُفَعَّلة
-        _buildSection(
-          icon: Icons.mosque_rounded,
-          titleAr: 'الصلوات المُفَعَّلة',
-          titleEn: 'Enabled Prayers',
-          isAr: isAr,
-          children: [_buildPerPrayerToggles(isAr)],
-        ),
-        const SizedBox(height: 16),
-        // صوت الأذان
-        _buildSoundSection(isAr),
-        const SizedBox(height: 16),
-        // مستوى الصوت
-        _buildSection(
-          icon: Icons.volume_up_rounded,
-          titleAr: 'مستوى الصوت',
-          titleEn: 'Volume',
-          isAr: isAr,
-          children: [_buildVolumeCard(isAr)],
-        ),
-        const SizedBox(height: 16),
-        // أدوات متقدمة
-        _buildSection(
-          icon: Icons.tune_rounded,
-          titleAr: 'أدوات متقدمة',
-          titleEn: 'Advanced Tools',
-          isAr: isAr,
-          children: [
+            _buildDivider(),
             _buildSwitchRow(
               icon: Icons.speaker_rounded,
               iconColor: _forceSpeaker ? AppColors.primary : Colors.grey,
-              titleAr: 'إخراج الصوت من سماعة الجهاز',
+              titleAr: 'إخراج الصوت من السماعة',
               titleEn: 'Force Device Speaker',
-              subtitleAr: 'تشغيل الأذان دائماً من سماعة الهاتف حتى لو كانت سماعة بلوتوث متصلة',
-              subtitleEn: 'Always play adhan from phone speaker even when Bluetooth is connected',
+              subtitleAr: 'يتجاوز البلوتوث ويشغّل من سماعة الهاتف',
+              subtitleEn: 'Bypass Bluetooth, play from phone speaker',
               value: _forceSpeaker,
               onChanged: (v) async {
                 setState(() => _forceSpeaker = v);
@@ -1116,39 +1157,268 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               },
               isAr: isAr,
             ),
-            _buildDivider(),
-            ListTile(
-              leading: const Icon(Icons.battery_saver_rounded, color: AppColors.primary),
-              title: Text(isAr ? 'إعدادات بطارية الشركة المصنّعة' : 'OEM Battery Settings'),
-              subtitle: Text(isAr ? 'خطوات للتأكد من عمل الأذان في الخلفية' : 'Steps to ensure adhan works in background'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const OemBatteryOptimizationScreen()),
-              ),
-            ),
-            _buildDivider(),
-            ListTile(
-              leading: const Icon(Icons.bug_report_rounded, color: AppColors.primary),
-              title: Text(isAr ? 'التشخيص' : 'Diagnostics'),
-              subtitle: Text(isAr ? 'تحقق من حالة النظام والصلاحيات' : 'Check system status and permissions'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdhanDiagnosticsScreen()),
-              ),
-            ),
-            _buildDivider(),
-            ListTile(
-              leading: const Icon(Icons.science_outlined, color: AppColors.primary),
-              title: Text(isAr ? 'اختبار موثوقية الأذان' : 'Adhan Reliability Test'),
-              subtitle: Text(isAr ? 'اختبر الأذان بسيناريوهات حقيقية' : 'Test adhan with real-world scenarios'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdhanReliabilityTestScreen()),
-              ),
-            ),
           ],
         ),
+        const SizedBox(height: 16),
+
+        // ── Prayer Selection (chips) ────────────────────────────────────
+        _buildSection(
+          icon: Icons.mosque_rounded,
+          titleAr: 'الصلوات المُفَعَّلة',
+          titleEn: 'Enabled Prayers',
+          isAr: isAr,
+          children: [_buildPerPrayerToggles(isAr)],
+        ),
+        const SizedBox(height: 16),
+
+        // ── Sound Selection (summary row → bottom sheet) ────────────────
+        _buildSoundSummarySection(isAr),
+        const SizedBox(height: 16),
+
+        // ── Volume (inline) ─────────────────────────────────────────────
+        _buildSection(
+          icon: Icons.volume_up_rounded,
+          titleAr: 'مستوى الصوت',
+          titleEn: 'Volume',
+          isAr: isAr,
+          children: [_buildVolumeCard(isAr)],
+        ),
+        const SizedBox(height: 16),
+
+        // ── Advanced & Troubleshooting (navigate to sub-screen) ─────────
+        Material(
+          color: _cardSurface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AdhanAdvancedScreen()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _cardBorder),
+              ),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.build_rounded, color: Colors.deepPurple, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isAr ? 'أدوات متقدمة واستكشاف الأخطاء' : 'Advanced & Troubleshooting',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isAr ? 'التشخيص، البطارية، اختبار الموثوقية' : 'Diagnostics, battery, reliability test',
+                        style: TextStyle(fontSize: 12, color: _textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: _textSecondary),
+              ]),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  // ─── Sound summary section (tappable row → opens bottom sheet) ───────────
+
+  Widget _buildSoundSummarySection(bool isAr) {
+    final selected = AdhanSounds.findById(_selectedSoundId);
+    final isPlaying = _previewingId == selected.id && _isPreviewPlaying;
+
+    return _buildSection(
+      icon: Icons.music_note_rounded,
+      titleAr: 'صوت الأذان',
+      titleEn: 'Adhan Sound',
+      isAr: isAr,
+      children: [
+        InkWell(
+          onTap: () => _showSoundPickerSheet(isAr),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [AppColors.gradientStart, AppColors.gradientEnd]),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.mosque_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isAr ? selected.nameAr : selected.nameEn,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${isAr ? "المؤذن: " : ""}${selected.muezzinDisplay(isAr)}',
+                        style: TextStyle(fontSize: 12, color: _textSecondary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                // Preview button
+                IconButton(
+                  icon: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: isPlaying
+                        ? const Icon(Icons.stop_circle_rounded, key: ValueKey('stop'), color: Colors.red, size: 30)
+                        : const Icon(Icons.play_circle_rounded, key: ValueKey('play'), color: AppColors.primary, size: 30),
+                  ),
+                  onPressed: isPlaying ? _stopPreview : () => _previewSound(selected),
+                ),
+                Icon(Icons.chevron_right_rounded, color: _textSecondary, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Sound picker bottom sheet ───────────────────────────────────────────
+
+  void _showSoundPickerSheet(bool isAr) {
+    final allSounds = [...AdhanSounds.local, ...AdhanSounds.online];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.75),
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [AppColors.gradientStart, AppColors.gradientEnd]),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isAr ? 'اختر صوت الأذان' : 'Choose Adhan Sound',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(isAr ? 'تم' : 'Done'),
+                      ),
+                    ],
+                  ),
+                ),
+                // Offline note
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.wifi_off_rounded, size: 14, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      isAr
+                          ? 'الأصوات تُحمَّل تلقائياً وتعمل بدون إنترنت'
+                          : 'Sounds are auto-downloaded and work offline',
+                      style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                    )),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+                // Sound list
+                Flexible(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    itemCount: allSounds.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 2),
+                    itemBuilder: (_, i) {
+                      final s = allSounds[i];
+                      final cs = s.isOnline ? (_cacheState[s.id] ?? _CacheState.none) : _CacheState.cached;
+                      final cp = s.isOnline ? (_cacheProgress[s.id] ?? 0.0) : 1.0;
+                      return _SoundTile(
+                        sound: s,
+                        isSelected: _selectedSoundId == s.id,
+                        isPlaying: _previewingId == s.id && _isPreviewPlaying,
+                        cacheState: cs,
+                        cacheProgress: cp,
+                        isAr: isAr,
+                        onSelect: () {
+                          _selectSound(s);
+                          setSheetState(() {});
+                          setState(() {});
+                        },
+                        onPreview: () {
+                          _previewSound(s);
+                          setSheetState(() {});
+                        },
+                        onStop: () {
+                          _stopPreview();
+                          setSheetState(() {});
+                        },
+                        onDelete: s.isOnline ? () {
+                          _showDeleteConfirm(s, isAr);
+                          setSheetState(() {});
+                        } : null,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1215,31 +1485,27 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
-        _buildSection(
-          icon: Icons.alarm_rounded,
-          titleAr: 'التذكيرات',
-          titleEn: 'Reminders',
+        // ── Card 1: Pre-Prayer Reminder ─────────────────────────────────
+        _ReminderFeatureCard(
+          icon: Icons.timer_rounded,
+          color: Colors.orange,
+          titleAr: 'تذكير قبل موعد الصلاة',
+          titleEn: 'Pre-Prayer Reminder',
+          subtitleAr: 'تنبيه قبل وقت الصلاة بعدة دقائق',
+          subtitleEn: 'Alert a few minutes before prayer time',
           isAr: isAr,
-          children: [
-            _buildSwitchRow(
-              icon: Icons.timer_rounded,
-              iconColor: _reminderEnabled ? Colors.orange : Colors.grey,
-              titleAr: 'تذكير قبل موعد الصلاة',
-              titleEn: 'Pre-Prayer Reminder',
-              subtitleAr: 'تنبيه قبل وقت الصلاة بعدة دقائق',
-              subtitleEn: 'Notify you a few minutes before prayer time',
-              value: _reminderEnabled,
-              onChanged: _notificationsEnabled
-                  ? (v) {
-                      setState(() => _reminderEnabled = v);
-                      if (v) _previewRawSound('prayer_reminder_fajr', cutoffSeconds: 5, volume: _approachingVolume);
-                      _autoSave();
-                    }
-                  : null,
-              isAr: isAr,
-            ),
-            if (_reminderEnabled) ...[
-              _buildDivider(),
+          enabled: _reminderEnabled,
+          onToggle: _notificationsEnabled
+              ? (v) {
+                  setState(() => _reminderEnabled = v);
+                  if (v) _previewRawSound('prayer_reminder_fajr', cutoffSeconds: 5, volume: _approachingVolume);
+                  _autoSave();
+                }
+              : null,
+          cardSurface: _cardSurface,
+          cardBorder: _cardBorder,
+          body: Column(
+            children: [
               _buildMinutesPicker(
                 icon: Icons.timer_outlined,
                 labelAr: 'وقت التذكير قبل الصلاة',
@@ -1252,75 +1518,53 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
                   _autoSave();
                 },
               ),
-              _buildDivider(),
-              _buildReminderVolumeSlider(
-                value: _approachingVolume,
-                onChanged: (v) {
-                  setState(() => _approachingVolume = v);
-                },
-                onChangeEnd: (_) async {
-                  await _saveReminderVolumesOnly();
-                },
-                isAr: isAr,
-                color: Colors.orange,
-                labelAr: 'صوت تذكير اقتراب الصلاة',
-                labelEn: 'Pre-prayer reminder volume',
-              ),
             ],
-            _buildDivider(),
-            _buildSwitchRow(
-              icon: Icons.access_alarm_rounded,
-              iconColor: _iqamaEnabled ? Colors.teal : Colors.grey,
-              titleAr: 'تنبيه وقت الإقامة',
-              titleEn: 'Iqama Notification',
-              subtitleAr: 'تنبيه عند موعد إقامة الصلاة',
-              subtitleEn: 'Alert when it\'s time to start the prayer',
-              value: _iqamaEnabled,
-              onChanged: _notificationsEnabled
-                  ? (v) {
-                      setState(() => _iqamaEnabled = v);
-                      if (v) _previewRawSound('iqama_sound_new', cutoffSeconds: 9, volume: _iqamaVolume);
-                      _autoSave();
-                    }
-                  : null,
-              isAr: isAr,
-            ),
-            if (_iqamaEnabled) ...[
-              _buildDivider(),
-              _buildPerPrayerIqamaGrid(isAr),
-              _buildDivider(),
-              _buildReminderVolumeSlider(
-                value: _iqamaVolume,
-                onChanged: (v) {
-                  setState(() => _iqamaVolume = v);
-                },
-                onChangeEnd: (_) async {
-                  await _saveReminderVolumesOnly();
-                },
-                isAr: isAr,
-                color: Colors.teal,
-                labelAr: 'صوت تنبيه الإقامة',
-                labelEn: 'Iqama notification volume',
-              ),
-            ],
-            _buildDivider(),
-            _buildSwitchRow(
-              icon: Icons.favorite_rounded,
-              iconColor: _salawatEnabled ? Colors.pink : Colors.grey,
-              titleAr: 'الصلاة على النبي ﷺ',
-              titleEn: 'Salawat / Durood Reminder',
-              subtitleAr: 'اللهم صلِّ وسلم وبارك على نبينا محمد ﷺ',
-              subtitleEn: 'Reminder to send blessings on the Prophet ﷺ',
-              value: _salawatEnabled,
-              onChanged: (v) {
-                setState(() => _salawatEnabled = v);
-                if (v) _previewRawSound(_salawatSoundId, cutoffSeconds: 8, volume: _salawatVolume);
-                _autoSave();
-              },
-              isAr: isAr,
-            ),
-            if (_salawatEnabled) ...[
-              _buildDivider(),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Card 2: Iqama Notification ──────────────────────────────────
+        _ReminderFeatureCard(
+          icon: Icons.access_alarm_rounded,
+          color: Colors.teal,
+          titleAr: 'تنبيه وقت الإقامة',
+          titleEn: 'Iqama Notification',
+          subtitleAr: 'تنبيه عند موعد إقامة الصلاة',
+          subtitleEn: 'Alert when it\'s time to start the prayer',
+          isAr: isAr,
+          enabled: _iqamaEnabled,
+          onToggle: _notificationsEnabled
+              ? (v) {
+                  setState(() => _iqamaEnabled = v);
+                  if (v) _previewRawSound('iqama_sound_new', cutoffSeconds: 9, volume: _iqamaVolume);
+                  _autoSave();
+                }
+              : null,
+          cardSurface: _cardSurface,
+          cardBorder: _cardBorder,
+          body: _buildPerPrayerIqamaGrid(isAr),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Card 3: Salawat Reminder ────────────────────────────────────
+        _ReminderFeatureCard(
+          icon: Icons.favorite_rounded,
+          color: Colors.pink,
+          titleAr: 'الصلاة على النبي ﷺ',
+          titleEn: 'Salawat Reminder',
+          subtitleAr: 'اللهم صلِّ وسلم وبارك على نبينا محمد ﷺ',
+          subtitleEn: 'Blessings on the Prophet ﷺ',
+          isAr: isAr,
+          enabled: _salawatEnabled,
+          onToggle: (v) {
+            setState(() => _salawatEnabled = v);
+            if (v) _previewRawSound(_salawatSoundId, cutoffSeconds: 8, volume: _salawatVolume);
+            _autoSave();
+          },
+          cardSurface: _cardSurface,
+          cardBorder: _cardBorder,
+          body: Column(
+            children: [
               _buildMinutesPicker(
                 icon: Icons.schedule_rounded,
                 labelAr: 'كل كم دقيقة؟',
@@ -1333,44 +1577,71 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
                   _autoSave();
                 },
               ),
-                _buildDivider(),
+              _buildDivider(),
               _buildSwitchRow(
                 icon: Icons.bedtime_rounded,
                 iconColor: _salawatSleepEnabled ? const Color(0xFF5C6BC0) : Colors.grey,
-                titleAr: 'ساعات الهدوء (وقت النوم)',
-                titleEn: 'Quiet Hours (Sleep Time)',
-                subtitleAr: 'إيقاف التذكير أثناء فترة النوم',
-                subtitleEn: 'Pause reminders during your sleep window',
+                titleAr: 'ساعات الهدوء',
+                titleEn: 'Quiet Hours',
+                subtitleAr: 'إيقاف التذكير أثناء النوم',
+                subtitleEn: 'Pause reminders while sleeping',
                 value: _salawatSleepEnabled,
                 onChanged: (v) { setState(() => _salawatSleepEnabled = v); _autoSave(); },
                 isAr: isAr,
               ),
-              if (_salawatSleepEnabled) ...[                _buildDivider(),
+              if (_salawatSleepEnabled) ...[
+                _buildDivider(),
                 _buildSalawatSleepTimePicker(isAr),
               ],
               _buildDivider(),
               _buildSalawatSoundPicker(isAr),
-              _buildDivider(),
-              _buildReminderVolumeSlider(
-                value: _salawatVolume,
-                onChanged: (v) {
-                  setState(() => _salawatVolume = v);
-                },
-                onChangeEnd: (_) async {
-                  await _saveReminderVolumesOnly();
-                },
-                isAr: isAr,
-                color: Colors.pink,
-                labelAr: 'صوت الصلاة على النبي ﷺ',
-                labelEn: 'Salawat reminder volume',
-              ),
-            
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Card 4: Silent During Prayer ────────────────────────────────
+        _buildSilentDuringPrayerSection(isAr),
+        const SizedBox(height: 16),
+
+        // ── Reminder Volumes (grouped) ──────────────────────────────────
+        _buildSection(
+          icon: Icons.equalizer_rounded,
+          titleAr: 'مستوى صوت التذكيرات',
+          titleEn: 'Reminder Volumes',
+          isAr: isAr,
+          children: [
+            _buildReminderVolumeSlider(
+              value: _approachingVolume,
+              onChanged: (v) => setState(() => _approachingVolume = v),
+              onChangeEnd: (_) => _saveReminderVolumesOnly(),
+              isAr: isAr,
+              color: Colors.orange,
+              labelAr: 'تذكير اقتراب الصلاة',
+              labelEn: 'Pre-prayer reminder',
+            ),
+            _buildDivider(),
+            _buildReminderVolumeSlider(
+              value: _iqamaVolume,
+              onChanged: (v) => setState(() => _iqamaVolume = v),
+              onChangeEnd: (_) => _saveReminderVolumesOnly(),
+              isAr: isAr,
+              color: Colors.teal,
+              labelAr: 'تنبيه الإقامة',
+              labelEn: 'Iqama notification',
+            ),
+            _buildDivider(),
+            _buildReminderVolumeSlider(
+              value: _salawatVolume,
+              onChanged: (v) => setState(() => _salawatVolume = v),
+              onChangeEnd: (_) => _saveReminderVolumesOnly(),
+              isAr: isAr,
+              color: Colors.pink,
+              labelAr: 'الصلاة على النبي ﷺ',
+              labelEn: 'Salawat reminder',
+            ),
           ],
         ),
-        const SizedBox(height: 16),
-        // الصمت أثناء الصلاة
-        _buildSilentDuringPrayerSection(isAr),
       ],
     );
   }
@@ -1517,17 +1788,99 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ─── Tab 3: المواقيت ──────────────────────────────────────────────────────
 
   Widget _buildPrayerTimesTab(bool isAr) {
+    final currentMethod = PrayerCalculationConstants.calculationMethods[_selectedMethodId];
+    final methodName = currentMethod != null
+        ? (isAr ? currentMethod.nameAr : currentMethod.nameEn)
+        : _selectedMethodId;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
+        // ── Calculation Method (summary → bottom sheet) ─────────────────
         _buildSection(
           icon: Icons.calculate_rounded,
           titleAr: 'طريقة حساب المواقيت',
-          titleEn: 'Prayer Calculation Method',
+          titleEn: 'Calculation Method',
           isAr: isAr,
-          children: [_buildMethodCard(isAr)],
+          children: [
+            // Auto-detect toggle
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  Icon(Icons.gps_fixed_rounded, size: 18, color: _methodAutoDetected ? AppColors.primary : Colors.grey),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isAr ? 'تحديد تلقائي حسب الموقع' : 'Auto-detect from location',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _textPrimary),
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _methodAutoDetected,
+                    activeColor: AppColors.primary,
+                    onChanged: (v) { setState(() => _methodAutoDetected = v); _autoSave(); },
+                  ),
+                ],
+              ),
+            ),
+            _buildDivider(),
+            // Current method display + change button
+            InkWell(
+              onTap: _methodAutoDetected ? null : () => _showMethodPickerSheet(isAr),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.mosque_rounded, color: AppColors.primary, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            methodName,
+                            style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w700,
+                              color: _methodAutoDetected ? _textSecondary : AppColors.primary,
+                            ),
+                          ),
+                          if (_methodAutoDetected)
+                            Text(
+                              isAr ? 'يعتمد على الدولة المكتشفة من GPS' : 'Based on GPS-detected country',
+                              style: TextStyle(fontSize: 11, color: _textSecondary),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (!_methodAutoDetected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          isAr ? 'تغيير' : 'Change',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
+
+        // ── Schedule ────────────────────────────────────────────────────
         _buildSection(
           icon: Icons.calendar_month_rounded,
           titleAr: 'جدول الأذان',
@@ -1536,6 +1889,8 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           children: [_buildScheduleCard(isAr)],
         ),
         const SizedBox(height: 16),
+
+        // ── Test ────────────────────────────────────────────────────────
         _buildSection(
           icon: Icons.science_rounded,
           titleAr: 'اختبار الأذان',
@@ -1544,6 +1899,127 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           children: [_buildTestCard(isAr)],
         ),
       ],
+    );
+  }
+
+  // ─── Method picker bottom sheet ──────────────────────────────────────────
+
+  void _showMethodPickerSheet(bool isAr) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.65),
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [AppColors.gradientStart, AppColors.gradientEnd]),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.calculate_rounded, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isAr ? 'اختر طريقة الحساب' : 'Choose Calculation Method',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(isAr ? 'تم' : 'Done'),
+                    ),
+                  ]),
+                ),
+                Flexible(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    children: PrayerCalculationConstants.calculationMethods.entries.map((entry) {
+                      final id = entry.key;
+                      final info = entry.value;
+                      final isSelected = _selectedMethodId == id;
+                      final isDefault = id == 'egyptian';
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSelected
+                              ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
+                              : null,
+                        ),
+                        child: RadioListTile<String>(
+                          value: id,
+                          groupValue: _selectedMethodId,
+                          activeColor: AppColors.primary,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          dense: true,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          title: Row(children: [
+                            Flexible(
+                              child: Text(
+                                isAr ? info.nameAr : info.nameEn,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected || isDefault ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? AppColors.primary : Theme.of(ctx).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (isDefault) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  isAr ? 'الافتراضي' : 'Default',
+                                  style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ]),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedMethodId = v);
+                              setSheetState(() {});
+                              _autoSave();
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -3826,6 +4302,168 @@ class _ShortModeStep extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+// ─── Status chip (used in hero card) ──────────────────────────────────────────
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+// ─── Inline warning (compact, inside hero card) ──────────────────────────────
+
+class _InlineWarning extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+  final VoidCallback onTap;
+  const _InlineWarning({required this.icon, required this.color, required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+          ),
+          Icon(Icons.arrow_forward_ios_rounded, size: 12, color: color.withValues(alpha: 0.6)),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Reminder feature card (expandable) ──────────────────────────────────────
+
+class _ReminderFeatureCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String titleAr;
+  final String titleEn;
+  final String subtitleAr;
+  final String subtitleEn;
+  final bool isAr;
+  final bool enabled;
+  final ValueChanged<bool>? onToggle;
+  final Widget body;
+  final Color cardSurface;
+  final Color cardBorder;
+
+  const _ReminderFeatureCard({
+    required this.icon,
+    required this.color,
+    required this.titleAr,
+    required this.titleEn,
+    required this.subtitleAr,
+    required this.subtitleEn,
+    required this.isAr,
+    required this.enabled,
+    required this.onToggle,
+    required this.body,
+    required this.cardSurface,
+    required this.cardBorder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: enabled ? color.withValues(alpha: 0.30) : cardBorder,
+          width: enabled ? 1.5 : 1.0,
+        ),
+        boxShadow: enabled
+            ? [BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))]
+            : null,
+      ),
+      child: Column(
+        children: [
+          // Header with toggle
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: (enabled ? color : Colors.grey).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: enabled ? color : Colors.grey, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isAr ? titleAr : titleEn,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: enabled ? color : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isAr ? subtitleAr : subtitleEn,
+                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(value: enabled, activeColor: color, onChanged: onToggle),
+              ],
+            ),
+          ),
+          // Expandable body
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                Divider(height: 1, color: cardBorder, indent: 16, endIndent: 16),
+                body,
+                const SizedBox(height: 8),
+              ],
+            ),
+            crossFadeState: enabled ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+          ),
+        ],
+      ),
     );
   }
 }
