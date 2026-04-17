@@ -191,9 +191,14 @@ class _QuranLineState extends State<QuranLine> {
       ),
     );
 
-    return FittedBox(
-      fit: widget.boxFit,
-      child: textWidget,
+    // QCF fonts use Private Use Area (PUA) Unicode codepoints that are
+    // meaningless to the accessibility / semantics system. Exclude them to
+    // prevent crashes in SemanticsAnnotationsMixin during font-load rebuilds.
+    return ExcludeSemantics(
+      child: FittedBox(
+        fit: widget.boxFit,
+        child: textWidget,
+      ),
     );
   }
 

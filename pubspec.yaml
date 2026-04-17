@@ -1,5 +1,5 @@
 name: noor_al_imaan
-description: "Noor Al-Imaan - Islamic learning app with Quran, Hadith, Prayer Times, and more."# The following line prevents the package from being accidentally published to
+description: "Noor Al-Imaan - Islamic learning app with Quran, Hadith, Prayer Times, and more."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 

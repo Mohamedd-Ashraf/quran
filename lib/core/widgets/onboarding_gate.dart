@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../constants/app_colors.dart';
 import '../di/injection_container.dart' as di;
 import '../services/settings_service.dart';
 import '../services/whats_new_service.dart';
@@ -44,6 +46,9 @@ class _OnboardingGateState extends State<OnboardingGate> {
   bool _feedbackCheckDone = false;
   // null = checking, false = done (background download handles it)
   bool? _showFontReminder;
+  // Connectivity subscription to prompt offline-guest users to sign in.
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _offlineSignInPromptShown = false;
 
   @override
   void initState() {
@@ -52,6 +57,12 @@ class _OnboardingGateState extends State<OnboardingGate> {
     _whatsNewService = di.sl<WhatsNewService>();
     _onboardingComplete = _settings.getOnboardingComplete();
     _permissionFlowComplete = _settings.getPermissionFlowComplete();
+
+    // When connectivity is restored while user is in offline-guest mode,
+    // gently prompt them to sign in to get the full experience.
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+      _onConnectivityChanged,
+    );
   }
 
   // Called when the splash animation completes.
@@ -64,6 +75,59 @@ class _OnboardingGateState extends State<OnboardingGate> {
     if (_onboardingComplete == true) {
       _checkAuthAndProceed();
     }
+  }
+
+  // Called when network connectivity changes.
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    if (_offlineSignInPromptShown || !mounted) return;
+    final isOnline = results.any((r) => r != ConnectivityResult.none);
+    if (!isOnline) return;
+
+    final authStatus = context.read<AuthCubit>().state.status;
+    if (authStatus != AuthStatus.offlineGuest) return;
+
+    _offlineSignInPromptShown = true;
+    // Brief delay so the network settles before showing the prompt.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      final isAr = context
+          .read<AppSettingsCubit>()
+          .state
+          .appLanguageCode
+          .toLowerCase()
+          .startsWith('ar');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isAr
+                ? 'أنت الآن متصل — سجّل دخولك لحفظ تقدمك'
+                : 'You’re online — sign in to save your progress',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: isAr ? 'تسجيل الدخول' : 'Sign In',
+            textColor: Colors.white,
+            onPressed: () {
+              // Sign out from offline-guest to force showing the auth screen.
+              context.read<AuthCubit>().signOut();
+            },
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
   }
 
   // Called when the user taps "Get Started" on the onboarding screen.
@@ -82,7 +146,8 @@ class _OnboardingGateState extends State<OnboardingGate> {
   void _checkAuthAndProceed() {
     final authState = context.read<AuthCubit>().state;
     if (authState.status == AuthStatus.authenticated ||
-        authState.status == AuthStatus.guest) {
+        authState.status == AuthStatus.guest ||
+        authState.status == AuthStatus.offlineGuest) {
       _authComplete = true;
       _checkPermissionFlowAndProceed();
     }
@@ -197,9 +262,11 @@ class _OnboardingGateState extends State<OnboardingGate> {
           setState(() {
             _authComplete = false;
             _showWhatsNew = null;
+            _offlineSignInPromptShown = false;
           });
         } else if ((state.status == AuthStatus.authenticated ||
-                state.status == AuthStatus.guest) &&
+                state.status == AuthStatus.guest ||
+                state.status == AuthStatus.offlineGuest) &&
             !_authComplete) {
           // Firebase stream fired after splash — skip auth screen
           _onAuthComplete();
@@ -220,7 +287,8 @@ class _OnboardingGateState extends State<OnboardingGate> {
         );
       }
       if (authStatus == AuthStatus.authenticated ||
-          authStatus == AuthStatus.guest) {
+          authStatus == AuthStatus.guest ||
+          authStatus == AuthStatus.offlineGuest) {
         // Firebase already authenticated but BlocListener missed it
         // (state changed while SplashPage was showing).
         // Schedule the auth-complete transition safely outside build.

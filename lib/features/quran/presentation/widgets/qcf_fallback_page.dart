@@ -30,6 +30,11 @@ import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
 import '../widgets/ayah_share_card.dart';
 
+// Cached Amiri Quran base TextStyle — created once at file scope to avoid
+// triggering google_fonts loadFontIfNecessary on every widget build() call.
+// This is the root fix for the google_fonts 6.3.3 unhandled rejection bug.
+final TextStyle _cachedAmiriQuran = GoogleFonts.amiriQuran();
+
 // â”€â”€â”€ Internal data model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _Verse {
@@ -363,7 +368,7 @@ class _FbTopBar extends StatelessWidget {
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.18)
         : const Color(0xFFC8A84B).withValues(alpha: 0.55);
-    final labelStyle = GoogleFonts.amiriQuran(
+    final labelStyle = _cachedAmiriQuran.copyWith(
       fontSize: 12,
       fontWeight: FontWeight.w700,
       color: textColor,
@@ -555,7 +560,7 @@ class _FbFooter extends StatelessWidget {
                 child: Text(
                   _toArabicNum(page),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.amiriQuran(
+                  style: _cachedAmiriQuran.copyWith(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white : const Color(0xFF3D1C00),
@@ -642,7 +647,7 @@ class _FbPageTextState extends State<_FbPageText> {
   TextSpan _ayahPlaceholderSpan(int ayah, Color color, TextStyle base) {
     return TextSpan(
       text: '\u06DD${_toArabicNum(ayah)}',
-      style: GoogleFonts.amiriQuran(
+      style: _cachedAmiriQuran.copyWith(
         color: color,
         fontSize: base.fontSize,
         height: base.height,
@@ -752,7 +757,7 @@ class _FbPageTextState extends State<_FbPageText> {
             final baseStyle = ArabicTextStyleHelper.quranFontStyle(
               fontKey: effectiveFontKey,
               fontSize: effectiveFontSize,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
               color: textColor,
               height: 2.2,
             );
@@ -945,13 +950,15 @@ class _FbSurahHeader extends StatelessWidget {
                     colorBlendMode: isDark ? BlendMode.color : null,
                   ),
                   // arsura font: glyph key is the surah number as string
-                  RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      text: '$surahNum',
-                      style: QuranTextStyles.surahHeaderStyle(
-                        fontSize: fs,
-                        color: nameColor,
+                  ExcludeSemantics(
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        text: '$surahNum',
+                        style: QuranTextStyles.surahHeaderStyle(
+                          fontSize: fs,
+                          color: nameColor,
+                        ),
                       ),
                     ),
                   ),
@@ -963,16 +970,18 @@ class _FbSurahHeader extends StatelessWidget {
         // QCF basmala glyphs from the bundled QCF4_BSML font.
         if (surahNum != 1 && surahNum != 9)
           Center(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                surahNum == 97 || surahNum == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
-                style: QuranTextStyles.basmallahStyle(
-                  fontSize: 20,
-                  color: basmalaColor,
+            child: ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  surahNum == 97 || surahNum == 95 ? '齃𧻓𥳐龎' : '齃𧻓𥳐𥉉',
+                  style: QuranTextStyles.basmallahStyle(
+                    fontSize: 20,
+                    color: basmalaColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
                 ),
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
               ),
             ),
           ),
@@ -1084,16 +1093,16 @@ class _FbRecitationSettingsSheetState
         final dividerColor = isDark
             ? Colors.white.withValues(alpha: 0.12)
             : Colors.black.withValues(alpha: 0.08);
-        final titleStyle = GoogleFonts.amiriQuran(
+        final titleStyle = _cachedAmiriQuran.copyWith(
           fontSize: 15,
           fontWeight: FontWeight.w700,
           color: textColor,
         );
-        final labelStyle = GoogleFonts.amiriQuran(
+        final labelStyle = _cachedAmiriQuran.copyWith(
           fontSize: 14,
           color: textColor,
         );
-        final noteStyle   = GoogleFonts.amiriQuran(fontSize: 11, color: subTextColor);
+        final noteStyle   = _cachedAmiriQuran.copyWith(fontSize: 11, color: subTextColor);
 
         return SafeArea(
           child: Directionality(
@@ -1169,7 +1178,7 @@ class _FbRecitationSettingsSheetState
                                 : null,
                             child: Text(
                               'تغيير',
-                              style: GoogleFonts.amiriQuran(
+                              style: _cachedAmiriQuran.copyWith(
                                 color: AppColors.secondary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -1215,14 +1224,14 @@ class _FbRecitationSettingsSheetState
                           value: 'page',
                           label: Text(
                             'إلى نهاية الصفحة',
-                            style: GoogleFonts.amiriQuran(fontSize: 12),
+                            style: _cachedAmiriQuran.copyWith(fontSize: 12),
                           ),
                         ),
                         ButtonSegment(
                           value: 'surah',
                           label: Text(
                             'إلى نهاية السورة',
-                            style: GoogleFonts.amiriQuran(fontSize: 12),
+                            style: _cachedAmiriQuran.copyWith(fontSize: 12),
                           ),
                         ),
                       ],
@@ -1324,7 +1333,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
                   'اختر القارئ',
-                  style: GoogleFonts.amiriQuran(
+                  style: _cachedAmiriQuran.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -1348,7 +1357,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                     return ListTile(
                       title: Text(
                         name,
-                        style: GoogleFonts.amiriQuran(
+                        style: _cachedAmiriQuran.copyWith(
                           fontSize: 13,
                           color: isSelected ? AppColors.secondary : textColor,
                           fontWeight: isSelected
@@ -1417,7 +1426,7 @@ void _showFbVerseOptionsSheet(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
                   '$surahName - آية $verse',
-                  style: GoogleFonts.amiriQuran(
+                  style: _cachedAmiriQuran.copyWith(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,

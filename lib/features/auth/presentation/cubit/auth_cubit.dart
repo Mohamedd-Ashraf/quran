@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -126,8 +127,30 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> continueAsGuest() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
+      // Check connectivity before hitting Firebase — avoids a hanging request
+      // and gives instant feedback on the offline path.
+      final connectivity = await Connectivity().checkConnectivity();
+      final isOffline = connectivity.every((r) => r == ConnectivityResult.none);
+      if (isOffline) {
+        emit(state.copyWith(
+          status: AuthStatus.offlineGuest,
+          isLoading: false,
+          clearError: true,
+        ));
+        return;
+      }
       await _authService.signInAsGuest();
+      // Success → state update happens via _onAuthChanged stream.
     } catch (e) {
+      // Network failure during Firebase call → treat as offline guest.
+      if (e is FirebaseAuthException && e.code == 'network-request-failed') {
+        emit(state.copyWith(
+          status: AuthStatus.offlineGuest,
+          isLoading: false,
+          clearError: true,
+        ));
+        return;
+      }
       emit(state.copyWith(
         isLoading: false,
         errorMessage: _mapError(e),
@@ -138,6 +161,16 @@ class AuthCubit extends Cubit<AuthState> {
   // ── Sign Out ────────────────────────────────────────────────────────────
 
   Future<void> signOut() async {
+    // Offline guest has no Firebase session — just reset state locally.
+    if (state.status == AuthStatus.offlineGuest) {
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        clearUser: true,
+        clearError: true,
+        isLoading: false,
+      ));
+      return;
+    }
     // Upload data before signing out (if authenticated)
     final user = _authService.currentUser;
     if (user != null && !user.isAnonymous) {

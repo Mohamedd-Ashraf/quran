@@ -151,8 +151,11 @@ class ArabicTextStyleHelper {
         base = GoogleFonts.cairo(
             fontSize: size, fontWeight: weight, height: height);
       case 'noto_naskh':
+        // Bundled variants: Regular (w400), SemiBold (w600), Bold (w700).
+        // Clamp w500 (Medium) to w400 to avoid missing-font exceptions.
+        final notoWeight = weight == FontWeight.w500 ? FontWeight.w400 : weight;
         base = GoogleFonts.notoNaskhArabic(
-            fontSize: size, fontWeight: weight, height: height);
+            fontSize: size, fontWeight: notoWeight, height: height);
       case 'lateef':
         base = GoogleFonts.lateef(
             fontSize: size, fontWeight: weight, height: height);

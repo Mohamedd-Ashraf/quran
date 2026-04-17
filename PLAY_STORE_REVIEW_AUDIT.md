@@ -1,6 +1,6 @@
 # Play Store Pre-Submission Audit
 
-Last updated: 2026-04-16
+Last updated: 2026-04-17
 
 ## نتائج حرجة / عالية
 
@@ -98,6 +98,51 @@ Last updated: 2026-04-16
   - QUERY_ALL_PACKAGES
   - REQUEST_INSTALL_PACKAGES
 - targetSdk محدث ومناسب للرفع الحالي.
+
+## نتائج المراجعة الشاملة (2026-04-17)
+
+### 5) متوسط: Cloud Function — حد Batch و XSS و HTML
+
+الحالة الآن: ✅ تم إصلاحه
+
+- **باج حرج:** Firestore batch كان بلا حد — لو المستخدم عنده أكتر من 500 document، الحذف كان هيفشل. تم تقسيم العمليات لـ chunked batches (حد 499 لكل batch).
+- **XSS:** حقل `reason` في إيميل الأدمن كان بيتحط بدون escaping — ممكن حقن HTML. تم إضافة `escapeHtml()`.
+- **HTML:** عناصر القائمة في إيميل التأكيد كانت بدون `<li>` tags داخل `<ul>`. تم الإصلاح.
+- **TypeScript:** تمت إضافة `@types/nodemailer` للـ devDependencies.
+
+ملفات معدّلة:
+- functions/src/index.ts
+- functions/package.json
+
+### 6) متوسط: إعدادات النسخ الاحتياطي (Backup) غير محددة
+
+الحالة الآن: ✅ تم إصلاحه
+
+- `android:allowBackup` لم يكن محدد صراحةً في AndroidManifest — Android يفعّله افتراضياً بدون ضوابط.
+- تم إضافة `android:allowBackup="true"` مع `backup_rules.xml` (API 23-30) و `data_extraction_rules.xml` (API 31+).
+- البيانات الحساسة (FlutterSecureStorage) مستبعدة من النسخ الاحتياطي.
+- Cache والملفات الخارجية مستبعدة.
+
+ملفات جديدة/معدّلة:
+- android/app/src/main/AndroidManifest.xml (محدث)
+- android/app/src/main/res/xml/backup_rules.xml (جديد)
+- android/app/src/main/res/xml/data_extraction_rules.xml (جديد)
+
+### 7) منخفض: ملفات حساسة في مجلد المشروع
+
+الحالة: ⚠️ يحتاج مراجعة يدوية
+
+- `service-account.json` (Firebase Admin SDK private key) موجود في root المشروع — مش متعمله commit بس وجوده خطر.
+- `android/key.properties` فيه كلمات سر التوقيع بنص واضح — مش متعمله commit بس الأفضل استخدام environment variables.
+- **التوصية:** نقل `service-account.json` خارج مجلد المشروع أو استخدام Secret Manager.
+
+### 8) منخفض: بث إذاعة القرآن عبر HTTP
+
+الحالة: ℹ️ مقبول — لا يحتاج إجراء
+
+- بعض روابط إذاعة القرآن تستخدم HTTP (مش HTTPS) لأن المصادر الخارجية لا توفر HTTPS.
+- `network_security_config.xml` يسمح بـ cleartext فقط للدومينات المحددة (sec.gov.eg, radiojar.com, etc).
+- لا يتم إرسال بيانات مستخدم حساسة عبر هذه الاتصالات.
 
 ## الخلاصة العملية قبل الرفع
 

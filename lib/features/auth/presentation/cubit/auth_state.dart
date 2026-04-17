@@ -8,8 +8,13 @@ enum AuthStatus {
   /// User is authenticated (Google or email/password).
   authenticated,
 
-  /// User chose guest mode (anonymous auth).
+  /// User chose guest mode (anonymous Firebase auth succeeded).
   guest,
+
+  /// User chose guest mode but had no internet — Firebase auth was not called.
+  /// The app works in read-only/local mode. Clears on next app restart once
+  /// internet is available and the user signs in properly.
+  offlineGuest,
 
   /// User is not authenticated at all.
   unauthenticated,
@@ -33,6 +38,7 @@ class AuthState extends Equatable {
 
   /// Display name: Google/email name, or guest fallback.
   String get displayName {
+    if (status == AuthStatus.offlineGuest) return 'زائر';
     if (user == null) return '';
     if (user!.isAnonymous) return 'زائر';
     return user!.displayName ?? user!.email?.split('@').first ?? '';

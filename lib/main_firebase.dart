@@ -10,6 +10,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'firebase_options.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show QcfFontLoader;
 import 'core/services/qcf_font_download_service.dart';
+import 'core/services/font_download_manager.dart';
 import 'core/di/injection_container_firebase.dart' as di;
 import 'core/services/adhan_notification_service.dart';
 import 'core/services/quran_cache_warmup_service.dart';
@@ -136,9 +137,14 @@ void main() {
   // and open instantly on subsequent visits.  Runs fully in background.
   di.sl<QuranCacheWarmupService>().startInBackground();
 
-  // Auto-download Al-Muyassar tafsir once on first launch after installing or
-  // updating to 1.0.11. Runs silently in background and never blocks startup.
-  unawaited(di.sl<TafsirAutoDownloadService>().triggerIfEligible());
+  // Start QCF font download immediately — gives maximum head-start before the
+  // user navigates to Quran pages.  Wi-Fi only by default; mobile-data
+  // consent is handled inside FontDownloadManager.  Fully background, no UI.
+  unawaited(FontDownloadManager.instance.startIfNeeded());
+
+  // Chain: when fonts finish downloading, start tafsir auto-download.
+  // Staggering the two heavy operations avoids competing for bandwidth.
+  _scheduleTafsirAfterFonts();
 
   // Initialize update service (Remote Config defaults + first fetch)
   final updateService = di.sl<AppUpdateServiceFirebase>();
@@ -195,6 +201,33 @@ void main() {
     // that escape PlatformDispatcher.instance.onError in google_fonts <8.0.2.
     debugPrint('[Zone] Ignored unhandled error: $error');
   });
+}
+
+/// Waits for QCF font download to finish, then triggers the Muyassar tafsir
+/// auto-download.  Uses a one-shot [ChangeNotifier] listener so there is no
+/// polling or busy-waiting.  Safe to call before fonts have started.
+void _scheduleTafsirAfterFonts() {
+  final fm = FontDownloadManager.instance;
+
+  void trigger() {
+    unawaited(di.sl<TafsirAutoDownloadService>().triggerIfEligible());
+  }
+
+  if (fm.isComplete) {
+    trigger();
+    return;
+  }
+
+  // Fonts are still downloading (or have not started yet on mobile data).
+  // Register a one-shot listener that fires as soon as they finish or error.
+  late void Function() listener;
+  listener = () {
+    if (fm.isComplete || fm.hasError) {
+      fm.removeListener(listener);
+      trigger();
+    }
+  };
+  fm.addListener(listener);
 }
 
 /// Global lifecycle observer that keeps wird notifications alive regardless

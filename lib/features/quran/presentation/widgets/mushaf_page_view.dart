@@ -7,8 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show QuranPageView, HighlightVerse, getPageNumber, QcfFontLoader;
-import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getPageData;
+    show QuranPageView, HighlightVerse, getPageNumber, QcfFontLoader, getPageData;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
@@ -587,16 +586,6 @@ class _MushafPageViewState extends State<MushafPageView>
     }
   }
 
-  /// Handles a tap on a single Quranic word in word-by-word audio mode.
-  /// [wordIndex] is 1-based within the ayah.
-  void _onWordTap(int surahNumber, int ayahNumber, int wordIndex) {
-    context.read<AyahAudioCubit>().playWord(
-      surahNumber: surahNumber,
-      ayahNumber: ayahNumber,
-      wordIndex: wordIndex,
-    );
-  }
-
   // ── Long-press → options sheet ────────────────────────────────────────────
 
   /// Long press → show options sheet (bookmark / share / tafsir).
@@ -754,9 +743,6 @@ class _MushafPageViewState extends State<MushafPageView>
                                       isTajweed: _tajweedMode,
                                       onPageChanged: _handleDisplayedPageChanged,
                                       onAyahTap: _onAyahTap,
-                                      onWordTap: settings.wordByWordAudio
-                                          ? _onWordTap
-                                          : null,
                                       onLongPress: (surah, verse, details) =>
                                           _onLongPress(surah, verse),
                                       ayahStyle: TextStyle(color: textColor),
@@ -1989,9 +1975,11 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                   // ── تلاوة كلمة بكلمة ────────────────────────────────────────
                   Builder(
                     builder: (context) {
-                      // MushafPageView is ONLY rendered when QCF Plus font is active,
-                      // so word-by-word is always supported here.
-                      return Row(
+                      final wordByWordEnabled =
+                          settings.useUthmaniScript && !settings.useQcfFont;
+                      return Opacity(
+                        opacity: wordByWordEnabled ? 1.0 : 0.45,
+                        child: Row(
                           children: [
                             Expanded(
                               child: Column(
@@ -1999,17 +1987,24 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                                 children: [
                                   Text('تلاوة كلمة بكلمة', style: labelStyle),
                                   Text(
-                                    'اضغط على كلمة لتسمعها',
+                                    wordByWordEnabled
+                                        ? 'اضغط على كلمة لتسمعها'
+                                        : (settings.useQcfFont
+                                              ? 'يتطلب إيقاف رسم المصحف QCF'
+                                              : 'يتطلب تفعيل عرض المصحف الشريف'),
                                     style: noteStyle,
                                   ),
                                 ],
                               ),
                             ),
                             Switch(
-                              value: settings.wordByWordAudio,
-                              onChanged: (v) => ctx
-                                  .read<AppSettingsCubit>()
-                                  .setWordByWordAudio(v),
+                              value:
+                                  wordByWordEnabled && settings.wordByWordAudio,
+                              onChanged: wordByWordEnabled
+                                  ? (v) => ctx
+                                        .read<AppSettingsCubit>()
+                                        .setWordByWordAudio(v)
+                                  : null,
                               activeColor: AppColors.secondary,
                               inactiveThumbColor: isDark
                                   ? Colors.white.withValues(alpha: 0.55)
@@ -2019,6 +2014,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                                   : Colors.grey.shade300,
                             ),
                           ],
+                        ),
                       );
                     },
                   ),

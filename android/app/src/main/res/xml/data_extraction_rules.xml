@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (API 31+) data extraction / backup rules -->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Allow backing up shared preferences (user settings, prayer config) -->
+        <include domain="sharedpref" path="." />
+        <!-- Exclude sensitive data -->
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
+        <!-- Exclude caches and temporary files -->
+        <exclude domain="cache" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="FlutterSecureStorage" />
+        <exclude domain="cache" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -40,13 +40,16 @@ class SurahHeaderWidget extends StatelessWidget {
                 fit: BoxFit.contain,
               ),
               // The Surah number rendered using the specialized 'arsura' font.
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  text: "$suraNumber",
-                  style: QuranTextStyles.surahHeaderStyle(
-                    fontSize: dynamicFontSize,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+              // PUA codepoints must be excluded from the semantics tree.
+              ExcludeSemantics(
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    text: "$suraNumber",
+                    style: QuranTextStyles.surahHeaderStyle(
+                      fontSize: dynamicFontSize,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
                 ),
               ),

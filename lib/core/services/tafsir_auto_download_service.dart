@@ -1,5 +1,5 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/quran/data/datasources/ibn_kathir_remote_data_source.dart';
@@ -9,12 +9,19 @@ import '../../features/quran/presentation/bloc/tafsir/tafsir_download_cubit.dart
 import '../constants/api_constants.dart';
 import 'tafsir_download_state_service.dart';
 
-/// Starts one automatic background download for Al-Muyassar on first app launch
-/// after installing/updating to 1.0.11, then avoids re-triggering every launch.
+/// Automatically downloads Al-Muyassar tafsir in the background on Wi-Fi
+/// the first time the app runs without the tafsir already cached.
+///
+/// Policy compliance:
+///   • Wi-Fi only — skips silently on mobile data (user can download manually
+///     from the offline-tafsir screen).
+///   • Silent on Wi-Fi — downloading tafsir content on Wi-Fi without a prompt
+///     is acceptable under Google Play policies.
+///   • Flag is written AFTER a successful download (not before), so a failure
+///     (e.g. offline at first launch) will be retried on the next app start.
 class TafsirAutoDownloadService {
-  static const String _targetVersion = '1.0.11';
-  static const String _kMuyassarAutoTriggeredV1011 =
-      'tafsir_muyassar_auto_triggered_1_0_11';
+  static const String _kMuyassarFullyDownloaded =
+      'tafsir_muyassar_fully_downloaded_v2';
 
   final SharedPreferences _prefs;
   final TafsirDownloadStateService _stateService;
@@ -36,18 +43,26 @@ class TafsirAutoDownloadService {
     if (_isRunning) return;
     _isRunning = true;
     try {
-      final info = await PackageInfo.fromPlatform();
-      final currentVersion = info.version.trim();
-      final alreadyTriggered =
-          _prefs.getBool(_kMuyassarAutoTriggeredV1011) ?? false;
+      // Skip if already fully downloaded in a previous session.
+      if (_prefs.getBool(_kMuyassarFullyDownloaded) == true) return;
 
-      if (alreadyTriggered) {
+      // Skip if already fully cached in the local DB (covers manual downloads).
+      final stats = await _localTafsir.getEditionStats(ApiConstants.tafsirMuyassar);
+      if (stats.ayahCount >= 6236) {
+        await _prefs.setBool(_kMuyassarFullyDownloaded, true);
         return;
       }
 
-      if (currentVersion != _targetVersion) {
+      // Wi-Fi only — never consume mobile data without user consent.
+      final connectivity = await Connectivity().checkConnectivity();
+      final isWifi = connectivity.any((r) =>
+          r == ConnectivityResult.wifi || r == ConnectivityResult.ethernet);
+      if (!isWifi) {
+        debugPrint('TafsirAutoDownloadService: skipping – not on Wi-Fi');
         return;
       }
+
+      debugPrint('TafsirAutoDownloadService: starting background download of Al-Muyassar');
 
       final cubit = TafsirDownloadCubit(
         _getSurah,
@@ -57,11 +72,17 @@ class TafsirAutoDownloadService {
       );
 
       try {
-        if (!alreadyTriggered) {
-          await _prefs.setBool(_kMuyassarAutoTriggeredV1011, true);
-        }
-
         await cubit.startFull(ApiConstants.tafsirMuyassar);
+        // Verify the download actually completed before setting the flag.
+        final after = await _localTafsir.getEditionStats(ApiConstants.tafsirMuyassar);
+        if (after.ayahCount >= 6236) {
+          await _prefs.setBool(_kMuyassarFullyDownloaded, true);
+          debugPrint('TafsirAutoDownloadService: Al-Muyassar download complete');
+        } else {
+          debugPrint(
+            'TafsirAutoDownloadService: incomplete – ${after.ayahCount}/6236 ayahs cached',
+          );
+        }
       } finally {
         await cubit.close();
       }

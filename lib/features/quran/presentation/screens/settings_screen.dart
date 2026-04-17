@@ -1941,7 +1941,8 @@ class _AccountSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, authState) {
-        final isGuest = authState.status == AuthStatus.guest;
+        final isGuest = authState.status == AuthStatus.guest ||
+            authState.status == AuthStatus.offlineGuest;
         final isAuth = authState.status == AuthStatus.authenticated;
         final syncService = di.sl<CloudSyncService>();
 

@@ -301,7 +301,7 @@ class _TafsirScreenState extends State<TafsirScreen> {
                     widget.surahName,
                     textAlign: TextAlign.center,
                     textDirection: TextDirection.rtl,
-                    style: GoogleFonts.scheherazadeNew(
+                    style: GoogleFonts.notoNaskhArabic(
                       fontSize: 22,
                       color: goldLight,
                       fontWeight: FontWeight.w600,
@@ -469,7 +469,7 @@ class _TafsirScreenState extends State<TafsirScreen> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           textDirection: TextDirection.rtl,
-                          style: GoogleFonts.scheherazadeNew(
+                          style: GoogleFonts.notoNaskhArabic(
                             fontSize: isCollapsed ? 18 : 21,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,

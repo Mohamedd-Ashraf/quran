@@ -3,5 +3,7 @@
         "dart": true,
         "&": true,
         "Copy-Item": true
-    }
+    },
+    "dart.flutterSdkPath": "E:\\flutter",
+    "dart.promptToRunIfErrors": false
 }

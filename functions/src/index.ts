@@ -5,6 +5,16 @@ import * as nodemailer from 'nodemailer';
 admin.initializeApp();
 const db = admin.firestore();
 
+/** Escape HTML special characters to prevent XSS */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Configure email transporter (Gmail or Firebase built-in)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -81,10 +91,29 @@ export const processDataDeletionRequest = functions.firestore
   });
 
 /**
+ * Commit operations in chunked batches (Firestore limit: 500 ops per batch)
+ */
+async function commitInChunks(operations: Array<{type: 'delete', ref: FirebaseFirestore.DocumentReference} | {type: 'update', ref: FirebaseFirestore.DocumentReference, data: object}>): Promise<void> {
+  const BATCH_LIMIT = 499;
+  for (let i = 0; i < operations.length; i += BATCH_LIMIT) {
+    const chunk = operations.slice(i, i + BATCH_LIMIT);
+    const batch = db.batch();
+    for (const op of chunk) {
+      if (op.type === 'delete') {
+        batch.delete(op.ref);
+      } else {
+        batch.update(op.ref, op.data);
+      }
+    }
+    await batch.commit();
+  }
+}
+
+/**
  * Delete specified user data sections
  */
 async function deleteUserData(userId: string, dataTypes: string[]): Promise<string[]> {
-  const batch = db.batch();
+  const operations: Array<{type: 'delete', ref: FirebaseFirestore.DocumentReference} | {type: 'update', ref: FirebaseFirestore.DocumentReference, data: object}> = [];
   const userRef = db.collection('users').doc(userId);
   const deletedSections: string[] = [];
   
@@ -97,29 +126,29 @@ async function deleteUserData(userId: string, dataTypes: string[]): Promise<stri
       if (dataType === 'bookmarks') {
         // Delete bookmarks subcollection
         const bookmarksSnapshot = await userRef.collection('bookmarks').get();
-        bookmarksSnapshot.forEach(doc => batch.delete(doc.ref));
+        bookmarksSnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
         deletedSections.push('bookmarks');
       } else if (dataType === 'wird') {
         // Delete wird data (daily progress)
         const wirdSnapshot = await userRef.collection('wird').get();
-        wirdSnapshot.forEach(doc => batch.delete(doc.ref));
+        wirdSnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
         deletedSections.push('wird');
       } else if (dataType === 'settings') {
         // Reset user settings (don't delete user doc, just clear settings)
-        batch.update(userRef, {
+        operations.push({type: 'update', ref: userRef, data: {
           'appSettings.theme': 'light',
           'appSettings.fontSize': 'medium',
           'appSettings.language': 'ar',
           'appSettings.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-        });
+        }});
         deletedSections.push('settings');
       } else if (dataType === 'history') {
         // Delete reading/listening history
         const historySnapshot = await userRef.collection('readingHistory').get();
-        historySnapshot.forEach(doc => batch.delete(doc.ref));
+        historySnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
         
         const listeningSnapshot = await userRef.collection('listeningHistory').get();
-        listeningSnapshot.forEach(doc => batch.delete(doc.ref));
+        listeningSnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
         deletedSections.push('history');
       }
     } catch (error) {
@@ -127,9 +156,9 @@ async function deleteUserData(userId: string, dataTypes: string[]): Promise<stri
     }
   }
   
-  // Commit all deletions in a batch
-  if (deletedSections.length > 0) {
-    await batch.commit();
+  // Commit all deletions in chunked batches
+  if (operations.length > 0) {
+    await commitInChunks(operations);
   }
   
   return deletedSections;
@@ -186,9 +215,9 @@ async function sendNotificationEmail(
           'settings': { ar: 'الإعدادات الشخصية', en: 'Personal Settings' },
           'history': { ar: 'تاريخ التلاوة', en: 'Recitation History' },
         };
-        return labels[item]?.[isArabic ? 'ar' : 'en'] || item;
+        return `<li>${labels[item]?.[isArabic ? 'ar' : 'en'] || item}</li>`;
       })
-      .join(isArabic ? '<br>' : '<br>');
+      .join('\n');
     
     htmlContent = isArabic
       ? `
@@ -289,7 +318,7 @@ async function sendAdminNotification(
         </tr>
         <tr>
           <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">User Reason:</td>
-          <td style="border: 1px solid #ddd; padding: 8px;">${reason || 'N/A'}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(reason || 'N/A')}</td>
         </tr>
       </table>
       <p style="margin-top: 20px; color: #666; font-size: 0.9em;">

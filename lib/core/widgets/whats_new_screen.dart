@@ -7,9 +7,9 @@ import '../constants/app_colors.dart';
 import '../settings/app_settings_cubit.dart';
 import '../services/whats_new_service.dart';
 
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // Data model for a single "change" entry
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 class _WhatsNewEntry {
   final IconData icon;
   final String titleAr;
@@ -28,36 +28,36 @@ class _WhatsNewEntry {
   });
 }
 
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // Changelog per version  (add a new entry when you bump pubspec version)
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 const Map<String, List<_WhatsNewEntry>> _changelog = {
   '1.0.5': [
     _WhatsNewEntry(
       icon: Icons.auto_stories_rounded,
-      titleAr: 'تفسير عند الضغط المطول',
+      titleAr: 'التفسير بالضغط المطوّل',
       titleEn: 'Tafsir on Long Press',
-      descAr: 'اضغط مطولاً على أي آية لفتح شرحها التفصيلي فوراً.',
+      descAr: 'اضغط مطولاً على أي آية لفتح شاشة تفسيرها فوراً.',
       descEn:
           'Long-press any verse to instantly open its detailed explanation.',
       color: const Color(0xFF6A1B9A),
     ),
     _WhatsNewEntry(
       icon: Icons.wb_twilight_rounded,
-      titleAr: 'الورد اليومي',
+      titleAr: 'ورد يومي',
       titleEn: 'Daily Wird',
       descAr:
-          'حدد هدفك اليومي من التلاوة وتابع تقدمك لإتمام الختمة.',
+          'حدد تلاوتك اليومية وتابع تقدمك لتختم القرآن الكريم بانتظام.',
       descEn:
           'Set your daily recitation target and track your progress to complete the Quran.',
       color: Color(0xFF0277BD),
     ),
     _WhatsNewEntry(
       icon: Icons.menu_book_rounded,
-      titleAr: 'واجهة صفحة المصحف',
+      titleAr: 'واجهة المصحف المصوّرة',
       titleEn: 'Mushaf Page View',
       descAr:
-          'تصميم إسلامي متكامل بزخارف هندسية وعناصر ذهبية مستوحاة من المصاحف الكلاسيكية.',
+          'تصميم إسلامي كامل مع نقوش هندسية وزخارف ذهبية تُحاكي المصاحف الأصيلة.',
       descEn:
           'Full Islamic design with geometric patterns and golden ornaments inspired by classic Mushafs.',
       color: AppColors.primary,
@@ -67,26 +67,26 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       titleAr: 'شاركنا رأيك',
       titleEn: 'Share Your Feedback',
       descAr:
-          'نرحب بمقترحاتك وملاحظاتك لتطوير التطبيق - صوتك يُحدث الفارق!',
+          'سجل اقتراحك من صفحة المزيد ثم اقتراحات ومشاركات - اقتراحك يصنع فارقاً!',
       descEn:
-          'We welcome your suggestions and feedback to improve the app - your voice makes a difference.',
+          'We welcome your suggestions and feedback to improve the app — your voice makes a difference.',
       color: const Color(0xFF00838F),
     ),
     _WhatsNewEntry(
       icon: Icons.notifications_active_rounded,
-      titleAr: 'تذكير الورد',
+      titleAr: 'تنبيه الورد',
       titleEn: 'Wird Reminder',
       descAr:
-          'فعّل التذكيرات اليومية حتى لا تفوتك قراءة وردك اليومي.',
+          'استلم التذكيرات يومياً حتى لا يمر يوم بدون قراءة.',
       descEn:
           'Get daily reminders so you never miss your Quran recitation.',
       color: Color(0xFFE65100),
     ),
     _WhatsNewEntry(
       icon: Icons.text_fields_rounded,
-      titleAr: 'خطوط ومقاسات مخصصة',
+      titleAr: 'خطوط وأحجام متعددة',
       titleEn: 'Custom Fonts & Sizes',
-      descAr: 'اختر الخط القرآني المفضل لديك وضبط حجم النص بحرية.',
+      descAr: 'اختر خط المصحف المناسب وخصّص حجم الخط حسب رغبتك.',
       descEn: 'Choose your preferred Quran font and adjust text size freely.',
       color: const Color(0xFF00695C),
     ),
@@ -102,15 +102,15 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.bookmark_rounded,
       titleAr: 'الإشارات المرجعية',
       titleEn: 'Bookmarks',
-      descAr: 'احفظ آياتك المفضلة والصفحات وارجع إليها في أي وقت.',
+      descAr: 'احفظ آياتك وصفحاتك المفضلة وعُد إليها بسهولة.',
       descEn: 'Save your favourite ayahs and pages and revisit them anytime.',
       color: AppColors.secondary,
     ),
     _WhatsNewEntry(
       icon: Icons.nightlight_round,
-      titleAr: 'الوضع الداكن',
+      titleAr: 'الوضع الليلي',
       titleEn: 'Dark Mode',
-      descAr: 'ثيم داكن لطيف على العين لقراءة مريحة في وقت الليل.',
+      descAr: 'لحماية عينيك أثناء القراءة ليلاً بتصميم هادئ ومريح.',
       descEn: 'Eye-friendly dark theme for a comfortable night-time reading.',
       color: const Color(0xFF37474F),
     ),
@@ -118,16 +118,16 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.access_time_rounded,
       titleAr: 'أوقات الصلاة والأذان',
       titleEn: 'Prayer Times & Adhan',
-      descAr: 'إشعارات أذان تلقائية دقيقة بناءً على موقعك الجغرافي.',
+      descAr: 'تنبيهات الأذان التلقائية حسب موقعك الجغرافي بدقة عالية.',
       descEn:
           'Accurate automatic adhan notifications based on your location.',
       color: const Color(0xFF2E7D32),
     ),
     _WhatsNewEntry(
       icon: Icons.translate_rounded,
-      titleAr: 'واجهة عربية وإنجليزية',
+      titleAr: 'دعم العربية والإنجليزية',
       titleEn: 'Arabic & English UI',
-      descAr: 'واجهة مزدوجة اللغة مع دعم تلقائي للتخطيط RTL وLTR.',
+      descAr: 'واجهة كاملة باللغتين مع دعم RTL وLTR تلقائياً.',
       descEn:
           'Full bilingual interface with automatic RTL/LTR layout support.',
       color: const Color(0xFFAD1457),
@@ -135,118 +135,118 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
     
   ],
 
-  // --- v1.0.8 --------------------------------------------------------------
+  // ─── v1.0.8 ──────────────────────────────────────────────────────────────
   '1.0.8': [
-    // 1
+    // 1 ── البحث (أبرز ميزة جديدة)
     _WhatsNewEntry(
       icon: Icons.search_rounded,
       titleAr: 'البحث في القرآن الكريم',
       titleEn: 'Quran Search',
-      descAr: 'ابحث عن أي كلمة أو آية في القرآن الكريم كاملاً فوراً.',
+      descAr: 'ابحث عن أي كلمة أو آية في القرآن الكريم كاملاً بسرعة ودقة.',
       descEn: 'Search for any word or verse across the entire Quran instantly.',
       color: const Color(0xFF00838F),
     ),
-    // 2
+    // 2 ── تفسير ابن كثير
     _WhatsNewEntry(
       icon: Icons.menu_book_rounded,
       titleAr: 'تفسير ابن كثير',
       titleEn: 'Ibn Kathir Tafsir',
-      descAr: 'اضغط مطولاً على أي آية لفتح تفسير ابن كثير الكامل – متاح بالكامل بدون إنترنت.',
-      descEn: 'Long-press any verse to open the full Ibn Kathir tafsir - completely offline.',
+      descAr: 'اضغط مطوّلاً على أي آية لفتح تفسير ابن كثير الشامل — متاح بالكامل بدون إنترنت.',
+      descEn: 'Long-press any verse to open the full Ibn Kathir tafsir — completely offline.',
       color: const Color(0xFF6A1B9A),
     ),
-    // 3
+    // 3 ── علي عبد الله جابرتلاوة الشيخ كامل
     _WhatsNewEntry(
       icon: Icons.record_voice_over_rounded,
-      titleAr: 'الشيخ عبدالله كامل – تلاوة مميزة',
+      titleAr: 'تلاوة الشيخ علي عبد الله جابر كامل',
       titleEn: 'Sheikh Abdullah Kamel Recitation',
-      descAr: 'استمع إلى الشيخ عبدالله كامل وحمّل السور للاستماع بدون اتصال بالإنترنت.',
+      descAr: 'استمع لتلاوة الشيخ علي عبد الله جابر كامل وحمّل السور للاستماع بدون إنترنت.',
       descEn: 'Listen to Sheikh Abdullah Kamel and download surahs for offline playback.',
       color: const Color(0xFF0277BD),
     ),
-    // 4
+    // 4 ── تلاوة كلمة بكلمة
     _WhatsNewEntry(
       icon: Icons.text_fields_rounded,
-      titleAr: 'التشغيل كلمة بكلمة',
+      titleAr: 'تلاوة كلمة بكلمة',
       titleEn: 'Word-by-Word Playback',
-      descAr: 'شغّل القرآن كلمة بكلمة مع تمييز كل كلمة أثناء تلاوتها.',
+      descAr: 'شغّل القرآن الكريم كلمةً بكلمة مع تظليل كل كلمة أثناء التلاوة.',
       descEn: 'Play the Quran word by word with each word highlighted as it is recited.',
       color: AppColors.primary,
     ),
-    // 5
+    // 5 ── تشغيل القرآن كاملاً من المزيد
     _WhatsNewEntry(
       icon: Icons.queue_music_rounded,
       titleAr: 'تشغيل القرآن كاملاً من صفحة المزيد',
       titleEn: 'Full Quran Playback from More',
-      descAr: 'شغّل القرآن الكريم كاملاً من صفحة المزيد بنقرة واحدة.',
+      descAr: 'يمكنك الآن تشغيل القرآن الكريم كاملاً من صفحة المزيد بضغطة واحدة.',
       descEn: 'Play the entire Quran from the More page with a single tap.',
       color: const Color(0xFF2E7D32),
     ),
         _WhatsNewEntry(
       icon: Icons.favorite_rounded,
-      titleAr: 'الصلاة على النبي ﷺ',
+      titleAr: 'تذكير بالصلاة على النبي ﷺ',
       titleEn: 'Salah upon the Prophet ﷺ',
-      descAr: 'تذكير يومي بالصلاة على النبي محمد ﷺ طوال يومك.',
-          descEn: 'A daily reminder to send blessings upon the Prophet Muhammad ﷺ throughout your day.',
+      descAr: 'تذكير يومي بالصلاة على سيدنا محمد ﷺ لا ينقطع في أي وقت من اليوم.',
+      descEn: 'A daily reminder to send blessings upon the Prophet Muhammad ﷺ throughout your day.',
       color: const Color(0xFFAD1457),
     ),
-    // 8
+      // 8 ── ورد القضاء والورد اليومي
     _WhatsNewEntry(
       icon: Icons.bookmark_add_rounded,
-      titleAr: 'قضاء الورد اليومي والورد المحسّن',
+      titleAr: 'ورد القضاء وتحسين الورد اليومي',
       titleEn: 'Qada Wird & Enhanced Daily Wird',
-      descAr: 'احفظ موضع القضاء في وردك وتلقَّ تذكيرات الورد اليومية التي تُعاد تلقائياً.',
+      descAr: 'احفظ موضع ورد القضاء، وإشعارات الورد اليومي تُجدَّد تلقائياً كل يوم جديد.',
       descEn: 'Bookmark your Qada wird position and get daily wird reminders that reset automatically.',
       color: AppColors.secondary,
     ),
-    // 7 -- تمرير عمودي
+    // 7 ── التمرير العمودي للمصحف
     _WhatsNewEntry(
       icon: Icons.swipe_vertical_rounded,
       titleAr: 'تمرير عمودي لصفحات المصحف',
       titleEn: 'Vertical Mushaf Scrolling',
-      descAr: 'تصفح صفحات مصحف القرآن عمودياً بحركات سلسة لتجربة قراءة أكثر طبيعية.',
+      descAr: 'تصفّح صفحات المصحف الشريف بالتمرير العمودي لتجربة قراءة أكثر طبيعية.',
       descEn: 'Browse Mushaf pages with vertical scroll for a more natural reading experience.',
       color: const Color(0xFF00695C),
     ),
   
-    // 9 -- تخصيص الأذان
+    // 9 ── تخصيصات الأذان
     _WhatsNewEntry(
       icon: Icons.tune_rounded,
-      titleAr: 'تخصيص الأذان وصيغته المختصرة',
+      titleAr: 'تخصيصات الأذان والأذان المصغر',
       titleEn: 'Adhan Customization & Mini Adhan',
-      descAr: 'خصّص كل صلاة باستقلالية تامة واختر الأذان المختصر للتنبيه بشكل هادئ.',
+      descAr: 'خصّص صوت كل أذان باستقلالية، واختر الأذان المصغر لتنبيه أخف.',
       descEn: 'Customize each prayer adhan independently and choose the mini adhan for a subtle alert.',
       color: const Color(0xFF37474F),
     ),
-    // 6 -- تحسين مشغل الصوت
+    // 6 ── تحسين مشغّل الصوت
     _WhatsNewEntry(
       icon: Icons.play_circle_rounded,
-      titleAr: 'تحسين مشغل الصوت',
+      titleAr: 'تحسين مشغّل الصوت',
       titleEn: 'Improved Audio Player',
-      descAr: 'مشغل صوت أسرع وأوضح مع تتبع دقيق للتقدم حتى للسور الطويلة.',
+      descAr: 'مشغّل صوتي أسرع وأبسط مع شريط تقدم دقيق يعمل مع السور الطويلة.',
       descEn: 'Faster and cleaner audio player with accurate progress even for long surahs.',
       color: const Color(0xFF1565C0),
     ),
-    // 10 -- تذكيرات قبل الصلاة والإقامة
+    // 10 ── تذكير باقتراب الصلاة والإقامة
     _WhatsNewEntry(
       icon: Icons.alarm_rounded,
-      titleAr: 'تذكيرات قبل الصلاة والإقامة',
+      titleAr: 'تذكير باقتراب الصلاة والإقامة',
       titleEn: 'Pre-Prayer & Iqama Reminders',
-      descAr: 'احصل على تنبيه قبل رفع الأذان بـ 10 دقائق وتنبيه آخر عند موعد الإقامة.',
+      descAr: 'استلم تنبيهاً قبل الأذان بـ 10 دقائق، وتنبيهاً آخر عند وقت الإقامة.',
       descEn: 'Get notified 10 minutes before the adhan and again at iqama time.',
       color: const Color(0xFFE65100),
     ),
-    // 11 -- صلوات على النبي صلى الله عليه وسلم
+    // 11 ── الصلاة على النبي ﷺ
 
   ],
 
-  // --- v1.0.9 ----------------------------------------------------
+  // ─── v1.0.9 ────────────────────────────────────────────────────
   '1.0.9': [
     _WhatsNewEntry(
       icon: Icons.explore_rounded,
-      titleAr: 'بوصلة القبلة',
+      titleAr: 'شاشة القبلة',
       titleEn: 'Qiblah Compass',
-      descAr: 'اعثر على اتجاه القبلة بواسطة بوصلة حية وخريطة تفاعلية مع استجابة اهتزازية فورية عند التوجه الصحيح.',
+      descAr: 'تحديد اتجاه القبلة بدقة بوصلة حية وخريطة تفاعلية، مع تنبيه فوري عند استقبال القبلة.',
       descEn: 'Find the Qibla direction with a live compass and interactive map, with instant haptic feedback when aligned.',
       color: AppColors.primary,
     ),
@@ -254,7 +254,7 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.notifications_active_rounded,
       titleAr: 'إصلاح جدولة الأذان والإشعارات',
       titleEn: 'Fixed Adhan & Notification Scheduling',
-      descAr: 'تم إصلاح جدولة الأذان والإشعارات بشكل كامل – التنبيهات تصل في الوقت المحدد في كل مرة.',
+      descAr: 'تم إصلاح جدولة الأذان والإشعارات بشكل كامل — التنبيهات تصلك أخيراً في الوقت الصحيح دون انقطاع.',
       descEn: 'Adhan and notification scheduling is now fully fixed — alerts arrive on time, every time.',
       color: const Color(0xFF2E7D32),
     ),
@@ -262,7 +262,7 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.sensors_rounded,
       titleAr: 'تنبيه معايرة البوصلة',
       titleEn: 'Compass Calibration Alert',
-      descAr: 'ينبثق تنبيه تلقائي حين تكون دقة البوصلة منخفضة مع تعليمات معايرة خطوة بخطوة.',
+      descAr: 'يظهر تنبيه تلقائي عند انخفاض دقة بوصلة جهازك مع خطوات واضحة لإعادة المعايرة.',
       descEn: 'An automatic prompt appears when compass accuracy is low, with step-by-step calibration instructions.',
       color: Colors.amber,
     ),
@@ -270,31 +270,31 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.auto_fix_high_rounded,
       titleAr: 'إصلاحات عامة',
       titleEn: 'General Fixes',
-      descAr: 'تم إزالة البسملة المكررة من الآية الأولى، وأرقام الصفحات لم تعد تختفي في أجهزة التنقل بثلاثة أزرار، وتحسينات على الوضع الداكن.',
+      descAr: 'حذف البسملة المكررة من بداية السور، ورقم الصفحة لم يعد يختبئ خلف شريط تنقل الأندرويد، وتحسينات في الوضع الليلي.',
       descEn: 'Duplicate Basmala removed from verse 1, page numbers no longer hidden on 3-button nav devices, and dark mode improvements.',
       color: const Color(0xFF00695C),
     ),
     _WhatsNewEntry(
       icon: Icons.record_voice_over_rounded,
-      titleAr: 'الشيخ علي عبدالله جابر – القارئ الافتراضي الجديد',
-      titleEn: 'Ali Abdullah Jaber - New Default Reciter',
-      descAr: 'صوت الشيخ علي عبدالله جابر الجميل أصبح القارئ الافتراضي للتطبيق – يمكنك تغييره في أي وقت من الإعدادات.',
-      descEn: 'Sheikh Ali Abdullah Jaber\'s beautiful voice is now the app\'s default reciter - change it anytime in Settings.',
+      titleAr: 'الشيخ علي عبدالله جابر القارئ الافتراضي',
+      titleEn: 'Ali Abdullah Jaber — New Default Reciter',
+      descAr: 'صوت الشيخ علي عبدالله جابر العذب أصبح القارئ الافتراضي للتطبيق — يمكنك تغييره في أي وقت من الإعدادات.',
+      descEn: 'Sheikh Ali Abdullah Jaber\'s beautiful voice is now the app\'s default reciter — change it anytime in Settings.',
       color: const Color(0xFF6A1B9A),
     ),
     _WhatsNewEntry(
       icon: Icons.radio_rounded,
-      titleAr: 'راديو القرآن الكريم',
+      titleAr: 'إذاعة القرآن الكريم',
       titleEn: 'Quran Radio',
-      descAr: 'بث مباشر لراديو القرآن الكريم من إذاعة القرآن الكريم المصرية بجودة عالية أو منخفضة مباشرة داخل التطبيق.',
+      descAr: 'استمع لبث القرآن الكريم المباشر من إذاعة القرآن الكريم المصرية بجودة عالية ومنخفضة داخل التطبيق.',
       descEn: 'Stream live Quran radio from the Egyptian Quran Broadcasting station in high or low quality, right inside the app.',
       color: const Color(0xFF00838F),
     ),
     _WhatsNewEntry(
       icon: Icons.scatter_plot_rounded,
-      titleAr: 'عداد التسبيح الرقمي',
+      titleAr: 'السبحة الإلكترونية',
       titleEn: 'Digital Tasbeeh Counter',
-      descAr: 'عدّ ذكرك بسهولة بواسطة مسبحة رقمية تهتز وتنبه عند 33 و100 عدة مع إمكانية الضبط اليدوي.',
+      descAr: 'سبّح واذكر الله بسهولة مع سبحة إلكترونية تدعم الاهتزاز، وتنبّه عند الوصول لـ 33 و100، مع إمكانية الضبط اليدوي.',
       descEn: 'Count your dhikr effortlessly with a digital tasbih that vibrates, alerts at 33 & 100 counts, with manual adjustment.',
       color: AppColors.secondary,
     ),
@@ -302,48 +302,48 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       icon: Icons.map_rounded,
       titleAr: 'خريطة القبلة التفاعلية',
       titleEn: 'Interactive Qiblah Map',
-      descAr: 'اعرض اتجاه القبلة على خريطة حية تفاعلية بجانب البوصلة مع خط واضح من موقعك إلى مكة.',
-      descEn: 'View the Qibla direction on a live interactive map alongside the compass - with a clear visual line from your location to Mecca.',
+      descAr: 'شاهد اتجاه القبلة على خريطة تفاعلية حية بجانب البوصلة — مع خط رسومي واضح من موقعك إلى مكة المكرمة.',
+      descEn: 'View the Qibla direction on a live interactive map alongside the compass — with a clear visual line from your location to Mecca.',
       color: AppColors.primary,
     ),
     _WhatsNewEntry(
       icon: Icons.share_rounded,
       titleAr: 'مشاركة الآيات كبطاقات جميلة',
       titleEn: 'Share Ayahs as Beautiful Cards',
-      descAr: 'شارك أي آية كصورة بطاقة جميلة من شاشة التفسير مع النص واسم السورة ورقمها تلقائياً.',
-      descEn: 'Share any verse as a beautiful image card from the Tafsir screen - with text, surah name, and number included automatically.',
+      descAr: 'شارك أي آية كصورة بطاقة أنيقة من شاشة التفسير — تتضمن النص والسورة والرقم تلقائياً.',
+      descEn: 'Share any verse as a beautiful image card from the Tafsir screen — with text, surah name, and number included automatically.',
       color: const Color(0xFFAD1457),
     ),
     _WhatsNewEntry(
       icon: Icons.headphones_rounded,
-      titleAr: 'الصوت يعمل في الخلفية',
+      titleAr: 'التلاوة تعمل في الخلفية',
       titleEn: 'Audio Plays in Background',
-      descAr: 'استمر في الاستماع للتلاوة أثناء استخدام تطبيقات أخرى مع إشعار التشغيل في شريط الحالة.',
-      descEn: 'Keep listening to recitation even while using other apps - with a playback notification in the status bar.',
+      descAr: 'استمر في الاستماع للتلاوة حتى وأنت تستخدم تطبيقات أخرى — مع إشعار التشغيل في شريط الإشعارات.',
+      descEn: 'Keep listening to recitation even while using other apps — with a playback notification in the status bar.',
       color: const Color(0xFF1565C0),
     ),
   ],
 
-  // --- v1.0.10 -------------------------------------------------------------
+  // ─── v1.0.10 ─────────────────────────────────────────────────────────────
   '1.0.10': [
     _WhatsNewEntry(
       icon: Icons.alarm_on_rounded,
-      titleAr: 'الأذان يستخدم صوت المنبّه الآن 🔔',
+      titleAr: 'الأذان على صوت المنبه الآن 🔔',
       titleEn: 'Adhan Now Uses Alarm Sound 🔔',
       descAr:
-          'الأذان يعمل الآن حتى في وضع الصامت أو DND - مثل المنبّه تماماً. يمكنك تغيير هذا في إعدادات الأذان.',
+          'الأذان هيشتغل دلوقتي حتى لو التليفون على الصامت أو وضع DND — زي المنبه تماماً. تقدر تغيّر ده من إعدادات الأذان.',
       descEn:
-        'Adhan now plays even in Silent or DND mode - just like an alarm clock. You can change this anytime in Adhan Settings.',
+          'Adhan now plays even in Silent or DND mode — just like an alarm clock. You can change this anytime in Adhan Settings.',
       color: const Color(0xFF2E7D32),
     ),
     _WhatsNewEntry(
       icon: Icons.lock_clock_rounded,
-      titleAr: 'الأذان يُطلق في وقته – دائماً',
-      titleEn: 'Adhan Fires On Time - Always',
+      titleAr: 'الأذان يُفعَّل في الوقت الصحيح دائماً',
+      titleEn: 'Adhan Fires On Time — Always',
       descAr:
-          'تمت الترقية إلى أعلى أولوية منبّه في Android - الأذان يعمل بدقة حتى أثناء نومك أو قفل الشاشة أو التطبيق في الخلفية.',
+          'تم الترقية لأعلى أولوية تنبيه في Android — الأذان يشتغل بدقة حتى وإنت نايم أو الشاشة مقفولة أو التطبيق في الخلفية.',
       descEn:
-        'Upgraded to the highest Android alarm priority - Adhan fires accurately even while you sleep, screen locked, or app in background.',
+          'Upgraded to the highest Android alarm priority — Adhan fires accurately even while you sleep, screen locked, or app in background.',
       color: AppColors.primary,
     ),
     _WhatsNewEntry(
@@ -351,149 +351,149 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       titleAr: 'الرقية الشرعية داخل التطبيق',
       titleEn: 'Ruqyah Shariah Inside the App',
       descAr:
-          'شاشة رقية شرعية متكاملة متاحة الآن مع آيات الشفاء والحماية وعرض نص قرآني متقن وترجمات وتشغيل صوتي.',
+          'أضفنا شاشة رقية شرعية متكاملة تضم آيات الشفاء والحماية مع عرض جميل للنص القرآني، وترجمة، وتشغيل صوتي للسور والآيات الأساسية.',
       descEn:
           'A dedicated Ruqyah Shariah screen is now available with healing and protection verses, polished Quran text rendering, translations, and audio playback for the essential recitations.',
       color: const Color(0xFF8E6C1F),
     ),
     _WhatsNewEntry(
       icon: Icons.feedback_outlined,
-      titleAr: 'نظام ملاحظات ومقترحات جديد',
+      titleAr: 'نظام اقتراحات ومشاركات جديد',
       titleEn: 'New Feedback & Suggestions System',
       descAr:
-          'يمكنك الآن إرسال ملاحظاتك ومقترحاتك مباشرة من داخل التطبيق مع تذكير ذكي يظهر في الوقت المناسب دون إزعاج.',
+          'يمكنك الآن إرسال اقتراحاتك وملاحظاتك من داخل التطبيق بسهولة، مع نافذة تذكير ذكية تظهر في الوقت المناسب دون إزعاج.',
       descEn:
           'You can now send feedback and suggestions directly from inside the app, with a smart reminder prompt that appears at the right time without being intrusive.',
       color: const Color(0xFF00838F),
     ),
     _WhatsNewEntry(
       icon: Icons.widgets_rounded,
-      titleAr: 'أداة مواقيت الصلاة على الشاشة الرئيسية',
+      titleAr: 'ويدجت مواقيت الصلاة للشاشة الرئيسية',
       titleEn: 'Prayer Times Home-Screen Widget',
       descAr:
-          'أداة جديدة لمواقيت الصلاة على الشاشة الرئيسية تعرض الصلاة الحالية والقادمة مع تاريخ اليوم بأساليب متعددة.',
+          'أضفنا ويدجت لمواقيت الصلاة يعرض الصلاة الحالية والقادمة وتاريخ اليوم، مع أكثر من شكل ليتناسب مع واجهة هاتفك.',
       descEn:
           'A new Prayer Times home-screen widget shows the current and upcoming prayer along with today''s date, with multiple styles to match your device theme.',
       color: const Color(0xFF5D4037),
     ),
   ],
-  // --- v1.0.11 -----------------------------------------------------------------
+  // ─── v1.0.11 ─────────────────────────────────────────────────────────────────
   '1.0.11': [
  
     _WhatsNewEntry(
       icon: Icons.widgets_rounded,
-      titleAr: 'أداة مواقيت الصلاة',
+      titleAr: 'ويدجت مواقيت الصلاة',
       titleEn: 'Prayer Times Widget',
       descAr:
-          'تم تحسين أداة مواقيت الصلاة والصلاة القادمة التي يمكن إضافتها الآن إلى شاشة هاتفك الرئيسية.',
+          'تم تحسين ويدجت عرض مواقيت الصلاة والصلاة القادمة التي من الممكن إضافتها الآن في الصفحة الرئيسية للهاتف.',
       descEn:
           'Improved the prayer times and next prayer widget that can now be added to your phone\'s home screen.',
       color: const Color(0xFF5D4037),
     ),
     _WhatsNewEntry(
       icon: Icons.download_for_offline_rounded,
-      titleAr: 'تحميل التفسير للعمل بدون إنترنت',
+      titleAr: 'تحميل التفسير بدون إنترنت',
       titleEn: 'Offline Tafsir Download',
       descAr:
-          'تمت إضافة صفحة لتحميل تفاسير القرآن للعمل بدون اتصال بالإنترنت.',
+          'تم إضافة صفحة لتحميل تفاسير القرآن الكريم لتعمل بدون اتصال إنترنت.',
       descEn:
           'Added a page to download Quran Tafsirs to work offline without an internet connection.',
       color: const Color(0xFF00838F),
     ),
     _WhatsNewEntry(
       icon: Icons.healing_rounded,
-      titleAr: 'تحسينات شاشة الرقية الشرعية',
+      titleAr: 'إصلاحات الرقية الشرعية',
       titleEn: 'Ruqyah Shariah Fixes',
       descAr:
-          'تم إصلاح بعض المشكلات في شاشة الرقية الشرعية لضمان تجربة سلسة.',
+          'تم إصلاح بعض المشاكل في صفحة الرقية الشرعية لضمان تجربة أفضل.',
       descEn:
           'Fixed issues in the Ruqyah screen to ensure a seamless experience.',
       color: const Color(0xFF8E6C1F),
     ),
     _WhatsNewEntry(
       icon: Icons.sync_problem_rounded,
-      titleAr: 'تحسين صلاحيات الإشعارات',
+      titleAr: 'معالجة صلاحيات التنبيهات',
       titleEn: 'Enhanced Notifications Permission',
       descAr:
-          'تم تحسين التعامل مع الصلاحيات والمعالجة في الخلفية للحفاظ على الأذان والإشعارات دون انقطاع.',
+          'تم تطوير معالجة التنبيهات المستمرة في الخلفية لضمان وصول الأذان في الوقت المحدد ودون انقطاع من النظام.',
       descEn:
           'Advanced handling for background processing and permissions to keep Adhan and continuous notifications uninterrupted.',
       color: const Color(0xFFD84315),
     ),
   ],
 
-  // --- v1.0.12 -----------------------------------------------------------------
+  // ─── v1.0.12 ─────────────────────────────────────────────────────────────────
   '1.0.12': [
     _WhatsNewEntry(
       icon: Icons.scatter_plot_rounded,
-      titleAr: 'أداة التسبيح على الشاشة الرئيسية',
+      titleAr: 'ويدجت المسبحة للشاشة الرئيسية',
       titleEn: 'Tasbeeh Home-Screen Widget',
       descAr:
-          'أضف أداة التسبيح على الشاشة الرئيسية لعد الذكر السريع مع عداد ذكي واهتزاز عند الأهداف.',
+          'أضف ويدجت المسبحة على شاشتك الرئيسية لتسبيح سريع مع عداد ذكي واهتزاز عند الوصول للهدف.',
       descEn:
           'Add the Tasbeeh widget to your home screen for quick dhikr counting with smart counter and haptic feedback at goals.',
       color: AppColors.secondary,
     ),
     _WhatsNewEntry(
       icon: Icons.do_not_disturb_on_rounded,
-      titleAr: 'كتم الصوت أثناء الصلاة',
+      titleAr: 'وضع الصمت أثناء الصلاة',
       titleEn: 'Silent Mode During Prayer',
       descAr:
-          'وضع الصامت يُفعَّل تلقائياً عند وقت الصلاة لتجنب الإزعاج – خصّصه من إعدادات الأذان.',
+          'يُفعَّل وضع الصمت تلقائياً عند دخول وقت الصلاة لتجنب الإزعاج أثناء صلاتك — يمكنك ضبطه من إعدادات الأذان.',
       descEn:
-          'Silent mode activates automatically at prayer time to avoid interruptions - customize it in Adhan Settings.',
+          'Silent mode activates automatically at prayer time to avoid interruptions — customize it in Adhan Settings.',
       color: const Color(0xFF37474F),
     ),
     _WhatsNewEntry(
       icon: Icons.timer_rounded,
-      titleAr: 'تخصيص وقت الإقامة لكل صلاة',
+      titleAr: 'وقت إقامة مخصص لكل صلاة',
       titleEn: 'Customizable Iqama Time Per Prayer',
       descAr:
-          'حدد وقت الإقامة لكل صلاة بشكل منفصل – الفجر 20 دقيقة والظهر 15، والمغرب 5... كما تفضل.',
+          'اضبط وقت الإقامة لكل صلاة على حدة — الفجر 20 دقيقة، الظهر 15، المغرب 5... كما تريد.',
       descEn:
-          'Set iqama time for each prayer individually - Fajr 20 min, Dhuhr 15, Maghrib 5... as you prefer.',
+          'Set iqama time for each prayer individually — Fajr 20 min, Dhuhr 15, Maghrib 5... as you prefer.',
       color: const Color(0xFFE65100),
     ),
     _WhatsNewEntry(
       icon: Icons.play_circle_outline_rounded,
-      titleAr: 'متابعة التلاوة تلقائياً',
+      titleAr: 'استكمال التلاوة تلقائياً',
       titleEn: 'Auto-Continue Recitation',
       descAr:
-          'اضغط على آية لتشغيل السورة أو الصفحة كاملة بدلاً من آية واحدة فقط – فعّلها من إعدادات المصحف.',
+          'عند الضغط على آية، يمكن تشغيل السورة أو الصفحة كاملة بدلاً من آية واحدة — فعّلها من إعدادات المصحف.',
       descEn:
-          'Tap an ayah to play the entire surah or page instead of just one verse - enable it in Mushaf Settings.',
+          'Tap an ayah to play the entire surah or page instead of just one verse — enable it in Mushaf Settings.',
       color: const Color(0xFF0277BD),
     ),
     _WhatsNewEntry(
       icon: Icons.calendar_today_rounded,
-      titleAr: 'ضبط التاريخ الهجري',
+      titleAr: 'تعديل التاريخ الهجري',
       titleEn: 'Hijri Date Adjustment',
       descAr:
-          'إذا اختلف التاريخ الهجري عن بلدك يمكنك الآن ضبطه يدوياً من إعدادات أوقات الصلاة.',
+          'إذا كان التاريخ الهجري في التطبيق يختلف عن تاريخ بلدك، يمكنك الآن تعديله يدوياً من إعدادات مواقيت الصلاة.',
       descEn:
           'If the Hijri date differs from your country, you can now adjust it manually in Prayer Times Settings.',
       color: const Color(0xFF6A1B9A),
     ),
   ],
 
-  // --- v1.0.13 ----------------------------------------------------
+  // ─── v1.0.13 ────────────────────────────────────────────────────
   '1.0.13': [
     _WhatsNewEntry(
       icon: Icons.auto_fix_high_rounded,
       titleAr: 'إصلاح صفحات المصحف',
       titleEn: 'Mushaf Pages Fix',
       descAr:
-          'تم إصلاح بعض صفحات المصحف التي لم تكن تُعرض بشكل صحيح بخط المصحف العثماني.',
+          'تم إصلاح بعض صفحات المصحف التي كانت لا تظهر برسم المصحف الشريف بشكل صحيح.',
       descEn:
           'Fixed some Mushaf pages that were not displaying correctly with the Uthmanic script.',
       color: const Color(0xFF2E7D32),
     ),
     _WhatsNewEntry(
       icon: Icons.record_voice_over_rounded,
-      titleAr: 'المصحف الملوّن',
+      titleAr: 'المصحف المجوّد',
       titleEn: 'Tajweed Mushaf',
       descAr:
-          'تمت إضافة مصحف التجويد الملوّن للمساعدة على تعلم أحكام التجويد أثناء التلاوة.',
+          'إضافة المصحف المجوّد الملوّن لتسهيل تعلّم أحكام التجويد أثناء التلاوة.',
       descEn:
           'Added the color-coded Tajweed Mushaf to help learn tajweed rules while reciting.',
       color: const Color(0xFF6A1B9A),
@@ -503,7 +503,7 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       titleAr: 'تحسينات عامة',
       titleEn: 'General Improvements',
       descAr:
-          'تحسين الأداء العام للتطبيق وتجربة المستخدم للتصفح بشكل أسرع وأكثر سلاسة.',
+          'تحسين الأداء العام للتطبيق وتجربة المستخدم لتصفّح أسرع وأكثر سلاسة.',
       descEn:
           'Improved overall app performance and user experience for faster and smoother browsing.',
       color: const Color(0xFF00838F),
@@ -511,9 +511,9 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
   ],
 };
 
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // What's New Screen
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 class WhatsNewScreen extends StatefulWidget {
   final WhatsNewService whatsNewService;
   final VoidCallback onDismiss;
@@ -590,11 +590,11 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
     return result;
   }
 
-  /// Returns every changelog entry the user hasn't seen yet.
+  /// Returns every changelog entry the user hasn’t seen yet.
   ///
-  /// - [lastSeen] null  ? first launch, show the full app feature showcase.
-  /// - [lastSeen] known ? collect entries from all versions AFTER [lastSeen].
-  /// - [lastSeen] not found in map ? fallback to current version's entries.
+  /// - [lastSeen] null  → first launch, show the full app feature showcase.
+  /// - [lastSeen] known → collect entries from all versions AFTER [lastSeen].
+  /// - [lastSeen] not found in map → fallback to current version’s entries.
   List<_WhatsNewEntry> _buildEntries(String? lastSeen) {
     final currentVersion = _resolveVersion(widget.version);
 
@@ -690,7 +690,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
               SafeArea(
                 child: Column(
                   children: [
-                    // -- Animated header entrance --------------------------
+                    // ── Animated header entrance ──────────────────────────
                     AnimatedBuilder(
                       animation: _animController,
                       builder: (context, child) {
@@ -714,7 +714,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
                         isDark: isDark,
                       ),
                     ),
-                    // -- Scrollable feature list ---------------------------
+                    // ── Scrollable feature list ───────────────────────────
                     Expanded(
                       child: ListView.separated(
                         // Bottom padding so the last card is not hidden by
@@ -735,7 +735,7 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
                         },
                       ),
                     ),
-                    // -- CTA button ----------------------------------------
+                    // ── CTA button ────────────────────────────────────────
                     AnimatedBuilder(
                       animation: _animController,
                       builder: (context, child) {
@@ -840,9 +840,9 @@ class _WhatsNewScreenState extends State<WhatsNewScreen>
   }
 }
 
-// -----------------------------------------------------------------------------
-// Header widget - full-width app-store-style banner
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Header widget – full-width app-store-style banner
+// ─────────────────────────────────────────────────────────────────────────────
 class _WhatsNewHeader extends StatelessWidget {
   final String version;
   final bool isShowcaseMode;
@@ -861,7 +861,7 @@ class _WhatsNewHeader extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // - Banner background -------------------------------------
+        // ─ Banner background ─────────────────────────────────────
         Container(
           width: double.infinity,
           padding: EdgeInsets.only(
@@ -891,7 +891,7 @@ class _WhatsNewHeader extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // - Text side -
+              // ─ Text side ─
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -976,7 +976,7 @@ class _WhatsNewHeader extends StatelessWidget {
               ),
               const SizedBox(width: 16),
 
-              // - Decorative icon side -
+              // ─ Decorative icon side ─
               RepaintBoundary(
                 child: CustomPaint(
                   size: const Size(72, 72),
@@ -1002,7 +1002,7 @@ class _WhatsNewHeader extends StatelessWidget {
           ),
         ),
 
-        // - Bottom wave divider -------------------------------
+        // ─ Bottom wave divider ───────────────────────────────
         Positioned(
           bottom: 0,
           left: 0,
@@ -1025,9 +1025,9 @@ class _WhatsNewHeader extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // Feature card widget
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 class _FeatureCard extends StatelessWidget {
   final _WhatsNewEntry entry;
   final bool isAr;
@@ -1047,7 +1047,7 @@ class _FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Each card starts at 300 + index * 100 ms; animates over a 500ms window.
+    // Each card starts at 300 + index×100 ms; animates over a 500ms window.
     final startFraction = (300 + index * 100) / totalMs;
     final endFraction =
         ((300 + index * 100 + 500) / totalMs).clamp(0.0, 1.0);
@@ -1164,9 +1164,9 @@ class _FeatureCard extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Icon bubble - extracted so the child cache works cleanly
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Icon bubble – extracted so the child cache works cleanly
+// ─────────────────────────────────────────────────────────────────────────────
 class _IconBubble extends StatelessWidget {
   final Color color;
   final IconData icon;
@@ -1192,9 +1192,9 @@ class _IconBubble extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // Star-burst painter for the header icon area
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 class _StarBurstPainter extends CustomPainter {
   final Color ringColor;
   final Color starColor;
@@ -1241,9 +1241,9 @@ class _StarBurstPainter extends CustomPainter {
       old.ringColor != ringColor || old.starColor != starColor;
 }
 
-// -----------------------------------------------------------------------------
-// Custom painters - same visual style as mushaf_page_view
-// -----------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom painters – same visual style as mushaf_page_view
+// ─────────────────────────────────────────────────────────────────────────────
 class _PatternPainter extends CustomPainter {
   final Color color;
 

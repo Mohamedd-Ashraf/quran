@@ -10,19 +10,23 @@ class BasmallahWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 5.0),
-        child: Text(
-          // Some Surahs (like 97 and 95) require a specific glyph variant
-          // depending on the font's character mapping for optimal layout.
-          surahNumber == 97 || surahNumber == 95
-              ? "齃𧻓𥳐龎"
-              : '齃𧻓𥳐𥉉',
-          // Utilizing the helper class for consistent Quranic typography
-          style: QuranTextStyles.basmallahStyle(
-            fontSize: 20,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+    // PUA codepoints must be excluded from the semantics tree to prevent
+    // crashes in SemanticsAnnotationsMixin during font-load rebuilds.
+    return ExcludeSemantics(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 5.0),
+          child: Text(
+            // Some Surahs (like 97 and 95) require a specific glyph variant
+            // depending on the font's character mapping for optimal layout.
+            surahNumber == 97 || surahNumber == 95
+                ? "齃𧻓𥳐龎"
+                : '齃𧻓𥳐𥉉',
+            // Utilizing the helper class for consistent Quranic typography
+            style: QuranTextStyles.basmallahStyle(
+              fontSize: 20,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
           ),
         ),
       ),
