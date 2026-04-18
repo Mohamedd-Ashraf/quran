@@ -5,10 +5,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+
+// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
+final _cachedAmiriQuran = GoogleFonts.amiriQuran();
 
 // ──────────────────────────────────────────────────────
 //  State enum – covers every broadcast situation cleanly
@@ -182,10 +184,11 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
         if (!_isAttemptCurrent(attemptId)) return;
 
         try {
+          final isAr = context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar');
           await cubit.playLiveStream(
             url: urlsToTry[i],
-            title: 'إذاعة القرآن الكريم',
-            subtitle: 'الإذاعة المصرية — القاهرة',
+            title: isAr ? 'إذاعة القرآن الكريم' : 'Quran Radio',
+            subtitle: isAr ? 'الإذاعة المصرية — القاهرة' : 'Egyptian Radio — Cairo',
           );
           if (!_isAttemptCurrent(attemptId)) return;
 
@@ -314,7 +317,7 @@ class _QuranRadioScreenState extends State<QuranRadioScreen>
         ),
         title: Text(
           isArabic ? 'إذاعة القرآن الكريم' : 'Quran Radio',
-          style: GoogleFonts.amiriQuran(
+          style: _cachedAmiriQuran.copyWith(
             color: AppColors.onPrimary,
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -569,7 +572,7 @@ class _StationHeader extends StatelessWidget {
           Text(
             isArabic ? 'إذاعة القرآن الكريم' : 'Quran Radio',
             textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-            style: GoogleFonts.amiriQuran(
+            style: _cachedAmiriQuran.copyWith(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: isDark ? AppColors.secondary : AppColors.primary,

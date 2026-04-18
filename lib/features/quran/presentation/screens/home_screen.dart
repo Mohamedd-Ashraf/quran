@@ -30,6 +30,12 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 
+// Cached at file scope — avoids triggering loadFontIfNecessary on every build,
+// which causes unhandled rejections with google_fonts ≥6.2 in Flutter.
+final TextStyle _cachedAmiri      = GoogleFonts.amiri();
+final TextStyle _cachedAmiriQuran = GoogleFonts.amiriQuran();
+final TextStyle _cachedArefRuqaa  = GoogleFonts.arefRuqaa();
+
 /// Remove Arabic diacritical marks (تشكيل) from text.
 String _removeDiacriticsHelper(String text) {
   const diacritics = [
@@ -76,7 +82,7 @@ String _arabicizeDigits(String s) {
 
 /// Surah number style with classical Amiri font.
 TextStyle _surahNumberStyle(BuildContext context) {
-  return GoogleFonts.amiri(
+  return _cachedAmiri.copyWith(
     fontSize: 16,
     fontWeight: FontWeight.w700,
     color: AppColors.onPrimary,
@@ -93,7 +99,7 @@ Widget _buildDetailsLineWithAmiriNumbers(
   final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
     color: isDark ? AppColors.darkTextSecondary : null,
   );
-  final amiriStyle = GoogleFonts.amiri(
+  final amiriStyle = _cachedAmiri.copyWith(
     fontWeight: FontWeight.w700,
   ).copyWith(
     fontSize: baseStyle?.fontSize,
@@ -427,7 +433,7 @@ class HomeScreenState extends State<HomeScreen>
                       children: [
                         Text(
                           isArabicUi ? 'قائمة السور' : 'Surah List',
-                          style: GoogleFonts.arefRuqaa(
+                          style: _cachedArefRuqaa.copyWith(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: isDark ? const Color.fromARGB(255, 241, 202, 61) : AppColors.primary,
@@ -440,11 +446,17 @@ class HomeScreenState extends State<HomeScreen>
                             height: 2.5,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  const Color.fromARGB(255, 241, 202, 61).withValues(alpha: 0.4),
-
-                                  const Color.fromARGB(255, 255, 223, 100),
-                                ],
+                                colors: isDark
+                                    ? [
+                                        const Color.fromARGB(255, 241, 202, 61).withValues(alpha: 0.5),
+                                        const Color.fromARGB(255, 255, 223, 100),
+                                        // const Color.fromARGB(255, 241, 202, 61).withValues(alpha: 0.4),
+                                      ]
+                                    : [
+                                        AppColors.primary.withValues(alpha: 0.5),
+                                        AppColors.primary.withValues(alpha: 0.7),
+                                        // AppColors.primary.withValues(alpha: 0.3),
+                                      ],
                               ),
                             ),
                           ),
@@ -606,7 +618,7 @@ class HomeScreenState extends State<HomeScreen>
                                               )
                                             : null,
                                         style: isArabicUi
-                                            ? GoogleFonts.amiriQuran(
+                                            ? _cachedAmiriQuran.copyWith(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.w700,
                                                 height: 1.6050,
@@ -859,7 +871,7 @@ class _ContinueReadingCard extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             isArabicUi ? _removeDiacriticsHelper(name) : name,
-                            style: GoogleFonts.arefRuqaa(
+                            style: _cachedArefRuqaa.copyWith(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
                               color: isDark ? const Color(0xFFF0D060) : AppColors.primary,
@@ -1100,7 +1112,7 @@ class _QuickAccessBar extends StatelessWidget {
               Center(
                 child: Text(
                   isArabicUi ? 'الأقسام' : 'Sections',
-                  style: GoogleFonts.arefRuqaa(
+                  style: _cachedArefRuqaa.copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: isDark ? AppColors.secondary : AppColors.primary,

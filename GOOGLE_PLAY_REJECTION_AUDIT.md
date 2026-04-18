@@ -61,7 +61,6 @@ api_key="sk-blaze-OxwlQJtbCjqHzfOuBT8vbq1GJPKhqma6kIIkPI7Qf3VXuuZN"
 **المشكلة:**
 التطبيق بيستخدم نوعين من الـ Foreground Services:
 - `FOREGROUND_SERVICE_MEDIA_PLAYBACK` — لتشغيل الأذان وصوت القرآن
-- `FOREGROUND_SERVICE_SPECIAL_USE` — للإشعار الدائم لمواقيت الصلاة
 
 لو ملقتش النموذج ده في Play Console قبل الرفع، هيتم الرفض التلقائي.
 

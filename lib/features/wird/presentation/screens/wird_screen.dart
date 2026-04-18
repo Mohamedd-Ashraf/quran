@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getPageNumber;
-
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../quran/data/models/juz_data.dart';
@@ -18,6 +17,9 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/wird_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import 'wird_setup_screen.dart';
+
+// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
+final _cachedAmiriQuran = GoogleFonts.amiriQuran();
 
 // ── Surah Arabic-name fallback map (number → Arabic name) ─────────────────
 const Map<int, String> _surahArabicNames = {
@@ -663,7 +665,7 @@ class _VerseHeader extends StatelessWidget {
           Text(
             '﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾',
             textAlign: TextAlign.center,
-            style: GoogleFonts.amiriQuran(
+            style: _cachedAmiriQuran.copyWith(
               fontSize: 20,
               color: AppColors.primary,
               height: 2.0,

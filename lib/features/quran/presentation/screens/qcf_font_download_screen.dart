@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/qcf_font_download_service.dart';
+import '../../../../core/settings/app_settings_cubit.dart';
 
 // -- Palette -------------------------------------------------------------------
 const _kBgTop     = Color(0xFF061510);
@@ -59,6 +61,13 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
 
   late final AnimationController _glowCtrl;
   late final Animation<double>   _glowAnim;
+
+  bool _isAr(BuildContext context) => context
+      .read<AppSettingsCubit>()
+      .state
+      .appLanguageCode
+      .toLowerCase()
+      .startsWith('ar');
 
   @override
   void initState() {
@@ -120,7 +129,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
         ),
         child: SafeArea(
           child: Directionality(
-            textDirection: TextDirection.rtl,
+            textDirection: _isAr(context) ? TextDirection.rtl : TextDirection.ltr,
             child: Column(
               children: [
                 // -- Ornamental header --------------------------------------
@@ -136,7 +145,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                       children: [
                         // Title
                         Text(
-                          'خطوط القرآن الكريم',
+                          _isAr(context) ? 'خطوط القرآن الكريم' : 'Quran Fonts',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.tajawal(
                             fontSize: 28,
@@ -154,7 +163,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
 
                         // Sub-title
                         Text(
-                          'تحميل خطوط المصحف المدني',
+                          _isAr(context) ? 'تحميل خطوط المصحف المدني' : 'Download Medina Mushaf Fonts',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.tajawal(
                             fontSize: 15,
@@ -169,9 +178,13 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
 
                         // Description
                         Text(
-                          'لعرض المصحف بالخط العثماني الحفص يحتاج التطبيق إلى تحميل '
-                          'ملفات الخطوط مرة واحدة فقط، وتُخزَّن على جهازك للاستخدام '
-                          'بدون إنترنت.',
+                          _isAr(context)
+                              ? 'لعرض المصحف بالخط العثماني الحفص يحتاج التطبيق إلى تحميل '
+                              'ملفات الخطوط مرة واحدة فقط، وتُخزّن على جهازك للاستخدام '
+                              'بدون إنترنت.'
+                              : 'To display the Mushaf in Uthmani Hafs script, the app needs to '
+                              'download font files once. They are stored on your device for '
+                              'offline use.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.tajawal(
                             fontSize: 14,
@@ -200,7 +213,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                                   color: _kGold.withValues(alpha: 0.7)),
                               const SizedBox(width: 8),
                               Text(
-                                'الحجم التقريبي: ٦٥ ميجابايت (تحميل لمرة واحدة)',
+                                _isAr(context) ? 'الحجم التقريبي: ٦٥ ميجابايت (تحميل لمرة واحدة)' : 'Approx. size: 65 MB (one-time download)',
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,
                                   color: _kGoldLight.withValues(alpha: 0.85),
@@ -241,7 +254,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'فشل التحميل - تحقق من الاتصال بالإنترنت',
+                                    _isAr(context) ? 'فشل التحميل - تحقق من الاتصال بالإنترنت' : 'Download failed - check your internet connection',
                                     style: GoogleFonts.tajawal(
                                       color: Colors.redAccent.shade100,
                                       fontSize: 13,
@@ -258,8 +271,8 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         if (_state != _DLState.done)
                           _GoldButton(
                             label: _state == _DLState.error
-                                ? 'إعادة المحاولة'
-                                : 'تحميل خطوط المصحف',
+                                ? (_isAr(context) ? 'إعادة المحاولة' : 'Retry')
+                                : (_isAr(context) ? 'تحميل خطوط المصحف' : 'Download Mushaf Fonts'),
                             isLoading: _state == _DLState.downloading,
                             onTap: _state == _DLState.downloading
                                 ? null
@@ -277,7 +290,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                               padding:
                                   const EdgeInsets.symmetric(vertical: 6),
                               child: Text(
-                                'لاحقاً - تصفح القرآن بالعرض المبسّط',
+                                _isAr(context) ? 'لاحقاً - تصفح القرآن بالعرض المبسّط' : 'Later - Browse Quran in Simplified View',
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,

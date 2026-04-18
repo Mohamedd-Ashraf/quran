@@ -72,22 +72,25 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
 
   void _jumpTo() async {
     _jumpController.clear();
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('الذهاب لسؤال'),
+        title: Text(isAr ? 'الذهاب لسؤال' : 'Go to Question'),
         content: TextField(
           controller: _jumpController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            hintText: 'رقم السؤال (0 – ${_filtered.length - 1})',
+            hintText: isAr
+                ? 'رقم السؤال (0 – ${_filtered.length - 1})'
+                : 'Question number (0 – ${_filtered.length - 1})',
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
+            child: Text(isAr ? 'إلغاء' : 'Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -97,7 +100,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('انتقل'),
+            child: Text(isAr ? 'انتقل' : 'Go'),
           ),
         ],
       ),
@@ -117,26 +120,27 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
     }
   }
 
-  String _diffLabel(QuizDifficulty d) {
+  String _diffLabel(QuizDifficulty d, [bool isAr = true]) {
     switch (d) {
       case QuizDifficulty.easy:
-        return 'سهل';
+        return isAr ? 'سهل' : 'Easy';
       case QuizDifficulty.medium:
-        return 'متوسط';
+        return isAr ? 'متوسط' : 'Medium';
       case QuizDifficulty.hard:
-        return 'صعب';
+        return isAr ? 'صعب' : 'Hard';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final q = _current;
     final diffColor = _diffColor(q.difficulty);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('معاينة الأسئلة — أدمن'),
+        title: Text(isAr ? 'معاينة الأسئلة — أدمن' : 'Question Preview — Admin'),
         centerTitle: true,
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
@@ -144,7 +148,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            tooltip: 'انتقل لسؤال',
+            tooltip: isAr ? 'انتقل لسؤال' : 'Jump to question',
             onPressed: _jumpTo,
           ),
         ],
@@ -159,7 +163,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
               child: Row(
                 children: [
                   _FilterChip(
-                    label: 'الكل (${quizQuestionsPool.length})',
+                    label: isAr ? 'الكل (${quizQuestionsPool.length})' : 'All (${quizQuestionsPool.length})',
                     selected: _selectedDifficulty == null,
                     color: AppColors.primary,
                     onTap: () => _setFilter(null),
@@ -170,7 +174,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                       padding: const EdgeInsets.only(right: 8),
                       child: _FilterChip(
                         label:
-                            '${_diffLabel(d)} (${quizQuestionsPool.where((q) => q.difficulty == d).length})',
+                            '${_diffLabel(d, isAr)} (${quizQuestionsPool.where((q) => q.difficulty == d).length})',
                         selected: _selectedDifficulty == d,
                         color: _diffColor(d),
                         onTap: () => _setFilter(d),
@@ -244,7 +248,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                   Row(
                     children: [
                       _Badge(
-                        label: _diffLabel(q.difficulty),
+                        label: _diffLabel(q.difficulty, isAr),
                         color: diffColor,
                       ),
                       const SizedBox(width: 8),
@@ -254,7 +258,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                       ),
                       const SizedBox(width: 8),
                       _Badge(
-                        label: '+${q.points} نقطة',
+                        label: isAr ? '+${q.points} نقطة' : '+${q.points} pts',
                         color: AppColors.secondary,
                       ),
                     ],
@@ -294,7 +298,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                   // Options — correct always highlighted immediately
                   ...List.generate(q.options.length, (i) {
                     final isCorrect = i == q.correctIndex;
-                    final optLabels = ['أ', 'ب', 'ج', 'د'];
+                    final optLabels = isAr ? ['أ', 'ب', 'ج', 'د'] : ['A', 'B', 'C', 'D'];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(
@@ -430,7 +434,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                 FilledButton.icon(
                   onPressed: _index > 0 ? _prev : null,
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-                  label: const Text('السابق'),
+                  label: Text(isAr ? 'السابق' : 'Previous'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     disabledBackgroundColor: Colors.grey.shade300,
@@ -453,7 +457,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
                 FilledButton.icon(
                   onPressed: _index < _filtered.length - 1 ? _next : null,
                   icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                  label: const Text('التالي'),
+                  label: Text(isAr ? 'التالي' : 'Next'),
                   iconAlignment: IconAlignment.end,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,

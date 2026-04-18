@@ -345,9 +345,12 @@ class _FbTopBar extends StatelessWidget {
 
   int get _juz => ((page - 1) ~/ 20).clamp(0, 29) + 1;
 
-  String get _juzLabel {
+  String juzLabel(bool isAr) {
     final j = _juz;
-    return j >= 1 && j <= 30 ? 'الجزء ${_kJuzNames[j - 1]}' : 'الجزء $j';
+    if (isAr) {
+      return j >= 1 && j <= 30 ? 'الجزء ${_kJuzNames[j - 1]}' : 'الجزء $j';
+    }
+    return 'Juz $j';
   }
 
   String get _surahLabel {
@@ -362,6 +365,9 @@ class _FbTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = context.select<AppSettingsCubit, bool>(
+      (c) => c.state.appLanguageCode.toLowerCase().startsWith('ar'),
+    );
     final textColor = isDark
         ? Colors.white.withValues(alpha: 0.88)
         : const Color(0xFF3D1C00);
@@ -386,7 +392,7 @@ class _FbTopBar extends StatelessWidget {
           _FbRecitationSettingsButton(isDark: isDark),
           Expanded(
             child: Text(
-              _juzLabel,
+              juzLabel(isAr),
               style: labelStyle,
               textAlign: TextAlign.right,
               textDirection: TextDirection.rtl,
@@ -713,6 +719,7 @@ class _FbPageTextState extends State<_FbPageText> {
       arabicText: v.text,
       bookmarkId: bookmarkId,
       bookmarkService: di.sl<BookmarkService>(),
+      isAr: context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar'),
       onTafsir: () {
         if (!mounted) return;
         Navigator.of(context).push(
@@ -1025,7 +1032,7 @@ class _FbRecitationSettingsButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 28, minHeight: 32),
       iconSize: 18,
       icon: Icon(Icons.tune_rounded, color: color, size: 18),
-      tooltip: 'إعدادات التلاوة',
+      tooltip: context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar') ? 'إعدادات التلاوة' : 'Recitation Settings',
     );
   }
 }
@@ -1132,7 +1139,7 @@ class _FbRecitationSettingsSheetState
                     ),
                   ),
                   Text(
-                    'إعدادات التلاوة',
+                    widget.isAr ? 'إعدادات التلاوة' : 'Recitation Settings',
                     style: titleStyle,
                     textAlign: TextAlign.center,
                   ),
@@ -1158,7 +1165,7 @@ class _FbRecitationSettingsSheetState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('القارئ', style: labelStyle),
+                                Text(widget.isAr ? 'القارئ' : 'Reciter', style: labelStyle),
                                 Text(
                                   name,
                                   style: labelStyle.copyWith(
@@ -1178,7 +1185,7 @@ class _FbRecitationSettingsSheetState
                                   )
                                 : null,
                             child: Text(
-                              'تغيير',
+                              widget.isAr ? 'تغيير' : 'Change',
                               style: _cachedAmiriQuran.copyWith(
                                 color: AppColors.secondary,
                                 fontSize: 13,
@@ -1198,7 +1205,7 @@ class _FbRecitationSettingsSheetState
                     children: [
                       Expanded(
                         child: Text(
-                          'تكملة التلاوة عند الضغط',
+                          widget.isAr ? 'تكملة التلاوة عند الضغط' : 'Continue Recitation on Tap',
                           style: labelStyle,
                         ),
                       ),
@@ -1224,14 +1231,14 @@ class _FbRecitationSettingsSheetState
                         ButtonSegment(
                           value: 'page',
                           label: Text(
-                            'إلى نهاية الصفحة',
+                            widget.isAr ? 'إلى نهاية الصفحة' : 'To End of Page',
                             style: _cachedAmiriQuran.copyWith(fontSize: 12),
                           ),
                         ),
                         ButtonSegment(
                           value: 'surah',
                           label: Text(
-                            'إلى نهاية السورة',
+                            widget.isAr ? 'إلى نهاية السورة' : 'To End of Surah',
                             style: _cachedAmiriQuran.copyWith(fontSize: 12),
                           ),
                         ),
@@ -1333,7 +1340,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
-                  'اختر القارئ',
+                  widget.isAr ? 'اختر القارئ' : 'Select Reciter',
                   style: _cachedAmiriQuran.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -1401,6 +1408,7 @@ void _showFbVerseOptionsSheet(
   required String bookmarkId,
   required BookmarkService bookmarkService,
   required VoidCallback onTafsir,
+  bool isAr = true,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -1426,7 +1434,7 @@ void _showFbVerseOptionsSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  '$surahName - آية $verse',
+                  isAr ? '$surahName - آية $verse' : '$surahName - Verse $verse',
                   style: _cachedAmiriQuran.copyWith(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1445,7 +1453,7 @@ void _showFbVerseOptionsSheet(
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      isBookmarked ? 'إزالة الإشارة' : 'إضافة إشارة',
+                      isBookmarked ? (isAr ? 'إزالة الإشارة' : 'Remove Bookmark') : (isAr ? 'إضافة إشارة' : 'Add Bookmark'),
                       style: const TextStyle(fontSize: 15),
                     ),
                     onTap: () async {
@@ -1471,12 +1479,12 @@ void _showFbVerseOptionsSheet(
                   Icons.share_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text(
-                  'مشاركة الآية',
-                  style: TextStyle(fontSize: 15),
+                title: Text(
+                  isAr ? 'مشاركة الآية' : 'Share Verse',
+                  style: const TextStyle(fontSize: 15),
                 ),
-                subtitle: const Text(
-                  'صورة بخط القرآن الكريم',
+                subtitle: Text(
+                  isAr ? 'صورة بخط القرآن الكريم' : 'Image in Quran Font',
                   style: TextStyle(fontSize: 11),
                 ),
                 onTap: () {
@@ -1494,7 +1502,7 @@ void _showFbVerseOptionsSheet(
                   Icons.menu_book_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('التفسير', style: TextStyle(fontSize: 15)),
+                title: Text(isAr ? 'التفسير' : 'Tafsir', style: const TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   onTafsir();

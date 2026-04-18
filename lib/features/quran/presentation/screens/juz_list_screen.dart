@@ -8,6 +8,9 @@ import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
 import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 
+// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
+final _cachedAmiriQuran = GoogleFonts.amiriQuran();
+
 // ── Arabic surah name map ──────────────────────────────────────────────────
 const Map<int, String> _surahArabicNames = {
   1: 'الفاتحة', 2: 'البقرة', 3: 'آل عمران', 4: 'النساء', 5: 'المائدة',
@@ -176,7 +179,7 @@ class _JuzCardState extends State<_JuzCard> {
                               ? widget.juz.arabicName
                               : widget.juz.englishName,
                           style: widget.isArabicUi
-                              ? GoogleFonts.amiriQuran(
+                              ? _cachedAmiriQuran.copyWith(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   height: 1.6,
@@ -354,7 +357,7 @@ class _JuzCardState extends State<_JuzCard> {
                                 ? TextAlign.right
                                 : TextAlign.left,
                             style: widget.isArabicUi
-                                ? GoogleFonts.amiriQuran(
+                                ? _cachedAmiriQuran.copyWith(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                     height: 1.6,
@@ -427,7 +430,7 @@ class _JuzCardState extends State<_JuzCard> {
               child: Text(
                 display,
                 textAlign: isAr ? TextAlign.right : TextAlign.left,
-                style: GoogleFonts.amiriQuran(
+                style: _cachedAmiriQuran.copyWith(
                   fontSize: 13,
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,

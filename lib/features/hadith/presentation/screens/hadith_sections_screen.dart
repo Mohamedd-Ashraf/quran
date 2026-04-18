@@ -63,7 +63,7 @@ class _SectionsView extends StatelessWidget {
                   }
                   return IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                    tooltip: 'تحديث',
+                    tooltip: isArabic ? 'تحديث' : 'Refresh',
                     onPressed: () =>
                         context.read<HadithSectionsCubit>().refresh(),
                   );
@@ -107,7 +107,9 @@ class _SectionsView extends StatelessWidget {
                       size: 14, color: catColor),
                   const SizedBox(width: 6),
                   Text(
-                    'يُحمَّل من الإنترنت • يُحفظ تلقائيًا للاستخدام بدون إنترنت',
+                    isArabic
+                        ? 'يُحمَّل من الإنترنت • يُحفظ تلقائيًا للاستخدام بدون إنترنت'
+                        : 'Loaded from Internet • Auto-saved for offline use',
                     style: TextStyle(
                         fontSize: 12,
                         color: catColor,
@@ -288,7 +290,7 @@ class _SectionTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        hasCount ? '${section.count} حديث' : 'صحيح البخاري',
+                        hasCount ? '${section.count} ${isArabic ? 'حديث' : 'hadith'}' : (isArabic ? 'صحيح البخاري' : 'Sahih Bukhari'),
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'Amiri',

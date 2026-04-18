@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// Cached at file scope — prevents loadFontIfNecessary from being triggered
+// on every build call (google_fonts 6.x unhandled-rejection bug).
+final _baseAmiriQuran     = GoogleFonts.amiriQuran();
+final _baseCairo          = GoogleFonts.cairo();
+final _baseNotoNaskhArabic = GoogleFonts.notoNaskhArabic();
+final _baseLateef         = GoogleFonts.lateef();
+final _baseMarkaziText    = GoogleFonts.markaziText();
+final _baseNotoKufiArabic = GoogleFonts.notoKufiArabic();
+final _baseReemKufi       = GoogleFonts.reemKufi();
+final _baseTajawal        = GoogleFonts.tajawal();
+
 /// Helper class to split Arabic text into text spans with different colors
 /// for base text and diacritics (tashkeel)
 class ArabicTextStyleHelper {
@@ -144,41 +155,41 @@ class ArabicTextStyleHelper {
       case 'scheherazade':
         // ScheherazadeNew is not bundled in assets/google_fonts/ — fall back
         // to Amiri Quran which is bundled and has full Quranic glyph coverage.
-        base = GoogleFonts.amiriQuran(
+        base = _baseAmiriQuran.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'amiri':
       //TODO: consider switching to Amiri Regular for non-Quran text, as it has better readability and more complete glyph coverage than Amiri Quran
-        base = GoogleFonts.cairo(
+        base = _baseCairo.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'noto_naskh':
         // Bundled variants: Regular (w400), SemiBold (w600), Bold (w700).
         // Clamp w500 (Medium) to w400 to avoid missing-font exceptions.
         final notoWeight = weight == FontWeight.w500 ? FontWeight.w400 : weight;
-        base = GoogleFonts.notoNaskhArabic(
+        base = _baseNotoNaskhArabic.copyWith(
             fontSize: size, fontWeight: notoWeight, height: height);
       case 'lateef':
-        base = GoogleFonts.lateef(
+        base = _baseLateef.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'markazi':
-        base = GoogleFonts.markaziText(
+        base = _baseMarkaziText.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'noto_kufi':
-        base = GoogleFonts.notoKufiArabic(
+        base = _baseNotoKufiArabic.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'reem_kufi':
-        base = GoogleFonts.reemKufi(
+        base = _baseReemKufi.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'tajawal':
-        base = GoogleFonts.tajawal(
+        base = _baseTajawal.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'cairo':
         // Cairo lacks full Quranic glyph coverage.
         // Use Amiri Quran as fallback (bundled) for Quranic diacritics.
         // ScheherazadeNew is NOT bundled — do not call GoogleFonts.scheherazadeNew()
         // as it triggers an async load that throws at runtime.
-        final cairoStyle = GoogleFonts.cairo(
+        final cairoStyle = _baseCairo.copyWith(
             fontSize: size, fontWeight: weight, height: height);
-        final aq = GoogleFonts.amiriQuran().fontFamily;
+        final aq = _baseAmiriQuran.fontFamily;
         base = cairoStyle.copyWith(
           fontFamilyFallback: [
             if (aq != null) aq,
@@ -187,7 +198,7 @@ class ArabicTextStyleHelper {
         );
       case 'amiri_quran':
       default:
-        base = GoogleFonts.amiriQuran(
+        base = _baseAmiriQuran.copyWith(
             fontSize: size, fontWeight: weight, height: height);
     }
 

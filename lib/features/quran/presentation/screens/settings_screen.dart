@@ -209,7 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: 'en',
                           icon: const Icon(Icons.translate_rounded, size: 16),
                           label: Text(
-                            isAr ? 'الإنجليزية' : 'English',
+                            'English',
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),

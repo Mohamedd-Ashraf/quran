@@ -49,6 +49,7 @@ void _showVerseOptionsSheet(
   required String bookmarkId,
   required BookmarkService bookmarkService,
   required VoidCallback onTafsir,
+  required bool isArabicUi,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -76,7 +77,7 @@ void _showVerseOptionsSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  '$surahName — آية $verse',
+                  isArabicUi ? '$surahName — آية $verse' : '$surahName — Verse $verse',
                   style: GoogleFonts.arefRuqaa(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -96,7 +97,9 @@ void _showVerseOptionsSheet(
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      isBookmarked ? 'إزالة الإشارة' : 'إضافة إشارة',
+                      isBookmarked
+                          ? (isArabicUi ? 'إزالة الإشارة' : 'Remove Bookmark')
+                          : (isArabicUi ? 'إضافة إشارة' : 'Add Bookmark'),
                       style: const TextStyle(fontSize: 15),
                     ),
                     onTap: () async {
@@ -123,12 +126,12 @@ void _showVerseOptionsSheet(
                   Icons.share_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text(
-                  'مشاركة الآية',
+                title: Text(
+                  isArabicUi ? 'مشاركة الآية' : 'Share Verse',
                   style: TextStyle(fontSize: 15),
                 ),
-                subtitle: const Text(
-                  'صورة بخط القرآن الكريم',
+                subtitle:  Text(
+                  isArabicUi ? 'صورة بخط القرآن الكريم' : 'Image in Quranic font',
                   style: TextStyle(fontSize: 11),
                 ),
                 onTap: () {
@@ -147,7 +150,7 @@ void _showVerseOptionsSheet(
                   Icons.menu_book_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('التفسير', style: TextStyle(fontSize: 15)),
+                title: Text(isArabicUi ? 'التفسير' : 'Tafsir', style: TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   onTafsir();
@@ -398,7 +401,9 @@ class _MushafPageViewState extends State<MushafPageView>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'يجب تحميل خطوط المصحف لعرض ألوان التجويد',
+            widget.isArabicUi
+                ? 'يجب تحميل خطوط المصحف لعرض ألوان التجويد'
+                : 'Mushaf fonts must be downloaded to display Tajweed colors',
             style: GoogleFonts.cairo(fontSize: 13),
             textDirection: TextDirection.rtl,
           ),
@@ -413,7 +418,9 @@ class _MushafPageViewState extends State<MushafPageView>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'تم تفعيل التجويد — اضغط مطولاً على زر التجويد لعرض دليل الألوان',
+            widget.isArabicUi
+                ? 'تم تفعيل التجويد — اضغط مطولاً على زر التجويد لعرض دليل الألوان'
+                : 'Tajweed enabled — long-press the Tajweed button for color guide',
             style: GoogleFonts.cairo(fontSize: 12),
             textDirection: TextDirection.rtl,
           ),
@@ -626,6 +633,7 @@ class _MushafPageViewState extends State<MushafPageView>
       arabicText: capturedText,
       bookmarkId: bookmarkId,
       bookmarkService: _bookmarkService,
+      isArabicUi: widget.isArabicUi,
       onTafsir: () {
         if (!mounted) return;
         Navigator.of(context).push(
@@ -978,7 +986,7 @@ class _MushafPageViewState extends State<MushafPageView>
         color: _kGoldText.withValues(alpha: 0.65),
         size: 18,
       ),
-      tooltip: 'إعدادات التلاوة',
+      tooltip: widget.isArabicUi ? 'إعدادات التلاوة' : 'Recitation Settings',
     );
   }
 
@@ -1032,8 +1040,14 @@ class _MushafPageViewState extends State<MushafPageView>
     'الثلاثون',
   ];
 
-  String _juzName(int juz) =>
-      juz >= 1 && juz <= 30 ? _kJuzNames[juz - 1] : _toArabicNumerals(juz);
+  String _juzName(int juz) {
+    if (juz >= 1 && juz <= 30) {
+      return widget.isArabicUi
+          ? 'الجزء ${_kJuzNames[juz - 1]}'
+          : 'Juz $juz';
+    }
+    return widget.isArabicUi ? _toArabicNumerals(juz).toString() : '$juz';
+  }
 
   String _pageLabel(int page) {
     try {
@@ -1109,7 +1123,7 @@ class _MushafPageViewState extends State<MushafPageView>
             _buildRecitationSettingsButton(isDark),
             const SizedBox(width: 8),
             Text(
-              'الجزء ${_juzName(_juzForPage(pageNumber))}',
+              ' ${_juzName(_juzForPage(pageNumber))}',
               style: labelStyle,
               textDirection: TextDirection.rtl,
             ),
@@ -1186,7 +1200,7 @@ class _MushafPageViewState extends State<MushafPageView>
   Widget _buildProgressContent(
       Color textCol, Color accentCol, FontDownloadManager mgr) {
     final percent = (mgr.progress * 100).clamp(0, 100).round();
-    final label = mgr.phase.isNotEmpty ? mgr.phase : 'جارٍ تحميل خطوط المصحف…';
+    final label = mgr.phase.isNotEmpty ? mgr.phase : (widget.isArabicUi ? 'جارٍ تحميل خطوط المصحف…' : 'Downloading Mushaf fonts…');
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1290,7 +1304,7 @@ class _MushafPageViewState extends State<MushafPageView>
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            'خطوط المصحف غير مُحمَّلة',
+            widget.isArabicUi ? 'خطوط المصحف غير مُحمَّلة' : 'Mushaf fonts not downloaded',
             style: GoogleFonts.cairo(
                 fontSize: 10,
                 color: textCol,
@@ -1307,7 +1321,7 @@ class _MushafPageViewState extends State<MushafPageView>
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'تحميل',
+              widget.isArabicUi ? 'تحميل' : 'Download',
               style: GoogleFonts.cairo(
                   fontSize: 10,
                   color: Colors.white,
@@ -1353,7 +1367,7 @@ class _MushafPageViewState extends State<MushafPageView>
             ),
             const SizedBox(width: 3),
             Text(
-              'تجويد',
+              widget.isArabicUi ? 'تجويد' : 'Tajweed',
               style: GoogleFonts.arefRuqaa(
                 fontSize: 10,
                 fontWeight: _tajweedMode ? FontWeight.w700 : FontWeight.w500,
@@ -1411,7 +1425,7 @@ class _MushafPageViewState extends State<MushafPageView>
                     child: Column(
                       children: [
                         Text(
-                          'دليل ألوان التجويد',
+                          widget.isArabicUi ? 'دليل ألوان التجويد' : 'Tajweed Color Guide',
                           style: GoogleFonts.arefRuqaa(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -1420,7 +1434,7 @@ class _MushafPageViewState extends State<MushafPageView>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'اضغط مطولاً على زر التجويد لعرض هذا الدليل',
+                          widget.isArabicUi ? 'اضغط مطولاً على زر التجويد لعرض هذا الدليل' : 'Long-press the Tajweed button to show this guide',
                           style: GoogleFonts.cairo(
                             fontSize: 10,
                             color: subColor,
@@ -1491,7 +1505,7 @@ class _MushafPageViewState extends State<MushafPageView>
                         const SizedBox(height: 10),
                         // ── Resource links ─────────────────────────────
                         Text(
-                          'تعلّم التجويد',
+                          widget.isArabicUi ? 'تعلّم التجويد' : 'Learn Tajweed',
                           style: GoogleFonts.arefRuqaa(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -1501,7 +1515,7 @@ class _MushafPageViewState extends State<MushafPageView>
                         const SizedBox(height: 8),
                         _TajweedLinkRow(
                           icon: Icons.language_rounded,
-                          label: 'دليل ألوان التجويد — alquran.cloud',
+                          label: widget.isArabicUi ? 'دليل ألوان التجويد — alquran.cloud' : 'Tajweed Color Guide — alquran.cloud',
                           url: 'https://alquran.cloud/tajweed-guide',
                           color: linkColor,
                           textColor: textColor,
@@ -1509,7 +1523,7 @@ class _MushafPageViewState extends State<MushafPageView>
                         const SizedBox(height: 6),
                         _TajweedLinkRow(
                           icon: Icons.play_circle_outline_rounded,
-                          label: 'دروس التجويد (يوتيوب)',
+                          label: widget.isArabicUi ? 'دروس التجويد (يوتيوب)' : 'Tajweed Lessons (YouTube)',
                           url:
                               'https://www.youtube.com/results?search_query=%D8%AF%D8%B1%D9%88%D8%B3+%D8%A7%D9%84%D8%AA%D8%AC%D9%88%D9%8A%D8%AF+%D9%84%D9%84%D9%85%D8%A8%D8%AA%D8%AF%D8%A6%D9%8A%D9%86',
                           color: const Color(0xFFE53935),
@@ -1883,7 +1897,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
 
         return SafeArea(
           child: Directionality(
-            textDirection: TextDirection.rtl,
+            textDirection: widget.isAr ? TextDirection.rtl : TextDirection.ltr,
             child: Container(
               decoration: BoxDecoration(
                 color: bg,
@@ -1909,7 +1923,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                     ),
                   ),
                   Text(
-                    'إعدادات التلاوة',
+                    widget.isAr ? 'إعدادات التلاوة' : 'Recitation Settings',
                     style: titleStyle,
                     textAlign: TextAlign.center,
                   ),
@@ -1937,7 +1951,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('القارئ', style: labelStyle),
+                                Text(widget.isAr ? 'القارئ' : 'Reciter', style: labelStyle),
                                 Text(
                                   name,
                                   style: labelStyle.copyWith(
@@ -1957,7 +1971,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                                   )
                                 : null,
                             child: Text(
-                              'تغيير',
+                              widget.isAr ? 'تغيير' : 'Change',
                               style: GoogleFonts.arefRuqaa(
                                 color: AppColors.secondary,
                                 fontSize: 13,
@@ -1986,13 +2000,13 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('تلاوة كلمة بكلمة', style: labelStyle),
+                                  Text(widget.isAr ? 'تلاوة كلمة بكلمة' : 'Word-by-Word Recitation', style: labelStyle),
                                   Text(
                                     wordByWordEnabled
-                                        ? 'اضغط على كلمة لتسمعها'
+                                        ? (widget.isAr ? 'اضغط على كلمة لتسمعها' : 'Tap a word to hear it')
                                         : (settings.useQcfFont
-                                              ? 'يتطلب إيقاف رسم المصحف QCF'
-                                              : 'يتطلب تفعيل عرض المصحف الشريف'),
+                                              ? (widget.isAr ? 'يتطلب إيقاف رسم المصحف QCF' : 'Requires disabling QCF Mushaf font')
+                                              : (widget.isAr ? 'يتطلب تفعيل عرض المصحف الشريف' : 'Requires enabling Mushaf view')),
                                     style: noteStyle,
                                   ),
                                 ],
@@ -2028,7 +2042,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                     children: [
                       Expanded(
                         child: Text(
-                          'تكملة التلاوة عند الضغط',
+                          widget.isAr ? 'تكملة التلاوة عند الضغط' : 'Continue Recitation on Tap',
                           style: labelStyle,
                         ),
                       ),
@@ -2054,14 +2068,14 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                         ButtonSegment(
                           value: 'page',
                           label: Text(
-                            'إلى نهاية الصفحة',
+                            widget.isAr ? 'إلى نهاية الصفحة' : 'To End of Page',
                             style: GoogleFonts.arefRuqaa(fontSize: 12),
                           ),
                         ),
                         ButtonSegment(
                           value: 'surah',
                           label: Text(
-                            'إلى نهاية السورة',
+                            widget.isAr ? 'إلى نهاية السورة' : 'To End of Surah',
                             style: GoogleFonts.arefRuqaa(fontSize: 12),
                           ),
                         ),
@@ -2207,7 +2221,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'اختر القارئ',
+                      widget.isAr ? 'اختر القارئ' : 'Select Reciter',
                       style: GoogleFonts.cairo(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -2216,7 +2230,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                     ),
                     const Spacer(),
                     Text(
-                      '${all.length} قارئ',
+                      '${all.length} ${widget.isAr ? 'قارئ' : 'reciters'}',
                       style: GoogleFonts.cairo(
                         fontSize: 12,
                         color: subtleColor,
@@ -2235,7 +2249,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                   textDirection: TextDirection.rtl,
                   style: GoogleFonts.cairo(fontSize: 13, color: textColor),
                   decoration: InputDecoration(
-                    hintText: 'ابحث عن قارئ…',
+                    hintText: widget.isAr ? 'ابحث عن قارئ…' : 'Search for a reciter…',
                     hintStyle: GoogleFonts.cairo(
                       fontSize: 13,
                       color: subtleColor,
@@ -2282,7 +2296,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                     ? Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          'لا توجد نتائج',
+                          widget.isAr ? 'لا توجد نتائج' : 'No results',
                           style: GoogleFonts.cairo(
                             fontSize: 13,
                             color: subtleColor,

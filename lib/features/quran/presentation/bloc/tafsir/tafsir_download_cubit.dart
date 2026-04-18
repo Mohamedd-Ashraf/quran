@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../../core/constants/api_constants.dart';
+import '../../../../../core/di/injection_container.dart' as di;
 import '../../../../../core/error/exceptions.dart';
+import '../../../../../core/services/settings_service.dart';
 import '../../../../../core/services/tafsir_download_state_service.dart';
 import '../../../../../features/quran/data/datasources/ibn_kathir_remote_data_source.dart';
 import '../../../../../features/quran/data/datasources/quran_local_tafsir_data_source.dart';
@@ -336,7 +338,9 @@ class TafsirDownloadCubit extends Cubit<TafsirDownloadState> {
             for (final ayahNumber in needed) {
               String txt = (tafsirMap[ayahNumber] ?? '').trim();
               if (txt.isEmpty) {
-                txt = 'تفسير هذه الآية غير متوفر في المصدر المتاح حالياً.';
+                txt = di.sl<SettingsService>().getAppLanguage() == 'ar'
+                    ? 'تفسير هذه الآية غير متوفر في المصدر المتاح حالياً.'
+                    : 'Tafsir for this verse is not available in the current source.';
               }
               map[ayahNumber] = txt;
               fetched.add(

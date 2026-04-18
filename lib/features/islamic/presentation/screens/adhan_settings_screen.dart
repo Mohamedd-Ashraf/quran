@@ -20,7 +20,7 @@ import '../../../../core/constants/prayer_calculation_constants.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/services/adhan_notification_service.dart';
-import '../../../../core/services/prayer_foreground_service.dart';
+
 import '../../../../core/settings/app_settings_cubit.dart';
 import 'adhan_advanced_screen.dart';
 import 'adhan_diagnostics_screen.dart';
@@ -111,20 +111,9 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ── Force speaker ─────────────────────────────────────────────────────
   bool _forceSpeaker = false;
 
-  // ── Persistent prayer notification ────────────────────────────────────
-  bool _persistentNotification = false;
-
   // ── Permission states ──────────────────────────────────────────────────
   bool _notificationPermissionGranted = true;
   bool _locationPermissionGranted = true;
-
-  // ── Time jump for testing ──────────────────────────────────────────────
-  int _jumpMinutes = 2;
-  bool _timeJumpActive = false;
-  bool _isSettingTime = false;
-  String? _nextPrayerName;
-  DateTime? _nextPrayerTime;
-  final TextEditingController _customMinutesCtrl = TextEditingController();
 
   // ── System alarm info ──────────────────────────────────────────────────
   int _systemAlarmCurrent = -1;
@@ -169,7 +158,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     _fetchAlarmVolume();
     _checkCachedOnlineSounds();
     _adhanChannel.setMethodCallHandler(_handleNativeCallback);
-    _loadNextPrayer();
     _checkDndPermission();
     _checkPermissions();
     // Show the "جديد" badge only for version 1.0.7
@@ -312,8 +300,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _showAdhanTestButtons = _settings.getShowAdhanTestButtons();
       // Force speaker
       _forceSpeaker = _settings.getBool('adhan_force_speaker');
-      // Persistent prayer notification
-      _persistentNotification = _settings.getPersistentPrayerNotification();
     });
   }
 
@@ -322,7 +308,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     if (s == AppLifecycleState.resumed) {
       _checkBatteryStatus();
       _fetchAlarmVolume();
-      _loadNextPrayer();
       _checkDndPermission();
       _checkPermissions();
     }
@@ -348,7 +333,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _adhanChannel.invokeMethod<void>('stopAdhan').ignore();
     }
-    _customMinutesCtrl.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -356,80 +340,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ═══════════════════════════════════════════════════════════════════════
   // Native / System helpers
   // ═══════════════════════════════════════════════════════════════════════
-
-  // ── Time jump helpers ────────────────────────────────────────────────────
-
-  void _loadNextPrayer() {
-    final json = _settings.getAdhanSchedulePreview();
-    if (json == null) return;
-    try {
-      final list = jsonDecode(json) as List;
-      final now = DateTime.now();
-      for (final item in list) {
-        final timeMs = (item['timeMs'] as num?)?.toInt();
-        if (timeMs == null) continue;
-        final dt = DateTime.fromMillisecondsSinceEpoch(timeMs);
-        if (!dt.isAfter(now)) continue;
-        if (mounted) {
-          setState(() {
-            _nextPrayerName = item['arabicName'] as String? ?? '';
-            _nextPrayerTime = dt;
-          });
-        }
-        return;
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _setSystemTime() async {
-    if (_nextPrayerTime == null) return;
-    // Custom field takes priority if it has a valid value
-    final customVal = int.tryParse(_customMinutesCtrl.text.trim());
-    final minutes = (customVal != null && customVal > 0) ? customVal : _jumpMinutes;
-    final target = _nextPrayerTime!.subtract(Duration(minutes: minutes));
-    setState(() => _isSettingTime = true);
-    try {
-      await _adhanChannel.invokeMethod('setSystemTime', {
-        'timeMs': target.millisecondsSinceEpoch,
-      });
-      setState(() {
-        _timeJumpActive = true;
-        _jumpMinutes = minutes;
-      });
-      _showSnack(
-        _isAr
-            ? 'تم ضبط الوقت لما قبل $minutes دقيقة من أذان ${_nextPrayerName ?? ""}'
-            : 'Time set to $minutes min before ${_nextPrayerName ?? "prayer"} ✔️',
-        AppColors.success,
-      );
-    } on PlatformException catch (e) {
-      _showSnack(
-        _isAr ? 'فشل: ${e.message}' : 'Failed: ${e.message}',
-        AppColors.error,
-      );
-    } finally {
-      if (mounted) setState(() => _isSettingTime = false);
-    }
-  }
-
-  Future<void> _restoreSystemTime() async {
-    setState(() => _isSettingTime = true);
-    try {
-      await _adhanChannel.invokeMethod('restoreSystemTime');
-      setState(() => _timeJumpActive = false);
-      _showSnack(
-        _isAr ? 'تم استعادة الوقت الصحيح ✔️' : 'System time restored ✔️',
-        AppColors.success,
-      );
-    } on PlatformException catch (e) {
-      _showSnack(
-        _isAr ? 'فشل الاستعادة: ${e.message}' : 'Restore failed: ${e.message}',
-        AppColors.error,
-      );
-    } finally {
-      if (mounted) setState(() => _isSettingTime = false);
-    }
-  }
 
   Future<void> _fetchAlarmVolume() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -1119,28 +1029,6 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             _buildStreamPickerRow(isAr),
             _buildDivider(),
             _buildSwitchRow(
-              icon: _persistentNotification
-                  ? Icons.notifications_active_outlined
-                  : Icons.notifications_paused_outlined,
-              iconColor: _persistentNotification ? AppColors.primary : Colors.grey,
-              titleAr: 'إشعار الصلاة الثابت',
-              titleEn: 'Persistent Prayer Alert',
-              subtitleAr: 'يعرض الصلاة القادمة والوقت المتبقي',
-              subtitleEn: 'Shows next prayer & remaining time',
-              value: _persistentNotification,
-              onChanged: (v) async {
-                setState(() => _persistentNotification = v);
-                await _settings.setPersistentPrayerNotification(v);
-                if (v) {
-                  PrayerForegroundService.start();
-                } else {
-                  PrayerForegroundService.stop();
-                }
-              },
-              isAr: isAr,
-            ),
-            _buildDivider(),
-            _buildSwitchRow(
               icon: Icons.speaker_rounded,
               iconColor: _forceSpeaker ? AppColors.primary : Colors.grey,
               titleAr: 'إخراج الصوت من السماعة',
@@ -1192,7 +1080,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AdhanAdvancedScreen()),
+              MaterialPageRoute(builder: (_) => AdhanAdvancedScreen(showTestButtons: _showAdhanTestButtons)),
             ),
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -1890,14 +1778,15 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
         ),
         const SizedBox(height: 16),
 
-        // ── Test ────────────────────────────────────────────────────────
-        _buildSection(
-          icon: Icons.science_rounded,
-          titleAr: 'اختبار الأذان',
-          titleEn: 'Test Adhan',
-          isAr: isAr,
-          children: [_buildTestCard(isAr)],
-        ),
+        // ── Test (hidden by default, enabled via developer settings) ────
+        if (_showAdhanTestButtons)
+          _buildSection(
+            icon: Icons.science_rounded,
+            titleAr: 'اختبار الأذان',
+            titleEn: 'Test Adhan',
+            isAr: isAr,
+            children: [_buildTestCard(isAr)],
+          ),
       ],
     );
   }
@@ -3263,23 +3152,13 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
             },
           )),
         ]),
-        // ── Show/Hide individual prayer test buttons toggle ──────────────────
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(child: Text(
-            isAr ? 'اختبار كل أذان على حدة' : 'Test Individual Prayers',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary),
-          )),
-          Switch.adaptive(
-            value: _showAdhanTestButtons,
-            onChanged: (v) async {
-              setState(() => _showAdhanTestButtons = v);
-              await _settings.setShowAdhanTestButtons(v);
-            },
-          ),
-        ]),
         // ── Individual prayer test buttons ──────────────────────────────────
-        if (_showAdhanTestButtons) ...[
+        const SizedBox(height: 16),
+        Text(
+          isAr ? 'اختبار كل أذان على حدة' : 'Test Individual Prayers',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary),
+        ),
+        ...[
           const SizedBox(height: 12),
           Text(
             isAr ? 'اختبر الأذان لكل صلاة كأنها جاءت الآن' : 'Test adhan for each prayer as if it just arrived',
@@ -3296,238 +3175,7 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
           const SizedBox(height: 8),
           _buildPrayerTestButton(isAr, 'isha', 'العشاء', Icons.bedtime_rounded, const Color(0xFF1565C0)),
         ],
-        const SizedBox(height: 16),
-        _buildTimeJumpCard(isAr),
       ]),
-    );
-  }
-
-  // ─── Time-jump test card ─────────────────────────────────────────────────
-
-  Widget _buildTimeJumpCard(bool isAr) {
-    final hasPrayer = _nextPrayerTime != null;
-    final presets = [1, 2, 5];
-
-    String fmtPrayer(DateTime dt) {
-      final h = dt.hour;
-      final m = dt.minute;
-      final period = h >= 12 ? 'م' : 'ص';
-      final h12 = h > 12 ? h - 12 : (h == 0 ? 12 : h);
-      return '$h12:${m.toString().padLeft(2, '0')} $period';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _timeJumpActive
-            ? Colors.orange.withValues(alpha: 0.08)
-            : Colors.deepPurple.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _timeJumpActive
-              ? Colors.orange.withValues(alpha: 0.5)
-              : Colors.deepPurple.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ──────────────────────────────────────────────────────
-          Row(children: [
-            Icon(
-              _timeJumpActive ? Icons.warning_amber_rounded : Icons.manage_history_rounded,
-              color: _timeJumpActive ? Colors.orange.shade700 : Colors.deepPurple,
-              size: 18,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              isAr
-                  ? (_timeJumpActive ? '⚠️ وقت الجهاز مُعدَّل للاختبار' : 'ضبط وقت الجهاز للاختبار')
-                  : (_timeJumpActive ? '⚠️ Device time modified' : 'Set device time for testing'),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: _timeJumpActive ? Colors.orange.shade800 : Colors.deepPurple,
-              ),
-            ),
-          ]),
-
-          if (_timeJumpActive) ...[
-            // ── Active state ─────────────────────────────────────────────
-            const SizedBox(height: 10),
-            Text(
-              isAr
-                  ? 'الوقت مضبوط على ما قبل $_jumpMinutes د من أذان ${_nextPrayerName ?? ""}.\nأغلق التطبيق أو أقفل الشاشة وانتظر ${_jumpMinutes} د.'
-                  : 'Time set to $_jumpMinutes min before ${_nextPrayerName ?? "prayer"} adhan.\nClose the app or lock screen and wait $_jumpMinutes min.',
-              style: TextStyle(fontSize: 12, height: 1.5, color: Colors.orange.shade900),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _isSettingTime ? null : _restoreSystemTime,
-                icon: _isSettingTime
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.restore_rounded, size: 18),
-                label: Text(isAr ? 'استعادة الوقت الأصلي' : 'Restore system time'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-          ] else ...[
-            // ── Setup state ──────────────────────────────────────────────
-            const SizedBox(height: 10),
-
-            // Next prayer chip
-            if (hasPrayer)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.mosque_rounded, size: 14, color: Colors.deepPurple),
-                  const SizedBox(width: 6),
-                  Text(
-                    isAr
-                        ? 'الأذان القادم: ${_nextPrayerName ?? ""} — ${fmtPrayer(_nextPrayerTime!)}'
-                        : 'Next: ${_nextPrayerName ?? ""} at ${fmtPrayer(_nextPrayerTime!)}',
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600, color: Colors.deepPurple),
-                  ),
-                ]),
-              )
-            else
-              Text(
-                isAr ? 'تأكد من تفعيل الأذان لعرض الوقت القادم.' : 'Enable adhan to see next prayer time.',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
-
-            const SizedBox(height: 12),
-
-            // Minutes label
-            Text(
-              isAr ? 'ضبط الوقت قبل الأذان بـ:' : 'Jump to N minutes before adhan:',
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 8),
-
-            // Preset chips + custom field
-            Row(children: [
-              for (final min in presets) ...[
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      _customMinutesCtrl.clear();
-                      setState(() => _jumpMinutes = min);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      margin: const EdgeInsets.only(right: 6),
-                      decoration: BoxDecoration(
-                        color: (_jumpMinutes == min && _customMinutesCtrl.text.isEmpty)
-                            ? Colors.deepPurple
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: (_jumpMinutes == min && _customMinutesCtrl.text.isEmpty)
-                              ? Colors.deepPurple
-                              : Colors.grey.shade400,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          isAr ? '$min د' : '${min}m',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: (_jumpMinutes == min && _customMinutesCtrl.text.isEmpty)
-                                ? Colors.white
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              // Custom minute field
-              Expanded(
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: _customMinutesCtrl.text.isNotEmpty
-                        ? Colors.deepPurple.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _customMinutesCtrl.text.isNotEmpty
-                          ? Colors.deepPurple
-                          : Colors.grey.shade400,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _customMinutesCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: isAr ? 'مخصص' : 'custom',
-                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    onChanged: (v) {
-                      final parsed = int.tryParse(v.trim());
-                      if (parsed != null && parsed > 0) {
-                        setState(() => _jumpMinutes = parsed);
-                      } else {
-                        setState(() {}); // refresh border color
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ]),
-
-            const SizedBox(height: 12),
-
-            // Action button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: (hasPrayer && !_isSettingTime) ? _setSystemTime : null,
-                icon: _isSettingTime
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.schedule_send_rounded, size: 18),
-                label: Text(isAr ? 'اضبط وقت الجهاز' : 'Set device time'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-            Text(
-              isAr
-                  ? '⚠️ يتطلب صلاحية SET_TIME (روت أو ADB).\nبعد الاختبار اضغط "استعادة الوقت".'
-                  : '⚠️ Requires SET_TIME permission (root or ADB).\nPress "Restore" after testing.',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade500, height: 1.5),
-            ),
-          ],
-        ],
-      ),
     );
   }
 

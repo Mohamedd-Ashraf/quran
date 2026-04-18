@@ -169,8 +169,16 @@ class AdhanNotificationService {
             'fallbackSoundName': AdhanSounds.offlineFallback.id,
             'useAlarmStream': _settings.getAdhanAudioStream() == 'alarm',
             if (prayerArabicName != null && prayerArabicName.isNotEmpty) ...{
-              'notifTitle': 'أذان $prayerArabicName',
-              'notifBody': 'اضغط لإيقاف الأذان',
+              'notifTitle': _settings.getAppLanguage() == 'ar'
+                  ? 'أذان $prayerArabicName'
+                  : 'Adhan – ${const {
+                      'الفجر': 'Fajr', 'الظهر': 'Dhuhr', 'العصر': 'Asr',
+                      'المغرب': 'Maghrib', 'العشاء': 'Isha', 'الأذان': 'Adhan',
+                    }[prayerArabicName] ?? prayerArabicName}',
+              'notifBody': _settings.getAppLanguage() == 'ar'
+                  ? 'اضغط لإيقاف الأذان'
+                  : 'Tap to stop',
+              'stopLabel': _settings.getAppLanguage() == 'ar' ? 'إيقاف الأذان' : 'Stop Adhan',
             },
           },
         );
@@ -183,8 +191,8 @@ class AdhanNotificationService {
       // Fallback for non-Android / service failure.
       await _plugin.show(
         999003,
-        'وقت الصلاة',
-        'حان وقت الصلاة',
+        _settings.getAppLanguage() == 'ar' ? 'وقت الصلاة' : 'Prayer Time',
+        _settings.getAppLanguage() == 'ar' ? 'حان وقت الصلاة' : 'It is time for prayer',
         _notificationDetails(),
       );
       debugPrint('🔔 [Adhan] Fallback notification shown');

@@ -477,7 +477,9 @@ class _FeedbackTypeChips extends StatelessWidget {
               fontSize: 13,
               fontWeight:
                   isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? Colors.white : AppColors.textPrimary,
+              color: isSelected
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurface,
             ),
           ),
           selected: isSelected,
@@ -486,7 +488,7 @@ class _FeedbackTypeChips extends StatelessWidget {
           side: BorderSide(
             color: isSelected
                 ? AppColors.primary
-                : AppColors.cardBorder,
+                : Theme.of(context).colorScheme.outline,
             width: 1.2,
           ),
           onSelected: (_) => onSelected(type),

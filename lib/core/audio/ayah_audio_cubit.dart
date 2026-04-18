@@ -4,14 +4,15 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
-import 'package:path_provider/path_provider.dart';
+
 
 import '../services/ayah_audio_service.dart';
 import '../services/adhan_notification_service.dart';
+import '../di/injection_container.dart' as di;
+import '../services/settings_service.dart';
 
 enum AyahAudioMode { ayah, surah, word, radio }
 
@@ -194,7 +195,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Suppresses spurious `ProcessingState.completed` events that just_audio
   /// fires during the internal FLUSHING/RESUMING cycle of a seek operation.
   bool _isSeeking = false;
-  // ── Notification artwork URIs (extracted from assets on first init) ───────
+  // ── Notification artwork URIs (android.resource:// — always available) ────
   Uri? _telawaArtUri;
   Uri? _radioArtUri;
   AyahAudioCubit(this._service, this._adhanService)
@@ -203,39 +204,31 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     _init();
   }
 
-  /// Returns the Arabic name for [surahNumber] (1-based).
+  /// Returns the surah name for [surahNumber] (1-based) in the app language.
   String _surahNameFor(int surahNumber) {
-    if (surahNumber >= 1 && surahNumber <= _kSurahNames.length) {
-      return 'سورة ${_kSurahNames[surahNumber - 1]}';
+    final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+    final names = isAr ? _kSurahNamesAr : _kSurahNamesEn;
+    if (surahNumber >= 1 && surahNumber <= names.length) {
+      return isAr ? 'سورة ${names[surahNumber - 1]}' : 'Surah ${names[surahNumber - 1]}';
     }
-    return 'سورة $surahNumber';
+    return isAr ? 'سورة $surahNumber' : 'Surah $surahNumber';
   }
 
-  /// Extracts a Flutter asset to a temp file and returns its [Uri].
-  /// Used so [MediaItem.artUri] can reference local artwork images.
-  Future<Uri?> _extractAssetToTemp(String assetPath, String fileName) async {
-    try {
-      final bytes = await rootBundle.load(assetPath);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(bytes.buffer.asUint8List());
-      return file.uri;
-    } catch (e) {
-      debugPrint('[Audio] Failed to extract asset $assetPath: $e');
-      return null;
+  /// Returns a URI for notification artwork.
+  /// On Android uses android.resource:// URIs pointing to baked-in APK
+  /// drawables — these are always available and never cleared by the OS.
+  Uri? _artworkUri(String drawableName) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return Uri.parse(
+          'android.resource://com.nooraliman.quran/drawable/$drawableName');
     }
+    return null;
   }
 
   Future<void> _init() async {
-    // Extract notification artwork images from assets to temp files.
-    _telawaArtUri = await _extractAssetToTemp(
-      'assets/logo/files/quraan telawa.jpg',
-      'quraan_telawa_art.jpg',
-    );
-    _radioArtUri = await _extractAssetToTemp(
-      'assets/logo/files/islam radio.jpg',
-      'islam_radio_art.jpg',
-    );
+    // Resolve notification artwork from baked-in APK drawable resources.
+    _telawaArtUri = _artworkUri('tilawa_art');
+    _radioArtUri  = _artworkUri('radio_art');
 
     try {
       final session = await AudioSession.instance;
@@ -601,12 +594,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         ayahNumber: ayahNumber,
       );
 
-      // Single-ayah mode: title = ayah number, album = surah name.
+      final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
       final mediaItem = MediaItem(
         id: '${surahNumber}_$ayahNumber',
-        title: 'الآية $ayahNumber',
+        title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
         album: _surahNameFor(surahNumber),
-        artist: 'القرآن الكريم',
+        artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
         artUri: _telawaArtUri,
       );
       if (source.isLocal) {
@@ -725,11 +718,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
       final mediaItem = MediaItem(
         id: 'word_${surahNumber}_${ayahNumber}_$wordIndex',
-        title: 'الآية $ayahNumber - كلمة $wordIndex',
-        album: 'سورة $surahNumber',
-        artist: 'القرآن الكريم',
+        title: isAr ? 'الآية $ayahNumber - كلمة $wordIndex' : 'Verse $ayahNumber - Word $wordIndex',
+        album: _surahNameFor(surahNumber),
+        artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
       );
       await _player.setAudioSource(AudioSource.uri(uri, tag: mediaItem));
       await _player.setLoopMode(LoopMode.off);
@@ -812,6 +806,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         numberOfAyahs: numberOfAyahs,
       );
 
+      final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
       final children = <AudioSource>[];
       for (var i = 0; i < sources.length; i++) {
         final ayahNumber = i + 1;
@@ -820,8 +815,8 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
           title: _surahNameFor(surahNumber),
-          album: 'الآية $ayahNumber',
-          artist: 'القرآن الكريم',
+          album: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
+          artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
           artUri: _telawaArtUri,
         );
         if (s.isLocal) {
@@ -899,6 +894,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
+      final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
       final children = <AudioSource>[];
       for (var ayahNumber = startAyah; ayahNumber <= endAyah; ayahNumber++) {
         final source = await _service.resolveAyahAudio(
@@ -909,9 +905,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         // Ayah-range mode (from mushaf): title = ayah number, album = surah name.
         final mediaItem = MediaItem(
           id: '${surahNumber}_$ayahNumber',
-          title: 'الآية $ayahNumber',
+          title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
           album: _surahNameFor(surahNumber),
-          artist: 'القرآن الكريم',
+          artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
           artUri: _telawaArtUri,
         );
         if (source.isLocal) {
@@ -1104,7 +1100,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 // ── Notification metadata helpers ─────────────────────────────────────────────
 // Arabic surah names indexed 1–114.  Used to build human-readable MediaItem
 // titles in the system media notification / lock-screen player.
-const _kSurahNames = [
+const _kSurahNamesAr = [
   'الفاتحة', 'البقرة', 'آل عمران', 'النساء', 'المائدة',
   'الأنعام', 'الأعراف', 'الأنفال', 'التوبة', 'يونس',
   'هود', 'يوسف', 'الرعد', 'إبراهيم', 'الحجر',
@@ -1128,4 +1124,30 @@ const _kSurahNames = [
   'القارعة', 'التكاثر', 'العصر', 'الهمزة', 'الفيل',
   'قريش', 'الماعون', 'الكوثر', 'الكافرون', 'النصر',
   'المسد', 'الإخلاص', 'الفلق', 'الناس',
+];
+
+const _kSurahNamesEn = [
+  'Al-Fatihah', 'Al-Baqarah', 'Aal-E-Imran', 'An-Nisa', 'Al-Maidah',
+  'Al-Anam', 'Al-Araf', 'Al-Anfal', 'At-Tawbah', 'Yunus',
+  'Hud', 'Yusuf', 'Ar-Ra\'d', 'Ibrahim', 'Al-Hijr',
+  'An-Nahl', 'Al-Isra', 'Al-Kahf', 'Maryam', 'Ta-Ha',
+  'Al-Anbiya', 'Al-Hajj', 'Al-Muminun', 'An-Nur', 'Al-Furqan',
+  'Ash-Shuara', 'An-Naml', 'Al-Qasas', 'Al-Ankabut', 'Ar-Rum',
+  'Luqman', 'As-Sajdah', 'Al-Ahzab', 'Saba', 'Fatir',
+  'Ya-Sin', 'As-Saffat', 'Sad', 'Az-Zumar', 'Ghafir',
+  'Fussilat', 'Ash-Shura', 'Az-Zukhruf', 'Ad-Dukhan', 'Al-Jathiyah',
+  'Al-Ahqaf', 'Muhammad', 'Al-Fath', 'Al-Hujurat', 'Qaf',
+  'Adh-Dhariyat', 'At-Tur', 'An-Najm', 'Al-Qamar', 'Ar-Rahman',
+  'Al-Waqiah', 'Al-Hadid', 'Al-Mujadilah', 'Al-Hashr', 'Al-Mumtahanah',
+  'As-Saff', 'Al-Jumuah', 'Al-Munafiqun', 'At-Taghabun', 'At-Talaq',
+  'At-Tahrim', 'Al-Mulk', 'Al-Qalam', 'Al-Haqqah', 'Al-Maarij',
+  'Nuh', 'Al-Jinn', 'Al-Muzzammil', 'Al-Muddathir', 'Al-Qiyamah',
+  'Al-Insan', 'Al-Mursalat', 'An-Naba', 'An-Naziat', 'Abasa',
+  'At-Takwir', 'Al-Infitar', 'Al-Mutaffifin', 'Al-Inshiqaq', 'Al-Buruj',
+  'At-Tariq', 'Al-Ala', 'Al-Ghashiyah', 'Al-Fajr', 'Al-Balad',
+  'Ash-Shams', 'Al-Lail', 'Ad-Duha', 'Ash-Sharh', 'At-Tin',
+  'Al-Alaq', 'Al-Qadr', 'Al-Bayyinah', 'Az-Zalzalah', 'Al-Adiyat',
+  'Al-Qariah', 'At-Takathur', 'Al-Asr', 'Al-Humazah', 'Al-Fil',
+  'Quraysh', 'Al-Maun', 'Al-Kawthar', 'Al-Kafirun', 'An-Nasr',
+  'Al-Masad', 'Al-Ikhlas', 'Al-Falaq', 'An-Nas',
 ];

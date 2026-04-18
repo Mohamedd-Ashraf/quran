@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/constants/api_constants.dart';
+import '../../../../../core/di/injection_container.dart' as di;
 import '../../../../../core/error/exceptions.dart';
+import '../../../../../core/services/settings_service.dart';
 import '../../../../../features/quran/data/datasources/ibn_kathir_remote_data_source.dart';
 import '../../../../../features/quran/data/datasources/quran_local_tafsir_data_source.dart';
 import '../../../../../features/quran/domain/usecases/get_ayah.dart';
@@ -109,7 +111,9 @@ class TafsirCubit extends Cubit<TafsirState> {
       if (isClosed || token != _requestToken) return;
       emit(state.copyWith(
         status: TafsirStatus.error,
-        errorMessage: 'تعذّر تحميل التفسير. يمكنك تنزيله مسبقًا للاستخدام بدون إنترنت.',
+        errorMessage: di.sl<SettingsService>().getAppLanguage() == 'ar'
+            ? 'تعذّر تحميل التفسير. يمكنك تنزيله مسبقًا للاستخدام بدون إنترنت.'
+            : 'Failed to load Tafsir. You can download it for offline use.',
       ));
     } catch (e) {
       if (isClosed || token != _requestToken) return;

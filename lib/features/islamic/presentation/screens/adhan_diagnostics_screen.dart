@@ -69,11 +69,14 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final _e = isAr ? 'مفعّل' : 'Enabled';
+    final _d = isAr ? 'معطّل' : 'Disabled';
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('التشخيصات'),
+          title: Text(isAr ? 'التشخيصات' : 'Diagnostics'),
           centerTitle: true,
           actions: [
             IconButton(
@@ -90,84 +93,86 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _sectionTitle('حالة النظام', cs),
+                  _sectionTitle(isAr ? 'حالة النظام' : 'System Status', cs),
                   _diagCard(cs, [
                     _diagRow(
-                      'تحسين البطارية',
+                      isAr ? 'تحسين البطارية' : 'Battery Optimization',
                       _diag['batteryOptimizationDisabled'] == true
-                          ? 'معطّل ✓'
-                          : 'مفعّل ⚠️',
+                          ? '$_d ✓'
+                          : '$_e ⚠️',
                       _diag['batteryOptimizationDisabled'] == true,
                     ),
                     _diagRow(
-                      'إذن المنبهات الدقيقة',
+                      isAr ? 'إذن المنبهات الدقيقة' : 'Exact Alarms Permission',
                       _diag['canScheduleExactAlarms'] == true
-                          ? 'مسموح ✓'
-                          : 'ممنوع ⚠️',
+                          ? (isAr ? 'مسموح ✓' : 'Allowed ✓')
+                          : (isAr ? 'ممنوع ⚠️' : 'Denied ⚠️'),
                       _diag['canScheduleExactAlarms'] == true,
                     ),
                     _diagRow(
-                      'فئة استخدام التطبيق',
-                      _standbyBucketLabel(_diag['appStandbyBucket']),
+                      isAr ? 'فئة استخدام التطبيق' : 'App Standby Bucket',
+                      _standbyBucketLabel(_diag['appStandbyBucket'], isAr),
                       (_diag['appStandbyBucket'] as int? ?? 50) <= 20,
                     ),
                     _diagRow(
-                      'إصدار Android',
+                      isAr ? 'إصدار Android' : 'Android Version',
                       'API ${_diag['sdkVersion'] ?? '?'}',
                       true,
                     ),
                     _diagRow(
-                      'الشركة المصنعة',
+                      isAr ? 'الشركة المصنعة' : 'Manufacturer',
                       '${_diag['manufacturer'] ?? '?'}',
                       true,
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _sectionTitle('حالة التشغيل', cs),
+                  _sectionTitle(isAr ? 'حالة التشغيل' : 'Playback Status', cs),
                   _diagCard(cs, [
                     _diagRow(
-                      'الأذان يعمل الآن',
-                      _diag['isAdhanPlaying'] == true ? 'نعم' : 'لا',
+                      isAr ? 'الأذان يعمل الآن' : 'Adhan Playing Now',
+                      _diag['isAdhanPlaying'] == true
+                          ? (isAr ? 'نعم' : 'Yes')
+                          : (isAr ? 'لا' : 'No'),
                       true,
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _sectionTitle('الإعدادات', cs),
+                  _sectionTitle(isAr ? 'الإعدادات' : 'Settings', cs),
                   _diagCard(cs, [
                     _diagRow(
-                      'الأذان',
-                      _diag['adhanEnabled'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'الأذان' : 'Adhan',
+                      _diag['adhanEnabled'] == true ? _e : _d,
                       _diag['adhanEnabled'] == true,
                     ),
                     _diagRow(
-                      'الإقامة',
-                      _diag['iqamaEnabled'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'الإقامة' : 'Iqama',
+                      _diag['iqamaEnabled'] == true ? _e : _d,
                       true,
                     ),
                     _diagRow(
-                      'تنبيه ما قبل الصلاة',
-                      _diag['approachingEnabled'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'تنبيه ما قبل الصلاة' : 'Pre-Prayer Alert',
+                      _diag['approachingEnabled'] == true ? _e : _d,
                       true,
                     ),
                     _diagRow(
-                      'الصلاة على النبي',
-                      _diag['salawatEnabled'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'الصلاة على النبي' : 'Salawat',
+                      _diag['salawatEnabled'] == true ? _e : _d,
                       true,
                     ),
-                    _diagRow('الصوت', '${_diag['selectedSound'] ?? '?'}', true),
+                    _diagRow(isAr ? 'الصوت' : 'Sound', '${_diag['selectedSound'] ?? '?'}', true),
                     _diagRow(
-                      'مسار الصوت',
+                      isAr ? 'مسار الصوت' : 'Audio Stream',
                       '${_diag['audioStream'] ?? '?'}',
                       true,
                     ),
                     _diagRow(
-                      'فرض السماعة',
-                      _diag['forceSpeaker'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'فرض السماعة' : 'Force Speaker',
+                      _diag['forceSpeaker'] == true ? _e : _d,
                       true,
                     ),
                     _diagRow(
-                      'الأذان المختصر',
-                      _diag['shortMode'] == true ? 'مفعّل' : 'معطّل',
+                      isAr ? 'الأذان المختصر' : 'Short Adhan',
+                      _diag['shortMode'] == true ? _e : _d,
                       true,
                     ),
                   ]),
@@ -181,7 +186,9 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
                           await _channel.invokeMethod('openExactAlarmSettings');
                         },
                         icon: const Icon(Icons.alarm),
-                        label: const Text('فتح إعدادات المنبهات الدقيقة (مهم للأذان)'),
+                        label: Text(isAr
+                            ? 'فتح إعدادات المنبهات الدقيقة (مهم للأذان)'
+                            : 'Open Exact Alarm Settings (required for Adhan)'),
                       ),
                     ),
                   if (_diag['batteryOptimizationDisabled'] != true)
@@ -196,7 +203,9 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
                           );
                         },
                         icon: const Icon(Icons.battery_saver),
-                        label: const Text('فتح إعدادات البطارية (اختياري)'),
+                        label: Text(isAr
+                            ? 'فتح إعدادات البطارية (اختياري)'
+                            : 'Open Battery Settings (optional)'),
                       ),
                     ),
                   const SizedBox(height: 32),
@@ -256,23 +265,23 @@ class _AdhanDiagnosticsScreenState extends State<AdhanDiagnosticsScreen> {
     );
   }
 
-  String _standbyBucketLabel(dynamic bucket) {
-    if (bucket == null || bucket == -1) return 'غير متاح';
+  String _standbyBucketLabel(dynamic bucket, bool isAr) {
+    if (bucket == null || bucket == -1) return isAr ? 'غير متاح' : 'N/A';
     switch (bucket as int) {
       case 5:
-        return 'نشط (ACTIVE)';
+        return isAr ? 'نشط (ACTIVE)' : 'Active';
       case 10:
-        return 'مجموعة العمل (WORKING_SET)';
+        return isAr ? 'مجموعة العمل (WORKING_SET)' : 'Working Set';
       case 20:
-        return 'متكرر (FREQUENT)';
+        return isAr ? 'متكرر (FREQUENT)' : 'Frequent';
       case 30:
-        return 'نادر (RARE)';
+        return isAr ? 'نادر (RARE)' : 'Rare';
       case 40:
-        return 'مقيّد (RESTRICTED) ⚠️';
+        return isAr ? 'مقيّد (RESTRICTED) ⚠️' : 'Restricted ⚠️';
       case 50:
-        return 'لم يُستخدم (NEVER) ⚠️';
+        return isAr ? 'لم يُستخدم (NEVER) ⚠️' : 'Never Used ⚠️';
       default:
-        return 'فئة $bucket';
+        return isAr ? 'فئة $bucket' : 'Bucket $bucket';
     }
   }
 }

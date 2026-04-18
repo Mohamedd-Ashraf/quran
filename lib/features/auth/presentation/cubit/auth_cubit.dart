@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/settings_service.dart';
 import '../../data/auth_service.dart';
 import '../../data/cloud_sync_service.dart';
 import 'auth_state.dart';
@@ -214,7 +216,7 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.copyWith(
         isLoading: false,
         errorMessage: needsReauth
-            ? 'يرجى تسجيل الخروج ثم تسجيل الدخول مجدداً قبل حذف الحساب'
+            ? (_isAr ? 'يرجى تسجيل الخروج ثم تسجيل الدخول مجدداً قبل حذف الحساب' : 'Please sign out and sign in again before deleting the account')
             : _mapError(e),
       ));
     }
@@ -228,34 +230,36 @@ class AuthCubit extends Cubit<AuthState> {
 
   // ── Error Mapping ───────────────────────────────────────────────────────
 
+  bool get _isAr => di.sl<SettingsService>().getAppLanguage() == 'ar';
+
   String _mapError(Object e) {
     if (e is AuthCancelledException) {
-      return 'تم إلغاء تسجيل الدخول';
+      return _isAr ? 'تم إلغاء تسجيل الدخول' : 'Sign-in cancelled';
     }
     if (e is FirebaseException) {
       switch (e.code) {
         case 'user-not-found':
-          return 'لا يوجد حساب بهذا البريد الإلكتروني';
+          return _isAr ? 'لا يوجد حساب بهذا البريد الإلكتروني' : 'No account found with this email';
         case 'wrong-password':
-          return 'كلمة المرور غير صحيحة';
+          return _isAr ? 'كلمة المرور غير صحيحة' : 'Incorrect password';
         case 'email-already-in-use':
-          return 'البريد الإلكتروني مستخدم بالفعل';
+          return _isAr ? 'البريد الإلكتروني مستخدم بالفعل' : 'Email already in use';
         case 'weak-password':
-          return 'كلمة المرور ضعيفة جداً';
+          return _isAr ? 'كلمة المرور ضعيفة جداً' : 'Password is too weak';
         case 'invalid-email':
-          return 'البريد الإلكتروني غير صالح';
+          return _isAr ? 'البريد الإلكتروني غير صالح' : 'Invalid email address';
         case 'too-many-requests':
-          return 'محاولات كثيرة، حاول لاحقاً';
+          return _isAr ? 'محاولات كثيرة، حاول لاحقاً' : 'Too many attempts, try again later';
         case 'network-request-failed':
-          return 'خطأ في الاتصال بالإنترنت';
+          return _isAr ? 'خطأ في الاتصال بالإنترنت' : 'Internet connection error';
         case 'invalid-credential':
-          return 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+          return _isAr ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : 'Invalid email or password';
         default:
-          return 'حدث خطأ: ${e.message ?? e.code}';
+          return _isAr ? 'حدث خطأ: ${e.message ?? e.code}' : 'Error: ${e.message ?? e.code}';
       }
     }
     debugPrint('AuthCubit: unexpected error (${e.runtimeType}): $e');
-    return 'حدث خطأ غير متوقع: $e';
+    return _isAr ? 'حدث خطأ غير متوقع: $e' : 'An unexpected error occurred: $e';
   }
 
   @override

@@ -26,6 +26,8 @@ class _AdhanReliabilityTestScreenState
 
   final _settings = di.sl<SettingsService>();
 
+  bool get isAr => _settings.getAppLanguage() == 'ar';
+
   // Test state
   final List<_TestItem> _tests = [];
   bool _running = false;
@@ -108,9 +110,9 @@ class _AdhanReliabilityTestScreenState
 
     final now = DateTime.now();
     final testSuite = [
-      (id: 1, min: 1, label: 'اختبار ١: الأذان (شاشة مفتوحة)'),
-      (id: 2, min: 2, label: 'اختبار ٢: الأذان (أقفل الشاشة الآن!)'),
-      (id: 3, min: 3, label: 'اختبار ٣: الأذان (اخرج من التطبيق!)'),
+      (id: 1, min: 1, label: isAr ? 'اختبار ١: الأذان (شاشة مفتوحة)' : 'Test 1: Adhan (screen open)'),
+      (id: 2, min: 2, label: isAr ? 'اختبار ٢: الأذان (أقفل الشاشة الآن!)' : 'Test 2: Adhan (lock screen now!)'),
+      (id: 3, min: 3, label: isAr ? 'اختبار ٣: الأذان (اخرج من التطبيق!)' : 'Test 3: Adhan (leave the app!)'),
     ];
 
     final items = <_TestItem>[];
@@ -181,13 +183,13 @@ class _AdhanReliabilityTestScreenState
     await _scheduleRealAlarm(
       testId: testId,
       minutes: minutes,
-      label: 'اختبار سريع ($minutes دقيقة)',
+      label: isAr ? 'اختبار سريع ($minutes دقيقة)' : 'Quick test ($minutes min)',
     );
 
     setState(() {
       _tests.add(_TestItem(
         id: testId,
-        label: 'اختبار سريع ($minutes دقيقة)',
+        label: isAr ? 'اختبار سريع ($minutes دقيقة)' : 'Quick test ($minutes min)',
         scheduledAt: when,
         alarmId: 990000 + testId,
       ));
@@ -206,7 +208,7 @@ class _AdhanReliabilityTestScreenState
   }
 
   String _formatCountdown(Duration d) {
-    if (d.isNegative) return 'انتهى';
+    if (d.isNegative) return isAr ? 'انتهى' : 'Done';
     final m = d.inMinutes;
     final s = d.inSeconds.remainder(60);
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
@@ -216,7 +218,7 @@ class _AdhanReliabilityTestScreenState
     final h = dt.hour;
     final m = dt.minute;
     final s = dt.second;
-    final ampm = h >= 12 ? 'م' : 'ص';
+    final ampm = h >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
     final h12 = h > 12 ? h - 12 : (h == 0 ? 12 : h);
     return '$h12:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')} $ampm';
   }
@@ -229,10 +231,10 @@ class _AdhanReliabilityTestScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('اختبار موثوقية الأذان'),
+          title: Text(isAr ? 'اختبار موثوقية الأذان' : 'Adhan Reliability Test'),
           centerTitle: true,
         ),
         body: ListView(
@@ -258,7 +260,7 @@ class _AdhanReliabilityTestScreenState
                                 : Colors.blue.shade700),
                         const SizedBox(width: 8),
                         Text(
-                          'كيف يعمل الاختبار؟',
+                          isAr ? 'كيف يعمل الاختبار؟' : 'How does the test work?',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: isDark
@@ -270,11 +272,17 @@ class _AdhanReliabilityTestScreenState
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '• يُجدول أذانات حقيقية عبر AlarmManager (نفس مسار الأذان الفعلي)\n'
-                      '• الاختبار ١: اترك التطبيق مفتوحًا — يجب أن يعمل\n'
-                      '• الاختبار ٢: أقفل الشاشة قبل الدقيقة الثانية\n'
-                      '• الاختبار ٣: اخرج من التطبيق تمامًا (أغلقه من Recent Apps)\n'
-                      '• ارجع بعد ٤ دقائق لمراجعة النتائج',
+                      isAr
+                          ? '• يُجدول أذانات حقيقية عبر AlarmManager (نفس مسار الأذان الفعلي)\n'
+                            '• الاختبار ١: اترك التطبيق مفتوحًا — يجب أن يعمل\n'
+                            '• الاختبار ٢: أقفل الشاشة قبل الدقيقة الثانية\n'
+                            '• الاختبار ٣: اخرج من التطبيق تمامًا (أغلقه من Recent Apps)\n'
+                            '• ارجع بعد ٤ دقائق لمراجعة النتائج'
+                          : '• Schedules real Adhan alarms via AlarmManager (same path as real Adhan)\n'
+                            '• Test 1: Keep the app open — it should fire\n'
+                            '• Test 2: Lock the screen before the 2nd minute\n'
+                            '• Test 3: Leave the app completely (close from Recent Apps)\n'
+                            '• Come back after 4 minutes to review results',
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.6,
@@ -293,7 +301,9 @@ class _AdhanReliabilityTestScreenState
               onPressed: _running ? null : _startFullTest,
               icon: Icon(_running ? Icons.hourglass_top : Icons.play_arrow),
               label: Text(
-                  _running ? 'الاختبار جاري...' : 'بدء اختبار شامل (٣ دقائق)'),
+                  _running
+                      ? (isAr ? 'الاختبار جاري...' : 'Test in progress...')
+                      : (isAr ? 'بدء اختبار شامل (٣ دقائق)' : 'Start full test (3 minutes)')),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
               ),
@@ -307,7 +317,7 @@ class _AdhanReliabilityTestScreenState
                   child: OutlinedButton.icon(
                     onPressed: () => _scheduleSingleTest(1),
                     icon: const Icon(Icons.timer, size: 18),
-                    label: const Text('بعد دقيقة'),
+                    label: Text(isAr ? 'بعد دقيقة' : 'In 1 min'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -315,7 +325,7 @@ class _AdhanReliabilityTestScreenState
                   child: OutlinedButton.icon(
                     onPressed: () => _scheduleSingleTest(2),
                     icon: const Icon(Icons.timer, size: 18),
-                    label: const Text('بعد دقيقتين'),
+                    label: Text(isAr ? 'بعد دقيقتين' : 'In 2 min'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -323,7 +333,7 @@ class _AdhanReliabilityTestScreenState
                   child: OutlinedButton.icon(
                     onPressed: () => _scheduleSingleTest(5),
                     icon: const Icon(Icons.timer, size: 18),
-                    label: const Text('بعد ٥ دقائق'),
+                    label: Text(isAr ? 'بعد ٥ دقائق' : 'In 5 min'),
                   ),
                 ),
               ],
@@ -333,7 +343,7 @@ class _AdhanReliabilityTestScreenState
             // ── Test results ─────────────────────────────────────────────
             if (_tests.isNotEmpty) ...[
               Text(
-                'نتائج الاختبار',
+                isAr ? 'نتائج الاختبار' : 'Test Results',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -367,7 +377,7 @@ class _AdhanReliabilityTestScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'حالة النظام',
+              isAr ? 'حالة النظام' : 'System Status',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
@@ -375,10 +385,10 @@ class _AdhanReliabilityTestScreenState
               ),
             ),
             const SizedBox(height: 12),
-            _statusRow('تحسين البطارية معطّل', battOpt, cs, isDark),
-            _statusRow('صلاحية الأذانات الدقيقة', exactAlarms, cs, isDark),
+            _statusRow(isAr ? 'تحسين البطارية معطّل' : 'Battery Optimization Disabled', battOpt, cs, isDark),
+            _statusRow(isAr ? 'صلاحية الأذانات الدقيقة' : 'Exact Alarm Permission', exactAlarms, cs, isDark),
             _statusRow(
-              'مستوى الأولوية',
+              isAr ? 'مستوى الأولوية' : 'Priority Level',
               bucket <= 10, // ACTIVE=5, WORKING=10, FREQUENT=20, RARE=30, RESTRICTED=40+
               cs,
               isDark,
@@ -430,12 +440,12 @@ class _AdhanReliabilityTestScreenState
   }
 
   String _bucketLabel(int bucket) {
-    if (bucket <= 5) return 'نشط (ممتاز)';
-    if (bucket <= 10) return 'عامل (جيد)';
-    if (bucket <= 20) return 'متكرر (مقبول)';
-    if (bucket <= 30) return 'نادر ⚠️';
-    if (bucket <= 45) return 'مقيّد 🔴';
-    return 'غير معروف';
+    if (bucket <= 5) return isAr ? 'نشط (ممتاز)' : 'Active (Excellent)';
+    if (bucket <= 10) return isAr ? 'عامل (جيد)' : 'Working (Good)';
+    if (bucket <= 20) return isAr ? 'متكرر (مقبول)' : 'Frequent (OK)';
+    if (bucket <= 30) return isAr ? 'نادر ⚠️' : 'Rare ⚠️';
+    if (bucket <= 45) return isAr ? 'مقيّد 🔴' : 'Restricted 🔴';
+    return isAr ? 'غير معروف' : 'Unknown';
   }
 
   Widget _buildTestCard(_TestItem test, ColorScheme cs, bool isDark) {
@@ -451,24 +461,24 @@ class _AdhanReliabilityTestScreenState
         if (remaining.isNegative) {
           statusColor = isDark ? Colors.orange.shade300 : Colors.orange.shade700;
           statusIcon = Icons.hourglass_bottom;
-          statusText = 'في انتظار الاستجابة...';
+          statusText = isAr ? 'في انتظار الاستجابة...' : 'Waiting for response...';
         } else {
           statusColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
           statusIcon = Icons.schedule;
-          statusText = 'متبقي ${_formatCountdown(remaining)}';
+          statusText = isAr ? 'متبقي ${_formatCountdown(remaining)}' : '${_formatCountdown(remaining)} left';
         }
         break;
       case _TestStatus.passed:
         statusColor = isDark ? Colors.green.shade300 : Colors.green.shade700;
         statusIcon = Icons.check_circle;
         statusText = test.firedAt != null
-            ? 'نجح ✓ (${_formatTime(test.firedAt!)})'
-            : 'نجح ✓';
+            ? (isAr ? 'نجح ✓ (${_formatTime(test.firedAt!)})' : 'Passed ✓ (${_formatTime(test.firedAt!)})')
+            : (isAr ? 'نجح ✓' : 'Passed ✓');
         break;
       case _TestStatus.failed:
         statusColor = isDark ? Colors.red.shade300 : Colors.red.shade700;
         statusIcon = Icons.cancel;
-        statusText = 'فشل ✗ — لم يُسمع الأذان';
+        statusText = isAr ? 'فشل ✗ — لم يُسمع الأذان' : 'Failed ✗ — Adhan not heard';
         break;
     }
 
@@ -481,7 +491,7 @@ class _AdhanReliabilityTestScreenState
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(
-          'مُجدول: ${_formatTime(test.scheduledAt)}',
+          isAr ? 'مُجدول: ${_formatTime(test.scheduledAt)}' : 'Scheduled: ${_formatTime(test.scheduledAt)}',
           style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
         ),
         trailing: Text(
@@ -504,7 +514,7 @@ class _AdhanReliabilityTestScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'قائمة التحقق اليدوي',
+              isAr ? 'قائمة التحقق اليدوي' : 'Manual Checklist',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
@@ -512,14 +522,23 @@ class _AdhanReliabilityTestScreenState
               ),
             ),
             const SizedBox(height: 12),
-            ...[
-              'جدول اختبار → أقفل الشاشة → هل سمعت الأذان؟',
-              'جدول اختبار → اخرج من التطبيق (Recent Apps) → هل سمعت الأذان؟',
-              'جدول اختبار → أعد تشغيل الجهاز → هل سمعت الأذان عند الوقت المحدد؟',
-              'جدول اختبار → شغّل تطبيق آخر بصوت (يوتيوب) → هل الأذان غطى على الصوت؟',
-              'جدول اختبار → وصّل سماعة بلوتوث → هل الأذان خرج من سماعة الجهاز؟ (إذا مفعّل Force Speaker)',
-              'جدول اختبار → اتصل بحد → هل الأذان توقف أثناء المكالمة؟',
-            ].map(
+            ...(isAr
+                ? [
+                    'جدول اختبار → أقفل الشاشة → هل سمعت الأذان؟',
+                    'جدول اختبار → اخرج من التطبيق (Recent Apps) → هل سمعت الأذان؟',
+                    'جدول اختبار → أعد تشغيل الجهاز → هل سمعت الأذان عند الوقت المحدد؟',
+                    'جدول اختبار → شغّل تطبيق آخر بصوت (يوتيوب) → هل الأذان غطى على الصوت؟',
+                    'جدول اختبار → وصّل سماعة بلوتوث → هل الأذان خرج من سماعة الجهاز؟ (إذا مفعّل Force Speaker)',
+                    'جدول اختبار → اتصل بحد → هل الأذان توقف أثناء المكالمة؟',
+                  ]
+                : [
+                    'Schedule test → Lock screen → Did you hear the Adhan?',
+                    'Schedule test → Leave app (Recent Apps) → Did you hear the Adhan?',
+                    'Schedule test → Restart device → Did you hear the Adhan at the scheduled time?',
+                    'Schedule test → Play another app audio (YouTube) → Did Adhan override it?',
+                    'Schedule test → Connect Bluetooth headset → Did Adhan come from device speaker? (if Force Speaker enabled)',
+                    'Schedule test → Make a phone call → Did Adhan stop during the call?',
+                  ]).map(
               (text) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(

@@ -263,12 +263,13 @@ class WirdNotificationService {
     final body = _pickRotating(
       _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_main_msg_counter');
 
+    final isArabic = _wirdService.getAppLanguage() == 'ar';
     await _zonedScheduleSafe(
       id: _idMainReminder,
-      title: '📖 حان وقت الورد اليومي',
+      title: isArabic ? '📖 حان وقت الورد اليومي' : '📖 Time for Your Daily Wird',
       body: body,
       scheduledDate: scheduled,
-      details: _buildDetails(isFollowUp: false),
+      details: _buildDetails(isFollowUp: false, isArabic: isArabic),
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
@@ -316,12 +317,13 @@ class WirdNotificationService {
           : _pickRotating(_followUpBodiesAr, _followUpBodiesEn,
               'wird_followup_msg_counter');
 
+      final isArabic = _wirdService.getAppLanguage() == 'ar';
       await _zonedScheduleSafe(
         id: _followUpIds[i],
-        title: '🌙 تذكير: الورد اليومي',
+        title: isArabic ? '🌙 تذكير: الورد اليومي' : '🌙 Reminder: Daily Wird',
         body: body,
         scheduledDate: followUpTime,
-        details: _buildDetails(isFollowUp: true),
+        details: _buildDetails(isFollowUp: true, isArabic: isArabic),
       );
       scheduledCount++;
     }
@@ -336,13 +338,14 @@ class WirdNotificationService {
   /// Send an immediate test notification so the user can verify sound/appearance.
   Future<void> sendTestNotification() async {
     if (kIsWeb) return;
+    final isArabic = _wirdService.getAppLanguage() == 'ar';
     final body = _pickRotating(
       _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_test_msg_counter');
     await _plugin.show(
       5999,
-      '📖 حان وقت الورد اليومي',
+      isArabic ? '📖 حان وقت الورد اليومي' : '📖 Time for Your Daily Wird',
       body,
-      _buildDetails(isFollowUp: false),
+      _buildDetails(isFollowUp: false, isArabic: isArabic),
     );
     debugPrint('📿 [Wird] Test notification sent');
   }
@@ -367,7 +370,8 @@ class WirdNotificationService {
 
   // ── Notification style ────────────────────────────────────────────────────
 
-  NotificationDetails _buildDetails({required bool isFollowUp}) {
+  NotificationDetails _buildDetails({required bool isFollowUp, bool? isArabic}) {
+    final ar = isArabic ?? (_wirdService.getAppLanguage() == 'ar');
     return NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -381,7 +385,9 @@ class WirdNotificationService {
         visibility: NotificationVisibility.public,
         icon: '@drawable/ic_notification',
         color: const Color(_primaryColorInt),
-        ticker: isFollowUp ? 'تذكير بالورد اليومي' : 'حان وقت الورد اليومي',
+        ticker: isFollowUp
+            ? (ar ? 'تذكير بالورد اليومي' : 'Daily Wird Reminder')
+            : (ar ? 'حان وقت الورد اليومي' : 'Time for Your Daily Wird'),
         ongoing: false,
         autoCancel: true,
       ),

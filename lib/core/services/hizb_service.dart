@@ -1,4 +1,7 @@
+import 'package:noor_al_imaan/core/di/injection_container.dart' as di;
 import 'package:qcf_quran_plus/qcf_quran_plus.dart';
+
+import 'settings_service.dart';
 
 /// Information about a Hizb quarter at a specific page
 class HizbInfo {
@@ -48,19 +51,20 @@ class HizbService {
   }
 
   String _generateArabicText(int hizbNumber, int quarterInHizb) {
-    final hizbNum = _toArabicNumerals(hizbNumber);
+    final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+    final hizbNum = isAr ? _toArabicNumerals(hizbNumber) : hizbNumber.toString();
 
     switch (quarterInHizb) {
       case 1:
-        return 'الحزب $hizbNum';
+        return isAr ? 'الحزب $hizbNum' : 'Hizb $hizbNum';
       case 2:
-        return 'ربع الحزب $hizbNum';
+        return isAr ? 'ربع الحزب $hizbNum' : 'Quarter of Hizb $hizbNum';
       case 3:
-        return 'نصف الحزب $hizbNum';
+        return isAr ? 'نصف الحزب $hizbNum' : 'Half of Hizb $hizbNum';
       case 4:
-        return 'ثلاثة أرباع الحزب $hizbNum';
+        return isAr ? 'ثلاثة أرباع الحزب $hizbNum' : 'Three Quarters of Hizb $hizbNum';
       default:
-        return 'الحزب $hizbNum';
+        return isAr ? 'الحزب $hizbNum' : 'Hizb $hizbNum';
     }
   }
 

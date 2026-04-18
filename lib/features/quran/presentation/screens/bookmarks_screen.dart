@@ -13,6 +13,10 @@ import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_s
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/bookmarks_tutorial.dart';
 
+// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
+final _cachedAmiri      = GoogleFonts.amiri();
+final _cachedAmiriQuran = GoogleFonts.amiriQuran();
+
 class BookmarksScreen extends StatefulWidget {
   final VoidCallback? onNavigateToHome;
 
@@ -465,7 +469,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                 textDirection: isAr
                                     ? TextDirection.rtl
                                     : TextDirection.ltr,
-                                style: GoogleFonts.amiri(
+                                style: _cachedAmiri.copyWith(
                                   fontSize: 12,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -507,7 +511,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           textDirection: TextDirection.rtl,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.amiriQuran(
+                          style: _cachedAmiriQuran.copyWith(
                             fontSize: 20,
                             color: isDark
                                 ? const Color(0xFFE8E8E8)
@@ -667,7 +671,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                 textDirection: isAr
                                     ? TextDirection.rtl
                                     : TextDirection.ltr,
-                                style: GoogleFonts.amiri(
+                                style: _cachedAmiri.copyWith(
                                   fontSize: 12,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -713,7 +717,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           textDirection: TextDirection.rtl,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.amiriQuran(
+                          style: _cachedAmiriQuran.copyWith(
                             fontSize: 20,
                             color: isDark
                                 ? const Color(0xFFE8E8E8)

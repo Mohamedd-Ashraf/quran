@@ -14,6 +14,9 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 
+// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
+final _cachedAmiriQuran = GoogleFonts.amiriQuran();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry-point
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,8 +99,11 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = context.select<AppSettingsCubit, bool>(
+      (c) => c.state.appLanguageCode.toLowerCase().startsWith('ar'),
+    );
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
       child: Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         clipBehavior: Clip.antiAlias,
@@ -125,7 +131,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                           color: Colors.white70, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        'مشاركة آيات قرآنية',
+                        isAr ? 'مشاركة آيات قرآنية' : 'Share Quranic Verses',
                         style: GoogleFonts.cairo(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -141,7 +147,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                           color: Color(0xFFD4AF37), size: 13),
                       const SizedBox(width: 6),
                       Text(
-                        'من سورة ${widget.surahName}',
+                        isAr ? 'من سورة ${widget.surahName}' : 'From Surah ${widget.surahName}',
                         style: GoogleFonts.cairo(
                           fontSize: 13,
                           color: const Color(0xFFD4AF37),
@@ -173,11 +179,11 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _VerseChip(label: 'من آية', verse: widget.startVerse),
+                        _VerseChip(label: isAr ? 'من آية' : 'From Verse', verse: widget.startVerse),
                         Icon(Icons.arrow_back_ios_new_rounded,
                             color: AppColors.primary.withValues(alpha: 0.4),
                             size: 14),
-                        _VerseChip(label: 'إلى آية', verse: _endVerse),
+                        _VerseChip(label: isAr ? 'إلى آية' : 'To Verse', verse: _endVerse),
                       ],
                     ),
                   ),
@@ -205,7 +211,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                             ),
                           ),
                           Text(
-                            _count == 1 ? 'آية' : 'آيات',
+                            _count == 1 ? (isAr ? 'آية' : 'Verse') : (isAr ? 'آيات' : 'Verses'),
                             style: GoogleFonts.cairo(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -255,7 +261,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'الحد الأقصى للمشاركة $_maxRange آيات',
+                        isAr ? 'الحد الأقصى للمشاركة $_maxRange آيات' : 'Maximum share limit: $_maxRange verses',
                         textAlign: TextAlign.center,
                         style:
                             TextStyle(fontSize: 11, color: Colors.orange[700]),
@@ -279,7 +285,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                             borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: Text('إلغاء',
+                      child: Text(isAr ? 'إلغاء' : 'Cancel',
                           style: GoogleFonts.cairo(color: Colors.grey[700])),
                     ),
                   ),
@@ -288,7 +294,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                     flex: 2,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.image_outlined, size: 18),
-                      label: Text('مشاركة كصورة',
+                      label: Text(isAr ? 'مشاركة كصورة' : 'Share as Image',
                           style: GoogleFonts.cairo(
                               fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
@@ -312,6 +318,7 @@ class _AyahRangeShareDialogState extends State<_AyahRangeShareDialog> {
                           end,
                           surahNm,
                           widget.isDarkMode,
+                          isAr: isAr,
                         );
                       },
                     ),
@@ -408,8 +415,9 @@ Future<void> _captureAndShare(
   int startVerse,
   int endVerse,
   String surahName,
-  bool isDarkMode,
-) async {
+  bool isDarkMode, {
+  bool isAr = true,
+}) async {
   OverlayEntry? cardEntry;
   OverlayEntry? loaderEntry;
   try {
@@ -431,7 +439,7 @@ Future<void> _captureAndShare(
                 const CircularProgressIndicator(
                     color: AppColors.primary, strokeWidth: 3),
                 const SizedBox(height: 14),
-                Text('جاري تجهيز الصورة…',
+                Text(isAr ? 'جاري تجهيز الصورة…' : 'Preparing image…',
                     style: GoogleFonts.cairo(fontSize: 13)),
               ],
             ),
@@ -504,8 +512,8 @@ Future<void> _captureAndShare(
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تعذّر إنشاء الصورة، حاول مجدداً'),
+        SnackBar(
+          content: Text(isAr ? 'تعذّر إنشاء الصورة، حاول مجدداً' : 'Failed to create image, try again'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -744,10 +752,11 @@ class _VerseContent extends StatelessWidget {
         'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ',
         textAlign: TextAlign.center,
         textDirection: TextDirection.rtl,
-        style: GoogleFonts.amiriQuran(
+        style: _cachedAmiriQuran.copyWith(
           fontSize: 20,
           height: 1.8,
-        ).copyWith(color: AyahShareCard.textColor(isDarkMode)),
+          color: AyahShareCard.textColor(isDarkMode),
+        ),
       );
     }
 
@@ -807,7 +816,7 @@ class _PageVerseBlock extends StatelessWidget {
       locale: const Locale('ar'),
       textAlign: TextAlign.center,
       textDirection: TextDirection.rtl,
-      style: GoogleFonts.amiriQuran(
+      style: _cachedAmiriQuran.copyWith(
         fontSize: 20,
         color: AyahShareCard.textColor(isDarkMode),
         height: 2.0,

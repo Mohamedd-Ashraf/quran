@@ -231,14 +231,26 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             Log.w(TAG, "Failed to parse alarm times: ${e.message}")
         }
         
-        // Format the prayer time for display (e.g., "5:30 AM")
+        // Determine display language
+        val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
+        val englishName = englishPrayerNames[arabicName] ?: "Prayer"
+
+        // Format the prayer time for display (e.g., "5:30 AM").
+        // timeDisplay uses Arabic locale — kept for postPrayerTimeNotification which re-parses it internally.
         val timeDisplay = if (prayerTimeMs > 0) {
             val formatter = SimpleDateFormat("h:mm a", Locale("ar"))
             formatter.format(Date(prayerTimeMs))
         } else {
             ""
         }
-        
+        // Localized time for the foreground player notification.
+        val localizedTimeDisplay = if (prayerTimeMs > 0) {
+            val locale = if (isArabic) Locale("ar") else Locale.ENGLISH
+            SimpleDateFormat("h:mm a", locale).format(Date(prayerTimeMs))
+        } else {
+            ""
+        }
+
         Log.d(TAG, "Adhan alarm fired: $soundName (shortMode=$shortMode, cutoff=${shortCutoff}s, alarmStream=$useAlarm, time=$timeDisplay)")
         val serviceIntent = Intent(context, AdhanPlayerService::class.java).apply {
             putExtra(AdhanPlayerService.EXTRA_SOUND, soundName)
@@ -248,15 +260,18 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             putExtra(AdhanPlayerService.EXTRA_FORCE_SPEAKER, forceSpeaker)
             if (onlineUrl != null) putExtra(AdhanPlayerService.EXTRA_ONLINE_URL, onlineUrl)
             if (arabicName.isNotEmpty()) {
-                putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, "أذان $arabicName")
-                // Include prayer time in the notification body
-                val body = if (timeDisplay.isNotEmpty()) {
-                    "$timeDisplay - اضغط لإيقاف الأذان"
+                val notifTitle = if (isArabic) "أذان $arabicName" else "Adhan – $englishName"
+                val notifBody = if (isArabic) {
+                    if (localizedTimeDisplay.isNotEmpty()) "$localizedTimeDisplay - اضغط لإيقاف الأذان"
+                    else "اضغط لإيقاف الأذان"
                 } else {
-                    "اضغط لإيقاف الأذان"
+                    if (localizedTimeDisplay.isNotEmpty()) "$localizedTimeDisplay – Tap to stop"
+                    else "Tap to stop"
                 }
-                putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, body)
-                putExtra(AdhanPlayerService.EXTRA_STOP_LABEL, "إيقاف الأذان")
+                val stopLabel = if (isArabic) "إيقاف الأذان" else "Stop Adhan"
+                putExtra(AdhanPlayerService.EXTRA_NOTIF_TITLE, notifTitle)
+                putExtra(AdhanPlayerService.EXTRA_NOTIF_BODY, notifBody)
+                putExtra(AdhanPlayerService.EXTRA_STOP_LABEL, stopLabel)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -399,15 +414,27 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
     private fun postFallbackNotification(context: Context, arabicName: String, timeDisplay: String) {
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val isArabic = prefs.getString("flutter.app_language", "ar") == "ar"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val ch = NotificationChannel(
-                    "adhan_fallback", "أذان (احتياطي)",
+                    "adhan_fallback",
+                    if (isArabic) "أذان (احتياطي)" else "Adhan (fallback)",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply { description = "Fallback adhan notification" }
                 nm.createNotificationChannel(ch)
             }
-            val title = if (arabicName.isNotEmpty()) "أذان $arabicName" else "حان وقت الصلاة"
-            val body = if (timeDisplay.isNotEmpty()) timeDisplay else "اضغط لفتح التطبيق"
+            val englishName = englishPrayerNames[arabicName] ?: "Prayer"
+            val title = if (isArabic) {
+                if (arabicName.isNotEmpty()) "أذان $arabicName" else "حان وقت الصلاة"
+            } else {
+                if (arabicName.isNotEmpty()) "Adhan – $englishName" else "It's prayer time"
+            }
+            val body = if (isArabic) {
+                if (timeDisplay.isNotEmpty()) timeDisplay else "اضغط لفتح التطبيق"
+            } else {
+                "Tap to open the app"
+            }
             val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
                 PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             }

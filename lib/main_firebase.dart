@@ -16,7 +16,7 @@ import 'core/services/adhan_notification_service.dart';
 import 'core/services/quran_cache_warmup_service.dart';
 import 'core/services/app_update_service_firebase.dart';
 import 'core/services/tafsir_auto_download_service.dart';
-import 'core/services/prayer_foreground_service.dart';
+
 import 'core/services/settings_service.dart';
 import 'features/wird/services/wird_notification_service.dart';
 import 'features/quiz/services/quiz_notification_service.dart';
@@ -79,10 +79,18 @@ void main() {
       GoogleFonts.cairo(),
       GoogleFonts.amiriQuran(),
       GoogleFonts.arefRuqaa(),
+      GoogleFonts.arefRuqaa(fontWeight: FontWeight.bold),
       GoogleFonts.amiri(),
+      GoogleFonts.amiri(fontWeight: FontWeight.bold),
       GoogleFonts.notoNaskhArabic(),
+      GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.w600),
+      GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.bold),
       GoogleFonts.cinzel(),
+      GoogleFonts.cinzel(fontWeight: FontWeight.bold),
       GoogleFonts.poppins(),
+      GoogleFonts.poppins(fontWeight: FontWeight.w500),
+      GoogleFonts.poppins(fontWeight: FontWeight.w600),
+      GoogleFonts.poppins(fontWeight: FontWeight.bold),
       // Only Bold is bundled in assets/google_fonts/ — Regular is not available.
       GoogleFonts.notoSerif(fontWeight: FontWeight.bold),
     ]);
@@ -163,13 +171,6 @@ void main() {
   // If the selected adhan sound is online, cache it silently so it plays at
   // prayer time even when there is no internet connection.
   unawaited(adhanService.ensureSelectedSoundCached());
-
-  // Start persistent prayer-times foreground notification (Android only).
-  // Shows current prayer, next prayer, and countdown in the notification shade.
-  final settingsService = di.sl<SettingsService>();
-  if (settingsService.getPersistentPrayerNotification()) {
-    unawaited(PrayerForegroundService.start());
-  }
 
   // Initialize wird (daily recitation) reminder notifications.
   final wirdNotifService = di.sl<WirdNotificationService>();

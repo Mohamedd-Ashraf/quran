@@ -36,12 +36,12 @@ import java.io.File
  *  - MainActivity MethodChannel "startAdhanService" (when app is running)
  *
  * Audio stream: USAGE_NOTIFICATION_RINGTONE (ring stream).
- *   • Respects the user's ring volume — not the alarm volume.
+ *   ï¿½ Respects the user's ring volume ï¿½ not the alarm volume.
  *
  * Stop mechanisms:
  *   1. Tap "????? ??????" in the foreground notification (works anywhere).
- *   2. Press any hardware volume key — layered mechanisms:
- *       a) MediaSession VolumeProvider (PRIMARY — intercepts the key press itself, works
+ *   2. Press any hardware volume key ï¿½ layered mechanisms:
+ *       a) MediaSession VolumeProvider (PRIMARY ï¿½ intercepts the key press itself, works
  *          regardless of screen state, OEM, foreground app, or volume level).
  *       b) dispatchKeyEvent() in MainActivity (when our Activity has window focus).
  *       c) ContentObserver on ring/alarm volume URIs (backup for VolumeProvider fallthrough).
@@ -66,26 +66,26 @@ class AdhanPlayerService : Service() {
     private var volumeReceiver: BroadcastReceiver? = null
 
     /**
-     * MediaSession with a remote VolumeProvider — PRIMARY stop mechanism.
+     * MediaSession with a remote VolumeProvider ï¿½ PRIMARY stop mechanism.
      *
      * When active, ALL hardware volume key presses are routed directly to
      * VolumeProvider.onAdjustVolume, regardless of:
-     *  • Screen state (on / off / keyguard / doze)
-     *  • Which app is in the foreground
-     *  • OEM restrictions on broadcasts
-     *  • Current volume level (even at min/max where volume can't actually change)
+     *  ï¿½ Screen state (on / off / keyguard / doze)
+     *  ï¿½ Which app is in the foreground
+     *  ï¿½ OEM restrictions on broadcasts
+     *  ï¿½ Current volume level (even at min/max where volume can't actually change)
      *
      * This is the same mechanism used by phone-call ringtone apps.
      */
     private var adhanMediaSession: MediaSession? = null
 
     /**
-     * ContentObserver on Settings.System — backup stop mechanism.
+     * ContentObserver on Settings.System ï¿½ backup stop mechanism.
      *
      * Watches the Android system-settings database for ring/alarm volume changes.
      * Unlike VOLUME_CHANGED_ACTION broadcast (which some OEMs block in doze/
      * screen-off state), the ContentObserver is notified directly by the
-     * ContentProvider — works on ALL OEMs. Fires only when the volume actually
+     * ContentProvider ï¿½ works on ALL OEMs. Fires only when the volume actually
      * changes (not when already at min/max), so VolumeProvider handles those edge cases.
      */
     private var volumeObserver: ContentObserver? = null
@@ -101,7 +101,7 @@ class AdhanPlayerService : Service() {
      * key to the lock-screen media controller or shows a media-volume slider.
      *
      * This thread polls AudioManager.getStreamVolume() every 500 ms and stops the adhan
-     * when any relevant stream changes — guaranteed to work regardless of OEM quirks,
+     * when any relevant stream changes ï¿½ guaranteed to work regardless of OEM quirks,
      * MediaSession priority, or volume routing paths.
      */
     private var volumePollThread: Thread? = null
@@ -137,7 +137,7 @@ class AdhanPlayerService : Service() {
         const val EXTRA_FORCE_SPEAKER = "forceSpeaker"
         const val ACTION_STOP               = "com.nooraliman.quran.STOP_ADHAN"
         private const val TAG               = "AdhanPlayerService"
-        /** Default fallback cutoff when none provided (˜ 2 takbeers). */
+        /** Default fallback cutoff when none provided (ï¿½ 2 takbeers). */
         private const val DEFAULT_SHORT_CUTOFF_SECONDS = 15
 
         /** True while Adhan audio is actively playing.
@@ -184,14 +184,14 @@ class AdhanPlayerService : Service() {
 
         // Guard: deduplicate simultaneous starts that happen when AlarmReceiver and
         // MainActivity both call startForegroundService() for the same prayer alarm.
-        // If the SAME sound started within the last 3 seconds, this is a duplicate — ignore it.
+        // If the SAME sound started within the last 3 seconds, this is a duplicate ï¿½ ignore it.
         if (isPlaying && currentPlayingSound == soundName &&
                 System.currentTimeMillis() - playbackStartedAt < 3_000L) {
-            Log.w(TAG, "onStartCommand: duplicate start for '$soundName' within 3 s — ignoring")
+            Log.w(TAG, "onStartCommand: duplicate start for '$soundName' within 3 s ï¿½ ignoring")
             return START_NOT_STICKY
         }
         if (isPlaying) {
-            Log.w(TAG, "onStartCommand: adhan already playing — restarting for $soundName")
+            Log.w(TAG, "onStartCommand: adhan already playing ï¿½ restarting for $soundName")
         }
 
         // Must call startForeground() within 5 s of startForegroundService().
@@ -223,8 +223,8 @@ class AdhanPlayerService : Service() {
      * Request AUDIOFOCUS_GAIN on the RING stream.
      *
      * Benefits:
-     *  • Other apps (music, podcasts) are paused while the adhan plays.
-     *  • If an incoming phone call arrives, we receive AUDIOFOCUS_LOSS
+     *  ï¿½ Other apps (music, podcasts) are paused while the adhan plays.
+     *  ï¿½ If an incoming phone call arrives, we receive AUDIOFOCUS_LOSS
      *    and stop the adhan automatically.
      *
      * @return true if focus was granted (we can play), false otherwise.
@@ -236,27 +236,27 @@ class AdhanPlayerService : Service() {
                 AudioManager.AUDIOFOCUS_LOSS -> {
                     // Permanent focus loss = phone call or another exclusive audio stream.
                     // Stop the adhan gracefully.
-                    Log.d(TAG, "Audio focus permanently lost ($change) — stopping adhan")
+                    Log.d(TAG, "Audio focus permanently lost ($change) ï¿½ stopping adhan")
                     stopAdhan()
                     stopSelf()
                 }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                     // Transient loss can be a phone call or another app momentarily
                     // requesting focus. Check TelephonyManager: if a call is active/ringing,
-                    // stop the adhan. Otherwise, keep playing — the other app will yield.
+                    // stop the adhan. Otherwise, keep playing ï¿½ the other app will yield.
                     val tm = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
                     @Suppress("DEPRECATION")
                     val callActive = tm != null && tm.callState != TelephonyManager.CALL_STATE_IDLE
                     if (callActive) {
-                        Log.d(TAG, "Audio focus transiently lost ($change) + phone call active — stopping adhan")
+                        Log.d(TAG, "Audio focus transiently lost ($change) + phone call active ï¿½ stopping adhan")
                         stopAdhan()
                         stopSelf()
                     } else {
-                        Log.d(TAG, "Audio focus transiently lost ($change) — ignored, adhan continues (no active call)")
+                        Log.d(TAG, "Audio focus transiently lost ($change) ï¿½ ignored, adhan continues (no active call)")
                     }
                 }
-                // AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: duck request — also ignored.
-                // AUDIOFOCUS_GAIN: focus returned to us (e.g. call ended) — no action needed,
+                // AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: duck request ï¿½ also ignored.
+                // AUDIOFOCUS_GAIN: focus returned to us (e.g. call ended) ï¿½ no action needed,
                 // MediaPlayer is already playing.
             }
         }
@@ -322,18 +322,18 @@ class AdhanPlayerService : Service() {
 
             // -- Audio attributes: Ring (default) or Alarm -----------------------------
             //  Ring (USAGE_NOTIFICATION_RINGTONE):
-            //    • Volume controlled by the ring slider.
-            //    • Volume-key on lock screen ? VOLUME_CHANGED_ACTION ? adhan stops.
-            //    • Respects Silent/Vibrate / Do Not Disturb mode.
+            //    ï¿½ Volume controlled by the ring slider.
+            //    ï¿½ Volume-key on lock screen ? VOLUME_CHANGED_ACTION ? adhan stops.
+            //    ï¿½ Respects Silent/Vibrate / Do Not Disturb mode.
             //  Alarm (USAGE_ALARM):
-            //    • Volume controlled by the alarm slider.
-            //    • Bypasses Silent/Vibrate and DND on most devices.
+            //    ï¿½ Volume controlled by the alarm slider.
+            //    ï¿½ Bypasses Silent/Vibrate and DND on most devices.
             //
             // DND Auto-Override:
             //   If the user chose RING stream but Do Not Disturb is active in a mode
             //   that blocks ring sounds, requestAudioFocus() will be denied and the
             //   adhan will silently fail. To prevent this, we automatically upgrade
-            //   to ALARM stream when DND is active — ensuring the adhan always plays.
+            //   to ALARM stream when DND is active ï¿½ ensuring the adhan always plays.
             val isDndActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
@@ -341,7 +341,7 @@ class AdhanPlayerService : Service() {
 
             val effectiveUseAlarmStream = useAlarmStream || isDndActive
             if (!useAlarmStream && isDndActive) {
-                Log.d(TAG, "DND active — auto-upgrading from RING to ALARM stream so adhan plays")
+                Log.d(TAG, "DND active ï¿½ auto-upgrading from RING to ALARM stream so adhan plays")
             }
 
             val audioUsage = if (effectiveUseAlarmStream)
@@ -384,13 +384,13 @@ class AdhanPlayerService : Service() {
                     sourceLoaded = true
                     Log.d(TAG, "Adhan: playing cached file: ${cachedFile.name}")
                 } else if (!onlineUrl.isNullOrBlank()) {
-                    // Stream directly from URL — works even without a pre-downloaded cache.
+                    // Stream directly from URL ï¿½ works even without a pre-downloaded cache.
                     player.setDataSource(onlineUrl)
                     sourceLoaded = true
                     isStreamingFromUrl = true
                     Log.d(TAG, "Adhan: streaming from URL (no cache): $onlineUrl")
                 } else {
-                    Log.w(TAG, "Adhan: no cache and no URL for '$soundName' — falling back to adhan_1")
+                    Log.w(TAG, "Adhan: no cache and no URL for '$soundName' ï¿½ falling back to adhan_1")
                 }
             }
 
@@ -450,7 +450,7 @@ class AdhanPlayerService : Service() {
                 // fully regardless of spurious VOLUME_CHANGED_ACTION from OEMs.
                 if (!disableVolumeStopper) {
                     // VolumeProvider (MediaSession) is the PRIMARY mechanism and fires on the
-                    // key press itself — no delay needed for it.
+                    // key press itself ï¿½ no delay needed for it.
                     // ContentObserver watches the actual settings DB: no spurious events,
                     // register immediately as backup for when VolumeProvider is bypassed.
                     registerVolumeObserver()   // backup: settings DB (immediate)
@@ -458,7 +458,7 @@ class AdhanPlayerService : Service() {
                     // volume keys through VOLUME_CHANGED_ACTION but NOT Settings.System,
                     // so we need this to fire alongside the ContentObserver.
                     registerVolumeReceiver()   // tertiary: broadcast (immediate)
-                    // Polling: absolute failsafe — works even when Samsung routes volume
+                    // Polling: absolute failsafe ï¿½ works even when Samsung routes volume
                     // keys to a competing MediaSession and all other mechanisms are silent.
                     startVolumePolling()       // failsafe: 500 ms poll (no OEM can block this)
                 }
@@ -482,18 +482,18 @@ class AdhanPlayerService : Service() {
                 player.setOnPreparedListener { mp ->
                     // Guard: stop may be requested during network prepare (can take seconds).
                     if (!isPlaying) {
-                        Log.d(TAG, "Adhan: streaming prepare done but stop was requested — aborting")
+                        Log.d(TAG, "Adhan: streaming prepare done but stop was requested ï¿½ aborting")
                         mp.release()
                         releaseWakeLock()
                         stopSelf()
                         return@setOnPreparedListener
                     }
                     // Request audio focus as a courtesy so other apps (music, podcasts) pause.
-                    // Never abort on denial — an adhan/alarm MUST play regardless of focus state.
+                    // Never abort on denial ï¿½ an adhan/alarm MUST play regardless of focus state.
                     // On Android 15, just_audio_background (same process) may hold focus and the
                     // system denies our request; aborting would silently skip the prayer call.
                     if (!requestAudioFocus(audioAttrs)) {
-                        Log.w(TAG, "Audio focus denied (streaming) — continuing adhan playback anyway")
+                        Log.w(TAG, "Audio focus denied (streaming) ï¿½ continuing adhan playback anyway")
                     }
                     startPlayback(mp)
                 }
@@ -501,11 +501,11 @@ class AdhanPlayerService : Service() {
             } else {
                 player.prepare()
                 // Request audio focus as a courtesy so other apps (music, podcasts) pause.
-                // Never abort on denial — an adhan/alarm MUST play regardless of focus state.
+                // Never abort on denial ï¿½ an adhan/alarm MUST play regardless of focus state.
                 // On Android 15, just_audio_background (same process) may hold focus and the
                 // system denies our request; aborting would silently skip the prayer call.
                 if (!requestAudioFocus(audioAttrs)) {
-                    Log.w(TAG, "Audio focus denied — continuing adhan playback anyway")
+                    Log.w(TAG, "Audio focus denied ï¿½ continuing adhan playback anyway")
                 }
                 startPlayback(player)
             }
@@ -646,19 +646,19 @@ class AdhanPlayerService : Service() {
         if (!disableVolumeStopper) {
             val volumeProvider = object : VolumeProvider(
                 VOLUME_CONTROL_RELATIVE,
-                100,  // maxVolume (arbitrary — we don't actually track volume)
+                100,  // maxVolume (arbitrary ï¿½ we don't actually track volume)
                 50    // currentVolume (mid-point so both up and down register)
             ) {
                 override fun onAdjustVolume(direction: Int) {
-                    // Stop unconditionally — if this session is active, Adhan is playing.
+                    // Stop unconditionally ï¿½ if this session is active, Adhan is playing.
                     // No isPlaying guard here: the race condition fix in onStartCommand
                     // (isPlaying = true before playAdhan) makes the guard redundant,
                     // and a stale guard was the original cause of silent failure.
-                    Log.d(TAG, "VolumeProvider: volume key (dir=$direction) — stopping Adhan")
+                    Log.d(TAG, "VolumeProvider: volume key (dir=$direction) ï¿½ stopping Adhan")
                     Handler(Looper.getMainLooper()).post { stopAdhan(); stopSelf() }
                 }
                 override fun onSetVolumeTo(volume: Int) {
-                    Log.d(TAG, "VolumeProvider: setVolumeTo($volume) — stopping Adhan")
+                    Log.d(TAG, "VolumeProvider: setVolumeTo($volume) ï¿½ stopping Adhan")
                     Handler(Looper.getMainLooper()).post { stopAdhan(); stopSelf() }
                 }
             }
@@ -667,7 +667,7 @@ class AdhanPlayerService : Service() {
 
         session.setCallback(object : MediaSession.Callback() {
             override fun onStop() {
-                Log.d(TAG, "MediaSession.onStop() — stopping Adhan")
+                Log.d(TAG, "MediaSession.onStop() ï¿½ stopping Adhan")
                 Handler(Looper.getMainLooper()).post { stopAdhan(); stopSelf() }
             }
             override fun onPause() = onStop()
@@ -704,10 +704,10 @@ class AdhanPlayerService : Service() {
                 // system (1), or accessibility (10) which fire for unrelated reasons.
                 val stream = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1)
                 val relevant = stream in listOf(
-                    AudioManager.STREAM_RING,          // 2 — default adhan stream
-                    AudioManager.STREAM_ALARM,         // 4 — alarm-stream adhan
-                    AudioManager.STREAM_MUSIC,         // 3 — Samsung lock screen routes here
-                    AudioManager.STREAM_NOTIFICATION   // 5 — some OEMs use this
+                    AudioManager.STREAM_RING,          // 2 ï¿½ default adhan stream
+                    AudioManager.STREAM_ALARM,         // 4 ï¿½ alarm-stream adhan
+                    AudioManager.STREAM_MUSIC,         // 3 ï¿½ Samsung lock screen routes here
+                    AudioManager.STREAM_NOTIFICATION   // 5 ï¿½ some OEMs use this
                 )
                 if (!relevant) {
                     Log.d(TAG, "Volume broadcast ignored (stream=$stream)")
@@ -769,16 +769,16 @@ class AdhanPlayerService : Service() {
         val registeredAt = System.currentTimeMillis()
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                if (!isPlaying) return   // already stopping — ignore
+                if (!isPlaying) return   // already stopping ï¿½ ignore
                 // 500 ms startup guard: when adhan requests audio focus, ExoPlayer
                 // (just_audio_background) may pause and the system can auto-adjust
                 // STREAM_MUSIC. 500 ms is enough to absorb that transient change while
                 // keeping the unprotected window short.
                 if (System.currentTimeMillis() - registeredAt < 500L) {
-                    Log.d(TAG, "Volume setting changed (ContentObserver) — suppressed (startup guard 500 ms)")
+                    Log.d(TAG, "Volume setting changed (ContentObserver) ï¿½ suppressed (startup guard 500 ms)")
                     return
                 }
-                Log.d(TAG, "Volume setting changed (ContentObserver) — stopping Adhan")
+                Log.d(TAG, "Volume setting changed (ContentObserver) ï¿½ stopping Adhan")
                 stopAdhan()
                 stopSelf()
             }
@@ -787,12 +787,12 @@ class AdhanPlayerService : Service() {
             // Watch ring, alarm, music, AND notification volume URIs.
             //
             // Why watch all four?
-            //  • Ring  (volume_ring)  — adhan on RING stream changes this.
-            //  • Alarm (volume_alarm) — adhan on ALARM stream changes this.
-            //  • Music (volume_music) — Samsung lock screen shows MEDIA volume slider when
+            //  ï¿½ Ring  (volume_ring)  ï¿½ adhan on RING stream changes this.
+            //  ï¿½ Alarm (volume_alarm) ï¿½ adhan on ALARM stream changes this.
+            //  ï¿½ Music (volume_music) ï¿½ Samsung lock screen shows MEDIA volume slider when
             //    ExoPlayer (just_audio_background) was last active. Pressing volume key on
             //    lock screen changes STREAM_MUSIC even while ring-stream adhan is playing.
-            //  • Notification (volume_notification) — some OEMs route to this stream.
+            //  ï¿½ Notification (volume_notification) ï¿½ some OEMs route to this stream.
             //
             // Only one key will actually fire per press depending on the device state.
             val ringUri  = Settings.System.getUriFor("volume_ring")
@@ -821,10 +821,10 @@ class AdhanPlayerService : Service() {
      * Start a background thread that polls AudioManager volume levels every 500 ms.
      *
      * Why polling works when everything else fails:
-     *  • VolumeProvider can be bypassed if Samsung routes volume keys to another MediaSession.
-     *  • ContentObserver only fires if the volume setting *changes* — fails at min/max.
-     *  • BroadcastReceiver can be suppressed by OEMs in doze/screen-off.
-     *  • Polling directly calls AudioManager.getStreamVolume() — no routing, no OEM blocking.
+     *  ï¿½ VolumeProvider can be bypassed if Samsung routes volume keys to another MediaSession.
+     *  ï¿½ ContentObserver only fires if the volume setting *changes* ï¿½ fails at min/max.
+     *  ï¿½ BroadcastReceiver can be suppressed by OEMs in doze/screen-off.
+     *  ï¿½ Polling directly calls AudioManager.getStreamVolume() ï¿½ no routing, no OEM blocking.
      *
      * Starts after 1 500 ms to match the startup guard on the other mechanisms, so a
      * spurious volume change during adhan initialisation does not cause an instant stop.
@@ -853,7 +853,7 @@ class AdhanPlayerService : Service() {
                     if (ring != baselineRing || alarm != baselineAlarm || music != baselineMusic) {
                         Log.d(TAG, "Volume poll: change detected " +
                             "(ring $baselineRing?$ring | alarm $baselineAlarm?$alarm | " +
-                            "music $baselineMusic?$music) — stopping adhan")
+                            "music $baselineMusic?$music) ï¿½ stopping adhan")
                         Handler(Looper.getMainLooper()).post {
                             if (isPlaying) { stopAdhan(); stopSelf() }
                         }
@@ -880,7 +880,7 @@ class AdhanPlayerService : Service() {
 
     // Notification
 
-    /** Renders any drawable resource to a 512×512 Bitmap for media artwork. */
+    /** Renders any drawable resource to a 512ï¿½512 Bitmap for media artwork. */
     private fun getDrawableBitmap(resId: Int): Bitmap? = try {
         val size = 256
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -941,15 +941,17 @@ class AdhanPlayerService : Service() {
         // multi-word Arabic strings like "???? ?????? ??????" to be clipped to just the
         // first word. Non-breaking spaces prevent that line break.
         fun String.nbsps() = replace(' ', '\u00A0')
-        val safeTitle = (title ?: "??????").nbsps()
-        val safeBody  = (body  ?: "????\u00A0??????\u00A0??????").nbsps()
+        val isArabic = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getString("flutter.app_language", "ar") == "ar"
+        val safeTitle = (title ?: if (isArabic) "Ø£Ø°Ø§Ù†" else "Adhan").nbsps()
+        val safeBody  = (body  ?: if (isArabic) "Ø§Ø¶ØºØ·\u00A0Ù„Ø¥ÙŠÙ‚Ø§Ù\u00A0Ø§Ù„Ø£Ø°Ø§Ù†" else "Tap\u00A0to\u00A0stop").nbsps()
 
         // Use a system stop/close icon so the action button renders visibly on
         // Android 15 Samsung "Live Notifications" compact cards (null icons are invisible).
         @Suppress("DEPRECATION")
         val stopAction = Notification.Action.Builder(
             android.R.drawable.ic_media_pause,
-            stopLabel?.replace(' ', '\u00A0') ?: "?????\u00A0??????",
+            stopLabel?.replace(' ', '\u00A0') ?: if (isArabic) "Ø¥ÙŠÙ‚Ø§Ù\u00A0Ø§Ù„Ø£Ø°Ø§Ù†" else "Stop\u00A0Adhan",
             stopPi
         ).build()
 
@@ -974,9 +976,11 @@ class AdhanPlayerService : Service() {
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val isAr = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                .getString("flutter.app_language", "ar") == "ar"
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "????",
+                if (isAr) "Ø£Ø°Ø§Ù†" else "Adhan",
                 NotificationManager.IMPORTANCE_HIGH   // shows heads-up banner when screen is on
             ).apply {
                 description = "Adhan prayer time alert"

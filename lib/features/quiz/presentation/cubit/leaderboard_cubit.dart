@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/settings_service.dart';
 import '../../data/models/leaderboard_entry.dart';
 import '../../data/quiz_repository.dart';
 import 'leaderboard_state.dart';
@@ -67,7 +69,7 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
         if (userEntry == null && _repository.totalAnswered > 0) {
           userEntry = LeaderboardEntry(
             uid: user.uid,
-            displayName: user.displayName ?? 'مستخدم',
+            displayName: user.displayName ?? (di.sl<SettingsService>().getAppLanguage() == 'ar' ? 'مستخدم' : 'User'),
             photoUrl: user.photoURL,
             totalScore: _repository.totalScore,
             streak: _repository.streak,
@@ -80,7 +82,7 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
         if (_repository.totalAnswered > 0) {
           userEntry = LeaderboardEntry(
             uid: 'local',
-            displayName: 'أنت',
+            displayName: di.sl<SettingsService>().getAppLanguage() == 'ar' ? 'أنت' : 'You',
             totalScore: _repository.totalScore,
             streak: _repository.streak,
             correctAnswers: _repository.correctAnswers,

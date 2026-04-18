@@ -6,7 +6,9 @@ import 'adhan_reliability_test_screen.dart';
 import 'oem_battery_optimization_screen.dart';
 
 class AdhanAdvancedScreen extends StatelessWidget {
-  const AdhanAdvancedScreen({super.key});
+  const AdhanAdvancedScreen({super.key, this.showTestButtons = false});
+
+  final bool showTestButtons;
 
   @override
   Widget build(BuildContext context) {
@@ -37,32 +39,34 @@ class AdhanAdvancedScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const OemBatteryOptimizationScreen()),
             ),
           ),
-          const SizedBox(height: 12),
-          _AdvancedTile(
-            icon: Icons.bug_report_rounded,
-            color: Colors.teal,
-            titleAr: 'التشخيص',
-            titleEn: 'Diagnostics',
-            subtitleAr: 'تحقق من حالة النظام والصلاحيات',
-            subtitleEn: 'Check system status and permissions',
-            isAr: isAr,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AdhanDiagnosticsScreen()),
+          if (showTestButtons) ...[
+            const SizedBox(height: 12),
+            _AdvancedTile(
+              icon: Icons.bug_report_rounded,
+              color: Colors.teal,
+              titleAr: 'التشخيص',
+              titleEn: 'Diagnostics',
+              subtitleAr: 'تحقق من حالة النظام والصلاحيات',
+              subtitleEn: 'Check system status and permissions',
+              isAr: isAr,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdhanDiagnosticsScreen()),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _AdvancedTile(
-            icon: Icons.science_outlined,
-            color: Colors.deepPurple,
-            titleAr: 'اختبار موثوقية الأذان',
-            titleEn: 'Adhan Reliability Test',
-            subtitleAr: 'اختبر الأذان بسيناريوهات حقيقية',
-            subtitleEn: 'Test adhan with real-world scenarios',
-            isAr: isAr,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AdhanReliabilityTestScreen()),
+            const SizedBox(height: 12),
+            _AdvancedTile(
+              icon: Icons.science_outlined,
+              color: Colors.deepPurple,
+              titleAr: 'اختبار موثوقية الأذان',
+              titleEn: 'Adhan Reliability Test',
+              subtitleAr: 'اختبر الأذان بسيناريوهات حقيقية',
+              subtitleEn: 'Test adhan with real-world scenarios',
+              isAr: isAr,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdhanReliabilityTestScreen()),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

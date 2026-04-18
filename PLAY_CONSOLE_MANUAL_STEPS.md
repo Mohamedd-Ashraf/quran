@@ -11,11 +11,10 @@
 | الأولوية | الخطوة | وقت تقريبي |
 |----------|--------|-------------|
 | 🔴 1 | Data Safety (أمان البيانات) | 15-20 دقيقة |
-| 🔴 2 | Foreground Services Declaration | 5 دقائق |
-| 🔴 3 | Sensitive Permissions Declaration | 5 دقائق |
-| 🟡 4 | Privacy Policy في Store Listing | 2 دقائق |
-| 🟡 5 | إلغاء مفتاح Firebase Admin القديم | 3 دقائق |
-| 🟡 6 | إلغاء مفتاح BlazeAI القديم | 2 دقائق |
+| 🔴 2 | Foreground Services Declaration (فيديو واحد) | 10 دقائق |
+| 🟡 3 | Privacy Policy في Store Listing | 2 دقائق |
+| 🟡 4 | إلغاء مفتاح Firebase Admin القديم | 3 دقائق |
+| 🟡 5 | إلغاء مفتاح BlazeAI القديم | 2 دقائق |
 
 ---
 
@@ -86,16 +85,42 @@ https://play.google.com/console/app/app-content/foreground-services
 ```
 > مسار الصفحة رسمياً: **Monitor and improve → App content** (مش Policy)
 
-### ⚠️ مطلوب: فيديو لكل FGS type
-Google تطلب رابط فيديو (YouTube أو أي رابط عام) يوضح خطوات تشغيل الـ feature.
-- افتح الكاميرا على موبايلك، سجل 30 ثانية بتوضح:
-  - `mediaPlayback`: افتح التطبيق → ادخل على تلاوة → اضغط play → اخرج من التطبيق (الصوت كمل)
-  - `specialUse`: افتح إعدادات الأذان → شوف وقت صلاة → لما الأذان يشتغل
-- ارفع الفيديو على YouTube (unlisted) واحتفظ بالرابط
+### ⚠️ مطلوب: فيديو واحد فقط
 
-### الحقول المطلوبة لكل FGS type:
+> **بعد إزالة `PrayerTimesService`** لم يعد هناك `specialUse` في الـ manifest.  
+> محتاج فيديو واحد فقط يغطي **`TYPE_MEDIA_PLAYBACK`** (أذان + تلاوة + إذاعة).
 
-**Type 1 — `TYPE_MEDIA_PLAYBACK` (أذان وتلاوة)**
+---
+
+### 🎬 الفيديو المطلوب — `mediaPlayback` (التلاوة في الخلفية)
+
+> **سؤالك:** هل لازم تظهر الأذان؟  
+> **الجواب:** لا — التلاوة أو الإذاعة كافية تماماً. كلهم يستخدموا نفس الـ `mediaPlayback` service.
+> الأذان صعب تصويره (محتاج تستنى وقت صلاة حقيقي) — التلاوة أسهل وأوضح.
+
+**ما تورّيه في الفيديو (30-60 ثانية):**
+
+```
+الخطوات بالترتيب:
+1. افتح التطبيق
+2. اضغط على القرآن أو التلاوة أو الإذاعة
+3. اختر أي سورة أو قارئ أو محطة
+4. اضغط Play — ابدأ التشغيل (ولازم يُسمع الصوت)
+5. اضغط زر الـ Home (اخرج من التطبيق للشاشة الرئيسية)
+6. وضّح أن الصوت لا يزال يشتغل بعد الخروج
+7. اسحب شريط الإشعارات من فوق
+8. وضّح إشعار التشغيل مع أزرار التحكم (⏸ الإيقاف المؤقت)
+```
+
+**نقطتان أساسيتان لازم الفيديو يوضحهم:**
+- ✅ المستخدم بيشغّل الصوت من داخل التطبيق
+- ✅ بعد الخروج — الصوت كمل وظهر إشعار في الشريط
+
+**لا تحتاج:** تصوير الأذان، تصوير وقت صلاة، أي إعدادات متقدمة.
+
+---
+
+### الحقول المطلوبة — Declaration واحد فقط (`TYPE_MEDIA_PLAYBACK`)
 
 | الحقل | ما تكتبه |
 |-------|----------|
@@ -103,7 +128,7 @@ Google تطلب رابط فيديو (YouTube أو أي رابط عام) يوضح
 | Description | انسخ النص أدناه |
 | User impact if deferred | انسخ النص أدناه |
 | User impact if interrupted | انسخ النص أدناه |
-| Video link | رابط الفيديو اللي سجلته |
+| Video link | رابط الفيديو (YouTube unlisted) |
 
 ```
 Description:
@@ -226,9 +251,10 @@ Dashboard → القائمة اليسرى → Grow users → Store presence → 
 
 ```
 □ Data Safety form مكتمل ومحفوظ
-□ فيديو FGS مسجل ومرفوع على YouTube (unlisted)
-□ Foreground Services (TYPE_MEDIA_PLAYBACK) declaration مكتمل
+□ فيديو mediaPlayback مسجل ومرفوع على YouTube (unlisted)
+□ Foreground Services (TYPE_MEDIA_PLAYBACK) declaration مكتمل — فيديو واحد فقط
 ✅ canScheduleExactAlarms() check موجود في الكود (تم التحقق)
+✅ specialUse (PrayerTimesService) محذوف من المشروع — لا يحتاج declaration
 □ Privacy Policy URL محطوط في Store Listing
 □ مفتاح Firebase Admin القديم متلغي
 □ مفتاح BlazeAI القديم متلغي

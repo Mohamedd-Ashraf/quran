@@ -39,6 +39,7 @@ void _showVerseOptionsSheet(
   required String bookmarkId,
   required BookmarkService bookmarkService,
   required VoidCallback onTafsir,
+  bool isAr = true,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -66,7 +67,7 @@ void _showVerseOptionsSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  '$surahName — آية $verse',
+                  isAr ? '$surahName — آية $verse' : '$surahName — Verse $verse',
                   style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -86,7 +87,7 @@ void _showVerseOptionsSheet(
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      isBookmarked ? 'إزالة الإشارة' : 'إضافة إشارة',
+                      isBookmarked ? (isAr ? 'إزالة الإشارة' : 'Remove Bookmark') : (isAr ? 'إضافة إشارة' : 'Add Bookmark'),
                       style: const TextStyle(fontSize: 15),
                     ),
                     onTap: () async {
@@ -113,12 +114,12 @@ void _showVerseOptionsSheet(
                   Icons.share_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text(
-                  'مشاركة الآية',
-                  style: TextStyle(fontSize: 15),
+                title: Text(
+                  isAr ? 'مشاركة الآية' : 'Share Verse',
+                  style: const TextStyle(fontSize: 15),
                 ),
-                subtitle: const Text(
-                  'صورة بخط القرآن الكريم',
+                subtitle: Text(
+                  isAr ? 'صورة بخط القرآن الكريم' : 'Image in Quran Font',
                   style: TextStyle(fontSize: 11),
                 ),
                 onTap: () {
@@ -137,7 +138,7 @@ void _showVerseOptionsSheet(
                   Icons.menu_book_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('التفسير', style: TextStyle(fontSize: 15)),
+                title: Text(isAr ? 'التفسير' : 'Tafsir', style: const TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   onTafsir();
@@ -609,6 +610,9 @@ class _MushafPage extends StatelessWidget {
     final isDark = context.select<AppSettingsCubit, bool>(
       (c) => c.state.darkMode,
     );
+    final isAr = context.select<AppSettingsCubit, bool>(
+      (c) => c.state.appLanguageCode.toLowerCase().startsWith('ar'),
+    );
     final bgColor = isDark ? const Color(0xFF0E1A12) : const Color(0xFFF5F0E4);
     final visibleVerses = verses;
 
@@ -625,7 +629,7 @@ class _MushafPage extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'جارٍ تحميل الصفحة $page…',
+                isAr ? 'جارٍ تحميل الصفحة $page…' : 'Loading page $page…',
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark
@@ -655,7 +659,7 @@ class _MushafPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'تعذّر تحميل الصفحة',
+                isAr ? 'تعذّر تحميل الصفحة' : 'Failed to load page',
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark
@@ -666,7 +670,7 @@ class _MushafPage extends StatelessWidget {
               const SizedBox(height: 12),
               TextButton.icon(
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('إعادة المحاولة'),
+                label: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
                 style: TextButton.styleFrom(foregroundColor: AppColors.primary),
                 onPressed: onRetry,
               ),
@@ -690,6 +694,7 @@ class _MushafPage extends StatelessWidget {
                 page: page,
                 verses: visibleVerses,
                 isDark: isDark,
+                isAr: isAr,
                 attachKeys: isInitialPage,
                 tajweedMode: tajweedMode,
                 onToggleTajweed: onToggleTajweed,
@@ -753,6 +758,7 @@ class _MushafTopBar extends StatelessWidget {
   final int page;
   final List<_Verse> verses;
   final bool isDark;
+  final bool isAr;
   final bool attachKeys;
   final bool tajweedMode;
   final VoidCallback onToggleTajweed;
@@ -761,6 +767,7 @@ class _MushafTopBar extends StatelessWidget {
     required this.page,
     required this.verses,
     required this.isDark,
+    required this.isAr,
     this.attachKeys = false,
     this.tajweedMode = false,
     required this.onToggleTajweed,
@@ -801,9 +808,12 @@ class _MushafTopBar extends StatelessWidget {
 
   int get _juz => ((page - 1) ~/ 20).clamp(0, 29) + 1;
 
-  String get _juzName {
+  String _juzName(bool isAr) {
     final j = _juz;
-    return j >= 1 && j <= 30 ? _kJuzNames[j - 1] : _toArabicNum(j);
+    if (isAr) {
+      return j >= 1 && j <= 30 ? _kJuzNames[j - 1] : _toArabicNum(j);
+    }
+    return 'Juz $j';
   }
 
   String get _surahLabel {
@@ -881,7 +891,8 @@ class _MushafTopBar extends StatelessWidget {
               onToggle: onToggleTajweed,
             ),
             _buildTextWithAmiriNumbers(
-              'الجزء $_juzName',
+
+              isAr ? ' ${_juzName(true)}' : _juzName(false),
               baseStyle: labelStyle,
               amiriStyle: GoogleFonts.amiri(
                 fontSize: 13,
@@ -2086,6 +2097,7 @@ class _PageTextState extends State<_PageText> {
       arabicText: v.text,
       bookmarkId: bookmarkId,
       bookmarkService: di.sl<BookmarkService>(),
+      isAr: context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar'),
       onTafsir: () {
         if (!mounted) return;
         Navigator.of(context).push(
