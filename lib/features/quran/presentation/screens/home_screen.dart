@@ -735,7 +735,9 @@ class _ContinueReadingCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: isArabicUi
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
                           Text(
                             isArabicUi ? 'متابعة القراءة' : 'Continue Reading',
@@ -759,7 +761,7 @@ class _ContinueReadingCard extends StatelessWidget {
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
+                            textAlign: isArabicUi ? TextAlign.end : TextAlign.start,
                             textDirection: isArabicUi
                                 ? TextDirection.rtl
                                 : TextDirection.ltr,

@@ -37,10 +37,10 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     fontFeatures: fontFeatures,
   );
 
-  // AmiriQuran — bundled locally, renders Arabic-Indic digits in a
-  // classical Quranic calligraphic style matching the mushaf pages.
-  static final TextStyle _amiriBase = GoogleFonts.amiriQuran();
-  static TextStyle _amiriStyle({
+  // Amiri — classical Arabic calligraphic font, gives traditional Quran-style
+  // numerals while fully respecting TextStyle color.
+  static final TextStyle _amiriBase = GoogleFonts.amiri();
+  static TextStyle _digitStyle({
     required double fontSize,
     Color? color,
     double? height,
@@ -48,6 +48,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     fontSize: fontSize,
     color: color,
     height: height,
+    fontWeight: FontWeight.w700,
   );
 
   /// Convert ASCII digits to Arabic-Indic (same as verse numbers in Quran pages).
@@ -124,9 +125,9 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
   // Dark card: saturated greens
   static const _darkCard1    = Color(0xFF1B6B47);
   static const _darkCard2    = Color(0xFF0D4A2E);
-  // Light card: soft mint — readable on the app's cream (#FAF8F5) background
-  static const _lightCard1   = Color(0xFFE6F4ED);
-  static const _lightCard2   = Color(0xFFCCE8D8);
+  // Light card: darker mint — more substantial on light backgrounds
+  static const _lightCard1   = Color(0xFFD0EAE0);
+  static const _lightCard2   = Color(0xFFB0E0CC);
 
   static const _goldLight    = Color(0xFFF0D060);
   static const _goldLightSub = Color(0xFFD4AF37);
@@ -150,7 +151,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
         : AppColors.textSecondary;
     final timeColor    = isDark
         ? Colors.white.withValues(alpha: 0.42)
-        : AppColors.textSecondary.withValues(alpha: 0.80);
+        : AppColors.textPrimary;
     final heroColor    = isDark ? Colors.white : AppColors.primaryDark;
     final remainColor  = isDark
         ? Colors.white.withValues(alpha: 0.38)
@@ -181,9 +182,9 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     final m = _nextPrayer!.time.minute;
     final period = isArabic ? (h >= 12 ? 'م' : 'ص') : (h >= 12 ? 'PM' : 'AM');
     final hour12 = h % 12 == 0 ? 12 : h % 12;
-    final rawTime =
-        '${hour12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
-    final prayerTimeStr = isArabic ? _toArabicDigits(rawTime) : rawTime;
+    final hour12Str = isArabic ? _toArabicNum(hour12) : hour12.toString().padLeft(2, '0');
+    final mStr = isArabic ? _toArabicNum(m) : m.toString().padLeft(2, '0');
+    final prayerTimeStr = '$hour12Str:$mStr $period';
 
     // Countdown
     final secs = _nextPrayer!.remaining.inSeconds;
@@ -206,6 +207,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
     final unitColor    = isDark ? _goldLightSub.withValues(alpha: 0.65) : AppColors.primary.withValues(alpha: 0.55);
     final sepColor     = isDark ? Colors.white.withValues(alpha: 0.22) : AppColors.primary.withValues(alpha: 0.28);
     final dividerColor = isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.primary.withValues(alpha: 0.09);
+    final countdownDigitColor = isDark ? Colors.white : Colors.black;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -297,11 +299,17 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
                     const SizedBox(height: 3),
                     Text(
                       prayerTimeStr,
-                      style: _cairo(
-                        color: timeColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: isArabic 
+                          ? _digitStyle(
+                              color: isDark ? Colors.white : Colors.black,
+                              fontSize: 16,
+                              height: 1.0,
+                            )
+                          : _cairo(
+                              color: timeColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                     ),
                   ],
                 ),
@@ -314,14 +322,14 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
           Directionality(
             textDirection: TextDirection.ltr,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Row(
                 children: [
-                  _CountUnit(value: displayH, label: isArabic ? 'ساعات'  : 'Hours',   digitColor: heroColor, labelColor: unitColor),
+                  _CountUnit(value: displayH, label: isArabic ? 'ساعات'  : 'Hours',   digitColor: countdownDigitColor, labelColor: unitColor),
                   _CountSep(color: sepColor),
-                  _CountUnit(value: displayM, label: isArabic ? 'دقائق'  : 'Minutes', digitColor: heroColor, labelColor: unitColor),
+                  _CountUnit(value: displayM, label: isArabic ? 'دقائق'  : 'Minutes', digitColor: countdownDigitColor, labelColor: unitColor),
                   _CountSep(color: sepColor),
-                  _CountUnit(value: displayS, label: isArabic ? 'ثواني'  : 'Seconds', digitColor: heroColor, labelColor: unitColor),
+                  _CountUnit(value: displayS, label: isArabic ? 'ثواني'  : 'Seconds', digitColor: countdownDigitColor, labelColor: unitColor),
                 ],
               ),
             ),
@@ -376,7 +384,7 @@ class _CountUnit extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             value,
-            style: _NextPrayerCountdownState._amiriStyle(
+            style: _NextPrayerCountdownState._digitStyle(
               color: digitColor,
               fontSize: 30,
               height: 1.0,
