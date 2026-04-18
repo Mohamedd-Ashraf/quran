@@ -880,9 +880,15 @@ class _MushafTopBar extends StatelessWidget {
               isDark: isDark,
               onToggle: onToggleTajweed,
             ),
-            Text(
+            _buildTextWithAmiriNumbers(
               'الجزء $_juzName',
-              style: labelStyle,
+              baseStyle: labelStyle,
+              amiriStyle: GoogleFonts.amiri(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: goldColor,
+              ),
+              textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
             ),
             Expanded(
@@ -1890,7 +1896,7 @@ class _MushafFooter extends StatelessWidget {
                 child: Text(
                   _toArabicNum(page),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
+                  style: GoogleFonts.amiri(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: _textCol,
@@ -2585,9 +2591,9 @@ class _AyahMarker extends StatelessWidget {
             child: Text(
               _toArabicNum(number),
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: GoogleFonts.amiri(
                 fontSize: numFontSize,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : AppColors.primary,
                 height: 1,
               ),
@@ -2603,6 +2609,39 @@ class _AyahMarker extends StatelessWidget {
 String _toArabicNum(int n) {
   const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return n.toString().split('').map((c) => d[int.parse(c)]).join();
+}
+
+/// Builds RichText with Amiri font on Arabic-Indic digits and base font on text.
+Widget _buildTextWithAmiriNumbers(
+  String text, {
+  required TextStyle baseStyle,
+  TextStyle? amiriStyle,
+  TextAlign textAlign = TextAlign.start,
+  TextDirection textDirection = TextDirection.ltr,
+  int? maxLines,
+  TextOverflow overflow = TextOverflow.clip,
+}) {
+  final finalAmiriStyle = amiriStyle ?? baseStyle.copyWith(fontFamily: 'Amiri');
+  
+  final spans = <InlineSpan>[];
+  for (final char in text.split('')) {
+    // Check if character is Arabic-Indic digit (٠-٩)
+    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    spans.add(
+      TextSpan(
+        text: char,
+        style: isArabicDigit ? finalAmiriStyle : baseStyle,
+      ),
+    );
+  }
+
+  return RichText(
+    text: TextSpan(children: spans),
+    textAlign: textAlign,
+    textDirection: textDirection,
+    maxLines: maxLines,
+    overflow: overflow,
+  );
 }
 
 /// Ayah counts per surah (index 0 = surah 1).

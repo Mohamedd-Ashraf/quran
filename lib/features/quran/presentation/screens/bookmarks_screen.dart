@@ -205,6 +205,9 @@ class BookmarksScreenState extends State<BookmarksScreen> {
               : (isArabicUi ? 'الإشارات' : 'Bookmarks'),
         ),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
         leading: _isSelectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),

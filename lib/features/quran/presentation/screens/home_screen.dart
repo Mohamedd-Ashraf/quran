@@ -74,6 +74,63 @@ String _arabicizeDigits(String s) {
   }).join();
 }
 
+/// Surah number style with classical Amiri font.
+TextStyle _surahNumberStyle(BuildContext context) {
+  return GoogleFonts.amiri(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.onPrimary,
+  );
+}
+
+/// Builds a RichText for details line with Amiri font on numbers.
+Widget _buildDetailsLineWithAmiriNumbers(
+  String detailsLine,
+  BuildContext context, {
+  bool isRtl = false,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+    color: isDark ? AppColors.darkTextSecondary : null,
+  );
+  final amiriStyle = GoogleFonts.amiri(
+    fontWeight: FontWeight.w700,
+  ).copyWith(
+    fontSize: baseStyle?.fontSize,
+    color: baseStyle?.color,
+    height: baseStyle?.height,
+  );
+  final dotStyle = baseStyle?.copyWith(
+    color: isDark
+        ? AppColors.secondary.withValues(alpha: 0.45)
+        : AppColors.primary.withValues(alpha: 0.35),
+    fontSize: 10,
+  );
+
+  final spans = <InlineSpan>[];
+  final chars = detailsLine.split('');
+
+  for (final char in chars) {
+    // Check if character is Arabic-Indic digit (٠-٩)
+    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    final isDot = char == '•';
+    spans.add(
+      TextSpan(
+        text: char,
+        style: isDot ? dotStyle : (isArabicDigit ? amiriStyle : baseStyle),
+      ),
+    );
+  }
+
+  return RichText(
+    text: TextSpan(children: spans),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    textAlign: isRtl ? TextAlign.right : TextAlign.left,
+    textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+  );
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -256,27 +313,14 @@ class HomeScreenState extends State<HomeScreen>
               children: [
                 Text(
                   isArabicUi ? 'نور الإيمان' : 'Noor Al-Imaan',
-                  // style: const TextStyle(
-                  //   color: Colors.white,
-                  //   fontWeight: FontWeight.bold,
-                  //   fontSize: 18,
-                  //   fontFamily: GoogleFonts.amiriQuran().fon,
-                  // ),
-                  style: GoogleFonts.arefRuqaa(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: Theme.of(ctx).appBarTheme.titleTextStyle,
                 ),
+                const SizedBox(height: 1),
                 Text(
                   dateStr,
-                  // style: const TextStyle(
-                  //   color: Colors.white70,
-                  //   fontSize: 11,
-                  // ),
-                  style: GoogleFonts.arefRuqaa(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white70,
+                    color: AppColors.secondary.withValues(alpha: 0.85),
                   ),
                 ),
               ],
@@ -285,7 +329,16 @@ class HomeScreenState extends State<HomeScreen>
         ),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
         ),
         actions: [
           // Search button
@@ -332,6 +385,7 @@ class HomeScreenState extends State<HomeScreen>
           if (state is SurahLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is SurahListLoaded) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
@@ -351,6 +405,9 @@ class HomeScreenState extends State<HomeScreen>
                     isArabicUi: isArabicUi,
                     surahs: state.surahs,
                   ),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 4),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -373,15 +430,33 @@ class HomeScreenState extends State<HomeScreen>
                           style: GoogleFonts.arefRuqaa(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                            color: isDark ? const Color.fromARGB(255, 241, 202, 61) : AppColors.primary,
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 6),
+                        
+                        Expanded(
+                          child: Container(
+                            height: 2.5,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color.fromARGB(255, 241, 202, 61).withValues(alpha: 0.4),
+
+                                  const Color.fromARGB(255, 255, 223, 100),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(flex: 7),
+
                         Text(
                           isArabicUi ? '١١٤ سورة' : '114 Surahs',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: isDark ? const Color(0xFFF0D060) : AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -424,6 +499,19 @@ class HomeScreenState extends State<HomeScreen>
                             ? HomeTutorialKeys.firstSurahCard
                             : null,
                         margin: const EdgeInsets.only(bottom: 10),
+                        elevation: isDark ? 0 : 1,
+                        shadowColor: isDark
+                            ? Colors.transparent
+                            : AppColors.primary.withValues(alpha: 0.12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppDesignSystem.borderRadiusLg,
+                          side: BorderSide(
+                            color: isDark
+                                ? AppColors.darkBorder.withValues(alpha: 0.5)
+                                : AppColors.cardBorder.withValues(alpha: 0.6),
+                            width: 0.8,
+                          ),
+                        ),
                         child: InkWell(
                           onTap: () {
                             di.sl<SettingsService>().setLastReadPosition(
@@ -444,8 +532,8 @@ class HomeScreenState extends State<HomeScreen>
                           borderRadius: AppDesignSystem.borderRadiusLg,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
+                              horizontal: 14,
+                              vertical: 12,
                             ),
                             child: Row(
                               textDirection: isArabicUi
@@ -465,18 +553,29 @@ class HomeScreenState extends State<HomeScreen>
                                       ),
                                       width: 1.5,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(
+                                          alpha: isDark ? 0.3 : 0.2,
+                                        ),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   child: Center(
                                     child: Text(
                                       isArabicUi ? _toArabicNumStr(surah.number) : '${surah.number}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: AppColors.onPrimary,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: isArabicUi ? 15 : 16,
-                                          ),
+                                      style: isArabicUi
+                                          ? _surahNumberStyle(context)
+                                          : Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: AppColors.onPrimary,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
                                     ),
                                   ),
                                 ),
@@ -523,19 +622,10 @@ class HomeScreenState extends State<HomeScreen>
                                               ),
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(
+                                      _buildDetailsLineWithAmiriNumbers(
                                         detailsLine,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: isArabicUi
-                                            ? TextAlign.right
-                                            : TextAlign.left,
-                                        textDirection: isArabicUi
-                                            ? TextDirection.rtl
-                                            : TextDirection.ltr,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
+                                        context,
+                                        isRtl: isArabicUi,
                                       ),
                                     ],
                                   ),
@@ -549,7 +639,7 @@ class HomeScreenState extends State<HomeScreen>
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius:
-                                        AppDesignSystem.borderRadiusMd,
+                                        BorderRadius.circular(100),
                                     onTap: () {
                                       context
                                           .read<AyahAudioCubit>()
@@ -559,15 +649,14 @@ class HomeScreenState extends State<HomeScreen>
                                           );
                                     },
                                     child: Container(
-                                      width: 44,
-                                      height: 44,
+                                      width: 42,
+                                      height: 42,
                                       decoration: BoxDecoration(
                                         color: Theme.of(context)
                                             .colorScheme
                                             .primary
-                                            .withValues(alpha: 0.1),
-                                        borderRadius:
-                                            AppDesignSystem.borderRadiusMd,
+                                            .withValues(alpha: 0.08),
+                                        shape: BoxShape.circle,
                                       ),
                                       child: Tooltip(
                                         message: isArabicUi
@@ -578,7 +667,7 @@ class HomeScreenState extends State<HomeScreen>
                                           color: Theme.of(
                                             context,
                                           ).colorScheme.primary,
-                                          size: 22,
+                                          size: 24,
                                         ),
                                       ),
                                     ),
@@ -675,11 +764,11 @@ class _ContinueReadingCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -691,45 +780,61 @@ class _ContinueReadingCard extends StatelessWidget {
             );
           },
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: isDark
-                  ? AppColors.primary.withValues(alpha: 0.12)
-                  : AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [
+                        AppColors.primary.withValues(alpha: 0.18),
+                        AppColors.primary.withValues(alpha: 0.08),
+                      ]
+                    : [
+                        const Color(0xFFF0F7F3),
+                        const Color(0xFFFAF8F5),
+                      ],
+              ),
               border: Border.all(
                 color: isDark
-                    ? const Color(0xFFD4AF37).withValues(alpha: 0.35)
-                    : AppColors.cardBorder,
+                    ? const Color(0xFFD4AF37).withValues(alpha: 0.30)
+                    : AppColors.primary.withValues(alpha: 0.15),
                 width: 1.2,
               ),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.2)
+                      : AppColors.primary.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFFD4AF37).withValues(alpha: 0.12)
-                            : AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
+                            ? const Color(0xFFD4AF37).withValues(alpha: 0.15)
+                            : AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFFD4AF37).withValues(alpha: 0.25)
+                              : AppColors.primary.withValues(alpha: 0.18),
+                          width: 1,
+                        ),
                       ),
                       child: Icon(
                         Icons.menu_book_rounded,
                         color: isDark ? const Color(0xFFD4AF37) : AppColors.primary,
-                        size: 20,
+                        size: 22,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -741,23 +846,24 @@ class _ContinueReadingCard extends StatelessWidget {
                         children: [
                           Text(
                             isArabicUi ? 'متابعة القراءة' : 'Continue Reading',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: isDark
-                                      ? const Color(0xFFD4AF37).withValues(alpha: 0.70)
-                                      : AppColors.textSecondary,
-                                  fontSize: 11,
-                                ),
-                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFFD4AF37).withValues(alpha: 0.75)
+                                  : AppColors.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                            textAlign: isArabicUi ? TextAlign.end : TextAlign.start,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             isArabicUi ? _removeDiacriticsHelper(name) : name,
                             style: GoogleFonts.arefRuqaa(
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              fontSize: 16,
                               color: isDark ? const Color(0xFFF0D060) : AppColors.primary,
-                              height: 1.3,
+                              height: 1.35,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -771,28 +877,40 @@ class _ContinueReadingCard extends StatelessWidget {
                             subLabel,
                             style: TextStyle(
                               color: isDark
-                                  ? const Color(0xFFD4AF37).withValues(alpha: 0.55)
-                                  : AppColors.primary.withValues(alpha: 0.65),
+                                  ? const Color(0xFFD4AF37).withValues(alpha: 0.60)
+                                  : AppColors.primary.withValues(alpha: 0.60),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
-                            textAlign: TextAlign.center,
+                            textAlign: isArabicUi ? TextAlign.end : TextAlign.start,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: isDark
+                          ? const Color(0xFFD4AF37).withValues(alpha: 0.45)
+                          : AppColors.primary.withValues(alpha: 0.35),
+                      size: 22,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 // Progress bar
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(5),
                   child: LinearProgressIndicator(
                     value: progressValue,
-                    minHeight: 4,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                    minHeight: 5,
+                    backgroundColor: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : AppColors.primary.withValues(alpha: 0.10),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary.withValues(alpha: 0.75),
+                      isDark
+                          ? const Color(0xFFD4AF37).withValues(alpha: 0.70)
+                          : AppColors.primary.withValues(alpha: 0.70),
                     ),
                   ),
                 ),
@@ -822,46 +940,109 @@ class _QuickAccessBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.darkSurface : AppColors.surface;
+
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        _QuickAccessItem(
-          label: isArabicUi ? 'الأذكار' : 'Adhkar',
-          imagePath: 'assets/logo/button icons/praying.png',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AdhkarCategoriesScreen()),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              const SizedBox(width: 4),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الأذكار' : 'Adhkar',
+                imagePath: 'assets/logo/button icons/praying.png',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdhkarCategoriesScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الأذان' : 'Adhan',
+                imagePath: 'assets/logo/button icons/nabawi-mosque.png',
+                imagePadding: 3,
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AdhanSettingsScreen()),
+                  );
+                  onBatteryCheck();
+                },
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الإذاعة' : 'Radio',
+                imagePath: 'assets/logo/button icons/radio.png',
+                imagePadding: 3,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QuranRadioScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الأحاديث' : 'Hadiths',
+                imagePath: 'assets/logo/button icons/hadith.png',
+                imagePadding: 3,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HadithCategoriesScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'القبلة' : 'Qibla',
+                imagePath: 'assets/logo/button icons/qibla.png',
+                imagePadding: 0,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QiblahScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الأجزاء' : 'Juz',
+                imagePath: 'assets/logo/button icons/quran.png',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const JuzListScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'الصوت' : 'Audio',
+                imagePath: 'assets/logo/button icons/microphone.png',
+                imagePadding: 2,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'المزيد' : 'More',
+                icon: Icons.grid_view_rounded,
+                onTap: () => _showServicesSheet(
+                  context,
+                  isArabicUi: isArabicUi,
+                  batteryUnrestricted: batteryUnrestricted,
+                  onBatteryCheck: onBatteryCheck,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
           ),
         ),
-        _QuickAccessItem(
-          label: isArabicUi ? 'الأجزاء' : 'Juz',
-          imagePath: 'assets/logo/button icons/quran.png',
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const JuzListScreen())),
-        ),
-        _QuickAccessItem(
-          label: isArabicUi ? 'الصوت' : 'Audio',
-          imagePath: 'assets/logo/button icons/microphone.png',
-          imagePadding: 2,
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const OfflineAudioScreen())),
-        ),
-        _QuickAccessItem(
-          label: isArabicUi ? 'القبلة' : 'Qibla',
-          imagePath: 'assets/logo/button icons/qibla.png',
-          imagePadding: 0,
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const QiblahScreen())),
-        ),
-        _QuickAccessItem(
-          label: isArabicUi ? 'المزيد' : 'More',
-          icon: Icons.grid_view_rounded,
-          onTap: () => _showServicesSheet(
-            context,
-            isArabicUi: isArabicUi,
-            batteryUnrestricted: batteryUnrestricted,
-            onBatteryCheck: onBatteryCheck,
+        // Left-side fade — extends fully to screen edge
+        Positioned(
+          left: -80,
+          top: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            child: Container(
+              width: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  stops: const [0.0, 0.40, 1.0],
+                  colors: [
+                    const Color.fromARGB(0, 1, 109, 46),
+                    bgColor.withValues(alpha: 0.60),
+                    bgColor.withValues(alpha: 0.90),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -904,12 +1085,14 @@ class _QuickAccessBar extends StatelessWidget {
               // Handle bar
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  width: 42,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 18),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(2),
+                    color: isDark
+                        ? AppColors.secondary.withValues(alpha: 0.40)
+                        : AppColors.secondary.withValues(alpha: 0.50),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
@@ -917,13 +1100,26 @@ class _QuickAccessBar extends StatelessWidget {
               Center(
                 child: Text(
                   isArabicUi ? 'الأقسام' : 'Sections',
-                  style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: GoogleFonts.arefRuqaa(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                     color: isDark ? AppColors.secondary : AppColors.primary,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
+              // Decorative gold line
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.goldGradient,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
               // 3×3 grid of all categories
               LayoutBuilder(
                 builder: (ctx, constraints) {
@@ -1128,7 +1324,8 @@ class _QuickAccessItemState extends State<_QuickAccessItem> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
+    return SizedBox(
+      width: 72,
       child: GestureDetector(
         onTap: widget.onTap,
         onTapDown: (_) => setState(() => _pressed = true),
@@ -1173,7 +1370,7 @@ class _QuickAccessItemState extends State<_QuickAccessItem> {
                         ),
                       ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 7),
               Text(
                 widget.label,
                 textAlign: TextAlign.center,
@@ -1183,8 +1380,9 @@ class _QuickAccessItemState extends State<_QuickAccessItem> {
                   color: isDark
                       ? const Color(0xFFE8E0D0)
                       : AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                  letterSpacing: -0.1,
                 ),
               ),
             ],
@@ -1408,8 +1606,12 @@ class _AppBarActionButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: AppDesignSystem.borderRadiusMd,
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.5,
+        ),
       ),
       child: IconButton(
         icon: Icon(icon, color: AppColors.onPrimary, size: 20),

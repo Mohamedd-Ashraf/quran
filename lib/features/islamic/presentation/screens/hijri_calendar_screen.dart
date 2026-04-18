@@ -397,7 +397,6 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen>
       appBar: AppBar(
         title: Text(
           isAr ? 'التقويم الهجري' : 'Hijri Calendar',
-          style: const TextStyle(fontFamily: 'Amiri', fontSize: 20),
         ),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
@@ -412,7 +411,7 @@ class _HijriCalendarScreenState extends State<HijriCalendarScreen>
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 36),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

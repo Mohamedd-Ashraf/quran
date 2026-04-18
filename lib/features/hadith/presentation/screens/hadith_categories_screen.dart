@@ -175,12 +175,7 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
             centerTitle: true,
             title: Text(
               isArabic ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
-              style: const TextStyle(
-                fontFamily: 'Amiri',
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: Colors.white,
-              ),
+              style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 18),
             ),
             background: _HeaderBackground(
               isArabic: isArabic,
@@ -300,12 +295,7 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen>
             centerTitle: true,
             title: Text(
               isArabic ? 'الأحاديث النبوية' : 'Prophetic Hadiths',
-              style: const TextStyle(
-                fontFamily: 'Amiri',
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: Colors.white,
-              ),
+              style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 18),
             ),
             background: _HeaderBackground(
               isArabic: isArabic,

@@ -23,7 +23,8 @@
     "rewrites": [
       {"source": "/privacy", "destination": "/privacy.html"},
       {"source": "/delete-account", "destination": "/delete-account.html"},
-      {"source": "/data-deletion-request", "destination": "/data-deletion-request.html"}
+      {"source": "/data-deletion-request", "destination": "/data-deletion-request.html"},
+      {"source": "/terms", "destination": "/terms.html"}
     ]
   },
   "flutter":{"platforms":{"android":{"default":{"projectId":"quraan-dd543","appId":"1:1039427063284:android:b982de927def046a0fbda1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"quraan-dd543","configurations":{"android":"1:1039427063284:android:b982de927def046a0fbda1","ios":"1:1039427063284:ios:a0f342cb6bec19070fbda1","macos":"1:1039427063284:ios:a0f342cb6bec19070fbda1","web":"1:1039427063284:web:353305a1f9360e910fbda1","windows":"1:1039427063284:web:a641f58da50dbcb40fbda1"}}}}}}

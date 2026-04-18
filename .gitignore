@@ -1,6 +1,7 @@
 # Miscellaneous
 *.class
 *.log
+*.py
 *.pyc
 *.swp
 .DS_Store
@@ -15,6 +16,7 @@ migrate_working_dir/
 service-account.json
 **/service-account.json
 firebase-adminsdk*.json
+**/google-services.json
 # IntelliJ related
 *.iml
 *.ipr

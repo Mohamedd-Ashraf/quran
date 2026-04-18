@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/islamic_logo.dart';
 import '../../../quran/domain/entities/surah.dart';
 import '../../../quran/presentation/bloc/surah/surah_bloc.dart';
@@ -89,25 +90,43 @@ class _MoreScreenState extends State<MoreScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isArabicUi ? 'المزيد' : 'More'),
+        title: Text(
+          isArabicUi ? 'المزيد' : 'More',
+        ),
         centerTitle: true,
         flexibleSpace: Container(
-          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
         ),
       ),
       body: Builder(
         builder: (context) {
           return ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           // ── App logo card ──────────────────────────────────────────────
           Card(
             margin: const EdgeInsets.only(bottom: 4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: isDark
+                    ? AppColors.secondary.withValues(alpha: 0.20)
+                    : AppColors.cardBorder.withValues(alpha: 0.5),
+                width: 0.8,
+              ),
             ),
             clipBehavior: Clip.hardEdge,
-            elevation: 2,
+            elevation: isDark ? 0 : 2,
+            shadowColor: AppColors.primary.withValues(alpha: 0.12),
             child: Column(
               children: [
                 // Gradient header strip
@@ -123,29 +142,31 @@ class _MoreScreenState extends State<MoreScreen> {
                   child: Text(
                     isArabicUi ? 'تطبيق نور الإيمان' : 'Noor Al-Imaan App',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: GoogleFonts.arefRuqaa(
                       color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 15,
-                      fontFamily: 'Amiri',
                     ),
                   ),
                 ),
                 // Logo body
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    vertical: 22,
+                    vertical: 18,
                     horizontal: 24,
                   ),
                   child: Column(
                     children: [
-                      IslamicLogo(size: 90, darkTheme: isDark),
-                      const SizedBox(height: 12),
+                      IslamicLogo(size: 80, darkTheme: isDark),
+                      const SizedBox(height: 10),
                       Text(
                         isArabicUi ? 'الخدمات الإسلامية' : 'Islamic Services',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -172,56 +193,9 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
 
           // ── Section header ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 8, 2, 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.22),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.grid_view_rounded,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        isArabicUi ? 'الخدمات الإسلامية' : 'Islamic Services',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Divider(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
+          AppSectionHeader(
+            isArabicUi ? 'الخدمات الإسلامية' : 'Islamic Services',
+            Icons.grid_view_rounded,
           ),
           if (SettingsService.enableQuizFeature)
             _NavCard(
@@ -384,35 +358,36 @@ class _QuranPlaylistBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         gradient: AppColors.primaryGradient,
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
+            color: AppColors.primary.withValues(alpha: isDark ? 0.40 : 0.30),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
         ],
         border: Border.all(
-          color: AppColors.secondary.withValues(alpha: 0.5),
-          width: 1.5,
+          color: AppColors.secondary.withValues(alpha: 0.45),
+          width: 1.2,
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: Stack(
           children: [
             Positioned.fill(
               child: CustomPaint(
                 painter: _IslamicPatternPainter(
-                  color: AppColors.secondary.withValues(alpha: 0.12),
+                  color: AppColors.secondary.withValues(alpha: 0.10),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -429,9 +404,9 @@ class _QuranPlaylistBanner extends StatelessWidget {
                         isArabicUi
                             ? 'استمع للقرآن الكريم'
                             : 'Listen to the Holy Quran',
-                        style: TextStyle(
+                        style: GoogleFonts.arefRuqaa(
                           color: AppColors.onPrimary,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 15,
                           letterSpacing: isArabicUi ? 0.5 : 0.3,
                         ),
@@ -1088,24 +1063,42 @@ class _NavCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: isDark ? 0 : 1,
+      shadowColor: AppColors.primary.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark
+              ? AppColors.darkBorder.withValues(alpha: 0.5)
+              : AppColors.cardBorder.withValues(alpha: 0.5),
+          width: 0.8,
+        ),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
+                      color: AppColors.primary.withValues(
+                        alpha: isDark ? 0.25 : 0.20,
+                      ),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -1113,22 +1106,23 @@ class _NavCard extends StatelessWidget {
                 ),
                 child: imagePath != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(14),
                         child: Transform.scale(
                           scale: 1.35,
                           child: Image.asset(
                             imagePath!,
-                            width: 48,
-                            height: 48,
+                            width: 50,
+                            height: 50,
                             fit: BoxFit.contain,
                             color: monochromeImage ? Colors.white : null,
-                            colorBlendMode: monochromeImage ? BlendMode.srcATop : null,
+                            colorBlendMode:
+                                monochromeImage ? BlendMode.srcATop : null,
                             errorBuilder: (context, error, stackTrace) =>
-                                Icon(icon, color: Colors.white, size: 22),
+                                Icon(icon, color: Colors.white, size: 24),
                           ),
                         ),
                       )
-                    : Icon(icon, color: Colors.white, size: 22),
+                    : Icon(icon, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1140,27 +1134,40 @@ class _NavCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: isDark
+                                      ? AppColors.darkTextPrimary
+                                      : null,
+                                ),
                           ),
                         ),
                         if (badge != null) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
+                              horizontal: 8,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.secondary.withValues(
-                                alpha: 0.15,
+                              color: AppColors.secondary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: AppColors.secondary.withValues(
+                                    alpha: 0.30),
+                                width: 0.5,
                               ),
-                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               badge!,
-                              style: const TextStyle(
-                                color: AppColors.secondary,
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppColors.secondary
+                                    : AppColors.accent,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.8,
@@ -1170,17 +1177,27 @@ class _NavCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isDark
+                    ? AppColors.secondary.withValues(alpha: 0.45)
+                    : AppColors.primary.withValues(alpha: 0.35),
+                size: 22,
+              ),
             ],
           ),
         ),

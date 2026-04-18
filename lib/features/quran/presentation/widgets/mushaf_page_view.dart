@@ -1578,7 +1578,7 @@ class _MushafPageViewState extends State<MushafPageView>
                 child: Text(
                   _toArabicNumerals(pageNumber),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.arefRuqaa(
+                  style: GoogleFonts.amiri(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: textCol,

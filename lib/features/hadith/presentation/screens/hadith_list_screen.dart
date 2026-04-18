@@ -139,12 +139,7 @@ class _HadithListViewState extends State<_HadithListView> {
                       : (isArabic
                           ? widget.category.titleAr
                           : widget.category.titleEn),
-                  style: const TextStyle(
-                    fontFamily: 'Amiri',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
+                  style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 16),
                 ),
                 background: _ListHeaderBackground(
                   category: widget.category,

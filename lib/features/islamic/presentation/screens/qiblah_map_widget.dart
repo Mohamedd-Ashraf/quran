@@ -46,27 +46,6 @@ class _QiblahMapWidgetState extends State<QiblahMapWidget>
   late final List<LatLng> _geodesicPath;
   late final double _distKm;
 
-  // Palestine region – polygon covers the territory so the tile-embedded
-  // "Israel" label is painted over at every zoom level.
-  // Coordinates follow the approximate border of historic Palestine.
-  static const List<LatLng> _palestinePolygon = [
-    LatLng(33.35, 35.10), // N – Lebanon border (W Galilee)
-    LatLng(33.35, 35.90), // NE – Golan foothills
-    LatLng(32.70, 35.78), // E
-    LatLng(32.40, 35.58), // E middle
-    LatLng(31.89, 35.56), // E – Dead Sea N
-    LatLng(31.50, 35.48), // E – Dead Sea S
-    LatLng(30.30, 35.05), // SE – Negev
-    LatLng(29.50, 34.88), // S – Eilat
-    LatLng(29.50, 34.25), // SW – Egypt border
-    LatLng(31.05, 34.25), // W – Negev W
-    LatLng(31.22, 34.20), // W – Gaza S
-    LatLng(31.75, 34.20), // W – Gaza N
-    LatLng(32.09, 34.75), // NW – Tel Aviv coast
-    LatLng(32.97, 35.09), // NW – Haifa
-    LatLng(33.10, 35.10), // N
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -212,21 +191,6 @@ class _QiblahMapWidgetState extends State<QiblahMapWidget>
                 color: tileBg,
                 child: tileWidget,
               ),
-            ),
-
-            // ─ Palestine polygon ────────────────────────────────────────────
-            // Drawn on top of the base layer for visual accuracy of borders.
-            PolygonLayer(
-              polygons: [
-                Polygon(
-                  points: _palestinePolygon,
-                  color: tileBg,
-                  borderColor: isDark
-                      ? const Color(0xFF141C24)
-                      : const Color(0xFFDDD8CE),
-                  borderStrokeWidth: 0.8,
-                ),
-              ],
             ),
 
             // Gold geodesic Qibla path
@@ -514,7 +478,7 @@ class _QiblahMapWidgetState extends State<QiblahMapWidget>
                 const SizedBox(height: 3),
                 Text(
                   isAr ? distTextAr : distText,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.cairo(
                     color: isDark ? Colors.white : AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -569,7 +533,7 @@ class _QiblahMapWidgetState extends State<QiblahMapWidget>
                 const SizedBox(height: 3),
                 Text(
                   '${widget.qiblahAngle.toStringAsFixed(1)}°',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.cairo(
                     color: AppColors.secondary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

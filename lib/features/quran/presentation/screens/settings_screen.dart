@@ -4,6 +4,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/widgets/section_header.dart';
+import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
 import 'feedback_screen.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
@@ -170,12 +172,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: AppDesignSystem.pagePaddingAll,
         children: [
           // ─────────────────────────────────────────────────────
           // 1. العرض والمظهر
           // ─────────────────────────────────────────────────────
-          _SectionHeader(isAr ? 'العرض والمظهر' : 'Display & Theme',
+          AppSectionHeader(isAr ? 'العرض والمظهر' : 'Display & Theme',
               Icons.palette_outlined),
 
           // App Language
@@ -360,12 +362,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 2. التقويم الهجري
           // ─────────────────────────────────────────────────────
-          _SectionHeader(
+          AppSectionHeader(
               isAr ? 'التقويم الهجري' : 'Hijri Calendar',
               Icons.brightness_3_outlined),
 
@@ -439,12 +441,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 3. القراءة
           // ─────────────────────────────────────────────────────
-          _SectionHeader(
+          AppSectionHeader(
               isAr ? 'إعدادات القراءة' : 'Reading', Icons.menu_book_outlined),
 
           // ─── Mushaf Settings Entry Card ────
@@ -528,12 +530,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 3. الصوت دون إنترنت
           // ─────────────────────────────────────────────────────
-          _SectionHeader(isAr ? 'الصوت دون إنترنت' : 'Offline Audio',
+          AppSectionHeader(isAr ? 'الصوت دون إنترنت' : 'Offline Audio',
               Icons.headphones_outlined),
 
           // Enable offline audio
@@ -749,12 +751,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 4. الورد اليومي
           // ─────────────────────────────────────────────────────
-          _SectionHeader(
+          AppSectionHeader(
               isAr ? 'الورد اليومي' : 'Daily Wird',
               Icons.auto_stories_outlined),
 
@@ -823,21 +825,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 5. الحساب
           // ─────────────────────────────────────────────────────
-          _SectionHeader(
+          AppSectionHeader(
               isAr ? 'الحساب' : 'Account', Icons.person_outline),
           _AccountSection(isAr: isAr),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
 
           // ─────────────────────────────────────────────────────
           // 6. حول التطبيق
           // ─────────────────────────────────────────────────────
-          _SectionHeader(
+          AppSectionHeader(
               isAr ? 'حول التطبيق' : 'About', Icons.info_outline),
 
           Card(
@@ -1149,64 +1151,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 // Shared reusable widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _SectionHeader(this.title, this.icon);
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 20, 2, 10),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.22),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: Colors.white, size: 14),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Divider(
-              color: isDark
-                  ? AppColors.darkDivider
-                  : AppColors.primary.withValues(alpha: 0.12),
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SettingsCard extends StatelessWidget {
   final Widget child;
 
@@ -1216,6 +1160,9 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
       child: child,
     );
   }
@@ -1359,7 +1306,7 @@ class _MushafEntryCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
@@ -1626,7 +1573,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     final languages = _languages;
     final filtered = _filtered;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? const Color(0xFF1A1F25) : Colors.white;
+    final sheetBg = isDark ? AppColors.darkSurface : Colors.white;
     final handleColor = isDark ? Colors.white24 : Colors.grey.shade300;
     final closeColor = isDark ? Colors.white54 : Colors.grey.shade600;
     final searchFill = isDark ? const Color(0xFF242B33) : const Color(0xFFF5F8F5);
@@ -1758,7 +1705,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
           Divider(height: 1, color: dividerColor),
 
           // ── Reciter list ──────────────────────────────────────

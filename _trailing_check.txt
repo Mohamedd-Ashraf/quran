@@ -1,7 +1,0 @@
-Fields with trailing control chars/quotes: 2
-
-  H2924.matn: 'اللَّهِ. قَالَ " لاَ'
-  H2924.text: 'اللَّهِ. قَالَ " لاَ'
-
-Unique tail patterns:
-  ِ. قَالَ " لاَ': 2 times

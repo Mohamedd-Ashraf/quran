@@ -211,6 +211,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [cardColor1, cardColor2],
@@ -230,25 +231,45 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ── Gold accent strip ──────────────────────────────────────────────
+          Container(
+            height: 3,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _goldLightSub.withValues(alpha: isDark ? 0.50 : 0.35),
+                  _goldLight.withValues(alpha: isDark ? 0.70 : 0.55),
+                  _goldLightSub.withValues(alpha: isDark ? 0.50 : 0.35),
+                ],
+              ),
+            ),
+          ),
           // ── Prayer identity row ─────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Prayer icon bubble
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: iconBgColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: iconBorder, width: 1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: iconBorder, width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withValues(alpha: 0.15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     _getPrayerIcon(_nextPrayer!.prayer),
                     color: iconColor,
-                    size: 22,
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -261,17 +282,17 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
                         labelStr,
                         style: TextStyle(
                           color: labelColor,
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         prayerName,
                         style: _cairo(
                           color: nameColor,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                           height: 1.1,
                         ),
@@ -302,12 +323,12 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
                       style: isArabic 
                           ? _digitStyle(
                               color: isDark ? Colors.white : Colors.black,
-                              fontSize: 16,
+                              fontSize: 14,
                               height: 1.0,
                             )
                           : _cairo(
                               color: timeColor,
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                     ),
@@ -317,12 +338,24 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
             ),
           ),
           // ── Divider ────────────────────────────────────────────────────────
-          Container(height: 1, color: dividerColor, margin: const EdgeInsets.symmetric(horizontal: 10)),
-          // ── Countdown — always LTR: hours → minutes → seconds ──────────────
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  dividerColor.withValues(alpha: 0),
+                  dividerColor,
+                  dividerColor.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+          // ── Countdown — always LTR: hours → minutes → seconds ────────────
           Directionality(
             textDirection: TextDirection.ltr,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+              padding: const EdgeInsets.fromLTRB(10, 5, 10, 8),
               child: Row(
                 children: [
                   _CountUnit(value: displayH, label: isArabic ? 'ساعات'  : 'Hours',   digitColor: countdownDigitColor, labelColor: unitColor),
@@ -336,7 +369,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
           ),
           // ─── Gradient progress bar ───────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: _GradientProgressBar(
               progress: progress,
               colors: [progressG1, progressG2, progressG3],
@@ -367,31 +400,42 @@ class _CountUnit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: _NextPrayerCountdownState._digitStyle(
+                color: digitColor,
+                fontSize: 24,
+                height: 1.0,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: _NextPrayerCountdownState._digitStyle(
-              color: digitColor,
-              fontSize: 30,
-              height: 1.0,
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: labelColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -408,7 +452,7 @@ class _CountSep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 13), // align with digit (below label)
+      padding: const EdgeInsets.only(top: 8),
       child: Text(
         ':',
         style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w700, height: 1.0),

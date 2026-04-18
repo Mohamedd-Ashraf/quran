@@ -185,82 +185,83 @@ class AppSettingsCubit extends Cubit<AppSettingsState> {
     emit(state.copyWith(translationFontSize: value));
   }
 
-  Future<void> setDarkMode(bool value) async {
-    await _service.setDarkMode(value);
+  // Emit the new state immediately so the UI responds at once (optimistic
+  // update), then persist to disk in the background.  SharedPreferences
+  // fsync on Android can take 64-512 ms; awaiting it before emitting makes
+  // every toggle feel sluggish.
+  void setDarkMode(bool value) {
     emit(state.copyWith(darkMode: value));
+    _service.setDarkMode(value);
   }
 
-  Future<void> setShowTranslation(bool value) async {
-    await _service.setShowTranslation(value);
+  void setShowTranslation(bool value) {
     emit(state.copyWith(showTranslation: value));
+    _service.setShowTranslation(value);
   }
 
   Future<void> setAppLanguage(String languageCode) async {
-    await _service.setAppLanguage(languageCode);
     emit(state.copyWith(appLanguageCode: languageCode));
+    _service.setAppLanguage(languageCode);
   }
 
-  Future<void> setUseUthmaniScript(bool value) async {
-    await _service.setUseUthmaniScript(value);
+  void setUseUthmaniScript(bool value) {
     emit(state.copyWith(useUthmaniScript: value));
+    _service.setUseUthmaniScript(value);
   }
 
-  Future<void> setPageFlipRightToLeft(bool value) async {
-    await _service.setPageFlipRightToLeft(value);
+  void setPageFlipRightToLeft(bool value) {
     emit(state.copyWith(pageFlipRightToLeft: value));
+    _service.setPageFlipRightToLeft(value);
   }
 
-  Future<void> setDiacriticsColorMode(String mode) async {
-    print('⚙️ setDiacriticsColorMode called with: $mode');
-    await _service.setDiacriticsColorMode(mode);
-    print('⚙️ Emitting new state with diacriticsColorMode: $mode');
+  void setDiacriticsColorMode(String mode) {
     emit(state.copyWith(diacriticsColorMode: mode));
-    print('⚙️ State emitted. Current state: ${state.diacriticsColorMode}');
+    _service.setDiacriticsColorMode(mode);
   }
 
-  Future<void> setQuranEdition(String edition) async {
-    await _service.setQuranEdition(edition);
+  void setQuranEdition(String edition) {
     emit(state.copyWith(quranEdition: edition));
+    _service.setQuranEdition(edition);
   }
 
-  Future<void> setQuranFont(String font) async {
-    await _service.setQuranFont(font);
+  void setQuranFont(String font) {
     emit(state.copyWith(quranFont: font));
+    _service.setQuranFont(font);
   }
 
-  Future<void> setScrollMode(bool value) async {
-    await _service.setScrollMode(value);
+  void setScrollMode(bool value) {
     emit(state.copyWith(scrollMode: value));
+    _service.setScrollMode(value);
   }
 
-  Future<void> setWordByWordAudio(bool value) async {
-    await _service.setWordByWordAudio(value);
+  void setWordByWordAudio(bool value) {
     emit(state.copyWith(wordByWordAudio: value));
+    _service.setWordByWordAudio(value);
   }
 
-  Future<void> setUseQcfFont(bool value) async {
-    await _service.setUseQcfFont(value);
+  void setUseQcfFont(bool value) {
     emit(state.copyWith(useQcfFont: value));
+    _service.setUseQcfFont(value);
   }
 
-  Future<void> setMushafContinueTilawa(bool value) async {
-    await _service.setMushafContinueTilawa(value);
+  void setMushafContinueTilawa(bool value) {
     emit(state.copyWith(mushafContinueTilawa: value));
+    _service.setMushafContinueTilawa(value);
   }
 
-  Future<void> setMushafContinueScope(String value) async {
-    await _service.setMushafContinueScope(value);
+  void setMushafContinueScope(String value) {
     emit(state.copyWith(mushafContinueScope: value));
+    _service.setMushafContinueScope(value);
   }
 
-  Future<void> setHijriDateOffset(int value) async {
+  void setHijriDateOffset(int value) {
     final clamped = value.clamp(-3, 3);
-    await _service.setHijriDateOffset(clamped);
     emit(state.copyWith(hijriDateOffset: clamped));
+    _service.setHijriDateOffset(clamped);
   }
 
-  Future<void> setTajweedEnabled(bool value) async {
-    await _service.setTajweedEnabled(value);
+  void setTajweedEnabled(bool value) {
     emit(state.copyWith(tajweedEnabled: value));
+    _service.setTajweedEnabled(value);
   }
 }

@@ -63,4 +63,11 @@ class AppDesignSystem {
   // ─── Section Header ───────────────────────────────────────────────────────
   static const EdgeInsets sectionHeaderPadding =
       EdgeInsets.fromLTRB(2, 18, 2, 10);
+
+  // ─── Section Gaps ─────────────────────────────────────────────────────────
+  static const double sectionGap = 16.0;
+
+  // ─── Standard Page Padding ────────────────────────────────────────────────
+  static const EdgeInsets pagePaddingAll =
+      EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 24.0);
 }

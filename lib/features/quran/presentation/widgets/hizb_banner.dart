@@ -3,6 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/hizb_service.dart';
 
+/// Builds RichText with Amiri font on Arabic-Indic digits
+TextSpan _buildArabicTextWithAmiriNumbers(
+  String text, {
+  required TextStyle baseStyle,
+  TextStyle? amiriStyle,
+}) {
+  final finalAmiriStyle = amiriStyle ?? baseStyle.copyWith(fontFamily: 'Amiri');
+  
+  final spans = <InlineSpan>[];
+  for (final char in text.split('')) {
+    // Check if character is Arabic-Indic digit (٠-٩)
+    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    spans.add(
+      TextSpan(
+        text: char,
+        style: isArabicDigit ? finalAmiriStyle : baseStyle,
+      ),
+    );
+  }
+
+  return TextSpan(children: spans);
+}
+
 /// A minimal, elegant banner that shows Hizb information
 class HizbBanner extends StatefulWidget {
   final HizbInfo hizbInfo;
@@ -72,13 +95,21 @@ class _HizbBannerState extends State<HizbBanner>
             color: Colors.black.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Text(
-            widget.hizbInfo.arabicText,
-            style: GoogleFonts.cairo(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.9),
-              height: 1.3,
+          child: RichText(
+            text: _buildArabicTextWithAmiriNumbers(
+              widget.hizbInfo.arabicText,
+              baseStyle: GoogleFonts.cairo(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.9),
+                height: 1.3,
+              ),
+              amiriStyle: GoogleFonts.amiri(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.9),
+                height: 1.3,
+              ),
             ),
             textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
