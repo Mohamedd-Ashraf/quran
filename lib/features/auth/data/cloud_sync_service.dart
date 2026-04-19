@@ -507,6 +507,36 @@ class CloudSyncService {
 
   /// Deletes all Firestore data for [uid] and clears the local sync keys.
   /// Call this AFTER [user.delete()] succeeds.
+  /// Selectively delete specific data types for a user.
+  /// [dataTypes] can contain: 'bookmarks', 'wird', 'settings'
+  Future<void> deleteSelectiveData(String uid, List<String> dataTypes) async {
+    final userDoc = _firestore.collection('users').doc(uid);
+    for (final dataType in dataTypes) {
+      if (['bookmarks', 'wird', 'settings'].contains(dataType)) {
+        try {
+          await userDoc.collection('data').doc(dataType).delete();
+          debugPrint('CloudSyncService: deleted $dataType for $uid');
+        } catch (e) {
+          debugPrint('CloudSyncService: error deleting $dataType for $uid: $e');
+        }
+      }
+    }
+  }
+
+  /// Checks which data types exist for a user in Firestore.
+  /// Returns a set of data type names that have data.
+  Future<Set<String>> checkUserDataExists(String uid) async {
+    final result = <String>{};
+    final userDoc = _firestore.collection('users').doc(uid);
+    for (final sub in ['bookmarks', 'wird', 'settings']) {
+      try {
+        final doc = await userDoc.collection('data').doc(sub).get();
+        if (doc.exists) result.add(sub);
+      } catch (_) {}
+    }
+    return result;
+  }
+
   Future<void> deleteUserData(String uid) async {
     try {
       final userDoc = _firestore.collection('users').doc(uid);

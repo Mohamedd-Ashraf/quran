@@ -1,469 +1,398 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حذف الحساب والبيانات | نور الإيمان</title>
+    <title>حذف الحساب | نور الإيمان - قرآن وأذان</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.7; color: #333;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            min-height: 100vh; padding: 20px;
         }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
-            text-align: center;
-        }
-        
-        header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-        
-        header p {
-            font-size: 0.95em;
-            opacity: 0.9;
-        }
-        
-        .language-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            color: #667eea;
-        }
-        
-        .language-toggle:hover {
-            background: #f0f0f0;
-        }
-        
-        .content {
-            padding: 40px;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-        }
-        
-        .section h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-        }
-        
-        .section p {
-            color: #555;
-            margin-bottom: 10px;
-            line-height: 1.8;
-        }
-        
-        .section ul {
-            list-style: none;
-            margin-left: 20px;
-        }
-        
-        .section li {
-            margin-bottom: 10px;
-            padding-right: 20px;
-            position: relative;
-        }
-        
-        .section li:before {
-            content: "✓";
-            position: absolute;
-            right: -20px;
-            color: #667eea;
-            font-weight: bold;
-        }
-        
-        .highlight {
-            background: #f0f4ff;
-            padding: 20px;
-            border-left: 4px solid #667eea;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-        
-        .highlight h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-        
-        .steps {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        
-        .step {
-            display: flex;
-            margin-bottom: 15px;
-            align-items: flex-start;
-        }
-        
-        .step-number {
-            background: #667eea;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-left: 15px;
-            flex-shrink: 0;
-        }
-        
-        .step-content h4 {
-            color: #333;
-            margin-bottom: 5px;
-        }
-        
-        .step-content p {
-            color: #666;
-            font-size: 0.95em;
-        }
-        
-        .contact-section {
-            background: #fff3cd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 30px;
-            border-left: 4px solid #ffc107;
-        }
-        
-        .contact-section h3 {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-        
-        .contact-section p {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-        
-        .contact-section a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        .contact-section a:hover {
-            text-decoration: underline;
-        }
-        
-        footer {
-            background: #f9f9f9;
-            padding: 20px;
-            text-align: center;
-            color: #666;
-            font-size: 0.9em;
-            border-top: 1px solid #eee;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
+        .container { max-width: 820px; margin: 0 auto; background: white; border-radius: 14px; box-shadow: 0 12px 48px rgba(0,0,0,0.22); overflow: hidden; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 38px 24px 28px; text-align: center; position: relative; }
+        header h1 { font-size: 1.9em; margin-bottom: 8px; }
+        header .app-name { font-size: 1.05em; opacity: 0.92; margin-bottom: 4px; }
+        header .dev-name { font-size: 0.85em; opacity: 0.75; }
+        .lang-btn { position: absolute; top: 18px; right: 18px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.88em; }
+        .lang-btn:hover { background: rgba(255,255,255,0.32); }
+        .content { padding: 36px; }
+        .section { margin-bottom: 28px; }
+        .section h2 { color: #667eea; margin-bottom: 14px; font-size: 1.2em; border-bottom: 2px solid #667eea; padding-bottom: 9px; }
+        .section p, .section li { color: #555; margin-bottom: 8px; }
+        .section ul { list-style: none; padding-right: 0; }
+        .section li { padding-right: 22px; position: relative; }
+        .section li::before { content: "✓"; position: absolute; right: 0; color: #667eea; font-weight: bold; }
+        .section-en .section h2 { color: #764ba2; border-color: #764ba2; }
+        .section-en .section li::before { right: auto; left: 0; }
+        .section-en .section ul { padding-left: 0; }
+        .section-en .section li { padding-right: 0; padding-left: 22px; }
+        .highlight { background: #fff8e1; border-right: 4px solid #ffc107; padding: 18px 20px; border-radius: 6px; margin: 18px 0; }
+        .section-en .highlight { border-right: none; border-left: 4px solid #ffc107; }
+        .highlight h3 { color: #856404; margin-bottom: 10px; }
+        .highlight p, .highlight li { color: #856404; }
+        .highlight ul { list-style: disc; padding-right: 22px; }
+        .section-en .highlight ul { padding-right: 0; padding-left: 22px; }
+        .highlight li::before { display: none; }
+        .steps { background: #f9f9fb; padding: 20px; border-radius: 10px; margin: 16px 0; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; gap: 14px; }
+        .step:last-child { margin-bottom: 0; }
+        .step-num { background: #667eea; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 0.95em; }
+        .section-en .step-num { background: #764ba2; }
+        .step-body h4 { color: #333; margin-bottom: 4px; font-size: 0.97em; }
+        .step-body p { color: #666; font-size: 0.9em; }
+        .data-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.93em; }
+        .data-table th { background: #667eea; color: white; padding: 10px 14px; text-align: right; }
+        .section-en .data-table th { text-align: left; }
+        .data-table td { padding: 10px 14px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:nth-child(even) td { background: #f9f9f9; }
+        .badge-del { color: #c62828; font-weight: 600; }
+        .badge-never { color: #888; font-size: 0.88em; font-style: italic; }
+        .retention-note { background: #e8f5e9; border-right: 4px solid #43a047; padding: 14px 18px; border-radius: 6px; margin: 14px 0; color: #2e7d32; font-size: 0.93em; }
+        .section-en .retention-note { border-right: none; border-left: 4px solid #43a047; }
+        .contact-box { background: #fff3cd; border-right: 4px solid #ffc107; padding: 18px 20px; border-radius: 8px; margin-top: 22px; }
+        .section-en .contact-box { border-right: none; border-left: 4px solid #ffc107; }
+        .contact-box h3 { color: #856404; margin-bottom: 10px; }
+        .contact-box p { color: #856404; margin-bottom: 6px; }
+        .contact-box a { color: #667eea; text-decoration: none; font-weight: 600; }
+        .form-section { background: #fff8f8; border: 1px solid #ffcccc; border-radius: 12px; padding: 26px; margin: 26px 0; }
+        .form-section h2 { color: #c62828; border-color: #c62828; margin-bottom: 12px; font-size: 1.1em; border-bottom: 2px solid #c62828; padding-bottom: 8px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #444; }
+        .form-group input[type="email"], .form-group textarea { width: 100%; padding: 10px 14px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; box-sizing: border-box; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #c62828; box-shadow: 0 0 0 3px rgba(198,40,40,0.1); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .honeypot { display: none !important; }
+        .warn-red { background: #fdecea; border: 1px solid #f5c6cb; border-radius: 8px; padding: 13px 16px; margin-bottom: 16px; color: #721c24; font-size: 0.91em; }
+        .form-note { background: #e3f2fd; border-right: 3px solid #1976D2; padding: 11px 15px; border-radius: 6px; margin-bottom: 16px; color: #1565C0; font-size: 0.9em; }
+        .section-en .form-note { border-right: none; border-left: 3px solid #1976D2; }
+        .btn-del { background: #c62828; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; transition: background 0.2s; }
+        .btn-del:hover:not(:disabled) { background: #b71c1c; }
+        .btn-del:disabled { opacity: 0.6; cursor: not-allowed; }
+        .msg-success { display: none; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 14px 18px; color: #155724; margin-bottom: 16px; font-weight: 600; }
+        .msg-error { display: none; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 14px 18px; color: #721c24; margin-bottom: 16px; }
+        .hidden { display: none; }
+        footer { background: #f5f5f5; padding: 18px; text-align: center; color: #777; font-size: 0.88em; border-top: 1px solid #eee; }
+        footer a { color: #667eea; text-decoration: none; }
+        @media (max-width: 600px) { header h1 { font-size: 1.4em; } .content { padding: 22px 18px; } .lang-btn { top: 12px; right: 12px; padding: 5px 11px; } }
         @media (prefers-color-scheme: dark) {
-            body {
-                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            }
-            
-            .container {
-                background: #1e1e1e;
-                color: #e0e0e0;
-            }
-            
-            .section p, .step-content p {
-                color: #b0b0b0;
-            }
-            
-            .section h2, .step-content h4, .highlight h3 {
-                color: #667eea;
-            }
-            
-            .highlight {
-                background: #2a2a3e;
-                color: #b0b0b0;
-            }
-            
-            .steps {
-                background: #2a2a2a;
-            }
-            
-            footer {
-                background: #2a2a2a;
-                color: #999;
-            }
+            .container { background: #1e1e1e; color: #e0e0e0; }
+            .content { background: #1e1e1e; }
+            .steps { background: #2a2a2a; }
+            .step-body h4 { color: #ddd; } .step-body p { color: #aaa; }
+            .section p, .section li { color: #aaa; }
+            .data-table td { border-color: #333; }
+            .data-table tr:nth-child(even) td { background: #252525; }
+            footer { background: #1a1a1a; border-color: #333; }
+            .form-section { background: #2a1a1a; border-color: #8b2222; }
+            .form-group input, .form-group textarea { background: #2a2a2a; color: #ddd; border-color: #555; }
         }
     </style>
 </head>
 <body>
-    <button class="language-toggle" onclick="toggleLanguage()">English</button>
-    
+    <button class="lang-btn" onclick="toggleLang()">English</button>
+
     <div class="container">
         <header>
-            <h1 id="title">حذف الحساب والبيانات</h1>
-            <p id="subtitle">نور الإيمان - تطبيق إسلامي شامل</p>
+            <h1 id="hdr-title">حذف الحساب والبيانات</h1>
+            <p class="app-name">نور الإيمان - قرآن وأذان</p>
+            <p class="dev-name">M0hammed Ashraf</p>
         </header>
-        
-        <div class="content">
-            <!-- Arabic Content -->
-            <div id="arabic-content">
-                <div class="section">
-                    <h2>🔒 كيفية حذف حسابك</h2>
-                    <p>نحن نقدر خصوصيتك. إذا أردت حذف حسابك وجميع البيانات المرتبطة به، يمكنك اتباع الخطوات التالية:</p>
-                </div>
-                
-                <div class="highlight">
-                    <h3>⚠️ تنبيه مهم</h3>
-                    <p>حذف حسابك <strong>دائم ولا يمكن استرجاعه</strong>. جميع بيانات تطبيقك، بما في ذلك:</p>
-                    <ul>
-                        <li>الإشارات المرجعية والملاحظات</li>
-                        <li>تفضيلاتك (اللغة، الثيم، إلخ)</li>
-                        <li>سجل الاستماع والقراءة</li>
-                        <li>بيانات تسجيل الدخول</li>
-                    </ul>
-                    <p>سيتم حذفها بشكل نهائي.</p>
-                </div>
-                
-                <div class="section">
-                    <h2>📋 خطوات حذف الحساب</h2>
-                    <div class="steps">
-                        <div class="step">
-                            <div class="step-number">1</div>
-                            <div class="step-content">
-                                <h4>افتح التطبيق</h4>
-                                <p>افتح تطبيق "نور الإيمان" على جهازك الذكي</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">2</div>
-                            <div class="step-content">
-                                <h4>اذهب إلى الإعدادات</h4>
-                                <p>اضغط على أيقونة الإعدادات (⚙️) في الشاشة الرئيسية</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">3</div>
-                            <div class="step-content">
-                                <h4>ابحث عن "عن التطبيق" أو "حسابي"</h4>
-                                <p>ستجد خيار "حساب" أو "عن التطبيق" في أسفل قائمة الإعدادات</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">4</div>
-                            <div class="step-content">
-                                <h4>اضغط على "تسجيل الخروج"</h4>
-                                <p>ستظهر خيارات متعددة - اختر "حذف الحساب والبيانات"</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">5</div>
-                            <div class="step-content">
-                                <h4>تأكيد الحذف</h4>
-                                <p>سيطلب منك تأكيد عملية الحذف. اضغط "حذف نهائياً" للتأكيد</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">6</div>
-                            <div class="step-content">
-                                <h4>تم الحذف</h4>
-                                <p>سيتم حذف حسابك وجميع بيانتك خلال 90 يوماً كحد أقصى</p>
-                            </div>
-                        </div>
+
+        <!-- ARABIC -->
+        <div id="ar-section" class="content">
+
+            <div class="section">
+                <h2>🔒 كيفية حذف حسابك من التطبيق</h2>
+                <p>نحترم خصوصيتك تماماً. إذا أردت حذف حسابك وجميع بياناتك، اتبع الخطوات التالية داخل تطبيق <strong>نور الإيمان - قرآن وأذان</strong>:</p>
+            </div>
+
+            <div class="highlight">
+                <h3>⚠️ تنبيه مهم — البيانات التي ستُحذف</h3>
+                <p>حذف الحساب <strong>دائم ولا يمكن التراجع عنه</strong>. سيتم حذف ما يلي:</p>
+                <ul>
+                    <li>الإشارات المرجعية (الآيات والصفحات المحفوظة)</li>
+                    <li>بيانات الورد اليومي (التقدم والأهداف والتذكيرات)</li>
+                    <li>إعداداتك وتفضيلاتك (الخط، الثيم، اللغة)</li>
+                    <li>بيانات حسابك (الاسم والبريد الإلكتروني من جوجل)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>📋 خطوات حذف الحساب من التطبيق</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <div class="step-body"><h4>افتح تطبيق نور الإيمان</h4><p>تأكد من تسجيل دخولك بالحساب الذي تريد حذفه</p></div>
                     </div>
-                </div>
-                
-                <div class="section">
-                    <h2>📊 البيانات المحذوفة والمحتفظ بها</h2>
-                    <p><strong>سيتم حذفه:</strong></p>
-                    <ul>
-                        <li>جميع البيانات الشخصية (الاسم، البريد الإلكتروني)</li>
-                        <li>موقعك الجغرافي</li>
-                        <li>إعداداتك وتفضيلاتك</li>
-                        <li>سجل نشاطك</li>
-                        <li>الملاحظات والإشارات المرجعية</li>
-                    </ul>
-                    <p style="margin-top: 15px;"><strong>قد يتم الاحتفاظ به:</strong></p>
-                    <ul>
-                        <li>سجلات التحقق من الامتثال والأمان (مشفرة)</li>
-                        <li>سجلات النسخ الاحتياطية (تُحذف بعد 90 يوم)</li>
-                    </ul>
-                </div>
-                
-                <div class="contact-section">
-                    <h3>📧 هل تحتاج مساعدة؟</h3>
-                    <p>إذا واجهت مشكلة في حذف حسابك، يمكنك التواصل معنا:</p>
-                    <p><strong>البريد الإلكتروني:</strong> <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a></p>
-                    <p>سنساعدك في حذف حسابك يدوياً خلال 24 ساعة</p>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <div class="step-body"><h4>اذهب إلى الإعدادات ⚙️</h4><p>اضغط على أيقونة الإعدادات في الشاشة الرئيسية</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <div class="step-body"><h4>اضغط على "حساب"</h4><p>في أسفل قائمة الإعدادات ستجد قسم الحساب</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">4</div>
+                        <div class="step-body"><h4>اختر "حذف الحساب والبيانات"</h4><p>هذا الخيار موجود في أسفل صفحة الحساب</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">5</div>
+                        <div class="step-body"><h4>أكّد الحذف</h4><p>اقرأ رسالة التحذير، ثم اضغط "حذف نهائياً" للتأكيد</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">6</div>
+                        <div class="step-body"><h4>تم الحذف</h4><p>يتم حذف حسابك وجميع بياناتك فوراً بعد التأكيد</p></div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- English Content -->
-            <div id="english-content" class="hidden">
-                <div class="section">
-                    <h2>🔒 How to Delete Your Account</h2>
-                    <p>We respect your privacy. If you want to delete your account and all associated data, follow these steps:</p>
+
+            <div class="section">
+                <h2>📊 تفصيل البيانات المحذوفة والمحتفظ بها</h2>
+                <p>نلتزم بالشفافية الكاملة. هذا هو كل ما نخزّنه:</p>
+                <table class="data-table">
+                    <thead><tr><th>نوع البيانات</th><th>ما يحدث عند الحذف</th></tr></thead>
+                    <tbody>
+                        <tr><td>الإشارات المرجعية (آيات وصفحات)</td><td class="badge-del">تُحذف فوراً</td></tr>
+                        <tr><td>بيانات الورد اليومي (تقدم، أهداف، تذكيرات)</td><td class="badge-del">تُحذف فوراً</td></tr>
+                        <tr><td>الإعدادات والتفضيلات</td><td class="badge-del">تُحذف فوراً</td></tr>
+                        <tr><td>بيانات الحساب (الاسم، البريد من جوجل)</td><td class="badge-del">تُحذف فوراً</td></tr>
+                        <tr><td>الموقع الجغرافي، سجل القراءة، الملاحظات</td><td class="badge-never">لا نخزّنها أبداً</td></tr>
+                    </tbody>
+                </table>
+                <div class="retention-note">
+                    ⏱️ <strong>مدة الاحتفاظ بالبيانات:</strong> عند الحذف من داخل التطبيق، تُحذف جميع البيانات <strong>فوراً</strong> ولا يُحتفظ بأي نسخ احتياطية. عند الحذف عبر النموذج أدناه، تتم المعالجة خلال <strong>7 أيام عمل</strong> على الأكثر.
                 </div>
-                
-                <div class="highlight">
-                    <h3>⚠️ Important Notice</h3>
-                    <p>Deleting your account is <strong>permanent and cannot be undone</strong>. All your app data, including:</p>
-                    <ul>
-                        <li>Bookmarks and notes</li>
-                        <li>Your preferences (language, theme, etc.)</li>
-                        <li>Listening and reading history</li>
-                        <li>Login information</li>
-                    </ul>
-                    <p>will be permanently deleted.</p>
-                </div>
-                
-                <div class="section">
-                    <h2>📋 Steps to Delete Your Account</h2>
-                    <div class="steps">
-                        <div class="step">
-                            <div class="step-number">1</div>
-                            <div class="step-content">
-                                <h4>Open the App</h4>
-                                <p>Launch the "Noor Al-Iman" app on your device</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">2</div>
-                            <div class="step-content">
-                                <h4>Go to Settings</h4>
-                                <p>Tap the Settings icon (⚙️) on the home screen</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">3</div>
-                            <div class="step-content">
-                                <h4>Find "About" or "My Account"</h4>
-                                <p>Look for "Account" or "About" option at the bottom of the Settings menu</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">4</div>
-                            <div class="step-content">
-                                <h4>Tap "Sign Out"</h4>
-                                <p>Multiple options will appear - select "Delete Account and Data"</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">5</div>
-                            <div class="step-content">
-                                <h4>Confirm Deletion</h4>
-                                <p>You'll be asked to confirm. Tap "Delete Permanently" to proceed</p>
-                            </div>
-                        </div>
-                        
-                        <div class="step">
-                            <div class="step-number">6</div>
-                            <div class="step-content">
-                                <h4>Done</h4>
-                                <p>Your account and all your data will be deleted within 90 days</p>
-                            </div>
-                        </div>
+            </div>
+
+            <div class="contact-box">
+                <h3>📧 هل تحتاج مساعدة؟</h3>
+                <p>إذا واجهت مشكلة في حذف حسابك داخل التطبيق، تواصل معنا مباشرةً:</p>
+                <p><strong>البريد الإلكتروني:</strong> <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a></p>
+                <p>سنساعدك في حذف حسابك يدوياً خلال 7 أيام عمل.</p>
+            </div>
+
+            <div class="form-section">
+                <h2>🗑️ أو احذف حسابك مباشرةً عبر هذا النموذج</h2>
+                <p style="color:#555;margin-bottom:14px;">إذا لم يكن التطبيق متاحاً لديك أو لم تستطع الدخول إليه، قدّم طلب الحذف هنا.</p>
+                <div class="form-note">📋 <strong>مدة المعالجة:</strong> سيتم معالجة طلبك وحذف جميع بياناتك خلال <strong>7 أيام عمل</strong> على الأكثر.</div>
+                <div class="warn-red">⚠️ <strong>تحذير:</strong> حذف الحساب نهائي وغير قابل للتراجع. سيتم حذف الإشارات المرجعية والورد اليومي والإعدادات وحساب تسجيل الدخول.</div>
+                <div class="msg-success" id="suc-ar">✓ تم استقبال طلبك بنجاح. سيتم معالجته وحذف بياناتك خلال 7 أيام عمل.</div>
+                <div class="msg-error" id="err-ar"></div>
+                <form id="form-ar" onsubmit="handleAr(event)">
+                    <div class="form-group">
+                        <label for="email-ar">بريدك الإلكتروني المرتبط بالحساب:</label>
+                        <input type="email" id="email-ar" required placeholder="your@email.com">
                     </div>
-                </div>
-                
-                <div class="section">
-                    <h2>📊 What Gets Deleted and What's Kept</h2>
-                    <p><strong>Will be deleted:</strong></p>
-                    <ul>
-                        <li>All personal data (name, email)</li>
-                        <li>Your location information</li>
-                        <li>Your settings and preferences</li>
-                        <li>Your activity history</li>
-                        <li>Notes and bookmarks</li>
-                    </ul>
-                    <p style="margin-top: 15px;"><strong>May be retained:</strong></p>
-                    <ul>
-                        <li>Compliance and security audit logs (encrypted)</li>
-                        <li>Backup records (deleted after 90 days)</li>
-                    </ul>
-                </div>
-                
-                <div class="contact-section">
-                    <h3>📧 Need Help?</h3>
-                    <p>If you have trouble deleting your account, you can contact us:</p>
-                    <p><strong>Email:</strong> <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a></p>
-                    <p>We'll help you delete your account manually within 24 hours</p>
-                </div>
+                    <div class="form-group">
+                        <label for="reason-ar">سبب الحذف (اختياري):</label>
+                        <textarea id="reason-ar" placeholder="يمكنك مشاركة السبب أو تركه فارغاً..."></textarea>
+                    </div>
+                    <div class="honeypot"><input type="text" id="hp-ar" tabindex="-1" autocomplete="off"></div>
+                    <button type="submit" class="btn-del" id="sub-ar">🗑️ تقديم طلب حذف حسابي</button>
+                </form>
             </div>
         </div>
-        
-        <footer id="footer">
-            جميع الحقوق محفوظة © 2026 نور الإيمان
+
+        <!-- ENGLISH -->
+        <div id="en-section" class="content section-en hidden" dir="ltr">
+
+            <div class="section">
+                <h2>🔒 How to Delete Your Account (In-App)</h2>
+                <p>We fully respect your privacy. To delete your account and all data, follow these steps inside <strong>Noor Al-Iman - Quran &amp; Adhan</strong>:</p>
+            </div>
+
+            <div class="highlight">
+                <h3>⚠️ Important — Data That Will Be Deleted</h3>
+                <p>Account deletion is <strong>permanent and cannot be undone</strong>. The following will be deleted:</p>
+                <ul>
+                    <li>Bookmarks (saved verses and pages)</li>
+                    <li>Daily Wird data (progress, goals, and reminders)</li>
+                    <li>Your settings and preferences (font, theme, language)</li>
+                    <li>Your account data (name and email from Google)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>📋 Steps to Delete Your Account</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <div class="step-body"><h4>Open Noor Al-Iman App</h4><p>Make sure you are signed in with the account you want to delete</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <div class="step-body"><h4>Go to Settings ⚙️</h4><p>Tap the Settings icon on the home screen</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <div class="step-body"><h4>Tap "Account"</h4><p>Find the Account section at the bottom of the Settings list</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">4</div>
+                        <div class="step-body"><h4>Select "Delete Account and Data"</h4><p>This option is at the bottom of the Account page</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">5</div>
+                        <div class="step-body"><h4>Confirm Deletion</h4><p>Read the warning message, then tap "Delete Permanently" to confirm</p></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">6</div>
+                        <div class="step-body"><h4>Done</h4><p>Your account and all data are deleted immediately after confirmation</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📊 Data Deleted vs. Retained</h2>
+                <p>We are fully transparent about what we store:</p>
+                <table class="data-table">
+                    <thead><tr><th style="text-align:left;">Data Type</th><th style="text-align:left;">Upon Deletion</th></tr></thead>
+                    <tbody>
+                        <tr><td>Bookmarks (saved verses and pages)</td><td class="badge-del">Deleted immediately</td></tr>
+                        <tr><td>Daily Wird data (progress, goals, reminders)</td><td class="badge-del">Deleted immediately</td></tr>
+                        <tr><td>Settings and preferences</td><td class="badge-del">Deleted immediately</td></tr>
+                        <tr><td>Account data (name, email from Google)</td><td class="badge-del">Deleted immediately</td></tr>
+                        <tr><td>Location, reading history, notes</td><td class="badge-never">Never stored</td></tr>
+                    </tbody>
+                </table>
+                <div class="retention-note">
+                    ⏱️ <strong>Retention period:</strong> When deleted from within the app, all data is erased <strong>immediately</strong> with no backups retained. When deleted via the form below, processing takes up to <strong>7 business days</strong>.
+                </div>
+            </div>
+
+            <div class="contact-box">
+                <h3>📧 Need Help?</h3>
+                <p>If you have trouble deleting your account within the app, contact us directly:</p>
+                <p><strong>Email:</strong> <a href="mailto:mohamed.ashraf.1177s@gmail.com">mohamed.ashraf.1177s@gmail.com</a></p>
+                <p>We will manually delete your account within 7 business days.</p>
+            </div>
+
+            <div class="form-section">
+                <h2>🗑️ Or Submit an Account Deletion Request Here</h2>
+                <p style="color:#555;margin-bottom:14px;">If the app is unavailable or you cannot log in, submit your deletion request using this form.</p>
+                <div class="form-note">📋 <strong>Processing time:</strong> Your request will be processed and all data deleted within <strong>7 business days</strong>.</div>
+                <div class="warn-red">⚠️ <strong>Warning:</strong> Account deletion is permanent and cannot be undone. All data including bookmarks, daily Wird, and settings will be permanently deleted.</div>
+                <div class="msg-success" id="suc-en">✓ Your request has been received. Your data will be deleted within 7 business days.</div>
+                <div class="msg-error" id="err-en"></div>
+                <form id="form-en" onsubmit="handleEn(event)">
+                    <div class="form-group">
+                        <label for="email-en">Email address linked to your account:</label>
+                        <input type="email" id="email-en" required placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="reason-en">Reason for deletion (optional):</label>
+                        <textarea id="reason-en" placeholder="You can share the reason or leave it blank..."></textarea>
+                    </div>
+                    <div class="honeypot"><input type="text" id="hp-en" tabindex="-1" autocomplete="off"></div>
+                    <button type="submit" class="btn-del" id="sub-en">🗑️ Submit Account Deletion Request</button>
+                </form>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>نور الإيمان - قرآن وأذان | Noor Al-Iman</strong> &nbsp;·&nbsp; M0hammed Ashraf</p>
+            <p style="margin-top:6px;">
+                <a href="/privacy">سياسة الخصوصية | Privacy Policy</a>
+                &nbsp;·&nbsp;
+                <a href="/data-deletion-request">حذف بيانات محددة | Delete Specific Data</a>
+            </p>
+            <p style="margin-top:6px; color:#aaa;">© 2026 All rights reserved</p>
         </footer>
     </div>
-    
+
     <script>
-        function toggleLanguage() {
-            const arabic = document.getElementById('arabic-content');
-            const english = document.getElementById('english-content');
-            const toggle = document.querySelector('.language-toggle');
-            const title = document.getElementById('title');
-            const footer = document.getElementById('footer');
-            
-            arabic.classList.toggle('hidden');
-            english.classList.toggle('hidden');
-            
-            if (arabic.classList.contains('hidden')) {
-                toggle.textContent = 'العربية';
-                document.documentElement.dir = 'ltr';
-                document.documentElement.lang = 'en';
-                title.textContent = 'Delete Your Account';
-                footer.textContent = 'All rights reserved © 2026 Noor Al-Iman';
+        function toggleLang() {
+            const ar = document.getElementById("ar-section");
+            const en = document.getElementById("en-section");
+            const btn = document.querySelector(".lang-btn");
+            const title = document.getElementById("hdr-title");
+            const isAr = !ar.classList.contains("hidden");
+            if (isAr) {
+                ar.classList.add("hidden"); en.classList.remove("hidden");
+                btn.textContent = "العربية";
+                document.documentElement.dir = "ltr"; document.documentElement.lang = "en";
+                title.textContent = "Delete Account & Data";
             } else {
-                toggle.textContent = 'English';
-                document.documentElement.dir = 'rtl';
-                document.documentElement.lang = 'ar';
-                title.textContent = 'حذف الحساب والبيانات';
-                footer.textContent = 'جميع الحقوق محفوظة © 2026 نور الإيمان';
+                en.classList.add("hidden"); ar.classList.remove("hidden");
+                btn.textContent = "English";
+                document.documentElement.dir = "rtl"; document.documentElement.lang = "ar";
+                title.textContent = "حذف الحساب والبيانات";
             }
         }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+        const app = initializeApp({
+            apiKey: "AIzaSyCCk24viuidMpVSJrWGMqNC1pcsI3TvmgM",
+            authDomain: "quraan-dd543.firebaseapp.com",
+            projectId: "quraan-dd543",
+            storageBucket: "quraan-dd543.firebasestorage.app",
+            messagingSenderId: "1039427063284",
+            appId: "1:1039427063284:web:353305a1f9360e910fbda1",
+        });
+        const db = getFirestore(app);
+        const col = collection(db, "account_deletion_requests");
+
+        async function submit(lang) {
+            const email  = document.getElementById("email-" + lang)?.value.trim().toLowerCase() ?? "";
+            const reason = document.getElementById("reason-" + lang)?.value.trim() ?? "";
+            const hp     = document.getElementById("hp-" + lang)?.value ?? "";
+            const btn    = document.getElementById("sub-" + lang);
+            const sucEl  = document.getElementById("suc-" + lang);
+            const errEl  = document.getElementById("err-" + lang);
+            const formEl = document.getElementById("form-" + lang);
+
+            if (hp.length > 0) return;
+
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                if (errEl) {
+                    errEl.textContent = lang === "ar" ? "يرجى إدخال بريد إلكتروني صحيح." : "Please enter a valid email address.";
+                    errEl.style.display = "block";
+                }
+                return;
+            }
+
+            if (btn) { btn.disabled = true; btn.textContent = lang === "ar" ? "جارٍ الإرسال..." : "Submitting..."; }
+            if (errEl) errEl.style.display = "none";
+            if (sucEl) sucEl.style.display = "none";
+
+            try {
+                await addDoc(col, {
+                    email, reason, language: lang,
+                    source: "public_account_deletion_form",
+                    status: "pending",
+                    app: "نور الإيمان - قرآن وأذان",
+                    clientTimestamp: new Date().toISOString(),
+                    createdAt: serverTimestamp(),
+                });
+                if (formEl) formEl.reset();
+                if (sucEl) sucEl.style.display = "block";
+            } catch (err) {
+                console.error(err);
+                if (errEl) {
+                    errEl.textContent = lang === "ar"
+                        ? "حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى أو التواصل معنا عبر البريد الإلكتروني."
+                        : "Failed to submit. Please try again or contact us by email.";
+                    errEl.style.display = "block";
+                }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = lang === "ar" ? "🗑️ تقديم طلب حذف حسابي" : "🗑️ Submit Account Deletion Request";
+                }
+            }
+        }
+
+        window.handleAr = (e) => { e.preventDefault(); submit("ar"); };
+        window.handleEn = (e) => { e.preventDefault(); submit("en"); };
     </script>
 </body>
 </html>

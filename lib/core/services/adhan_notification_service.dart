@@ -1097,6 +1097,8 @@ class AdhanNotificationService {
     final schedMode       = _androidScheduleMode();
     final now             = tz.TZDateTime.now(tz.local);
     final isAndroid       = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final iqamaNotifMode  = _settings.getIqamaNotificationMode();
+    final approachNotifMode = _settings.getApproachingNotificationMode();
 
     // Native alarms (Android only) — collected then bulk-scheduled after the loop.
     final iqamaNativeAlarms       = <Map<String, dynamic>>[];
@@ -1138,13 +1140,15 @@ class AdhanNotificationService {
                 'id':     iqamaId,
                 'timeMs': iqamaTime.millisecondsSinceEpoch,
                 'title':  iqamaTitle,
-                'body':   iqamaBody,
+                'body':   iqamaNotifMode == 'sound_only' ? '' : iqamaBody,
+                'sound':  iqamaNotifMode == 'text_only' ? '' : 'iqama_sound_full',
               });
             } else {
               await _plugin.zonedSchedule(
-                iqamaId, iqamaTitle, iqamaBody,
+                iqamaId, iqamaTitle,
+                iqamaNotifMode == 'sound_only' ? '' : iqamaBody,
                 iqamaTime,
-                _iqamaNotificationDetails(),
+                _iqamaNotificationDetails(playSound: iqamaNotifMode != 'text_only'),
                 androidScheduleMode: schedMode,
               );
             }
@@ -1185,15 +1189,16 @@ class AdhanNotificationService {
               'id':     remId,
               'timeMs': reminderTime.millisecondsSinceEpoch,
               'title':  remTitle,
-              'body':   remBody,
-              'sound':  _reminderSoundFile(item.prayer),
+              'body':   approachNotifMode == 'sound_only' ? '' : remBody,
+              'sound':  approachNotifMode == 'text_only' ? '' : _reminderSoundFile(item.prayer),
             });
           } else {
             // iOS: flutter_local_notifications handles it
             await _plugin.zonedSchedule(
-              remId, remTitle, remBody,
+              remId, remTitle,
+              approachNotifMode == 'sound_only' ? '' : remBody,
               reminderTime,
-              _reminderNotificationDetails(item.prayer),
+              _reminderNotificationDetails(item.prayer, playSound: approachNotifMode != 'text_only'),
               androidScheduleMode: schedMode,
             );
           }
@@ -1281,44 +1286,18 @@ class AdhanNotificationService {
   }
 
   /// Notification details for pre-prayer reminder (prayer-specific Arabic voice).
-  NotificationDetails _reminderNotificationDetails(Prayer prayer) {
-    final channelId  = _reminderChannelId(prayer);
+  NotificationDetails _reminderNotificationDetails(Prayer prayer, {bool playSound = true}) {
+    final channelId  = playSound ? _reminderChannelId(prayer) : 'approaching_silent';
     final soundFile  = _reminderSoundFile(prayer);
     return NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,
-        _reminderChannelName,
+        playSound ? _reminderChannelName : 'تنبيه قبل الصلاة (صامت)',
         channelDescription: _reminderChannelDescription,
         importance: Importance.high,
         priority: Priority.high,
-        playSound: true,
-        sound: RawResourceAndroidNotificationSound(soundFile),
-        enableVibration: true,
-        category: AndroidNotificationCategory.reminder,
-        visibility: NotificationVisibility.public,
-        autoCancel: true,
-        icon: '@drawable/ic_notification',
-      ),
-      iOS: const DarwinNotificationDetails(
-        presentAlert: true,
-        presentSound: true,
-        presentBadge: false,
-        interruptionLevel: InterruptionLevel.timeSensitive,
-      ),
-    );
-  }
-
-  /// Notification details for iqama (stands-for-prayer sound).
-  NotificationDetails _iqamaNotificationDetails() {
-    return const NotificationDetails(
-      android: AndroidNotificationDetails(
-        _iqamaChannelId,
-        _iqamaChannelName,
-        channelDescription: _iqamaChannelDescription,
-        importance: Importance.high,
-        priority: Priority.high,
-        playSound: true,
-        sound: RawResourceAndroidNotificationSound('iqama_sound_full'),
+        playSound: playSound,
+        sound: playSound ? RawResourceAndroidNotificationSound(soundFile) : null,
         enableVibration: true,
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
@@ -1327,7 +1306,33 @@ class AdhanNotificationService {
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,
-        presentSound: true,
+        presentSound: playSound,
+        presentBadge: false,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      ),
+    );
+  }
+
+  /// Notification details for iqama (stands-for-prayer sound).
+  NotificationDetails _iqamaNotificationDetails({bool playSound = true}) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        playSound ? _iqamaChannelId : 'iqama_silent',
+        playSound ? _iqamaChannelName : 'إقامة (صامت)',
+        channelDescription: _iqamaChannelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: playSound,
+        sound: playSound ? const RawResourceAndroidNotificationSound('iqama_sound_full') : null,
+        enableVibration: true,
+        category: AndroidNotificationCategory.reminder,
+        visibility: NotificationVisibility.public,
+        autoCancel: true,
+        icon: '@drawable/ic_notification',
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: playSound,
         presentBadge: false,
         interruptionLevel: InterruptionLevel.timeSensitive,
       ),
@@ -1348,27 +1353,28 @@ class AdhanNotificationService {
 
   /// Notification details for Salawat reminders.
   /// Uses the channel matching the currently selected salawat sound.
-  NotificationDetails _salawatNotificationDetails() {
+  /// [playSound] controls whether the notification plays sound.
+  NotificationDetails _salawatNotificationDetails({bool playSound = true}) {
     final channelId = _salawatChannelId();
     final soundId   = _settings.getSalawatSound();
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        channelId,
-        _salawatChannelName,
+        playSound ? channelId : 'salawat_silent',
+        playSound ? _salawatChannelName : 'صلاة على النبي (صامت)',
         channelDescription: _salawatChannelDescription,
         importance: Importance.high,
         priority: Priority.high,
-        playSound: true,
-        sound: RawResourceAndroidNotificationSound(soundId),
+        playSound: playSound,
+        sound: playSound ? RawResourceAndroidNotificationSound(soundId) : null,
         enableVibration: false,
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         autoCancel: true,
         icon: '@drawable/ic_notification',
       ),
-      iOS: const DarwinNotificationDetails(
+      iOS: DarwinNotificationDetails(
         presentAlert: true,
-        presentSound: true,
+        presentSound: playSound,
         presentBadge: false,
         interruptionLevel: InterruptionLevel.active,
       ),
@@ -1420,6 +1426,7 @@ class AdhanNotificationService {
 
       final isArabic  = _settings.getAppLanguage() == 'ar';
       final soundName = _settings.getSalawatSound();
+      final notifMode = _settings.getSalawatNotificationMode(); // 'both', 'sound_only', 'text_only'
 
       final salawatTexts = [
         isArabic ? 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ' : 'O Allah, send blessings upon Muhammad ﷺ',
@@ -1438,8 +1445,8 @@ class AdhanNotificationService {
           'id':     700000000 + i,
           'timeMs': triggerTime.millisecondsSinceEpoch,
           'title':  isArabic ? '🌙 الصلاة على النبي' : '🌙 Salawat Reminder',
-          'body':   text,
-          'sound':  soundName,
+          'body':   notifMode == 'sound_only' ? '' : text,
+          'sound':  notifMode == 'text_only' ? '' : soundName,
         });
       }
 
@@ -1476,6 +1483,7 @@ class AdhanNotificationService {
 
     final isArabic = _settings.getAppLanguage() == 'ar';
     final schedMode = _androidScheduleMode();
+    final notifMode = _settings.getSalawatNotificationMode();
 
     final salawatTexts = [
       isArabic ? 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ' : 'O Allah, send blessings upon Muhammad ﷺ',
@@ -1494,9 +1502,9 @@ class AdhanNotificationService {
         await _plugin.zonedSchedule(
           700000000 + i,
           isArabic ? '🌙 الصلاة على النبي' : '🌙 Salawat Reminder',
-          text,
+          notifMode == 'sound_only' ? '' : text,
           triggerTime,
-          _salawatNotificationDetails(),
+          _salawatNotificationDetails(playSound: notifMode != 'text_only'),
           androidScheduleMode: schedMode,
         );
         scheduled++;

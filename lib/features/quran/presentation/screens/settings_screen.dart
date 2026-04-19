@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/widgets/section_header.dart';
@@ -26,6 +25,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/settings_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import 'privacy_policy_screen.dart';
+import '../../../../core/services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -819,6 +819,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ? wirdState.followUpIntervalHours
                               : 4,
                     ),
+                    const Divider(height: 1, indent: 56),
+                    _WirdNotificationModeTile(isAr: isAr),
                   ],
                 );
               },
@@ -1483,6 +1485,79 @@ class _FollowUpIntervalTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Wird Notification Mode Tile
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WirdNotificationModeTile extends StatefulWidget {
+  final bool isAr;
+  const _WirdNotificationModeTile({required this.isAr});
+
+  @override
+  State<_WirdNotificationModeTile> createState() =>
+      _WirdNotificationModeTileState();
+}
+
+class _WirdNotificationModeTileState extends State<_WirdNotificationModeTile> {
+  late String _mode;
+  late final SettingsService _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = di.sl<SettingsService>();
+    _mode = _settings.getWirdNotificationMode();
+  }
+
+  String _label(String m) {
+    if (widget.isAr) {
+      switch (m) {
+        case 'sound_only':
+          return 'صوت فقط';
+        case 'text_only':
+          return 'نص فقط';
+        default:
+          return 'صوت ونص';
+      }
+    }
+    switch (m) {
+      case 'sound_only':
+        return 'Sound Only';
+      case 'text_only':
+        return 'Text Only';
+      default:
+        return 'Sound & Text';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.tune_rounded, color: AppColors.primary),
+      title: _TileTitle(widget.isAr ? 'نوع الإشعار' : 'Notification Type'),
+      subtitle:
+          _TileSubtitle(widget.isAr ? 'صوت، نص، أو كلاهما' : 'Sound, text, or both'),
+      trailing: DropdownButton<String>(
+        value: _mode,
+        underline: const SizedBox(),
+        borderRadius: BorderRadius.circular(12),
+        items: ['both', 'sound_only', 'text_only']
+            .map((m) => DropdownMenuItem(
+                  value: m,
+                  child: Text(_label(m), style: const TextStyle(fontSize: 13)),
+                ))
+            .toList(),
+        onChanged: (v) {
+          if (v != null) {
+            setState(() => _mode = v);
+            _settings.setWirdNotificationMode(v);
+          }
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Reciter Picker Bottom Sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2094,7 +2169,7 @@ class _AccountSection extends StatelessWidget {
                   subtitle: _TileSubtitle(isAr
                       ? 'حذف بيانات محددة دون حذف الحساب'
                       : 'Delete specific data without account deletion'),
-                  onTap: () => _openDataDeletionRequest(context),
+                  onTap: () => _showDataDeletionDialog(context, isAr),
                 ),
                 const Divider(height: 1, indent: 56),
                 ListTile(
@@ -2437,24 +2512,155 @@ class _AccountSection extends StatelessWidget {
     );
   }
 
-  Future<void> _openDataDeletionRequest(BuildContext context) async {
-    const url = 'https://quraan-dd543.web.app/data-deletion-request';
+  Future<void> _showDataDeletionDialog(BuildContext context, bool isAr) async {
+    final authCubit = context.read<AuthCubit>();
+    final uid = authCubit.state.user?.uid;
+    if (uid == null) return;
+
+    // Check what data exists
+    final syncService = di.sl<CloudSyncService>();
+    Set<String> existingData;
     try {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open deletion request page')),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error opening URL: $e');
+      existingData = await syncService.checkUserDataExists(uid);
+    } catch (_) {
+      existingData = {'bookmarks', 'wird', 'settings'};
     }
+
+    if (!context.mounted) return;
+
+    if (existingData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isAr ? 'لا توجد بيانات محفوظة لحذفها' : 'No saved data to delete',
+            textAlign: TextAlign.center,
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    final selected = <String>{};
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(
+            isAr ? 'حذف بيانات محددة' : 'Delete Specific Data',
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isAr
+                    ? 'اختر البيانات التي تريد حذفها:'
+                    : 'Select data to delete:',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              if (existingData.contains('bookmarks'))
+                CheckboxListTile(
+                  value: selected.contains('bookmarks'),
+                  onChanged: (v) => setDialogState(() {
+                    v == true
+                        ? selected.add('bookmarks')
+                        : selected.remove('bookmarks');
+                  }),
+                  title: Text(isAr ? 'العلامات المرجعية' : 'Bookmarks'),
+                  secondary: const Icon(Icons.bookmark_outline),
+                  dense: true,
+                ),
+              if (existingData.contains('wird'))
+                CheckboxListTile(
+                  value: selected.contains('wird'),
+                  onChanged: (v) => setDialogState(() {
+                    v == true
+                        ? selected.add('wird')
+                        : selected.remove('wird');
+                  }),
+                  title: Text(isAr ? 'بيانات الورد' : 'Wird Data'),
+                  secondary: const Icon(Icons.auto_stories_outlined),
+                  dense: true,
+                ),
+              if (existingData.contains('settings'))
+                CheckboxListTile(
+                  value: selected.contains('settings'),
+                  onChanged: (v) => setDialogState(() {
+                    v == true
+                        ? selected.add('settings')
+                        : selected.remove('settings');
+                  }),
+                  title: Text(isAr ? 'الإعدادات' : 'Settings'),
+                  secondary: const Icon(Icons.settings_outlined),
+                  dense: true,
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(isAr ? 'إلغاء' : 'Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selected.isEmpty
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await authCubit
+                            .deleteSelectiveData(selected.toList());
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isAr
+                                    ? 'تم حذف البيانات المحددة بنجاح'
+                                    : 'Selected data deleted successfully',
+                                textAlign: TextAlign.center,
+                              ),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.all(16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isAr
+                                    ? 'حدث خطأ أثناء حذف البيانات'
+                                    : 'Error deleting data',
+                                textAlign: TextAlign.center,
+                              ),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.all(16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isAr ? 'حذف' : 'Delete'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmDeleteAccount(BuildContext context, bool isAr) {

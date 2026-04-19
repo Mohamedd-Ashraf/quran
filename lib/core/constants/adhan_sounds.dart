@@ -329,11 +329,13 @@ class SalawatSounds {
       nameAr: 'صلِّ على محمد ﷺ',
       nameEn: 'Salli Ala Muhammad',
     ),
-    SalawatSound(
-      id: 'salawat_2',
-      nameAr: 'اللهم صلِّ على محمد ﷺ',
-      nameEn: 'Allahumma Salli Ala Muhammad',
-    ),
+    // repeated 
+    // SalawatSound(
+    //   id: 'salawat_2',
+    //   nameAr: 'اللهم صلِّ على محمد ﷺ',
+    //   nameEn: 'Allahumma Salli Ala Muhammad',
+    // ),
+
     SalawatSound(
       id: 'salawat_3',
       nameAr: 'الصلاة على النبي ﷺ (رواية ١)',

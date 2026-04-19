@@ -45,25 +45,15 @@ export const processDataDeletionRequest = functions.firestore
         return;
       }
       
-      // Find user by email
-      const userSnapshot = await db.collection('users')
-        .where('email', '==', email)
-        .limit(1)
-        .get();
-      
-      if (userSnapshot.empty) {
+      // Find user by email using Firebase Auth (authoritative user lookup)
+      let userId: string;
+      try {
+        const userRecord = await admin.auth().getUserByEmail(email);
+        userId = userRecord.uid;
+      } catch (authError: any) {
+        console.log(`User not found in Firebase Auth for email ${email}: ${authError.code}`);
         await updateRequestStatus(requestId, 'failed', 'User not found');
-        // Still send email to user
         await sendNotificationEmail(email, 'error', language, 'User account not found in our system');
-        return;
-      }
-      
-      const userId = userSnapshot.docs[0].id;
-      const userEmail = userSnapshot.docs[0].get('email');
-      
-      // Verify email matches
-      if (userEmail.toLowerCase() !== email.toLowerCase()) {
-        await updateRequestStatus(requestId, 'failed', 'Email mismatch');
         return;
       }
       
@@ -119,7 +109,7 @@ async function deleteUserData(userId: string, dataTypes: string[]): Promise<stri
   
   // Normalize dataTypes - if "all" is included, delete everything
   const shouldDeleteAll = dataTypes.includes('all');
-  const finalTypes = shouldDeleteAll ? ['bookmarks', 'wird', 'settings', 'history'] : dataTypes;
+  const finalTypes = shouldDeleteAll ? ['bookmarks', 'wird', 'settings'] : dataTypes;
   
   for (const dataType of finalTypes) {
     try {
@@ -142,14 +132,6 @@ async function deleteUserData(userId: string, dataTypes: string[]): Promise<stri
           'appSettings.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
         }});
         deletedSections.push('settings');
-      } else if (dataType === 'history') {
-        // Delete reading/listening history
-        const historySnapshot = await userRef.collection('readingHistory').get();
-        historySnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
-        
-        const listeningSnapshot = await userRef.collection('listeningHistory').get();
-        listeningSnapshot.forEach(doc => operations.push({type: 'delete', ref: doc.ref}));
-        deletedSections.push('history');
       }
     } catch (error) {
       console.warn(`Warning deleting ${dataType} for user ${userId}:`, error);
@@ -213,7 +195,6 @@ async function sendNotificationEmail(
           'bookmarks': { ar: 'الإشارات المرجعية', en: 'Bookmarks' },
           'wird': { ar: 'الورد اليومي', en: 'Daily Wird' },
           'settings': { ar: 'الإعدادات الشخصية', en: 'Personal Settings' },
-          'history': { ar: 'تاريخ التلاوة', en: 'Recitation History' },
         };
         return `<li>${labels[item]?.[isArabic ? 'ar' : 'en'] || item}</li>`;
       })
@@ -339,3 +320,114 @@ async function sendAdminNotification(
     console.error(`Failed to send admin notification:`, error);
   }
 }
+
+/**
+ * Process full account deletion requests (deletes all data + Firebase Auth user)
+ * Triggered when a new document is added to account_deletion_requests collection
+ */
+export const processAccountDeletionRequest = functions.firestore
+  .document('account_deletion_requests/{docId}')
+  .onCreate(async (snap, context) => {
+    const requestData = snap.data();
+    const requestId = snap.id;
+    const accountRequestsRef = snap.ref;
+
+    const setStatus = (status: string, extra?: object) =>
+      accountRequestsRef.update({
+        status,
+        statusUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        ...extra,
+      });
+
+    try {
+      const { email, language } = requestData;
+      console.log(`Processing account deletion request ${requestId} for ${email}`);
+
+      if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        await setStatus('failed', { errorMessage: 'Invalid email format' });
+        return;
+      }
+
+      // Find user via Firebase Auth (authoritative lookup)
+      let userRecord: admin.auth.UserRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(email);
+      } catch (authError: any) {
+        console.log(`User not found for account deletion ${email}: ${authError.code}`);
+        await setStatus('failed', { errorMessage: 'User not found' });
+        await sendNotificationEmail(email, 'error', language,
+          'User account not found in our system');
+        return;
+      }
+
+      const userId = userRecord.uid;
+
+      // Delete all Firestore subcollections (bookmarks, wird, settings)
+      await deleteUserData(userId, ['all']);
+
+      // Delete the root user Firestore document
+      try {
+        await db.collection('users').doc(userId).delete();
+      } catch (e) {
+        console.warn(`Could not delete root user document for ${userId}:`, e);
+      }
+
+      // Delete the Firebase Auth account (point of no return)
+      await admin.auth().deleteUser(userId);
+
+      await setStatus('completed', {
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Send confirmation email
+      const isArabic = language === 'ar';
+      const subject = isArabic
+        ? 'تأكيد: تم حذف حسابك بنجاح - نور الإيمان'
+        : 'Confirmation: Your Account Has Been Deleted – Noor Al-Iman';
+      const htmlContent = isArabic
+        ? `<div style="direction:rtl;font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto;">
+            <h2 style="color:#667eea;">السلام عليكم ورحمة الله وبركاته</h2>
+            <p>تم حذف حسابك وجميع بياناتك بنجاح من تطبيق <strong>نور الإيمان</strong>.</p>
+            <h3 style="color:#d32f2f;">ما تم حذفه:</h3>
+            <ul>
+              <li>حسابك في Firebase (لن تتمكن من تسجيل الدخول بهذا البريد الإلكتروني مجدداً)</li>
+              <li>الإشارات المرجعية</li>
+              <li>بيانات الورد اليومي</li>
+              <li>الإعدادات الشخصية</li>
+            </ul>
+            <p style="margin-top:15px;">شكراً لك على استخدام تطبيق نور الإيمان. نسأل الله أن يتقبل منا ومنك.</p>
+          </div>`
+        : `<div style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto;">
+            <h2 style="color:#667eea;">Hello,</h2>
+            <p>Your account and all associated data have been <strong>permanently deleted</strong> from Noor Al-Iman.</p>
+            <h3 style="color:#d32f2f;">What was deleted:</h3>
+            <ul>
+              <li>Your Firebase authentication account (you can no longer sign in with this email)</li>
+              <li>All bookmarks</li>
+              <li>Daily Wird data</li>
+              <li>Personal settings</li>
+            </ul>
+            <p style="margin-top:15px;">Thank you for using Noor Al-Iman. May Allah accept from you.</p>
+          </div>`;
+
+      try {
+        await transporter.sendMail({
+          from: process.env.ADMIN_EMAIL || 'noreply@quran-app.com',
+          to: email,
+          subject,
+          html: htmlContent,
+        });
+      } catch (mailError) {
+        console.error(`Failed to send account deletion email to ${email}:`, mailError);
+      }
+
+      console.log(`Account deletion complete: request ${requestId}, uid ${userId}`);
+    } catch (error) {
+      console.error(`Error processing account deletion request ${requestId}:`, error);
+      try {
+        await setStatus('failed', {
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      } catch (_) { /* best-effort */ }
+    }
+  });

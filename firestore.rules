@@ -155,6 +155,40 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // ── Account deletion requests (delete-account page – full account wipe) ──
+    // Create-only endpoint used by /delete-account page.
+    // No dataTypes field – always deletes everything including the Auth user.
+    match /account_deletion_requests/{requestId} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'email',
+            'reason',
+            'language',
+            'source',
+            'status',
+            'app',
+            'clientTimestamp',
+            'userAgent',
+            'createdAt'
+          ])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 1000
+        && request.resource.data.language in ['ar', 'en']
+        && request.resource.data.source == 'public_account_deletion_form'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.app == 'Quraan - Noor Al-Iman'
+        && request.resource.data.clientTimestamp is string
+        && request.resource.data.clientTimestamp.size() <= 64
+        && request.resource.data.userAgent is string
+        && request.resource.data.userAgent.size() <= 512
+        && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
+    }
+
     // ── Default: deny everything else ─────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

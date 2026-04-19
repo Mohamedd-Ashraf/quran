@@ -78,6 +78,12 @@ class SettingsService {
   static const String _keySilentDelayMinutes    = 'silent_delay_minutes';
   static const String _keySilentDurationMinutes = 'silent_duration_minutes';
 
+  // ── Notification mode per reminder type ('both', 'sound_only', 'text_only') ──
+  static const String _keySalawatNotificationMode = 'salawat_notification_mode';
+  static const String _keyWirdNotificationMode = 'wird_notification_mode';
+  static const String _keyIqamaNotificationMode = 'iqama_notification_mode';
+  static const String _keyApproachingNotificationMode = 'approaching_notification_mode';
+
   // ── Per-prayer iqama minutes ──────────────────────────────────────────────
   static const String _keyIqamaMinutesFajr = 'iqama_minutes_fajr';
   static const String _keyIqamaMinutesDhuhr = 'iqama_minutes_dhuhr';
@@ -647,4 +653,26 @@ class SettingsService {
       await _prefs.setInt(_keyLastReadAyah, ayah);
     }
   }
+
+  // ── Notification mode per reminder type ──────────────────────────────────
+  // Values: 'both' (default), 'sound_only', 'text_only'
+  String getSalawatNotificationMode() =>
+      _prefs.getString(_keySalawatNotificationMode) ?? 'sound_only';
+  Future<bool> setSalawatNotificationMode(String v) =>
+      _prefs.setString(_keySalawatNotificationMode, v);
+
+  String getWirdNotificationMode() =>
+      _prefs.getString(_keyWirdNotificationMode) ?? 'both';
+  Future<bool> setWirdNotificationMode(String v) =>
+      _prefs.setString(_keyWirdNotificationMode, v);
+
+  String getIqamaNotificationMode() =>
+      _prefs.getString(_keyIqamaNotificationMode) ?? 'both';
+  Future<bool> setIqamaNotificationMode(String v) =>
+      _prefs.setString(_keyIqamaNotificationMode, v);
+
+  String getApproachingNotificationMode() =>
+      _prefs.getString(_keyApproachingNotificationMode) ?? 'both';
+  Future<bool> setApproachingNotificationMode(String v) =>
+      _prefs.setString(_keyApproachingNotificationMode, v);
 }

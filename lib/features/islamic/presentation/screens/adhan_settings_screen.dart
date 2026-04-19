@@ -93,6 +93,11 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
   // ── Salawat sound selection ────────────────────────────────────────────
   String _salawatSoundId = SalawatSounds.defaultId;
 
+  // ── Notification modes ('both', 'sound_only', 'text_only') ─────────────
+  String _salawatNotifMode    = 'sound_only';
+  String _iqamaNotifMode      = 'both';
+  String _approachingNotifMode = 'both';
+
   // ── Reminder sound volumes ─────────────────────────────────────────────
   double _salawatVolume     = 0.8;
   double _iqamaVolume       = 0.8;
@@ -292,6 +297,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _iqamaMinutesIsha    = _settings.getIqamaMinutesIsha();
       // Salawat sound
       _salawatSoundId = _settings.getSalawatSound();
+      // Notification modes
+      _salawatNotifMode    = _settings.getSalawatNotificationMode();
+      _iqamaNotifMode      = _settings.getIqamaNotificationMode();
+      _approachingNotifMode = _settings.getApproachingNotificationMode();
       // Reminder volumes
       _salawatVolume     = _settings.getSalawatVolume();
       _iqamaVolume       = _settings.getIqamaVolume();
@@ -782,6 +791,10 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
       _settings.setIqamaMinutesIsha(_iqamaMinutesIsha),
       // Salawat sound
       _settings.setSalawatSound(_salawatSoundId),
+      // Notification modes
+      _settings.setSalawatNotificationMode(_salawatNotifMode),
+      _settings.setIqamaNotificationMode(_iqamaNotifMode),
+      _settings.setApproachingNotificationMode(_approachingNotifMode),
       // Reminder volumes
       _settings.setSalawatVolume(_salawatVolume),
       _settings.setIqamaVolume(_iqamaVolume),
@@ -1406,6 +1419,15 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
                   _autoSave();
                 },
               ),
+              _buildDivider(),
+              _buildNotificationModePicker(
+                value: _approachingNotifMode,
+                onChanged: (v) {
+                  setState(() => _approachingNotifMode = v);
+                  _autoSave();
+                },
+                isAr: isAr,
+              ),
             ],
           ),
         ),
@@ -1430,7 +1452,20 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               : null,
           cardSurface: _cardSurface,
           cardBorder: _cardBorder,
-          body: _buildPerPrayerIqamaGrid(isAr),
+          body: Column(
+            children: [
+              _buildPerPrayerIqamaGrid(isAr),
+              _buildDivider(),
+              _buildNotificationModePicker(
+                value: _iqamaNotifMode,
+                onChanged: (v) {
+                  setState(() => _iqamaNotifMode = v);
+                  _autoSave();
+                },
+                isAr: isAr,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -1483,6 +1518,15 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
               ],
               _buildDivider(),
               _buildSalawatSoundPicker(isAr),
+              _buildDivider(),
+              _buildNotificationModePicker(
+                value: _salawatNotifMode,
+                onChanged: (v) {
+                  setState(() => _salawatNotifMode = v);
+                  _autoSave();
+                },
+                isAr: isAr,
+              ),
             ],
           ),
         ),
@@ -2092,6 +2136,100 @@ class _AdhanSettingsScreenState extends State<AdhanSettingsScreen>
 
   Widget _buildDivider() => Divider(
         height: 1, thickness: 1, color: _cardBorder, indent: 16, endIndent: 16);
+
+  // ─── Notification mode picker ────────────────────────────────────────────
+
+  Widget _buildNotificationModePicker({
+    required String value,
+    required ValueChanged<String> onChanged,
+    required bool isAr,
+  }) {
+    final options = [
+      ('both',       isAr ? 'صوت ونص' : 'Sound & Text',   Icons.notifications_active_rounded),
+      ('sound_only', isAr ? 'صوت فقط' : 'Sound Only',      Icons.volume_up_rounded),
+      ('text_only',  isAr ? 'نص فقط' : 'Text Only',        Icons.text_fields_rounded),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 18, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                isAr ? 'نوع الإشعار' : 'Notification Type',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: options.map((opt) {
+              final isSelected = value == opt.$1;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: opt.$1 == 'both' ? 0 : 4,
+                    right: opt.$1 == 'text_only' ? 0 : 4,
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => onChanged(opt.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade300,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            opt.$3,
+                            size: 18,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade500,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            opt.$2,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ─── Switch row ──────────────────────────────────────────────────────────
 

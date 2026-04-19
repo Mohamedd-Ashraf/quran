@@ -202,12 +202,38 @@ class AuthCubit extends Cubit<AuthState> {
 
   // ── Delete Account ──────────────────────────────────────────────────────
 
+  /// Selectively delete specific data types without deleting the account.
+  /// [dataTypes] can contain: 'bookmarks', 'wird', 'settings'
+  Future<void> deleteSelectiveData(List<String> dataTypes) async {
+    emit(state.copyWith(isLoading: true, clearError: true));
+    try {
+      final user = _authService.currentUser;
+      if (user == null || user.isAnonymous) {
+        throw Exception('User not authenticated');
+      }
+      await _syncService.deleteSelectiveData(user.uid, dataTypes);
+      emit(state.copyWith(isLoading: false));
+    } catch (e) {
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: _isAr
+            ? 'حدث خطأ أثناء حذف البيانات: $e'
+            : 'Error deleting data: $e',
+      ));
+    }
+  }
+
   Future<void> deleteAccount() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      final uid = await _authService.deleteAccount();
-      // Delete Firestore data after the auth account is removed.
-      await _syncService.deleteUserData(uid);
+      // Delete Firestore data FIRST while the user is still authenticated,
+      // because security rules require auth.uid == userId.
+      final user = _authService.currentUser;
+      if (user != null && !user.isAnonymous) {
+        await _syncService.deleteUserData(user.uid);
+      }
+      // Now delete the Firebase Auth account.
+      await _authService.deleteAccount();
       // _onAuthChanged(null) fires automatically via authStateChanges,
       // which transitions us to unauthenticated. No extra emit needed.
     } catch (e) {

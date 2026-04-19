@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../data/wird_service.dart';
+import '../../../core/services/settings_service.dart';
 
 /// Manages all local notifications for the daily Wird feature.
 ///
@@ -35,8 +36,9 @@ class WirdNotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin;
   final WirdService _wirdService;
+  final SettingsService _settingsService;
 
-  WirdNotificationService(this._plugin, this._wirdService);
+  WirdNotificationService(this._plugin, this._wirdService, this._settingsService);
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -262,12 +264,13 @@ class WirdNotificationService {
 
     final body = _pickRotating(
       _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_main_msg_counter');
+    final notifMode = _settingsService.getWirdNotificationMode();
 
     final isArabic = _wirdService.getAppLanguage() == 'ar';
     await _zonedScheduleSafe(
       id: _idMainReminder,
       title: isArabic ? '📖 حان وقت الورد اليومي' : '📖 Time for Your Daily Wird',
-      body: body,
+      body: notifMode == 'sound_only' ? '' : body,
       scheduledDate: scheduled,
       details: _buildDetails(isFollowUp: false, isArabic: isArabic),
       matchDateTimeComponents: DateTimeComponents.time,
@@ -316,12 +319,13 @@ class WirdNotificationService {
               'wird_urgent_msg_counter')
           : _pickRotating(_followUpBodiesAr, _followUpBodiesEn,
               'wird_followup_msg_counter');
+      final wirdNotifMode = _settingsService.getWirdNotificationMode();
 
       final isArabic = _wirdService.getAppLanguage() == 'ar';
       await _zonedScheduleSafe(
         id: _followUpIds[i],
         title: isArabic ? '🌙 تذكير: الورد اليومي' : '🌙 Reminder: Daily Wird',
-        body: body,
+        body: wirdNotifMode == 'sound_only' ? '' : body,
         scheduledDate: followUpTime,
         details: _buildDetails(isFollowUp: true, isArabic: isArabic),
       );
@@ -372,6 +376,8 @@ class WirdNotificationService {
 
   NotificationDetails _buildDetails({required bool isFollowUp, bool? isArabic}) {
     final ar = isArabic ?? (_wirdService.getAppLanguage() == 'ar');
+    final notifMode = _settingsService.getWirdNotificationMode();
+    final shouldPlaySound = notifMode != 'text_only';
     return NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -379,7 +385,7 @@ class WirdNotificationService {
         channelDescription: _channelDescription,
         importance: Importance.high,
         priority: Priority.high,
-        playSound: true,          // device default sound
+        playSound: shouldPlaySound,
         enableVibration: true,
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
@@ -391,9 +397,9 @@ class WirdNotificationService {
         ongoing: false,
         autoCancel: true,
       ),
-      iOS: const DarwinNotificationDetails(
+      iOS: DarwinNotificationDetails(
         presentAlert: true,
-        presentSound: true,
+        presentSound: shouldPlaySound,
         presentBadge: true,
         interruptionLevel: InterruptionLevel.timeSensitive,
       ),
