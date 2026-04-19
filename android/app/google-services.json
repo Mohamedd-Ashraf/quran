@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "1039427063284-b7s0ig1pt4mfea3fpo3s4scar1ib87k0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.quraan",
+            "certificate_hash": "77245632b537bfbe211d3b966ad60c2ee059209f"
+          }
+        },
+        {
           "client_id": "1039427063284-eejagcv1hsnco8k56qb711g7q2juvl0v.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.quraan",
             "certificate_hash": "68b42abbc8cceaae2baab694c8a1e41ba0fa87d6"
+          }
+        },
+        {
+          "client_id": "1039427063284-kk7ndthb48itdmpt4ovutbljm1usau9n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.quraan",
+            "certificate_hash": "418fc0c70e346475f1f8f1e0d48ba0aa0dfc1814"
           }
         },
         {
@@ -71,6 +87,22 @@
           "android_info": {
             "package_name": "com.nooraliman.quran",
             "certificate_hash": "68b42abbc8cceaae2baab694c8a1e41ba0fa87d6"
+          }
+        },
+        {
+          "client_id": "1039427063284-i1hlhtu6uk5l2tq5vqkip8m8a8qa7sl0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nooraliman.quran",
+            "certificate_hash": "418fc0c70e346475f1f8f1e0d48ba0aa0dfc1814"
+          }
+        },
+        {
+          "client_id": "1039427063284-pd6svuf9apsicnvlme4lvgvdk88dooav.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nooraliman.quran",
+            "certificate_hash": "aa5da81217995d248e4844639d1664f6d9436298"
           }
         },
         {

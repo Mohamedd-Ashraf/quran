@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/islamic_logo.dart';
 
@@ -14,24 +15,32 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+
+  bool get isAr => Localizations.localeOf(context).languageCode == 'ar';
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1800),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeIn,
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+    );
+    _slideAnimation = Tween<double>(begin: 24, end: 0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.9, curve: Curves.easeOut),
+      ),
     );
 
     _controller.forward();
-    
-    // Auto-navigate after delay
+
     Future.delayed(const Duration(seconds: 3), () {
-      widget.onFinish();
+      if (mounted) widget.onFinish();
     });
   }
 
@@ -44,40 +53,101 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final Color bg = isDark ? AppColors.darkBackground : AppColors.background;
+    final Color accent = isDark ? AppColors.primary.withOpacity(0.12) : AppColors.primary.withOpacity(0.07);
+
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IslamicLogo(
-                size: 240,
-                darkTheme: isDark,
-              ),
-              const SizedBox(height: 40),
-              Text(
-                'القرآن الكريم',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Amiri', // Assuming Amiri is loaded or fallback
+      backgroundColor: bg,
+      body: Stack(
+        children: [
+          // Subtle radial glow behind logo
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.15),
+                  radius: 0.75,
+                  colors: [accent, Colors.transparent],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'The Holy Quran',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IslamicLogo(size: 220, darkTheme: isDark),
+                        const SizedBox(height: 36),
+                        // Decorative divider
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _dividerLine(),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(Icons.star_rounded, size: 10, color: AppColors.primary.withOpacity(0.6)),
+                            ),
+                            _dividerLine(),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          isAr ? 'نور الإيمان' : 'Noor Al-Imaan',
+                          style: GoogleFonts.arefRuqaa(
+                            fontSize: 38,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          isAr ? 'قرآن وأذان' : 'Quran & Adhan',
+                          style: GoogleFonts.arefRuqaa(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 36),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _dividerLine(),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(Icons.star_rounded, size: 10, color: AppColors.primary.withOpacity(0.6)),
+                            ),
+                            _dividerLine(),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
+
+  Widget _dividerLine() => Container(
+        width: 48,
+        height: 1,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.transparent, AppColors.primary.withOpacity(0.4), Colors.transparent],
+          ),
+        ),
+      );
 }
