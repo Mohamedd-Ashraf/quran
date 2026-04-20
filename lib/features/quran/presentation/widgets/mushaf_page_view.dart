@@ -1945,6 +1945,10 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                             widget.isAr ? 'ar' : 'en',
                           ) ??
                           currentId;
+                      final isQ = edition != null &&
+                          (currentId.startsWith('ar.qiraat.') ||
+                              const {'ar.warsh.ibrahimdosary', 'ar.warsh.yassinjazaery', 'ar.warsh.abdulbasit'}
+                                  .contains(currentId));
                       return Row(
                         children: [
                           Expanded(
@@ -1959,6 +1963,29 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
                                     fontSize: 12,
                                   ),
                                 ),
+                                if (isQ)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: AppColors.secondary
+                                            .withValues(alpha: 0.12),
+                                      ),
+                                      child: Text(
+                                        widget.isAr
+                                            ? 'سورة كاملة'
+                                            : 'Full surah',
+                                        style: GoogleFonts.arefRuqaa(
+                                          fontSize: 9.5,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -2135,11 +2162,60 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
   late String _selected;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  String _langFilter = 'all';
+
+  static const _warshIds = {
+    'ar.warsh.ibrahimdosary',
+    'ar.warsh.yassinjazaery',
+    'ar.warsh.abdulbasit',
+  };
+
+  /// Returns true for ALL alternative Qira'at readings (both surah-level and per-ayah).
+  /// Used for the "القراءات العشر" tab filter.
+  static bool _isQiraat(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.') ||
+      _warshIds.contains(e.identifier) ||
+      (e.name ?? '').contains('ورش') ||
+      (e.englishName ?? '').toLowerCase().contains('warsh');
+
+  /// Returns true ONLY for editions that store one file per surah (mp3quran.net).
+  /// ar.warsh.* reciters are per-ayah (everyayah.com) — NOT surah-level.
+  /// Used for the "سورة كاملة" badge.
+  static bool _isSurahLevelOnly(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.');
+
+  List<AudioEdition> _applyFilter(List<AudioEdition> src) {
+    List<AudioEdition> list;
+    if (_langFilter == 'qiraat') {
+      list = src.where(_isQiraat).toList();
+    } else if (_langFilter == 'ar') {
+      list = src.where((e) => e.language == 'ar').toList();
+    } else if (_langFilter == 'other') {
+      list = src.where((e) => e.language != 'ar').toList();
+    } else {
+      list = src;
+    }
+    if (_query.isEmpty) return list;
+    final q = _query;
+    return list
+        .where((e) =>
+            e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
+                .toLowerCase()
+                .contains(q) ||
+            e.identifier.toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _selected = widget.currentEdition;
+    // Open the Qira'at tab if the currently-selected edition is a Qira'at.
+    final sel = widget.all
+        .where((e) => e.identifier == widget.currentEdition)
+        .cast<AudioEdition?>()
+        .firstOrNull;
+    if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
     });
@@ -2149,6 +2225,38 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required Color accent,
+    required Color surfaceColor,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? accent : surfaceColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? accent : accent.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.cairo(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? Colors.white : textColor,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -2167,15 +2275,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
     final arReciters = widget.all.where((e) => e.language == 'ar').toList();
     final others = widget.all.where((e) => e.language != 'ar').toList();
     final all = [...arReciters, ...others];
-
-    final filtered = _query.isEmpty
-        ? all
-        : all.where((e) {
-            final name = e
-                .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
-                .toLowerCase();
-            return name.contains(_query);
-          }).toList();
+    final filtered = _applyFilter(all);
 
     return SafeArea(
       child: Directionality(
@@ -2288,6 +2388,87 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                     ? Colors.white.withValues(alpha: 0.08)
                     : Colors.black.withValues(alpha: 0.06),
               ),
+              // ── Filter chips ──────────────────────────────────────────
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildFilterChip(
+                      label: widget.isAr ? 'الكل' : 'All',
+                      selected: _langFilter == 'all',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'all'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'القراءات العشر' : "Qira'at",
+                      selected: _langFilter == 'qiraat',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'qiraat'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'العربية' : 'Arabic',
+                      selected: _langFilter == 'ar',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'ar'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'أخرى' : 'Other',
+                      selected: _langFilter == 'other',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'other'),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.black.withValues(alpha: 0.04),
+              ),
+              // ── Qira'at info banner ───────────────────────────────────
+              if (_langFilter == 'qiraat')
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: accent.withValues(alpha: 0.08),
+                    border: Border.all(color: accent.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 15, color: accent),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          widget.isAr
+                              ? 'هذه التلاوات تعمل بمستوى السورة الكاملة — لا يمكن الانتقال بين الآيات منفردة'
+                              : 'These recitations play the full surah — per-ayah seeking is not available',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            color: accent.withValues(alpha: 0.90),
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.50,
@@ -2339,17 +2520,65 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        name,
-                                        style: GoogleFonts.cairo(
-                                          fontSize: 13.5,
-                                          color: isSelected
-                                              ? accent
-                                              : textColor,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            name,
+                                            style: GoogleFonts.cairo(
+                                              fontSize: 13.5,
+                                              color: isSelected
+                                                  ? accent
+                                                  : textColor,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (_isSurahLevelOnly(e))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 3),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  color: accent.withValues(alpha: 0.12),
+                                                ),
+                                                child: Text(
+                                                  widget.isAr ? 'سورة كاملة' : 'Full surah',
+                                                  style: GoogleFonts.cairo(
+                                                    fontSize: 9.5,
+                                                    color: accent,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          else if (_warshIds.contains(e.identifier))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 3),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  color: AppColors.primaryLight.withValues(alpha: 0.12),
+                                                ),
+                                                child: Text(
+                                                  widget.isAr ? 'آية بآية' : 'Per-ayah',
+                                                  style: GoogleFonts.cairo(
+                                                    fontSize: 9.5,
+                                                    color: AppColors.primaryLight,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                     if (isSelected)

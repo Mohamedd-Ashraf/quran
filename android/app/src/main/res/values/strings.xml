@@ -22,4 +22,11 @@
     <string name="adhkar_widget_dark_description">Dark style post-prayer adhkar counter for your home screen.</string>
     <string name="adhkar_widget_light_label">أذكار الصلاة (فاتح)</string>
     <string name="adhkar_widget_light_description">Light style post-prayer adhkar counter for your home screen.</string>
+    <!-- Hijri Calendar Widget -->
+    <string name="hijri_widget_label">التقويم الهجري</string>
+    <string name="hijri_widget_description">تقويم هجري شهري مصغر يعرض أيام الشهر الحالي مع تمييز اليوم والمناسبات الإسلامية.</string>
+    <string name="hijri_widget_dark_label">التقويم الهجري (ليلي)</string>
+    <string name="hijri_widget_dark_description">تقويم هجري شهري بالوضع الليلي.</string>
+    <string name="hijri_widget_light_label">التقويم الهجري (فاتح)</string>
+    <string name="hijri_widget_light_description">تقويم هجري شهري بالوضع الفاتح.</string>
 </resources>

@@ -147,7 +147,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         Text(
                           _isAr(context) ? 'خطوط القرآن الكريم' : 'Quran Fonts',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.tajawal(
+                          style: GoogleFonts.cairo(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
                             color: _kGold,
@@ -165,7 +165,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                         Text(
                           _isAr(context) ? 'تحميل خطوط المصحف المدني' : 'Download Medina Mushaf Fonts',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.tajawal(
+                          style: GoogleFonts.cairo(
                             fontSize: 15,
                             color: _kGoldLight.withValues(alpha: 0.75),
                           ),
@@ -186,7 +186,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                               'download font files once. They are stored on your device for '
                               'offline use.',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.tajawal(
+                          style: GoogleFonts.cairo(
                             fontSize: 14,
                             color: _kCream.withValues(alpha: 0.8),
                             height: 1.75,
@@ -214,7 +214,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                               const SizedBox(width: 8),
                               Text(
                                 _isAr(context) ? 'الحجم التقريبي: ٦٥ ميجابايت (تحميل لمرة واحدة)' : 'Approx. size: 65 MB (one-time download)',
-                                style: GoogleFonts.tajawal(
+                                style: GoogleFonts.cairo(
                                   fontSize: 13,
                                   color: _kGoldLight.withValues(alpha: 0.85),
                                 ),
@@ -255,7 +255,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                                 Expanded(
                                   child: Text(
                                     _isAr(context) ? 'فشل التحميل - تحقق من الاتصال بالإنترنت' : 'Download failed - check your internet connection',
-                                    style: GoogleFonts.tajawal(
+                                    style: GoogleFonts.cairo(
                                       color: Colors.redAccent.shade100,
                                       fontSize: 13,
                                     ),
@@ -292,7 +292,7 @@ class _QcfFontDownloadScreenState extends State<QcfFontDownloadScreen>
                               child: Text(
                                 _isAr(context) ? 'لاحقاً - تصفح القرآن بالعرض المبسّط' : 'Later - Browse Quran in Simplified View',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.tajawal(
+                                style: GoogleFonts.cairo(
                                   fontSize: 13,
                                   color: _kSubText,
                                   decoration: TextDecoration.underline,
@@ -506,7 +506,7 @@ class _ProgressSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     isDone ? 'اكتمل التحميل ✓' : phase,
-                    style: GoogleFonts.tajawal(
+                    style: GoogleFonts.cairo(
                       fontSize: 13,
                       color: isDone ? _kGold : _kCream.withValues(alpha: 0.85),
                       fontWeight: isDone ? FontWeight.w700 : FontWeight.normal,
@@ -515,7 +515,7 @@ class _ProgressSection extends StatelessWidget {
                 ),
                 Text(
                   '$percent%',
-                  style: GoogleFonts.tajawal(
+                  style: GoogleFonts.cairo(
                     fontSize: 13,
                     color: _kGoldLight,
                     fontWeight: FontWeight.w700,
@@ -569,7 +569,7 @@ class _ProgressSection extends StatelessWidget {
           Text(
             '$done / $pending صفحة',
             textAlign: TextAlign.center,
-            style: GoogleFonts.tajawal(
+            style: GoogleFonts.cairo(
               fontSize: 12,
               color: _kSubText,
             ),
@@ -647,7 +647,7 @@ class _GoldButton extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       label,
-                      style: GoogleFonts.tajawal(
+                      style: GoogleFonts.cairo(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: onTap != null

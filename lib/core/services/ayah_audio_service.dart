@@ -66,6 +66,19 @@ const Map<String, String> _everyAyahFolders = {
   'ar.mahmoudbanna':        'mahmoud_ali_al_banna_32kbps',       // محمود علي البنا
   'ar.alisuesy':            'Ali_Hajjaj_AlSuesy_128kbps',        // علي حجاج السويسي
   'ar.karimmansoori':       'Karim_Mansoori_40kbps',             // كريم منصوري
+  // ─── قراء إضافيون جدد ──────────────────────────────────────────────────────
+  'ar.abdullahmatroud':     'Abdullah_Matroud_128kbps',          // عبدالله مطرود
+  'ar.ahmedneana':          'Ahmed_Neana_128kbps',               // أحمد نعينع
+  'ar.akramalalaqimy':      'Akram_AlAlaqimy_128kbps',           // أكرم العلاقمي
+  'ar.husarymuallim':       'Husary_Muallim_128kbps',            // الحصري (معلم)
+  'ar.mahermuaiqly128':     'MaherAlMuaiqly128kbps',             // ماهر المعيقلي (128kbps)
+  'ar.muhammadabdulkareem': 'Muhammad_AbdulKareem_128kbps',      // محمد عبدالكريم
+  'ar.minshawiteacher':     'Minshawy_Teacher_128kbps',          // المنشاوي (معلم)
+  'ar.azizalili':           'aziz_alili_128kbps',                // عزيز عليلي
+  // ─── قراءة ورش عن نافع ─────────────────────────────────────────────────────
+  'ar.warsh.ibrahimdosary': 'warsh/warsh_ibrahim_aldosary_128kbps', // إبراهيم الدوسري (ورش)
+  'ar.warsh.yassinjazaery': 'warsh/warsh_yassin_al_jazaery_64kbps', // ياسين الجزائري (ورش)
+  'ar.warsh.abdulbasit':    'warsh/warsh_Abdul_Basit_128kbps',      // عبد الباسط (ورش)
 };
 
 const Map<String, int> _everyAyahBitratesKbps = {
@@ -108,6 +121,49 @@ const Map<String, int> _everyAyahBitratesKbps = {
   'ar.mahmoudbanna':         32,
   'ar.alisuesy':            128,
   'ar.karimmansoori':        40,
+  'ar.abdullahmatroud':     128,
+  'ar.ahmedneana':          128,
+  'ar.akramalalaqimy':      128,
+  'ar.husarymuallim':       128,
+  'ar.mahermuaiqly128':     128,
+  'ar.muhammadabdulkareem': 128,
+  'ar.minshawiteacher':     128,
+  'ar.azizalili':           128,
+  'ar.warsh.ibrahimdosary': 128,
+  'ar.warsh.yassinjazaery':  64,
+  'ar.warsh.abdulbasit':    128,
+};
+
+/// Maps edition identifiers (for the 10 Qira'at) to their mp3quran.net server URLs.
+/// URL format: {server}{surah3}{ayah3}.mp3  — the server string already includes a trailing slash.
+/// Source: https://mp3quran.net/api/v3/reciters
+const Map<String, String> _mp3QuranServers = {
+  // ── نافع المدني: قالون (عبد الرؤوف الترابلسي) ────────────────────────────
+  'ar.qiraat.qalon':        'https://server10.mp3quran.net/trablsi/',
+  // ── ابن كثير المكي: البزي (على دبان) ────────────────────────────────────
+  'ar.qiraat.bazi':         'https://server16.mp3quran.net/deban/Rewayat-Albizi-A-n-Ibn-Katheer/',
+  // ── ابن كثير المكي: قنبل (على دبان) ────────────────────────────────────
+  'ar.qiraat.qunbol':       'https://server16.mp3quran.net/deban/Rewayat-Qunbol-A-n-Ibn-Katheer/',
+  // ── أبو عمرو البصري: الدوري (على دبان) ─────────────────────────────────
+  'ar.qiraat.duri.abuamr':  'https://server16.mp3quran.net/deban/Rewayat-Aldori-A-n-Abi-Amr/',
+  // ── ابن عامر الشامي: ابن ذكوان (مفتاح السلطاني) ─────────────────────────
+  'ar.qiraat.ibndhakwan':   'https://server14.mp3quran.net/muftah_sultany/Rewayat_Ibn-Thakwan-A-n-Ibn-Amer/',
+  // ── عاصم الكوفي: شعبة (على دبان) ────────────────────────────────────────
+  'ar.qiraat.shuba':        'https://server16.mp3quran.net/deban/Rewayat-Sho-bah-A-n-Asim/',
+  // ── الكسائي الكوفي: الدوري (مفتاح السلطاني) ─────────────────────────────
+  'ar.qiraat.duri.kisai':   'https://server14.mp3quran.net/muftah_sultany/Rewayat-AlDorai-A-n-Al-Kisa-ai/',
+  // ── نافع المدني: ورش من طريق الأزرق (على دبان) ──────────────────────────
+  'ar.qiraat.warsh.azraq':  'https://server16.mp3quran.net/deban/Rewayat-Warsh-A-n-Nafi-Men-Tariq-Alazraq/',
+  // ── أبو عمرو البصري: السوسي (عبدالرشيد الصوفي) ──────────────────────────
+  'ar.qiraat.sosi.abuamr':  'https://server16.mp3quran.net/soufi/Rewayat-Assosi-A-n-Abi-Amr/',
+  // ── حمزة الكوفي: خلف (عبدالرشيد الصوفي) ─────────────────────────────────
+  'ar.qiraat.khalaf.hamza': 'https://server16.mp3quran.net/soufi/Rewayat-Khalaf-A-n-Hamzah/',
+  // ── نافع المدني: قالون (محمود خليل الحصري) ──────────────────────────────
+  'ar.qiraat.husary.qalon': 'https://server13.mp3quran.net/husr/Rewayat-Qalon-A-n-Nafi/',
+  // ── نافع المدني: ورش (محمود خليل الحصري) ────────────────────────────────
+  'ar.qiraat.husary.warsh': 'https://server13.mp3quran.net/husr/Rewayat-Warsh-A-n-Nafi/',
+  // ── أبو عمرو البصري: الدوري (محمود خليل الحصري) ─────────────────────────
+  'ar.qiraat.husary.duri':  'https://server13.mp3quran.net/husr/Rewayat-Aldori-A-n-Abi-Amr/',
 };
 
 class MergedSurahAudio {
@@ -134,6 +190,11 @@ class AyahAudioService {
 
   int? get currentEditionBitrateKbps => _everyAyahBitratesKbps[currentEdition];
 
+  /// True when the currently selected edition stores ONE file per surah
+  /// (mp3quran.net 10-Qira'at editions).  Per-ayah playback is not possible
+  /// with these sources; callers should redirect to surah-level playback.
+  bool get isSurahLevelEdition => _mp3QuranServers.containsKey(currentEdition);
+
   String _key(int surahNumber, int ayahNumber, String edition) => '$edition:$surahNumber:$ayahNumber';
 
   String _surahKey(int surahNumber, String edition) => '$edition:$surahNumber';
@@ -146,6 +207,19 @@ class AyahAudioService {
     final s = surahNumber.toString().padLeft(3, '0');
     final a = ayahNumber.toString().padLeft(3, '0');
     return Uri.parse('https://everyayah.com/data/$folder/$s$a.mp3');
+  }
+
+  /// Builds an mp3quran.net surah-level URL for a 10-Qira'at edition.
+  /// mp3quran.net stores ONE file per surah (001.mp3, 002.mp3, …),
+  /// NOT per-ayah files. Playback starts from the beginning of the surah.
+  /// Returns null if the edition is not in [_mp3QuranServers].
+  Uri? _buildMp3QuranUri(int surahNumber, int ayahNumber, String edition) {
+    final server = _mp3QuranServers[edition];
+    if (server == null) return null;
+    final s = surahNumber.toString().padLeft(3, '0');
+    // mp3quran.net stores whole-surah files: 001.mp3 = full Surah 1, etc.
+    // Per-ayah files (001001.mp3) do NOT exist on this server.
+    return Uri.parse('$server$s.mp3');
   }
 
   Future<List<Uri>> _fetchSurahAyahAudioUris({
@@ -218,6 +292,13 @@ class AyahAudioService {
       return AyahAudioSource.remote(directUri);
     }
 
+    // Try mp3quran.net for Qira'at editions not on everyayah.com.
+    final mp3QuranUri = _buildMp3QuranUri(surahNumber, ayahNumber, edition);
+    if (mp3QuranUri != null) {
+      _urlCache[cacheKey] = mp3QuranUri;
+      return AyahAudioSource.remote(mp3QuranUri);
+    }
+
     // Fall back to alquran.cloud API for editions not on everyayah.com.
     final reference = '$surahNumber:$ayahNumber';
     final uri = Uri.parse(
@@ -252,6 +333,26 @@ class AyahAudioService {
     required int numberOfAyahs,
   }) async {
     final edition = _offlineAudio.edition;
+
+    // ── Surah-level editions (mp3quran.net) ──────────────────────────────────
+    // These servers store ONE file per surah (001.mp3 = full Surah 1).
+    // Return a single-item list so the player plays the surah file once
+    // rather than replaying it once per ayah.
+    if (_mp3QuranServers.containsKey(edition)) {
+      // Prefer local surah file (stored as ayah_1.mp3 for these editions).
+      final local = await _offlineAudio.getLocalAyahAudioFile(
+        surahNumber: surahNumber,
+        ayahNumber: 1,
+      );
+      if (local != null) {
+        return [AyahAudioSource.local(local.path)];
+      }
+      if (!await _networkInfo.isConnected) {
+        throw Exception('No internet connection and surah audio is not downloaded.');
+      }
+      final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+      return [AyahAudioSource.remote(surahUri)];
+    }
 
     // 1) Always prefer local files when available – the 'enabled' flag only
     //    controls the UI, not whether we serve files that are already on disk.

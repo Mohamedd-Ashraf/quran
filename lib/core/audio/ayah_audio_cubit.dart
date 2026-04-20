@@ -11,6 +11,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 
 import '../services/ayah_audio_service.dart';
 import '../services/adhan_notification_service.dart';
+import '../services/offline_audio_service.dart';
 import '../di/injection_container.dart' as di;
 import '../services/settings_service.dart';
 
@@ -195,9 +196,6 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Suppresses spurious `ProcessingState.completed` events that just_audio
   /// fires during the internal FLUSHING/RESUMING cycle of a seek operation.
   bool _isSeeking = false;
-  // ── Notification artwork URIs (android.resource:// — always available) ────
-  Uri? _telawaArtUri;
-  Uri? _radioArtUri;
   AyahAudioCubit(this._service, this._adhanService)
     : _player = AudioPlayer(),
       super(const AyahAudioState.idle()) {
@@ -214,21 +212,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     return isAr ? 'سورة $surahNumber' : 'Surah $surahNumber';
   }
 
-  /// Returns a URI for notification artwork.
-  /// On Android uses android.resource:// URIs pointing to baked-in APK
-  /// drawables — these are always available and never cleared by the OS.
-  Uri? _artworkUri(String drawableName) {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return Uri.parse(
-          'android.resource://com.nooraliman.quran/drawable/$drawableName');
-    }
-    return null;
-  }
-
   Future<void> _init() async {
-    // Resolve notification artwork from baked-in APK drawable resources.
-    _telawaArtUri = _artworkUri('tilawa_art');
-    _radioArtUri  = _artworkUri('radio_art');
 
     try {
       final session = await AudioSession.instance;
@@ -361,6 +345,11 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
   Stream<Duration> get bufferedPositionStream => _player.bufferedPositionStream;
+
+  /// True when the active edition only provides surah-level audio (the 10
+  /// Qira'at editions served by mp3quran.net). No individual ayah files exist
+  /// for these; any ayah tap redirects to full-surah playback.
+  bool get isSurahLevelEdition => _service.isSurahLevelEdition;
 
   // ── Playlist-aware streams ───────────────────────────────────────────────
 
@@ -531,6 +520,26 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int ayahNumber,
   }) async {
+    // ── Surah-level editions (10-Qira'at from mp3quran.net) ─────────────────
+    // These editions have no per-ayah audio; tapping an ayah plays the whole
+    // surah.  Toggle pause/resume if the same surah is already playing;
+    // otherwise start the surah from the beginning.
+    if (_service.isSurahLevelEdition) {
+      if (state.mode == AyahAudioMode.surah &&
+          state.surahNumber == surahNumber) {
+        if (_player.playing) {
+          await pause();
+          return;
+        }
+        if (state.status == AyahAudioStatus.paused) {
+          await resume();
+          return;
+        }
+      }
+      await playAyah(surahNumber: surahNumber, ayahNumber: ayahNumber);
+      return;
+    }
+
     if (state.mode == AyahAudioMode.ayah &&
         state.isCurrent(surahNumber, ayahNumber)) {
       if (_player.playing) {
@@ -569,6 +578,21 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int ayahNumber,
   }) async {
+    // ── Surah-level editions (10-Qira'at from mp3quran.net) ─────────────────
+    // No per-ayah source exists for these editions; redirect to surah mode so
+    // the player correctly plays the full surah file once rather than looping
+    // it under a misleading 'ayah' state.
+    if (_service.isSurahLevelEdition) {
+      _surahQueue = [];
+      _surahQueueIndex = 0;
+      final numberOfAyahs = OfflineAudioService.getAyahCount(surahNumber);
+      await _playSurahInternal(
+        surahNumber: surahNumber,
+        numberOfAyahs: numberOfAyahs,
+      );
+      return;
+    }
+
     // Clear any active queue when playing a single ayah.
     _surahQueue = [];
     _surahQueueIndex = 0;
@@ -600,7 +624,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
         album: _surahNameFor(surahNumber),
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-        artUri: _telawaArtUri,
+        artUri: null,
       );
       if (source.isLocal) {
         await _player.setAudioSource(
@@ -656,7 +680,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         title: title,
         album: subtitle,
         artist: subtitle,
-        artUri: _radioArtUri,
+        artUri: null,
         extras: const {'isLive': true},
       );
       await _player.setAudioSource(
@@ -806,6 +830,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         numberOfAyahs: numberOfAyahs,
       );
 
+      // Surah-level editions (e.g. 10-Qira'at from mp3quran.net) return a
+      // single-item list (one file = entire surah). Re-sync the playlist
+      // tracking so the cubit does not expect N individual items.
+      if (sources.length != numberOfAyahs) {
+        _resetPlaylistTracking(sources.length);
+      }
+
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
       final children = <AudioSource>[];
       for (var i = 0; i < sources.length; i++) {
@@ -817,7 +848,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           title: _surahNameFor(surahNumber),
           album: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-          artUri: _telawaArtUri,
+          artUri: null,
         );
         if (s.isLocal) {
           children.add(AudioSource.file(s.localFilePath!, tag: mediaItem));
@@ -876,6 +907,19 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     int queueIndex = 0,
     int queueTotal = 0,
   }) async {
+    // ── Surah-level editions (10-Qira'at from mp3quran.net) ──────────────────
+    // No per-ayah source; redirect to full-surah playback.
+    if (_service.isSurahLevelEdition) {
+      final numberOfAyahs = OfflineAudioService.getAyahCount(surahNumber);
+      await _playSurahInternal(
+        surahNumber: surahNumber,
+        numberOfAyahs: numberOfAyahs,
+        queueIndex: queueIndex,
+        queueTotal: queueTotal,
+      );
+      return;
+    }
+
     // Stop Adhan (await so native stop completes before audio starts).
     await _adhanService.stopCurrentAdhan();
     if (!_initialized) {
@@ -908,7 +952,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
           album: _surahNameFor(surahNumber),
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-          artUri: _telawaArtUri,
+          artUri: null,
         );
         if (source.isLocal) {
           children.add(

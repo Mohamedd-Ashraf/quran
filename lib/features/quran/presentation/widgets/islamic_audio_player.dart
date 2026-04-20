@@ -178,15 +178,19 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
         final queueSuffix = audioState.isQueueMode
             ? ' (${audioState.queueIndex + 1}/${audioState.queueTotal})'
             : '';
-        final ayahLabel = !isRadioMode && playingAyahNumber != null
+        final isSurahLevel = cubit.isSurahLevelEdition;
+        final ayahLabel = !isRadioMode && !isSurahLevel && playingAyahNumber != null
             ? ' \u2022 ${isArabicUi ? '\u0622\u064a\u0629 $playingAyahNumber' : 'Ayah $playingAyahNumber'}'
+            : '';
+        final surahLevelSuffix = !isRadioMode && isSurahLevel
+            ? ' \u2022 ${isArabicUi ? 'سورة كاملة' : 'Full Surah'}'
             : '';
         final radioSuffix = isRadioMode
           ? ' \u2022 ${isArabicUi ? 'بث مباشر' : 'Live Stream'}'
           : '';
         final titleText = isRadioMode
           ? '$surahName$radioSuffix'
-          : '$surahName$queueSuffix$ayahLabel';
+          : '$surahName$queueSuffix$ayahLabel$surahLevelSuffix';
 
         // ── Collapsed mini pill ──────────────────────────────────────────
         if (_collapsed) {
@@ -536,6 +540,45 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                           ),
 
                           const SizedBox(height: 4),
+
+                          // ── Qira'at info note ──────────────────────────
+                          if (!isRadioMode && isSurahLevel)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2, bottom: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: AppColors.secondary.withValues(alpha: 0.10),
+                                  border: Border.all(
+                                    color: AppColors.secondary.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_stories_rounded,
+                                      size: 13,
+                                      color: AppColors.secondary.withValues(alpha: 0.85),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      isArabicUi
+                                          ? '\u0627\u0644\u0642\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0639\u0634\u0631 \u2014 \u064a\u0634\u062a\u063a\u0644 \u0643\u0633\u0648\u0631\u0629 \u0643\u0627\u0645\u0644\u0629'
+                                          : "Qira'at \u2014 plays as full surah",
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primary.withValues(alpha: 0.80),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
 
                           if (isRadioMode)
                             Padding(

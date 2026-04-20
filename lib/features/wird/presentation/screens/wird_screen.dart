@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getPageNumber;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../quran/data/models/juz_data.dart';
@@ -1800,6 +1801,86 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showWirdOnboardingIfNeeded());
+  }
+
+  /// One-time smart onboarding: explains starting-point feature.
+  Future<void> _showWirdOnboardingIfNeeded() async {
+    final prefs = di.sl<SharedPreferences>();
+    const key = 'wird_onboarding_shown';
+    if (prefs.getBool(key) == true) return;
+    await prefs.setBool(key, true);
+
+    if (!mounted) return;
+    final isAr = widget.isAr;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Directionality(
+        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+          title: Row(
+            children: [
+              Icon(Icons.lightbulb_outline_rounded,
+                  color: AppColors.secondary, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isAr ? 'نصيحة ذكية' : 'Smart Tip',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _OnboardingTipRow(
+                icon: Icons.pin_drop_rounded,
+                text: isAr
+                    ? 'إذا فاتك ورد أو بدأت القراءة في مكان آخر، يمكنك تحديد نقطة البداية اللي تكمل منها.'
+                    : 'If you missed your wird or started reading elsewhere, you can set a custom starting point to continue from.',
+                isDark: isDark,
+              ),
+              const SizedBox(height: 14),
+              _OnboardingTipRow(
+                icon: Icons.arrow_downward_rounded,
+                text: isAr
+                    ? 'ستجد خيار «تحديد نقطة البداية» في أسفل صفحة الورد.'
+                    : 'You\'ll find "Set Starting Point" at the bottom of the Wird page.',
+                isDark: isDark,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                isAr ? 'فهمت' : 'Got it',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   void didUpdateWidget(_ActivePlanView old) {
     super.didUpdateWidget(old);
     final today = widget.plan.currentDay;
@@ -2047,10 +2128,21 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           const SizedBox(height: 18),
 
           Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (!plan.isComplete) ...[
+                  TextButton.icon(
+                    onPressed: () => _showSetStartingPointDialog(context),
+                    icon: const Icon(Icons.pin_drop_rounded, size: 16),
+                    label: Text(isAr ? 'تحديد نقطة البداية' : 'Set Start'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.secondary,
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                  ),
                   TextButton.icon(
                     onPressed: () => _openEditPlan(context),
                     icon: const Icon(Icons.edit_note_rounded, size: 16),
@@ -2060,7 +2152,6 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                       textStyle: const TextStyle(fontSize: 13),
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
                 TextButton.icon(
                   onPressed: () => _confirmReset(context),
@@ -2243,6 +2334,242 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   }
 
   // ── Bookmark / progress dialog ──────────────────────────────────────────
+
+  void _showSetStartingPointDialog(BuildContext context) {
+    final plan = widget.plan;
+    final isAr = widget.isAr;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cubit = context.read<WirdCubit>();
+    final isPagesBased = plan.isPagesBased;
+
+    // Two tabs: pick by surah or by page
+    int selectedSurah = 1;
+    int selectedPage = 1;
+    bool byPage = isPagesBased;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final pageCtrl = TextEditingController(text: selectedPage.toString());
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.divider,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.pin_drop_rounded, color: AppColors.secondary, size: 22),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isAr ? 'تحديد نقطة بداية الورد' : 'Set Wird Starting Point',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isAr
+                        ? 'اختر المكان اللي وصلت إليه — هيتم تعليم الأيام السابقة كمكتملة'
+                        : 'Choose where you left off — previous days will be marked complete',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Toggle: by surah or by page
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => byPage = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !byPage ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: !byPage ? AppColors.primary : AppColors.divider,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              isAr ? 'بالسورة' : 'By Surah',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: !byPage ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => byPage = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: byPage ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: byPage ? AppColors.primary : AppColors.divider,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              isAr ? 'بالصفحة' : 'By Page',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: byPage ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (!byPage) ...[
+                    Text(
+                      isAr ? 'اختر السورة:' : 'Choose Surah:',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<int>(
+                      value: selectedSurah,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: List.generate(114, (i) {
+                        final n = i + 1;
+                        return DropdownMenuItem(
+                          value: n,
+                          child: Text(
+                            isAr
+                                ? '${_arabicNumerals(n)}. ${_surahArabicNames[n] ?? ""}'
+                                : '$n. ${_surahArabicNames[n] ?? "Surah $n"}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }),
+                      onChanged: (v) {
+                        if (v != null) setSheetState(() => selectedSurah = v);
+                      },
+                    ),
+                  ],
+
+                  if (byPage) ...[
+                    Text(
+                      isAr ? 'رقم الصفحة (١ – ٦٠٤):' : 'Page number (1–604):',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: pageCtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        hintText: '1 – 604',
+                      ),
+                      onChanged: (v) {
+                        final n = int.tryParse(v);
+                        if (n != null && n >= 1 && n <= _kMushafPagesTotal) {
+                          selectedPage = n;
+                        }
+                      },
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text(isAr ? 'إلغاء' : 'Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          onPressed: () {
+                            if (byPage) {
+                              final n = int.tryParse(pageCtrl.text);
+                              final pg = (n != null && n >= 1 && n <= _kMushafPagesTotal) ? n : selectedPage;
+                              cubit.setStartingPoint(page: pg);
+                            } else {
+                              cubit.setStartingPoint(surah: selectedSurah, ayah: 1);
+                            }
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isAr ? 'تم تحديد نقطة البداية بنجاح' : 'Starting point set successfully',
+                                ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          label: Text(
+                            isAr ? 'تأكيد' : 'Confirm',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   void _showBookmarkDialog(
     BuildContext context,
@@ -5267,6 +5594,49 @@ class _KhatmCompletionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Onboarding Tip Row (used in one-time dialog) ─────────────────────────────
+
+class _OnboardingTipRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool isDark;
+
+  const _OnboardingTipRow({
+    required this.icon,
+    required this.text,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 16, color: AppColors.primary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.6,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

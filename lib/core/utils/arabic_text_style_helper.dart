@@ -4,14 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 // Cached at file scope — prevents loadFontIfNecessary from being triggered
 // on every build call (google_fonts 6.x unhandled-rejection bug).
+// Only fonts that ARE bundled in assets/google_fonts/ are listed here.
 final _baseAmiriQuran     = GoogleFonts.amiriQuran();
 final _baseCairo          = GoogleFonts.cairo();
 final _baseNotoNaskhArabic = GoogleFonts.notoNaskhArabic();
-final _baseLateef         = GoogleFonts.lateef();
-final _baseMarkaziText    = GoogleFonts.markaziText();
-final _baseNotoKufiArabic = GoogleFonts.notoKufiArabic();
-final _baseReemKufi       = GoogleFonts.reemKufi();
-final _baseTajawal        = GoogleFonts.tajawal();
+final _baseAmiri          = GoogleFonts.amiri();
 
 /// Helper class to split Arabic text into text spans with different colors
 /// for base text and diacritics (tashkeel)
@@ -168,19 +165,26 @@ class ArabicTextStyleHelper {
         base = _baseNotoNaskhArabic.copyWith(
             fontSize: size, fontWeight: notoWeight, height: height);
       case 'lateef':
-        base = _baseLateef.copyWith(
+        // Lateef is not bundled — fall back to Amiri (bundled)
+        base = _baseAmiri.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'markazi':
-        base = _baseMarkaziText.copyWith(
+        // MarkaziText is not bundled — fall back to Amiri (bundled)
+        base = _baseAmiri.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'noto_kufi':
-        base = _baseNotoKufiArabic.copyWith(
-            fontSize: size, fontWeight: weight, height: height);
+        // NotoKufiArabic is not bundled — fall back to NotoNaskhArabic (bundled)
+        final notoWeight = weight == FontWeight.w500 ? FontWeight.w400 : weight;
+        base = _baseNotoNaskhArabic.copyWith(
+            fontSize: size, fontWeight: notoWeight, height: height);
       case 'reem_kufi':
-        base = _baseReemKufi.copyWith(
-            fontSize: size, fontWeight: weight, height: height);
+        // ReemKufi is not bundled — fall back to NotoNaskhArabic (bundled)
+        final notoWeight = weight == FontWeight.w500 ? FontWeight.w400 : weight;
+        base = _baseNotoNaskhArabic.copyWith(
+            fontSize: size, fontWeight: notoWeight, height: height);
       case 'tajawal':
-        base = _baseTajawal.copyWith(
+        // Tajawal is not bundled — fall back to Cairo (bundled, same designer family)
+        base = _baseCairo.copyWith(
             fontSize: size, fontWeight: weight, height: height);
       case 'cairo':
         // Cairo lacks full Quranic glyph coverage.

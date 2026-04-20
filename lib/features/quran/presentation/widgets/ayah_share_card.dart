@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -8,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show getVerseCount, getVerse, getVerseEndSymbol, getSurahNameArabic;
+    show getVerseCount, getVerse, getVerseEndSymbol, getSurahNameArabic, quran, QuranTextStyles;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -468,7 +467,7 @@ Future<void> _captureAndShare(
                   surahName: surahName,
                   startVerse: startVerse,
                   endVerse: endVerse,
-                  isDarkMode: isDarkMode,
+                  isDarkMode: false, // Always light for shared images
                 ),
               ),
             ),
@@ -565,20 +564,13 @@ class AyahShareCard extends StatelessWidget {
   static Color surahNameColor(bool isDarkMode) =>
       isDarkMode ? _darkSurahNameColor : _lightSurahNameColor;
 
-  static Color ornamentColor(bool isDarkMode) =>
-      isDarkMode ? const Color(0xFFC8A84B) : AppColors.primary;
-
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor(isDarkMode);
     final goldColor = AyahShareCard.goldColor(isDarkMode);
-    final ornamentColor = AyahShareCard.ornamentColor(isDarkMode);
-    final watermarkTextColor = isDarkMode
-        ? Colors.white.withValues(alpha: 0.54)
-        : AppColors.primary.withValues(alpha: 0.46);
-    final watermarkAsset = isDarkMode
-        ? 'assets/logo/files/transparent/splash_light_transparent.png'
-        : 'assets/logo/files/transparent/Splash_dark_transparent.png';
+    final watermarkTextColor = AppColors.primary.withValues(alpha: 0.46);
+    const watermarkAsset =
+        'assets/logo/files/transparent/Splash_dark_transparent.png';
 
     return Material(
       color: Colors.transparent,
@@ -587,25 +579,13 @@ class AyahShareCard extends StatelessWidget {
         color: bgColor,
         child: Stack(
           children: [
-            // ── Islamic geometric background pattern ──────────────────────
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _ShareIslamicPatternPainter(color: ornamentColor),
-              ),
-            ),
-            // ── Manuscript-style border ornaments ────────────────────────
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _ShareBorderOrnamentPainter(color: ornamentColor),
-              ),
-            ),
             // Small attribution watermark: text + tiny logo
             Positioned(
               left: 12,
               bottom: 10,
               child: IgnorePointer(
                 child: Opacity(
-                  opacity: isDarkMode ? 0.58 : 0.46,
+                  opacity: 0.46,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     textDirection: TextDirection.rtl,
@@ -701,7 +681,7 @@ class _SurahHeader extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Ornamental frame
+        // Ornamental frame from QCF Plus package
         Image.asset(
           'assets/surah_banner.png',
           package: 'qcf_quran_plus',
@@ -710,14 +690,16 @@ class _SurahHeader extends StatelessWidget {
           color: isDarkMode ? const Color.fromARGB(255, 43, 63, 48) : null,
           colorBlendMode: isDarkMode ? BlendMode.color : null,
         ),
-        // Surah name in Arabic
-        Text(
-          getSurahNameArabic(surahNumber),
-          textAlign: TextAlign.center,
-          style: GoogleFonts.arefRuqaa(
-            fontSize: headerWidth * 0.065,
-            color: nameColor,
-            fontWeight: FontWeight.w700,
+        // Surah name using QCF Plus 'arsura' decorative font
+        // (arsura maps surah numbers to calligraphic surah name glyphs)
+        ExcludeSemantics(
+          child: Text(
+            '$surahNumber',
+            textAlign: TextAlign.center,
+            style: QuranTextStyles.surahHeaderStyle(
+              fontSize: headerWidth * 0.085,
+              color: nameColor,
+            ),
           ),
         ),
       ],
@@ -745,17 +727,28 @@ class _VerseContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ── Basmala (verse 1 of a surah except Al-Fatiha and At-Tawbah) ─────────
-    // In the Mushaf, Basmala appears before verse 1 using QCF_P001 glyphs.
+    // Uses QCF Plus (QCF4_BSML font) for consistent Mushaf-style rendering.
     Widget? basmala;
     if (startVerse == 1 && surahNumber != 1 && surahNumber != 9) {
-      basmala = Text(
-        'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِيمِ',
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.rtl,
-        style: _cachedAmiriQuran.copyWith(
-          fontSize: 20,
-          height: 1.8,
-          color: AyahShareCard.textColor(isDarkMode),
+      final basmalaColor = isDarkMode
+          ? const Color(0xFFD4A855)
+          : AppColors.primary;
+      basmala = ExcludeSemantics(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6.0),
+            child: Text(
+              surahNumber == 97 || surahNumber == 95
+                  ? '\uFAD8\uFAD7\uFAD6\uFAD9'
+                  : '\uFAD8\uFAD7\uFAD6\uFAD5',
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: QuranTextStyles.basmallahStyle(
+                fontSize: 20,
+                color: basmalaColor,
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -797,30 +790,88 @@ class _PageVerseBlock extends StatelessWidget {
     required this.isDarkMode,
   });
 
+  /// Helper to get verse data from quran list (qcfData + page)
+  Map<String, dynamic>? _getVerseData(int surah, int ayaNo) {
+    try {
+      for (var verse in quran) {
+        if (verse['sora'] == surah && verse['aya_no'] == ayaNo) {
+          return verse as Map<String, dynamic>;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final verseSpans = <InlineSpan>[];
+    final textColor = AyahShareCard.textColor(isDarkMode);
+
     for (final v in verses) {
       try {
-        final text = getVerse(surahNumber, v);
-        if (text.isEmpty) continue;
-        final endSymbol = getVerseEndSymbol(v, arabicNumeral: true);
-        verseSpans.add(TextSpan(text: '$text$endSymbol '));
+        final verseData = _getVerseData(surahNumber, v);
+        if (verseData == null) {
+          // Fallback to plain text if qcfData not available
+          final text = getVerse(surahNumber, v);
+          if (text.isEmpty) continue;
+          final endSymbol = getVerseEndSymbol(v, arabicNumeral: true);
+          verseSpans.add(TextSpan(
+            text: '$text$endSymbol ',
+            style: _cachedAmiriQuran.copyWith(
+              fontSize: 20,
+              color: textColor,
+              height: 2.0,
+            ),
+          ));
+          continue;
+        }
+
+        String qcfText = verseData['qcfData']?.toString() ?? '';
+        final pageNumber = verseData['page'] as int;
+        if (qcfText.isEmpty) continue;
+
+        qcfText = qcfText.trimRight();
+        if (qcfText.endsWith('\n')) {
+          qcfText = qcfText.substring(0, qcfText.length - 1).trimRight();
+        }
+
+        // Strip all newlines so text wraps naturally
+        qcfText = qcfText.replaceAll('\n', ' ');
+
+        // Remove leading newline for first verse
+        if (v == verses.first && qcfText.startsWith('\n')) {
+          qcfText = qcfText.replaceFirst('\n', '');
+        }
+
+        final fontFamily = 'QCF4_tajweed_${pageNumber.toString().padLeft(3, '0')}';
+
+        verseSpans.add(TextSpan(
+          text: qcfText,
+          style: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 22,
+            height: 1.85,
+            color: textColor,
+          ),
+        ));
+
+        // Add spacing between verses
+        if (v != verses.last) {
+          verseSpans.add(TextSpan(
+            text: ' ',
+            style: TextStyle(fontSize: 11, color: textColor),
+          ));
+        }
       } catch (_) {}
     }
 
     if (verseSpans.isEmpty) return const SizedBox.shrink();
 
-    return Text.rich(
-      TextSpan(children: verseSpans),
-      locale: const Locale('ar'),
-      textAlign: TextAlign.center,
+    return RichText(
       textDirection: TextDirection.rtl,
-      style: _cachedAmiriQuran.copyWith(
-        fontSize: 20,
-        color: AyahShareCard.textColor(isDarkMode),
-        height: 2.0,
-      ),
+      textAlign: TextAlign.center,
+      locale: const Locale('ar'),
+      text: TextSpan(children: verseSpans),
     );
   }
 }
@@ -875,113 +926,4 @@ class _OrnamentRow extends StatelessWidget {
       ],
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Local copies of the background painters (mirrors mushaf_page_view.dart)
-// — kept separate to avoid a circular import between the two widget files.
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ShareIslamicPatternPainter extends CustomPainter {
-  final Color color;
-  _ShareIslamicPatternPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.03)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    const patternSize = 40.0;
-    for (double x = 0; x < size.width; x += patternSize) {
-      for (double y = 0; y < size.height; y += patternSize) {
-        final path = Path()
-          ..moveTo(x + patternSize / 2, y)
-          ..lineTo(x + patternSize, y + patternSize / 2)
-          ..lineTo(x + patternSize / 2, y + patternSize)
-          ..lineTo(x, y + patternSize / 2)
-          ..close();
-        canvas.drawPath(path, paint);
-        canvas.drawCircle(
-          Offset(x + patternSize / 2, y + patternSize / 2),
-          patternSize / 4,
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
-}
-
-class _ShareBorderOrnamentPainter extends CustomPainter {
-  final Color color;
-  _ShareBorderOrnamentPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final strokeColor  = color.withValues(alpha: 0.28);
-    final outerPaint   = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    final innerPaint   = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.7;
-    final fillPaint    = Paint()
-      ..color = strokeColor.withValues(alpha: 0.10)
-      ..style = PaintingStyle.fill;
-
-    const margin      = 9.0;
-    const innerMargin = 14.0;
-
-    // Top and bottom ornamental rules
-    canvas.drawLine(Offset(margin, margin),
-        Offset(size.width - margin, margin), outerPaint);
-    canvas.drawLine(Offset(margin, size.height - margin),
-        Offset(size.width - margin, size.height - margin), outerPaint);
-    canvas.drawLine(Offset(innerMargin, innerMargin),
-        Offset(size.width - innerMargin, innerMargin), innerPaint);
-    canvas.drawLine(Offset(innerMargin, size.height - innerMargin),
-        Offset(size.width - innerMargin, size.height - innerMargin),
-        innerPaint);
-
-    // Corner medallions
-    for (final c in [
-      Offset(margin, margin),
-      Offset(size.width - margin, margin),
-      Offset(margin, size.height - margin),
-      Offset(size.width - margin, size.height - margin),
-    ]) {
-      _drawMedallion(canvas, c, 13.0, outerPaint, innerPaint, fillPaint);
-    }
-  }
-
-  void _drawMedallion(Canvas canvas, Offset center, double r, Paint outer,
-      Paint inner, Paint fill) {
-    canvas.drawCircle(center, r, fill);
-    canvas.drawCircle(center, r, outer);
-    canvas.drawCircle(center, r * 0.55, inner);
-    final starPath = Path();
-    const n = 8;
-    for (int i = 0; i < n; i++) {
-      final outerAngle = i * math.pi * 2 / n - math.pi / 2;
-      final innerAngle = outerAngle + math.pi / n;
-      final ox = center.dx + math.cos(outerAngle) * r * 0.85;
-      final oy = center.dy + math.sin(outerAngle) * r * 0.85;
-      final ix = center.dx + math.cos(innerAngle) * r * 0.42;
-      final iy = center.dy + math.sin(innerAngle) * r * 0.42;
-      if (i == 0) { starPath.moveTo(ox, oy); } else { starPath.lineTo(ox, oy); }
-      starPath.lineTo(ix, iy);
-    }
-    starPath.close();
-    canvas.drawPath(starPath, inner);
-    canvas.drawCircle(center, r * 0.18, outer);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
 }

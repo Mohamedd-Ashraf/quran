@@ -13,8 +13,9 @@ class WirdPlan {
   final WirdPlanMode planMode;
   final int? pagesPerDay;
   final List<int> completedDays; // 1-indexed day numbers
+  late final Set<int> _completedSet = completedDays.toSet();
 
-  const WirdPlan({
+  WirdPlan({
     required this.type,
     required this.startDate,
     required this.targetDays,
@@ -38,17 +39,21 @@ class WirdPlan {
       ? 0.0
       : (completedDays.length / targetDays).clamp(0.0, 1.0);
 
-  bool isDayComplete(int day) => completedDays.contains(day);
+  bool isDayComplete(int day) => _completedSet.contains(day);
 
   bool get isPagesBased =>
       planMode == WirdPlanMode.pages && pagesPerDay != null;
 
   /// Consecutive completed days ending at (or just before) today.
+  /// If today is not yet complete, the streak counts backwards from yesterday
+  /// so users don't lose their streak display during the day.
   int get currentStreak {
     final today = currentDay;
+    // Start from today if complete, otherwise from yesterday
+    int startFrom = _completedSet.contains(today) ? today : today - 1;
     int streak = 0;
-    for (int d = today; d >= 1; d--) {
-      if (completedDays.contains(d)) {
+    for (int d = startFrom; d >= 1; d--) {
+      if (_completedSet.contains(d)) {
         streak++;
       } else {
         break;
@@ -259,6 +264,7 @@ class WirdService {
   Future<void> clearReminderTime() async {
     await _prefs.remove(_keyReminderHour);
     await _prefs.remove(_keyReminderMinute);
+    onDataChanged?.call();
   }
 
   bool get hasReminder =>
@@ -318,6 +324,7 @@ class WirdService {
     await _prefs.remove(_keyLastReadSurah);
     await _prefs.remove(_keyLastReadAyah);
     await _prefs.remove(_keyLastReadPage);
+    onDataChanged?.call();
   }
 
   // ── Makeup wird bookmark ──────────────────────────────────────────────────
@@ -345,6 +352,7 @@ class WirdService {
     await _prefs.remove(_keyMakeupDay);
     await _prefs.remove(_keyMakeupSurah);
     await _prefs.remove(_keyMakeupAyah);
+    onDataChanged?.call();
   }
 
   // ── Juz distribution helpers ─────────────────────────────────────────────

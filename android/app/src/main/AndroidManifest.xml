@@ -360,6 +360,65 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/adhkar_widget_light_info" />
         </receiver>
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             Hijri Calendar Home-Screen Widgets
+             Order: Dark → Normal → Light
+             ═══════════════════════════════════════════════════════════════════ -->
+
+        <!-- 10 ── التقويم الهجري (داكن) -->
+        <receiver
+            android:name=".HijriCalendarWidgetDark"
+            android:exported="true"
+            android:label="@string/hijri_widget_dark_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/hijri_widget_dark_info" />
+        </receiver>
+
+        <!-- 11 ── التقويم الهجري (عادي) -->
+        <receiver
+            android:name=".HijriCalendarWidget"
+            android:exported="true"
+            android:label="@string/hijri_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/hijri_widget_info" />
+        </receiver>
+
+        <!-- 12 ── التقويم الهجري (فاتح) -->
+        <receiver
+            android:name=".HijriCalendarWidgetLight"
+            android:exported="true"
+            android:label="@string/hijri_widget_light_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/hijri_widget_light_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

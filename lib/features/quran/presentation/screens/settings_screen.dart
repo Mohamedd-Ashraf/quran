@@ -696,6 +696,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   ),
                                 ],
+                                // Qira'at badge: show only for surah-level editions (ar.qiraat.*)
+                                // ar.warsh.* reciters are per-ayah (everyayah.com) — no badge
+                                if (selectedEdition != null &&
+                                    selected.startsWith('ar.qiraat.')) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.secondary
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: AppColors.secondary
+                                              .withValues(alpha: 0.30)),
+                                    ),
+                                    child: Text(
+                                      isAr ? 'سورة كاملة' : 'Full surah',
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -1592,14 +1617,19 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
   void initState() {
     super.initState();
     _currentSelected = widget.selected;
-    // Default language filter to the selected reciter's language
+    // Default language filter to the selected reciter's language.
+    // If the selected reciter is a Qira'at edition, open the Qira'at tab.
     final sel = widget.all
         .where((e) => e.identifier == widget.selected)
         .cast<AudioEdition?>()
         .firstOrNull;
-    _langFilter = sel?.language?.trim().isNotEmpty == true
-        ? sel!.language!.trim()
-        : 'all';
+    if (sel != null && _isQiraat(sel)) {
+      _langFilter = 'qiraat';
+    } else {
+      _langFilter = sel?.language?.trim().isNotEmpty == true
+          ? sel!.language!.trim()
+          : 'all';
+    }
   }
 
   @override
@@ -1619,7 +1649,10 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
 
   List<AudioEdition> get _filtered {
     var list = widget.all;
-    if (_langFilter != 'all') {
+    if (_langFilter == 'qiraat') {
+      // Show only Qira'at editions (the 10 readings + Warsh variants).
+      list = list.where((e) => _isQiraat(e)).toList();
+    } else if (_langFilter != 'all') {
       list = list.where((e) => e.language == _langFilter).toList();
     }
     if (_query.isNotEmpty) {
@@ -1642,11 +1675,52 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     return list;
   }
 
+  /// Identifiers of teacher/muallim reciters
+  static const _teacherIds = {
+    'ar.husarymuallim',
+    'ar.minshawiteacher',
+  };
+
+  /// Identifiers of reciters who recite by Warsh 'an Nafi' (ورش عن نافع)
+  static const _warshIds = {
+    'ar.warsh.ibrahimdosary',
+    'ar.warsh.yassinjazaery',
+    'ar.warsh.abdulbasit',
+  };
+
+  /// Check if a reciter belongs to a non-Hafs Qira'a (القراءات العشر)
+  bool _isQiraat(AudioEdition e) {
+    return e.identifier.startsWith('ar.qiraat.') ||
+        _warshIds.contains(e.identifier) ||
+        (e.name ?? '').contains('ورش') ||
+        (e.englishName ?? '').toLowerCase().contains('warsh');
+  }
+
+  /// Split filtered list into categories: teachers, qira'at, then regular
+  ({List<AudioEdition> teachers, List<AudioEdition> qiraat, List<AudioEdition> regular}) get _categorized {
+    final filtered = _filtered;
+    final teachers = <AudioEdition>[];
+    final qiraat = <AudioEdition>[];
+    final regular = <AudioEdition>[];
+    for (final e in filtered) {
+      if (_teacherIds.contains(e.identifier) ||
+          (e.name ?? '').contains('معلم') ||
+          (e.englishName ?? '').toLowerCase().contains('teacher') ||
+          (e.englishName ?? '').toLowerCase().contains('muallim')) {
+        teachers.add(e);
+      } else if (_isQiraat(e)) {
+        qiraat.add(e);
+      } else {
+        regular.add(e);
+      }
+    }
+    return (teachers: teachers, qiraat: qiraat, regular: regular);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAr = widget.isAr;
     final languages = _languages;
-    final filtered = _filtered;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? AppColors.darkSurface : Colors.white;
     final handleColor = isDark ? Colors.white24 : Colors.grey.shade300;
@@ -1771,6 +1845,12 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                   selected: _langFilter == 'all',
                   onTap: () => setState(() => _langFilter = 'all'),
                 ),
+                // ── Dedicated Qira'at tab (between All and language tabs) ──
+                _LangChip(
+                  label: isAr ? 'القراءات العشر' : "Qira'at",
+                  selected: _langFilter == 'qiraat',
+                  onTap: () => setState(() => _langFilter = 'qiraat'),
+                ),
                 ...languages.map((code) => _LangChip(
                       label: widget.languageLabel(code, isAr: isAr),
                       selected: _langFilter == code,
@@ -1785,7 +1865,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
 
           // ── Reciter list ──────────────────────────────────────
           Flexible(
-            child: filtered.isEmpty
+            child: _filtered.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(
@@ -1802,103 +1882,165 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       ],
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, indent: 70, color: dividerItemColor),
-                    itemBuilder: (context, i) {
-                      final ed = filtered[i];
-                      final isSelected = ed.identifier == _currentSelected;
-                      final name = ed.displayNameForAppLanguage(widget.langCode);
-                      final lang = ed.language;
-                      final langStr = (lang != null && lang.trim().isNotEmpty)
-                          ? widget.languageLabel(lang, isAr: isAr)
-                          : '';
-
-                      return InkWell(
-                        onTap: () async {
-                          setState(() => _currentSelected = ed.identifier);
-                          await widget.onSelected(ed.identifier, ed.language);
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          child: Row(
-                            children: [
-                              // Avatar circle
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.primary.withValues(alpha: 0.08),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isSelected
-                                      ? Icons.mic_rounded
-                                      : Icons.mic_none_rounded,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-
-                              // Name + language
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: TextStyle(
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        fontSize: 14,
-                                        color: isSelected
-                                            ? AppColors.primary
-                                            : nameColor,
-                                      ),
-                                    ),
-                                    if (langStr.isNotEmpty)
-                                      Text(
-                                        langStr,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: subColor,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-
-                              // Check icon
-                              if (isSelected)
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.check_rounded,
-                                      color: Colors.white, size: 14),
-                                ),
-                            ],
+                : Builder(builder: (context) {
+                    final cats = _categorized;
+                    return ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      children: [
+                        // ── Teacher / Muallim section ──
+                        if (cats.teachers.isNotEmpty) ...[
+                          _SectionHeader(
+                            icon: Icons.school_rounded,
+                            label: isAr ? 'المعلم (مع الترديد)' : 'Teacher (with repetition)',
+                            isDark: isDark,
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                          ...cats.teachers.map((ed) => _buildReciterTile(
+                              ed, nameColor, subColor, dividerItemColor)),
+                          const SizedBox(height: 8),
+                        ],
+                        // ── Qira'at section (ورش عن نافع وغيرها) ──
+                        if (cats.qiraat.isNotEmpty) ...[
+                          _SectionHeader(
+                            icon: Icons.auto_stories_rounded,
+                            label: isAr ? 'القراءات العشر' : 'The Ten Qira\'at',
+                            isDark: isDark,
+                          ),
+                          ...cats.qiraat.map((ed) => _buildReciterTile(
+                              ed, nameColor, subColor, dividerItemColor)),
+                          const SizedBox(height: 8),
+                        ],
+                        // ── Regular reciters section (حفص عن عاصم) ──
+                        if (cats.regular.isNotEmpty) ...[
+                          if (cats.teachers.isNotEmpty || cats.qiraat.isNotEmpty)
+                            _SectionHeader(
+                              icon: Icons.record_voice_over_rounded,
+                              label: isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs an \'Asim)',
+                              isDark: isDark,
+                            ),
+                          ...cats.regular.map((ed) => _buildReciterTile(
+                              ed, nameColor, subColor, dividerItemColor)),
+                        ],
+                      ],
+                    );
+                  }),
           ),
 
           // Bottom safe area
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReciterTile(AudioEdition ed, Color nameColor, Color subColor, Color dividerItemColor) {
+    final isSelected = ed.identifier == _currentSelected;
+    final name = ed.displayNameForAppLanguage(widget.langCode);
+    final lang = ed.language;
+    final langStr = (lang != null && lang.trim().isNotEmpty)
+        ? widget.languageLabel(lang, isAr: widget.isAr)
+        : '';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: () async {
+            setState(() => _currentSelected = ed.identifier);
+            await widget.onSelected(ed.identifier, ed.language);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isSelected ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    color: isSelected ? Colors.white : AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 14,
+                          color: isSelected ? AppColors.primary : nameColor,
+                        ),
+                      ),
+                      if (langStr.isNotEmpty)
+                        Text(langStr, style: TextStyle(fontSize: 11, color: subColor)),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        Divider(height: 1, indent: 70, color: dividerItemColor),
+      ],
+    );
+  }
+}
+
+// ── Section header for reciter categories ────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white60 : Colors.grey.shade600,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Divider(
+              color: isDark ? Colors.white12 : Colors.grey.shade200,
+            ),
+          ),
         ],
       ),
     );

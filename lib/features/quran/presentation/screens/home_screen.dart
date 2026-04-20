@@ -24,6 +24,7 @@ import 'juz_list_screen.dart';
 import '../../../islamic/presentation/widgets/next_prayer_countdown.dart';
 import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
 import '../../../islamic/presentation/screens/qiblah_screen.dart';
+import '../../../islamic/presentation/screens/hijri_calendar_screen.dart';
 import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
 import 'search_screen.dart';
 import '../../../../core/services/tutorial_service.dart';
@@ -1003,6 +1004,13 @@ class _QuickAccessBar extends StatelessWidget {
                 imagePadding: 0,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const QiblahScreen()),
+                ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'التقويم' : 'Hijri',
+                icon: Icons.calendar_month_rounded,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HijriCalendarScreen()),
                 ),
               ),
               _QuickAccessItem(

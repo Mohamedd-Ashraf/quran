@@ -232,7 +232,7 @@ class _MobileDataConsentDialog extends StatelessWidget {
             Expanded(
               child: Text(
                 isAr ? 'تحميل خطوط المصحف' : 'Download Mushaf Fonts',
-                style: GoogleFonts.tajawal(
+                style: GoogleFonts.cairo(
                     fontWeight: FontWeight.w700, fontSize: 17),
               ),
             ),
@@ -246,7 +246,7 @@ class _MobileDataConsentDialog extends StatelessWidget {
               isAr
                   ? 'أنت متصل حالياً ببيانات الجوال.\n\nخطوط المصحف تحميل لمرة واحدة فقط (٦٥ ميجابايت). هل تريد التحميل الآن؟'
                   : 'You\'re on mobile data.\n\nMushaf fonts are a one-time download (65 MB). Download now?',
-              style: GoogleFonts.tajawal(fontSize: 14, height: 1.6),
+              style: GoogleFonts.cairo(fontSize: 14, height: 1.6),
             ),
             const SizedBox(height: 14),
             Container(
@@ -270,7 +270,7 @@ class _MobileDataConsentDialog extends StatelessWidget {
                       isAr
                           ? 'بعد التحميل لن تحتاج إنترنت لعرض المصحف'
                           : 'After download, no internet needed for Mushaf',
-                      style: GoogleFonts.tajawal(
+                      style: GoogleFonts.cairo(
                           fontSize: 12,
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600),
@@ -286,7 +286,7 @@ class _MobileDataConsentDialog extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(
               isAr ? 'لاحقاً' : 'Later',
-              style: GoogleFonts.tajawal(color: Colors.grey.shade600),
+              style: GoogleFonts.cairo(color: Colors.grey.shade600),
             ),
           ),
           FilledButton.icon(
@@ -294,7 +294,7 @@ class _MobileDataConsentDialog extends StatelessWidget {
             icon: const Icon(Icons.download_rounded, size: 18),
             label: Text(
               isAr ? 'تحميل الآن' : 'Download Now',
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.w700),
+              style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
             ),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,

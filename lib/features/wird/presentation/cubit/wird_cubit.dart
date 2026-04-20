@@ -79,6 +79,14 @@ class WirdCubit extends Cubit<WirdState> {
 
   // ── Day completion ─────────────────────────────────────────────
 
+  // Cached bookmark values so undo (un-completing a day) can restore them.
+  int? _lastClearedBookmarkSurah;
+  int? _lastClearedBookmarkAyah;
+  int? _lastClearedBookmarkPage;
+  int? _lastClearedMakeupDay;
+  int? _lastClearedMakeupSurah;
+  int? _lastClearedMakeupAyah;
+
   /// Toggle the completion state of a specific day (1-indexed).
   Future<void> toggleDayComplete(int day) async {
     final currentState = state;
@@ -87,24 +95,45 @@ class WirdCubit extends Cubit<WirdState> {
     final wasComplete = currentState.plan.isDayComplete(day);
     if (wasComplete) {
       await _wirdService.markDayIncomplete(day);
-      // If un-completing today, re-schedule follow-ups.
+      // If un-completing today, restore bookmark if it was just cleared.
       final todayDay = currentState.plan.currentDay;
       if (day == todayDay) {
+        if (_lastClearedBookmarkPage != null) {
+          await _wirdService.saveLastReadPage(_lastClearedBookmarkPage!);
+        }
+        if (_lastClearedBookmarkSurah != null && _lastClearedBookmarkAyah != null) {
+          await _wirdService.saveLastRead(_lastClearedBookmarkSurah!, _lastClearedBookmarkAyah!);
+        }
+        _lastClearedBookmarkSurah = null;
+        _lastClearedBookmarkAyah = null;
+        _lastClearedBookmarkPage = null;
         await _notifService.refreshFollowUps();
+      }
+      // Restore makeup bookmark if applicable.
+      if (day == _lastClearedMakeupDay) {
+        if (_lastClearedMakeupSurah != null && _lastClearedMakeupAyah != null) {
+          await _wirdService.saveMakeupBookmark(day, _lastClearedMakeupSurah!, _lastClearedMakeupAyah!);
+        }
+        _lastClearedMakeupDay = null;
+        _lastClearedMakeupSurah = null;
+        _lastClearedMakeupAyah = null;
       }
     } else {
       await _wirdService.markDayComplete(day);
-      // Always re-evaluate notifications after completion:
-      // • cancels today's stale follow-ups
-      // • pre-schedules tomorrow's follow-ups so the user keeps getting
-      //   reminded for the new day even without reopening the app.
       final todayDay = currentState.plan.currentDay;
       if (day == todayDay) {
         await _notifService.refreshFollowUps();
+        // Cache bookmark before clearing so undo can restore it.
+        _lastClearedBookmarkSurah = _wirdService.lastReadSurah;
+        _lastClearedBookmarkAyah = _wirdService.lastReadAyah;
+        _lastClearedBookmarkPage = _wirdService.lastReadPage;
         await _wirdService.clearLastRead();
       }
-      // If completing a makeup day, clear its bookmark.
+      // If completing a makeup day, cache and clear its bookmark.
       if (_wirdService.makeupBookmarkDay == day) {
+        _lastClearedMakeupDay = day;
+        _lastClearedMakeupSurah = _wirdService.makeupBookmarkSurah;
+        _lastClearedMakeupAyah = _wirdService.makeupBookmarkAyah;
         await _wirdService.clearMakeupBookmark();
       }
     }
@@ -218,6 +247,64 @@ class WirdCubit extends Cubit<WirdState> {
   /// Clears the makeup bookmark.
   Future<void> clearMakeupBookmark() async {
     await _wirdService.clearMakeupBookmark();
+    load();
+  }
+
+  // ── Set wird starting point ───────────────────────────────────────────────
+
+  /// Sets the wird starting point by marking all days before the given page
+  /// as complete. This helps users who lost their progress during app updates.
+  /// For page-based plans, marks days whose end page ≤ [page].
+  /// For day-based plans, marks all days whose reading range ends before [surah]:[ayah].
+  Future<void> setStartingPoint({int? page, int? surah, int? ayah}) async {
+    final currentState = state;
+    if (currentState is! WirdPlanLoaded) return;
+    final plan = currentState.plan;
+
+    if (page != null && plan.isPagesBased && plan.pagesPerDay != null) {
+      // Page-based: mark all days whose end page ≤ given page
+      for (int d = 1; d <= plan.targetDays; d++) {
+        if (plan.isDayComplete(d)) continue;
+        final dayRange = getPageRangeForDay(d, plan.pagesPerDay!);
+        if (dayRange.endPage <= page) {
+          await _wirdService.markDayComplete(d);
+        } else {
+          break;
+        }
+      }
+      await _wirdService.saveLastReadPage(page);
+    } else if (surah != null && ayah != null) {
+      // Day-based: mark all days whose reading range ends before the given position
+      final targetLinear = posToLinear(QuranPosition(surah, ayah));
+      for (int d = 1; d <= plan.targetDays; d++) {
+        if (plan.isDayComplete(d)) continue;
+        final dayRange = getReadingRangeForDay(d, plan.targetDays);
+        final dayEndLinear = posToLinear(dayRange.end);
+        if (dayEndLinear < targetLinear) {
+          await _wirdService.markDayComplete(d);
+        } else {
+          break;
+        }
+      }
+      await _wirdService.saveLastRead(surah, ayah);
+    } else if (page != null) {
+      // Day-based plan but user picked a page
+      final pageRange = getReadingRangeForPages(page, page);
+      final targetLinear = posToLinear(pageRange.start);
+      for (int d = 1; d <= plan.targetDays; d++) {
+        if (plan.isDayComplete(d)) continue;
+        final dayRange = getReadingRangeForDay(d, plan.targetDays);
+        final dayEndLinear = posToLinear(dayRange.end);
+        if (dayEndLinear < targetLinear) {
+          await _wirdService.markDayComplete(d);
+        } else {
+          break;
+        }
+      }
+      await _wirdService.saveLastReadPage(page);
+    }
+
+    await _notifService.refreshFollowUps();
     load();
   }
 }

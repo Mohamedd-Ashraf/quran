@@ -107,6 +107,9 @@ class OfflineAudioService {
 
   OfflineAudioService(this._prefs, this._client);
 
+  /// Returns the number of ayahs in [surahNumber] (1-based, 1–114).
+  static int getAyahCount(int surahNumber) => _surahAyahCounts[surahNumber - 1];
+
   bool get enabled => _prefs.getBool(_keyEnabled) ?? false;
 
   Future<void> setEnabled(bool value) async {
@@ -186,10 +189,12 @@ class OfflineAudioService {
     if (!root.existsSync()) return [];
 
     final downloaded = <int>[];
+    // Surah-level editions store 1 file per surah (ayah_1.mp3 = whole surah).
+    final expectedPerSurah = _isSurahLevelEdition ? 1 : -1;
     for (int i = 1; i <= 114; i++) {
       final dir = Directory('$rootPath${sep}surah_$i');
       if (!dir.existsSync()) continue;
-      final expected = _surahAyahCounts[i - 1];
+      final expected = expectedPerSurah >= 0 ? expectedPerSurah : _surahAyahCounts[i - 1];
       final count = dir
           .listSync()
           .whereType<File>()
@@ -200,7 +205,8 @@ class OfflineAudioService {
     return downloaded;
   }
 
-  /// Returns `true` iff all expected ayah files for [surahNumber] are on disk.
+  /// Returns `true` iff all expected files for [surahNumber] are on disk.
+  /// For surah-level editions (mp3quran.net Qira'at), expects 1 file per surah.
   /// Never creates directories as a side-effect.
   Future<bool> isSurahFullyDownloaded(int surahNumber) async {
     final base = await getApplicationDocumentsDirectory();
@@ -209,7 +215,9 @@ class OfflineAudioService {
       '${base.path}${sep}offline_audio${sep}$edition${sep}surah_$surahNumber',
     );
     if (!dir.existsSync()) return false;
-    final expected = _surahAyahCounts[surahNumber - 1];
+    // Surah-level editions store 1 file (the full surah); per-ayah editions
+    // store one file per ayah.
+    final expected = _isSurahLevelEdition ? 1 : _surahAyahCounts[surahNumber - 1];
     final count = dir
         .listSync()
         .whereType<File>()
@@ -220,11 +228,13 @@ class OfflineAudioService {
 
   /// Get download statistics
   Future<Map<String, dynamic>> getDownloadStatistics() async {
+    // Surah-level editions have 114 files (1 per surah); per-ayah editions have 6236.
+    final totalExpectedFiles = _isSurahLevelEdition ? 114 : _totalQuranFiles;
     final root = await _audioRootDir();
     if (!root.existsSync()) {
       return {
         'downloadedFiles': 0,
-        'totalFiles': _totalQuranFiles,
+        'totalFiles': totalExpectedFiles,
         'downloadedSurahs': 0,
         'totalSurahs': 114,
         'totalSizeMB': 0.0,
@@ -244,11 +254,11 @@ class OfflineAudioService {
 
     return {
       'downloadedFiles': fileCount,
-      'totalFiles': _totalQuranFiles,
+      'totalFiles': totalExpectedFiles,
       'downloadedSurahs': downloadedSurahs.length,
       'totalSurahs': 114,
       'totalSizeMB': totalSize / 1048576,
-      'percentage': (fileCount / _totalQuranFiles) * 100,
+      'percentage': (fileCount / totalExpectedFiles) * 100,
     };
   }
 
@@ -476,7 +486,30 @@ class OfflineAudioService {
     'ar.mahmoudbanna'        : 'mahmoud_ali_al_banna_32kbps',
     'ar.alisuesy'            : 'Ali_Hajjaj_AlSuesy_128kbps',
     'ar.karimmansoori'       : 'Karim_Mansoori_40kbps',
+    // ─── قراءة ورش عن نافع (everyayah.com) ──────────────────────────────────
+    'ar.warsh.ibrahimdosary' : 'warsh/warsh_ibrahim_aldosary_128kbps',
+    'ar.warsh.yassinjazaery' : 'warsh/warsh_yassin_al_jazaery_64kbps',
+    'ar.warsh.abdulbasit'    : 'warsh/warsh_Abdul_Basit_128kbps',
   };
+
+  /// Maps Qira'at edition identifiers to their mp3quran.net server base URLs.
+  /// mp3quran.net stores ONE mp3 file per surah (001.mp3 = full Surah 1).
+  /// These are *surah-level* sources: download/play one file per surah,
+  /// NOT individual ayah files.
+  static const Map<String, String> _mp3QuranServers = {
+    'ar.qiraat.qalon'       : 'https://server10.mp3quran.net/trablsi/',
+    'ar.qiraat.bazi'        : 'https://server16.mp3quran.net/deban/Rewayat-Albizi-A-n-Ibn-Katheer/',
+    'ar.qiraat.qunbol'      : 'https://server16.mp3quran.net/deban/Rewayat-Qunbol-A-n-Ibn-Katheer/',
+    'ar.qiraat.duri.abuamr' : 'https://server16.mp3quran.net/deban/Rewayat-Aldori-A-n-Abi-Amr/',
+    'ar.qiraat.ibndhakwan'  : 'https://server14.mp3quran.net/muftah_sultany/Rewayat_Ibn-Thakwan-A-n-Ibn-Amer/',
+    'ar.qiraat.shuba'       : 'https://server16.mp3quran.net/deban/Rewayat-Sho-bah-A-n-Asim/',
+    'ar.qiraat.duri.kisai'  : 'https://server14.mp3quran.net/muftah_sultany/Rewayat-AlDorai-A-n-Al-Kisa-ai/',
+    'ar.qiraat.warsh.azraq' : 'https://server16.mp3quran.net/deban/Rewayat-Warsh-A-n-Nafi-Men-Tariq-Alazraq/',
+  };
+
+  /// True when the current edition stores one surah file per surah
+  /// (mp3quran.net Qira'at editions) rather than individual ayah files.
+  bool get _isSurahLevelEdition => _mp3QuranServers.containsKey(edition);
 
   /// Builds a direct everyayah.com URL (no API call needed).
   /// Returns null if the edition is not in [_everyAyahFolders].
@@ -679,6 +712,15 @@ class OfflineAudioService {
   }
 
   Future<List<String>> _fetchAyahAudioUrls(int surahNumber) async {
+    // ── Surah-level editions (mp3quran.net Qira'at) ───────────────────────
+    // These servers store one file per surah (001.mp3).  Download that single
+    // file and store it as ayah_1.mp3 to represent the whole surah.
+    final mp3QuranServer = _mp3QuranServers[edition];
+    if (mp3QuranServer != null) {
+      final s = surahNumber.toString().padLeft(3, '0');
+      return ['$mp3QuranServer$s.mp3'];
+    }
+
     // ── Fast path: build everyayah.com URLs without any API call ──────────
     // cdn.islamic.network returns HTTP 200 + 0 bytes for many 64 kbps files,
     // causing persistent download failures. everyayah.com is reliable.
@@ -749,9 +791,11 @@ class OfflineAudioService {
 
     // Compute the exact expected file count for the selected surahs so that
     // the progress percentage reflects ONLY the chosen download scope.
-    final estimatedTotalFiles = surahNumbers.fold<int>(
-      0, (sum, sn) => sum + _surahAyahCounts[sn - 1],
-    );
+    // Surah-level editions store 1 file per surah; per-ayah editions store
+    // one file per ayah.
+    final estimatedTotalFiles = _isSurahLevelEdition
+        ? surahNumbers.length
+        : surahNumbers.fold<int>(0, (sum, sn) => sum + _surahAyahCounts[sn - 1]);
     int globalCompleted = 0;
 
     // --- Step 1: Pre-count total tasks so we can show a real % early ------
@@ -1120,6 +1164,8 @@ class OfflineAudioService {
   }
 
   /// Returns the local audio file for an ayah if it exists and is valid.
+  /// For surah-level editions (mp3quran.net Qira'at), all ayahs in a surah
+  /// are covered by the single surah file stored as ayah_1.mp3.
   /// Never creates directories as a side-effect.
   Future<File?> getLocalAyahAudioFile({
     required int surahNumber,
@@ -1127,9 +1173,12 @@ class OfflineAudioService {
   }) async {
     final base = await getApplicationDocumentsDirectory();
     final sep = Platform.pathSeparator;
+    // For surah-level editions, ayah_1.mp3 holds the full surah regardless
+    // of which ayah was requested.
+    final effectiveAyah = _isSurahLevelEdition ? 1 : ayahNumber;
     final file = File(
       '${base.path}${sep}offline_audio${sep}$edition'
-      '${sep}surah_$surahNumber${sep}ayah_$ayahNumber.mp3',
+      '${sep}surah_$surahNumber${sep}ayah_$effectiveAyah.mp3',
     );
     if (file.existsSync() && file.lengthSync() >= _minValidAudioBytes) {
       return file;

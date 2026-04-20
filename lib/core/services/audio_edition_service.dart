@@ -404,7 +404,226 @@ class AudioEditionService {
       format: 'audio',
       type: 'versebyverse',
     ),
-  ];
+    // ─── قراء إضافيون جدد من everyayah.com ────────────────────────────────────
+    // everyayah.com/data/Abdullah_Matroud_128kbps/
+    AudioEdition(
+      identifier: 'ar.abdullahmatroud',
+      name: 'عبدالله مطرود',
+      englishName: 'Abdullah Matroud',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/Ahmed_Neana_128kbps/
+    AudioEdition(
+      identifier: 'ar.ahmedneana',
+      name: 'أحمد نعينع',
+      englishName: 'Ahmed Neana',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/Akram_AlAlaqimy_128kbps/
+    AudioEdition(
+      identifier: 'ar.akramalalaqimy',
+      name: 'أكرم العلاقمي',
+      englishName: 'Akram Al-Alaqimy',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/Husary_Muallim_128kbps/ (الحصري - المعلم)
+    AudioEdition(
+      identifier: 'ar.husarymuallim',
+      name: 'محمود خليل الحصري (معلم)',
+      englishName: 'Mahmoud Khalil Al-Husary (Muallim)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/MaherAlMuaiqly128kbps/
+    AudioEdition(
+      identifier: 'ar.mahermuaiqly128',
+      name: 'ماهر المعيقلي (جودة عالية)',
+      englishName: 'Maher Al-Muaiqly (HQ)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/Muhammad_AbdulKareem_128kbps/
+    AudioEdition(
+      identifier: 'ar.muhammadabdulkareem',
+      name: 'محمد عبدالكريم',
+      englishName: 'Muhammad AbdulKareem',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/Minshawy_Teacher_128kbps/ (المنشاوي - المعلم)
+    AudioEdition(
+      identifier: 'ar.minshawiteacher',
+      name: 'محمد صديق المنشاوي (معلم)',
+      englishName: 'Muhammad Siddiq al-Minshawi (Teacher)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/aziz_alili_128kbps/
+    AudioEdition(
+      identifier: 'ar.azizalili',
+      name: 'عزيز عليلي',
+      englishName: 'Aziz Alili',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ─── قراءة ورش عن نافع (القراءات العشر) ──────────────────────────────────
+    // everyayah.com/data/warsh/warsh_ibrahim_aldosary_128kbps/
+    AudioEdition(
+      identifier: 'ar.warsh.ibrahimdosary',
+      name: 'إبراهيم الدوسري (ورش عن نافع)',
+      englishName: 'Ibrahim Al-Dosary (Warsh)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/warsh/warsh_yassin_al_jazaery_64kbps/
+    AudioEdition(
+      identifier: 'ar.warsh.yassinjazaery',
+      name: 'ياسين الجزائري (ورش عن نافع)',
+      englishName: 'Yassin Al-Jazaery (Warsh)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // everyayah.com/data/warsh/warsh_Abdul_Basit_128kbps/
+    AudioEdition(
+      identifier: 'ar.warsh.abdulbasit',
+      name: 'عبد الباسط عبد الصمد (ورش عن نافع)',
+      englishName: 'Abdul Basit (Warsh)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ─── القراءات العشر — مصدر mp3quran.net ────────────────────────────────
+    // نافع المدني: قالون (عبد الرؤوف الترابلسي) ─────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.qalon',
+      name: 'أحمد الطرابلسي (قالون عن نافع)',
+      englishName: 'Ahmad Al-Tarabulsi (Qalon an Nafi)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: ورش من طريق الأزرق (على دبان) ─────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.warsh.azraq',
+      name: 'أحمد ديبان (ورش عن نافع - طريق الأزرق)',
+      englishName: 'Ahmad Deban (Warsh an Nafi - Tariq Al-Azraq)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ابن كثير المكي: البزي (على دبان) ───────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.bazi',
+      name: 'أحمد ديبان (البزي عن ابن كثير)',
+      englishName: 'Ahmad Deban (Al-Bazi an Ibn Katheer)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ابن كثير المكي: قنبل (على دبان) ────────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.qunbol',
+      name: 'أحمد ديبان (قنبل عن ابن كثير)',
+      englishName: 'Ahmad Deban (Qunbol an Ibn Katheer)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // أبو عمرو البصري: الدوري (على دبان) ─────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.duri.abuamr',
+      name: 'أحمد ديبان (الدوري عن أبي عمرو)',
+      englishName: 'Ahmad Deban (Al-Duri an Abi Amr)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ابن عامر الشامي: ابن ذكوان (مفتاح السلطاني) ────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.ibndhakwan',
+      name: 'مفتاح السلطاني (ابن ذكوان عن ابن عامر)',
+      englishName: 'Muftah Al-Sultani (Ibn Dhakwan an Ibn Amer)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // عاصم الكوفي: شعبة (على دبان) ───────────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.shuba',
+      name: 'أحمد ديبان (شعبة عن عاصم)',
+      englishName: 'Ahmad Deban (Shu\'ba an Asim)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // الكسائي الكوفي: الدوري (مفتاح السلطاني) ───────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.duri.kisai',
+      name: 'مفتاح السلطاني (الدوري عن الكسائي)',
+      englishName: 'Muftah Al-Sultani (Al-Duri an Al-Kisai)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),    // ─── القراءات العشر — الحصري ────────────────────────────────────────────
+    // نافع المدني: قالون (محمود خليل الحصري) ─────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.husary.qalon',
+      name: 'محمود خليل الحصري (قالون عن نافع)',
+      englishName: 'Mahmoud Khalil Al-Husary (Qalon an Nafi)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: ورش (محمود خليل الحصري) ───────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.husary.warsh',
+      name: 'محمود خليل الحصري (ورش عن نافع)',
+      englishName: 'Mahmoud Khalil Al-Husary (Warsh an Nafi)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // أبو عمرو البصري: الدوري (محمود خليل الحصري) ────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.husary.duri',
+      name: 'محمود خليل الحصري (الدوري عن أبي عمرو)',
+      englishName: 'Mahmoud Khalil Al-Husary (Al-Duri an Abi Amr)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ─── القراءات العشر — الصوفي ────────────────────────────────────────────
+    // أبو عمرو البصري: السوسي (عبدالرشيد الصوفي) ─────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.sosi.abuamr',
+      name: 'عبدالرشيد الصوفي (السوسي عن أبي عمرو)',
+      englishName: 'Abdulrashid Al-Sufi (Al-Sosi an Abi Amr)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // حمزة الكوفي: خلف (عبدالرشيد الصوفي) ───────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.khalaf.hamza',
+      name: 'عبدالرشيد الصوفي (خلف عن حمزة)',
+      englishName: 'Abdulrashid Al-Sufi (Khalaf an Hamza)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),  ];
 
   List<AudioEdition> _readCache() {
     final raw = _prefs.getString(_cacheKey);

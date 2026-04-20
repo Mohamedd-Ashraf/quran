@@ -1159,6 +1159,10 @@ class _FbRecitationSettingsSheetState
                             widget.isAr ? 'ar' : 'en',
                           ) ??
                           currentId;
+                      final isQ = edition != null &&
+                          (currentId.startsWith('ar.qiraat.') ||
+                              const {'ar.warsh.ibrahimdosary', 'ar.warsh.yassinjazaery', 'ar.warsh.abdulbasit'}
+                                  .contains(currentId));
                       return Row(
                         children: [
                           Expanded(
@@ -1173,6 +1177,29 @@ class _FbRecitationSettingsSheetState
                                     fontSize: 12,
                                   ),
                                 ),
+                                if (isQ)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: AppColors.secondary
+                                            .withValues(alpha: 0.12),
+                                      ),
+                                      child: Text(
+                                        widget.isAr
+                                            ? 'سورة كاملة'
+                                            : 'Full surah',
+                                        style: _cachedAmiriQuran.copyWith(
+                                          fontSize: 9.5,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -1299,6 +1326,24 @@ class _FbReciterPickerSheet extends StatefulWidget {
 class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
   late String _selected;
 
+  static const _warshIds = {
+    'ar.warsh.ibrahimdosary',
+    'ar.warsh.yassinjazaery',
+    'ar.warsh.abdulbasit',
+  };
+
+  /// Returns true for ALL alternative Qira'at readings (both surah-level and per-ayah).
+  static bool _isQiraat(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.') ||
+      _warshIds.contains(e.identifier) ||
+      (e.name ?? '').contains('ورش') ||
+      (e.englishName ?? '').toLowerCase().contains('warsh');
+
+  /// Returns true ONLY for editions that store one file per surah (mp3quran.net).
+  /// ar.warsh.* reciters are per-ayah (everyayah.com) — NOT surah-level.
+  static bool _isSurahLevelOnly(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.');
+
   @override
   void initState() {
     super.initState();
@@ -1310,10 +1355,87 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final all = [
-      ...widget.all.where((e) => e.language == 'ar'),
-      ...widget.all.where((e) => e.language != 'ar'),
-    ];
+    final subtleColor = isDark
+        ? Colors.white.withValues(alpha: 0.45)
+        : Colors.black.withValues(alpha: 0.38);
+    const accent = AppColors.secondary;
+
+    final arReciters = widget.all.where((e) => e.language == 'ar').toList();
+    final others = widget.all.where((e) => e.language != 'ar').toList();
+    final all = [...arReciters, ...others];
+
+    // Split into surah-level Qira'at + warsh (per-ayah) + Regular for display
+    final surahLevelList = all.where(_isSurahLevelOnly).toList();
+    final warshList = all.where((e) => _warshIds.contains(e.identifier)).toList();
+    final regularList = all.where((e) => !_isQiraat(e)).toList();
+
+    // Helper to build a reciter tile
+    Widget buildTile(AudioEdition e) {
+      final name = e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en');
+      final isSelected = e.identifier == _selected;
+      final isSurahLevel = _isSurahLevelOnly(e);
+      final isWarsh = _warshIds.contains(e.identifier);
+      const perAyahColor = AppColors.primaryLight; // green badge for per-ayah
+      return ListTile(
+        dense: true,
+        title: Text(
+          name,
+          style: _cachedAmiriQuran.copyWith(
+            fontSize: 13,
+            color: isSelected ? accent : textColor,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+          ),
+        ),
+        subtitle: isSurahLevel
+            ? Text(
+                widget.isAr ? 'سورة كاملة' : 'Full surah',
+                style: _cachedAmiriQuran.copyWith(
+                  fontSize: 10.5,
+                  color: accent.withValues(alpha: 0.75),
+                  fontWeight: FontWeight.w600,
+                ),
+              )
+            : isWarsh
+                ? Text(
+                    widget.isAr ? 'آية بآية' : 'Per-ayah',
+                    style: _cachedAmiriQuran.copyWith(
+                      fontSize: 10.5,
+                      color: perAyahColor.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : null,
+        trailing: isSelected
+            ? const Icon(Icons.check_rounded, color: accent, size: 18)
+            : null,
+        onTap: () async {
+          setState(() => _selected = e.identifier);
+          await widget.onSelected(e.identifier);
+          if (context.mounted) Navigator.of(context).pop();
+        },
+      );
+    }
+
+    // Section header helper
+    Widget buildSectionHeader(String label, IconData icon) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: subtleColor),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: _cachedAmiriQuran.copyWith(
+                fontSize: 11,
+                color: subtleColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SafeArea(
       child: Directionality(
@@ -1353,40 +1475,34 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.55,
                 ),
-                child: ListView.builder(
+                child: ListView(
                   shrinkWrap: true,
-                  itemCount: all.length,
-                  itemBuilder: (ctx, i) {
-                    final e = all[i];
-                    final name = e.displayNameForAppLanguage(
-                      widget.isAr ? 'ar' : 'en',
-                    );
-                    final isSelected = e.identifier == _selected;
-                    return ListTile(
-                      title: Text(
-                        name,
-                        style: _cachedAmiriQuran.copyWith(
-                          fontSize: 13,
-                          color: isSelected ? AppColors.secondary : textColor,
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.normal,
-                        ),
+                  children: [
+                    // ── القراءات العشر (سورة كاملة) ─────────────────
+                    if (surahLevelList.isNotEmpty) ...[
+                      buildSectionHeader(
+                        widget.isAr ? 'القراءات العشر — سورة كاملة' : "Qira'at — Full Surah",
+                        Icons.auto_stories_rounded,
                       ),
-                      trailing: isSelected
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: AppColors.secondary,
-                              size: 18,
-                            )
-                          : null,
-                      onTap: () async {
-                        setState(() => _selected = e.identifier);
-                        await widget.onSelected(e.identifier);
-                        if (context.mounted) Navigator.of(context).pop();
-                      },
-                    );
-                  },
+                      ...surahLevelList.map(buildTile),
+                    ],
+                    // ── ورش عن نافع (آية بآية) ──────────────────────
+                    if (warshList.isNotEmpty) ...[
+                      buildSectionHeader(
+                        widget.isAr ? 'ورش عن نافع (آية بآية)' : "Warsh an Nafi' (per-ayah)",
+                        Icons.auto_stories_outlined,
+                      ),
+                      ...warshList.map(buildTile),
+                    ],
+                    // ── القراء (حفص عن عاصم) ────────────────────────
+                    if (regularList.isNotEmpty) ...[
+                      buildSectionHeader(
+                        widget.isAr ? 'القراء (آية بآية)' : 'Reciters (per-ayah)',
+                        Icons.record_voice_over_rounded,
+                      ),
+                      ...regularList.map(buildTile),
+                    ],
+                  ],
                 ),
               ),
             ],
