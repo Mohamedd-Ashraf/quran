@@ -12,14 +12,29 @@ import 'offline_audio_service.dart';
 class AyahAudioSource {
   final String? localFilePath;
   final Uri? remoteUri;
+  /// Start offset within a surah-level file (timed editions only).
+  final Duration? startTime;
+  /// End offset within a surah-level file (timed editions only).
+  final Duration? endTime;
 
-  const AyahAudioSource._({this.localFilePath, this.remoteUri});
+  const AyahAudioSource._({this.localFilePath, this.remoteUri, this.startTime, this.endTime});
 
   factory AyahAudioSource.local(String path) => AyahAudioSource._(localFilePath: path);
 
   factory AyahAudioSource.remote(Uri uri) => AyahAudioSource._(remoteUri: uri);
 
+  /// Creates a remote timed source: plays [start]..[end] from a surah-level file.
+  /// Used with [ClippingAudioSource] in the player.
+  factory AyahAudioSource.timedRemote(Uri uri, Duration start, Duration end) =>
+      AyahAudioSource._(remoteUri: uri, startTime: start, endTime: end);
+
+  /// Creates a local timed source: plays [start]..[end] from a surah-level file.
+  factory AyahAudioSource.timedLocal(String path, Duration start, Duration end) =>
+      AyahAudioSource._(localFilePath: path, startTime: start, endTime: end);
+
   bool get isLocal => localFilePath != null;
+  /// True when this source should be played via [ClippingAudioSource].
+  bool get isTimed => startTime != null && endTime != null;
 }
 
 /// Maps alquran.cloud edition IDs to their everyayah.com folder names.
@@ -164,8 +179,43 @@ const Map<String, String> _mp3QuranServers = {
   'ar.qiraat.husary.warsh': 'https://server13.mp3quran.net/husr/Rewayat-Warsh-A-n-Nafi/',
   // ── أبو عمرو البصري: الدوري (محمود خليل الحصري) ─────────────────────────
   'ar.qiraat.husary.duri':  'https://server13.mp3quran.net/husr/Rewayat-Aldori-A-n-Abi-Amr/',
+  // ── نافع المدني: قالون (علي الحذيفي) ────────────────────────────────────
+  'ar.qiraat.huthifi.qalon': 'https://server9.mp3quran.net/huthifi_qalon/',
+  // ── نافع المدني: ورش (العيون الكوشي) ─────────────────────────────────────
+  'ar.qiraat.koshi.warsh':   'https://server11.mp3quran.net/koshi/',
+  // ── نافع المدني: ورش (القارئ ياسين) ─────────────────────────────────────
+  'ar.qiraat.yasseen.warsh': 'https://server11.mp3quran.net/qari/',
+  // ── نافع المدني: ورش (عمر القزابري) ─────────────────────────────────────
+  'ar.qiraat.qazabri.warsh': 'https://server9.mp3quran.net/omar_warsh/',
+  // ── نافع المدني: قالون (الدوكالي محمد العالم) ────────────────────────────
+  'ar.qiraat.dokali.qalon':  'https://server7.mp3quran.net/dokali/',
+  // ── ابن كثير المكي: البزي (عكاشة كميني) ─────────────────────────────────
+  'ar.qiraat.okasha.bazi':   'https://server16.mp3quran.net/okasha/Rewayat-Albizi-A-n-Ibn-Katheer/',
+  // ── حفص عن عاصم — قراء mp3quran.net (توقيتات) ───────────────────────────
+  'ar.khaledjleel':          'https://server10.mp3quran.net/jleel/',
+  'ar.raadialkurdi':         'https://server6.mp3quran.net/kurdi/',
+  'ar.abdulaziahahmad':      'https://server11.mp3quran.net/a_ahmed/',
 };
-
+/// Maps edition IDs (subset of [_mp3QuranServers]) to the mp3quran.net "read id"
+/// that has ayat timing available at `https://mp3quran.net/api/v3/ayat_timing`.
+/// Only these editions support per-ayah playback via [ClippingAudioSource].
+const Map<String, int> _mp3QuranTimingReadIds = {
+  'ar.qiraat.husary.qalon':  270,
+  'ar.qiraat.husary.warsh':  120,
+  'ar.qiraat.husary.duri':   269,
+  'ar.qiraat.sosi.abuamr':    65,
+  // ── قراءات ورش وقالون — reciters with timing ──────────────────────────────
+  'ar.qiraat.huthifi.qalon':  75,
+  'ar.qiraat.koshi.warsh':    16,
+  'ar.qiraat.yasseen.warsh':  14,
+  'ar.qiraat.qazabri.warsh':  80,
+  'ar.qiraat.dokali.qalon':  208,
+  'ar.qiraat.okasha.bazi':   296,
+  // ── حفص — قراء mp3quran.net مع توقيتات ───────────────────────────────────
+  'ar.khaledjleel':           20,
+  'ar.raadialkurdi':         221,
+  'ar.abdulaziahahmad':       55,
+};
 class MergedSurahAudio {
   final String filePath;
   final List<Duration> ayahDurations;
@@ -183,6 +233,7 @@ class AyahAudioService {
 
   final Map<String, Uri> _urlCache = {};
   final Map<String, List<Uri>> _surahUrlCache = {};
+  final Map<String, List<({int ayah, int startMs, int endMs})>> _timingCache = {};
 
   AyahAudioService(this._client, this._networkInfo, this._offlineAudio);
 
@@ -191,9 +242,15 @@ class AyahAudioService {
   int? get currentEditionBitrateKbps => _everyAyahBitratesKbps[currentEdition];
 
   /// True when the currently selected edition stores ONE file per surah
-  /// (mp3quran.net 10-Qira'at editions).  Per-ayah playback is not possible
-  /// with these sources; callers should redirect to surah-level playback.
-  bool get isSurahLevelEdition => _mp3QuranServers.containsKey(currentEdition);
+  /// (mp3quran.net Qira'at editions WITHOUT timing data).
+  /// Per-ayah playback is not possible; callers redirect to surah-level.
+  bool get isSurahLevelEdition =>
+      _mp3QuranServers.containsKey(currentEdition) &&
+      !_mp3QuranTimingReadIds.containsKey(currentEdition);
+
+  /// True when the edition stores one surah file per surah (mp3quran.net)
+  /// AND ayat timing data is available — enabling per-ayah [ClippingAudioSource].
+  bool get isTimedSurahEdition => _mp3QuranTimingReadIds.containsKey(currentEdition);
 
   String _key(int surahNumber, int ayahNumber, String edition) => '$edition:$surahNumber:$ayahNumber';
 
@@ -220,6 +277,188 @@ class AyahAudioService {
     // mp3quran.net stores whole-surah files: 001.mp3 = full Surah 1, etc.
     // Per-ayah files (001001.mp3) do NOT exist on this server.
     return Uri.parse('$server$s.mp3');
+  }
+
+  // ── Ayat Timing API (mp3quran.net) ───────────────────────────────────────────────────────
+
+  /// Fetches and caches (in-memory) ayat timing for [edition]'s [surahNumber].
+  /// Returns a list sorted by ayah; entry with ayah==0 is the Basmala/intro.
+  /// Throws on network error, API error, or timeout.
+  Future<List<({int ayah, int startMs, int endMs})>> _fetchAyatTiming({
+    required int surahNumber,
+    required String edition,
+  }) async {
+    final readId = _mp3QuranTimingReadIds[edition];
+    if (readId == null) throw Exception('No timing read ID for $edition');
+
+    final cacheKey = '$edition:timing:$surahNumber';
+    final cached = _timingCache[cacheKey];
+    if (cached != null) return cached;
+
+    final uri = Uri.parse(
+      'https://mp3quran.net/api/v3/ayat_timing?surah=$surahNumber&read=$readId',
+    );
+    final res = await _client
+        .get(uri)
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode != 200) {
+      throw Exception('Timing API ${res.statusCode} for surah $surahNumber');
+    }
+
+    final decoded = json.decode(res.body) as List;
+    final result = decoded.map((e) {
+      final m = e as Map<String, dynamic>;
+      return (
+        ayah: (m['ayah'] as int),
+        startMs: (m['start_time'] as int),
+        endMs: (m['end_time'] as int),
+      );
+    }).toList()
+      ..sort((a, b) => a.ayah.compareTo(b.ayah));
+
+    _timingCache[cacheKey] = result;
+    return result;
+  }
+
+  /// Resolves a single timed [AyahAudioSource] for [ayahNumber] from the
+  /// surah-level mp3quran.net file.  Falls back silently to the full surah
+  /// when timing is unavailable (offline without cache, API error, etc.).
+  Future<AyahAudioSource> _resolveTimedAyahAudio({
+    required int surahNumber,
+    required int ayahNumber,
+    required String edition,
+  }) async {
+    final localSurah = await _offlineAudio.getLocalAyahAudioFile(
+      surahNumber: surahNumber,
+      ayahNumber: 1,
+    );
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+
+    if (localSurah == null && !await _networkInfo.isConnected) {
+      throw Exception('No internet connection and audio is not downloaded.');
+    }
+
+    try {
+      final timing = await _fetchAyatTiming(
+        surahNumber: surahNumber,
+        edition: edition,
+      );
+      final timingMap = <int, ({int ayah, int startMs, int endMs})>{
+        for (final t in timing) t.ayah: t,
+      };
+      final basmala = timingMap[0];
+      final entry = timingMap[ayahNumber];
+      if (entry != null) {
+        final startMs =
+            (ayahNumber == 1 && basmala != null) ? basmala.startMs : entry.startMs;
+        final start = Duration(milliseconds: startMs);
+        final end = Duration(milliseconds: entry.endMs);
+        return localSurah != null
+            ? AyahAudioSource.timedLocal(localSurah.path, start, end)
+            : AyahAudioSource.timedRemote(surahUri, start, end);
+      }
+    } catch (_) {
+      // Timing unavailable — fall through to whole-surah fallback.
+    }
+
+    // Fallback: play the whole surah file (no clip).
+    return localSurah != null
+        ? AyahAudioSource.local(localSurah.path)
+        : AyahAudioSource.remote(surahUri);
+  }
+
+  /// Resolves per-ayah timed [AyahAudioSource]s for a surah in a timed edition.
+  /// Each source clips a different [startTime]..[endTime] from the same surah file.
+  ///
+  /// Ayah 0 (Basmala) is merged into ayah 1: the first clip starts at
+  /// the Basmala's start_time so the Basmala is included in recitation.
+  ///
+  /// Falls back silently to a single whole-surah source when timing is
+  /// unavailable (offline without cache, API error, etc.).
+  Future<List<AyahAudioSource>> _resolveTimedSurahAudio({
+    required int surahNumber,
+    required int numberOfAyahs,
+    required String edition,
+  }) async {
+    final localSurah = await _offlineAudio.getLocalAyahAudioFile(
+      surahNumber: surahNumber,
+      ayahNumber: 1,
+    );
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+
+    List<({int ayah, int startMs, int endMs})> timing;
+    try {
+      timing = await _fetchAyatTiming(
+        surahNumber: surahNumber,
+        edition: edition,
+      );
+    } catch (_) {
+      // Silent fallback — timing unavailable; play the whole surah file.
+      return [
+        localSurah != null
+            ? AyahAudioSource.local(localSurah.path)
+            : AyahAudioSource.remote(surahUri),
+      ];
+    }
+
+    final timingMap = <int, ({int ayah, int startMs, int endMs})>{
+      for (final t in timing) t.ayah: t,
+    };
+    final basmala = timingMap[0];
+    final results = <AyahAudioSource>[];
+    for (var i = 1; i <= numberOfAyahs; i++) {
+      final entry = timingMap[i];
+      if (entry == null) {
+        // Timing entry missing — fall back to the whole surah file.
+        return [
+          localSurah != null
+              ? AyahAudioSource.local(localSurah.path)
+              : AyahAudioSource.remote(surahUri),
+        ];
+      }
+      final startMs =
+          (i == 1 && basmala != null) ? basmala.startMs : entry.startMs;
+      final start = Duration(milliseconds: startMs);
+      final end = Duration(milliseconds: entry.endMs);
+      results.add(
+        localSurah != null
+            ? AyahAudioSource.timedLocal(localSurah.path, start, end)
+            : AyahAudioSource.timedRemote(surahUri, start, end),
+      );
+    }
+    return results;
+  }
+
+  /// Returns the single surah-level audio source PLUS the complete ayat timing
+  /// list for the current timed edition.  Used by the cubit for position-based
+  /// per-ayah tracking so the same surah file is loaded only once.
+  ///
+  /// Throws if offline and the surah is not downloaded.
+  /// Throws (propagated) if the timing API fails and there is no cached data.
+  Future<({
+    AyahAudioSource source,
+    List<({int ayah, int startMs, int endMs})> segments,
+  })> resolveTimedSurahSource({required int surahNumber}) async {
+    assert(
+      _mp3QuranTimingReadIds.containsKey(currentEdition),
+      'resolveTimedSurahSource called for non-timed edition "$currentEdition"',
+    );
+    final localSurah = await _offlineAudio.getLocalAyahAudioFile(
+      surahNumber: surahNumber,
+      ayahNumber: 1,
+    );
+    if (localSurah == null && !await _networkInfo.isConnected) {
+      throw Exception('No internet connection and audio is not downloaded.');
+    }
+    final segments = await _fetchAyatTiming(
+      surahNumber: surahNumber,
+      edition: currentEdition,
+    );
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, currentEdition)!;
+    final source = localSurah != null
+        ? AyahAudioSource.local(localSurah.path)
+        : AyahAudioSource.remote(surahUri);
+    return (source: source, segments: segments);
   }
 
   Future<List<Uri>> _fetchSurahAyahAudioUris({
@@ -262,6 +501,18 @@ class AyahAudioService {
     required int surahNumber,
     required int ayahNumber,
   }) async {
+    final edition = _offlineAudio.edition;
+
+    // ── Timed surah editions (mp3quran.net with timing) ────────────────────────────────
+    // These editions store one surah-level file; serve per-ayah clips.
+    if (_mp3QuranTimingReadIds.containsKey(edition)) {
+      return _resolveTimedAyahAudio(
+        surahNumber: surahNumber,
+        ayahNumber: ayahNumber,
+        edition: edition,
+      );
+    }
+
     // Always prefer a local file when it exists – regardless of the
     // 'enabled' flag so that downloaded audio is used even if the user
     // hasn't explicitly toggled offline mode in settings.
@@ -278,7 +529,6 @@ class AyahAudioService {
       throw Exception('No internet connection and audio is not downloaded.');
     }
 
-    final edition = _offlineAudio.edition;
     final cacheKey = _key(surahNumber, ayahNumber, edition);
     final cached = _urlCache[cacheKey];
     if (cached != null) {
@@ -339,7 +589,15 @@ class AyahAudioService {
     // Return a single-item list so the player plays the surah file once
     // rather than replaying it once per ayah.
     if (_mp3QuranServers.containsKey(edition)) {
-      // Prefer local surah file (stored as ayah_1.mp3 for these editions).
+      // ── Timed editions: per-ayah via ClippingAudioSource ──────────────────────────────
+      if (_mp3QuranTimingReadIds.containsKey(edition)) {
+        return _resolveTimedSurahAudio(
+          surahNumber: surahNumber,
+          numberOfAyahs: numberOfAyahs,
+          edition: edition,
+        );
+      }
+      // ── Pure surah-level editions: one file for the whole surah ───────────────────────
       final local = await _offlineAudio.getLocalAyahAudioFile(
         surahNumber: surahNumber,
         ayahNumber: 1,

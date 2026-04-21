@@ -173,6 +173,28 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen>
     switch (permission) {
       case LocationPermission.whileInUse:
       case LocationPermission.always:
+        // Fetch and save coordinates immediately so prayer times screen
+        // can use the cached value and won't re-prompt for location.
+        try {
+          Position? pos;
+          try {
+            pos = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.low,
+              timeLimit: const Duration(seconds: 12),
+            );
+          } catch (_) {
+            pos = await Geolocator.getLastKnownPosition();
+          }
+          if (pos != null) {
+            final settings = di.sl<SettingsService>();
+            await settings.setLastKnownCoordinates(pos.latitude, pos.longitude);
+            await di.sl<PrayerTimesCacheService>().cachePrayerTimes(
+              pos.latitude, pos.longitude, locationName: null,
+            );
+          }
+        } catch (_) {
+          // Position unavailable – prayer times screen will handle it gracefully
+        }
         await _requestNotification();
       case LocationPermission.deniedForever:
         setState(() => _step = _Step.locationDeniedForever);

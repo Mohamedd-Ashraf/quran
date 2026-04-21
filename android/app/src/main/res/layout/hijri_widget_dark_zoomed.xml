@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zoomed day detail view — dark theme -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/hijri_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_dark"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <LinearLayout
+        android:id="@+id/zoom_back_area"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingBottom="3dp">
+        <TextView
+            android:id="@+id/zoom_back_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="◀  رجوع"
+            android:textColor="#FFF0C040"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/zoom_day_area"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/zoom_day_number"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="١٥"
+            android:textColor="#FFFFFFFF"
+            android:textSize="54sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/zoom_day_of_week"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="الأحد"
+            android:textColor="#FFF0C040"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/zoom_hijri_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ذو الحجة  ١٤٤٧ هـ"
+            android:textColor="#AAFFFFFF"
+            android:textSize="11sp"
+            android:paddingTop="2dp" />
+
+        <TextView
+            android:id="@+id/zoom_gregorian"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="٢٠ أبريل ٢٠٢٦"
+            android:textColor="#88FFFFFF"
+            android:textSize="9sp"
+            android:paddingTop="1dp" />
+
+        <TextView
+            android:id="@+id/zoom_event"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="#44F0C040"
+            android:padding="4dp"
+            android:layout_marginTop="5dp"
+            android:text=""
+            android:textColor="#FFF0C040"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="اضغط للرجوع للتقويم"
+        android:textColor="#44FFFFFF"
+        android:textSize="8sp"
+        android:gravity="center"
+        android:paddingTop="2dp" />
+
+</LinearLayout>

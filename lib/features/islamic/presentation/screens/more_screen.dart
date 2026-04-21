@@ -199,7 +199,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           if (SettingsService.enableQuizFeature)
             _NavCard(
-              title: isArabicUi ? 'المسابقة اليومية' : 'Daily Quiz',
+              title: isArabicUi ? 'التحدي اليومي' : 'Daily Challenge',
               subtitle: isArabicUi
                   ? 'سؤال ديني يومي مع لوحة المتصدرين'
                   : 'Daily religious question with leaderboard',

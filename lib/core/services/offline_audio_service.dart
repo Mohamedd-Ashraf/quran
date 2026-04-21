@@ -505,6 +505,22 @@ class OfflineAudioService {
     'ar.qiraat.shuba'       : 'https://server16.mp3quran.net/deban/Rewayat-Sho-bah-A-n-Asim/',
     'ar.qiraat.duri.kisai'  : 'https://server14.mp3quran.net/muftah_sultany/Rewayat-AlDorai-A-n-Al-Kisa-ai/',
     'ar.qiraat.warsh.azraq' : 'https://server16.mp3quran.net/deban/Rewayat-Warsh-A-n-Nafi-Men-Tariq-Alazraq/',
+    'ar.qiraat.sosi.abuamr' : 'https://server16.mp3quran.net/soufi/Rewayat-Assosi-A-n-Abi-Amr/',
+    'ar.qiraat.khalaf.hamza': 'https://server16.mp3quran.net/soufi/Rewayat-Khalaf-A-n-Hamzah/',
+    'ar.qiraat.husary.qalon': 'https://server13.mp3quran.net/husr/Rewayat-Qalon-A-n-Nafi/',
+    'ar.qiraat.husary.warsh': 'https://server13.mp3quran.net/husr/Rewayat-Warsh-A-n-Nafi/',
+    'ar.qiraat.husary.duri' : 'https://server13.mp3quran.net/husr/Rewayat-Aldori-A-n-Abi-Amr/',
+    // ── قراءات ورش وقالون — reciters with timing ───────────────────────────
+    'ar.qiraat.huthifi.qalon': 'https://server9.mp3quran.net/huthifi_qalon/',
+    'ar.qiraat.koshi.warsh'  : 'https://server11.mp3quran.net/koshi/',
+    'ar.qiraat.yasseen.warsh': 'https://server11.mp3quran.net/qari/',
+    'ar.qiraat.qazabri.warsh': 'https://server9.mp3quran.net/omar_warsh/',
+    'ar.qiraat.dokali.qalon' : 'https://server7.mp3quran.net/dokali/',
+    'ar.qiraat.okasha.bazi'  : 'https://server16.mp3quran.net/okasha/Rewayat-Albizi-A-n-Ibn-Katheer/',
+    // ── حفص — قراء mp3quran.net مع توقيتات ──────────────────────────────────
+    'ar.khaledjleel'         : 'https://server10.mp3quran.net/jleel/',
+    'ar.raadialkurdi'        : 'https://server6.mp3quran.net/kurdi/',
+    'ar.abdulaziahahmad'     : 'https://server11.mp3quran.net/a_ahmed/',
   };
 
   /// True when the current edition stores one surah file per surah

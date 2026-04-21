@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:qcf_quran_plus/qcf_quran_plus.dart' show quran;
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' show quran, getaya_noQCF;
 
-/// Widget to render multiple verses using QCF glyphs (Mushaf drawing style)
-/// Uses qcfData from quran_data.dart which contains the actual Mushaf glyphs
+/// Widget to render multiple verses using QCF glyphs (Mushaf drawing style).
+///
+/// Each Mushaf line (separated by \n in qcfData) is rendered in its own
+/// [FittedBox] so every line fills the full container width — exactly like
+/// the QuranLine widget does on the full-page Mushaf view.
 class QcfVersesWidget extends StatelessWidget {
   final int surahNumber;
   final int firstVerse;
@@ -13,6 +16,7 @@ class QcfVersesWidget extends StatelessWidget {
   final double verseHeight;
   final TextAlign textAlign;
   final bool isDark;
+  // stripNewlines is kept for API compatibility but is no longer used.
   final bool stripNewlines;
 
   const QcfVersesWidget({
@@ -31,139 +35,120 @@ class QcfVersesWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RichText(
-      textDirection: TextDirection.rtl,
-      textAlign: textAlign,
-      locale: const Locale("ar"),
-      text: TextSpan(
-        children: _buildVerseSpans(),
-        style: TextStyle(color: textColor),
+    final lineWidgets = _buildMushafLineWidgets();
+    if (lineWidgets.isEmpty) return const SizedBox.shrink();
+
+    return ExcludeSemantics(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: lineWidgets,
       ),
     );
   }
 
-  List<InlineSpan> _buildVerseSpans() {
-    List<InlineSpan> spans = [];
+  List<Widget> _buildMushafLineWidgets() {
+    final widgets = <Widget>[];
 
-    for (int verseNumber = firstVerse; verseNumber <= lastVerse; verseNumber++) {
+    for (int verseNum = firstVerse; verseNum <= lastVerse; verseNum++) {
       try {
-        // Get verse data from quran list
-        final verseData = _getVerseData(surahNumber, verseNumber);
+        final verseData = _getVerseData(surahNumber, verseNum);
         if (verseData == null) continue;
 
-        // Get the QCF glyph data (the actual Mushaf drawing)
         String qcfText = verseData['qcfData']?.toString() ?? '';
         final pageNumber = verseData['page'] as int;
-
         if (qcfText.isEmpty) continue;
 
-        // Trim the text
+        // Trim trailing whitespace/newlines
         qcfText = qcfText.trimRight();
 
-        // Check if verse ends with newline
-        final bool endsWithNewline = qcfText.endsWith('\n');
-        if (endsWithNewline) {
-          qcfText = qcfText.substring(0, qcfText.length - 1).trimRight();
+        // Remove leading \n that belongs to the previous verse's last Mushaf line
+        if (verseNum == firstVerse && qcfText.startsWith('\n')) {
+          qcfText = qcfText.substring(1);
         }
 
-        // Extract verse number glyph (last character in qcfData)
-        String verseNumberGlyph = '';
-        String verseTextWithoutNumber = qcfText;
+        final fontFamily =
+            'QCF4_tajweed_${pageNumber.toString().padLeft(3, '0')}';
 
-        if (qcfText.isNotEmpty) {
-          verseNumberGlyph = qcfText.substring(qcfText.length - 1);
-          verseTextWithoutNumber = qcfText.substring(0, qcfText.length - 1);
-        }
+        // The verse-number circle glyph (always the last character)
+        final String verseGlyph = getaya_noQCF(surahNumber, verseNum);
+        final bool endsWithGlyph = qcfText.endsWith(verseGlyph);
+        final String textBody = endsWithGlyph
+            ? qcfText.substring(0, qcfText.length - verseGlyph.length)
+            : qcfText;
 
-        // Remove leading \n for first verse
-        if (verseNumber == firstVerse && verseTextWithoutNumber.startsWith('\n')) {
-          verseTextWithoutNumber = verseTextWithoutNumber.replaceFirst('\n', '');
-        }
+        // Split into individual Mushaf page lines
+        final List<String> mushafLines = textBody.split('\n');
 
-        // Strip all newlines so text wraps naturally at container width
-        if (stripNewlines) {
-          verseTextWithoutNumber = verseTextWithoutNumber.replaceAll('\n', ' ');
-        }
+        final TextStyle baseStyle = _makeStyle(fontFamily, textColor);
+        final TextStyle glyphStyle =
+            _makeStyle(fontFamily, verseNumberColor ?? textColor);
 
-        // Build the font family name for this page
-        String fontFamily = 'QCF4_tajweed_${pageNumber.toString().padLeft(3, '0')}';
+        for (int i = 0; i < mushafLines.length; i++) {
+          final lineText = mushafLines[i];
+          final bool isLastLine = i == mushafLines.length - 1;
 
-        // Create text style with optional dark mode ColorFilter
-        TextStyle baseStyle = TextStyle(
-          fontFamily: fontFamily,
-          fontSize: fontSize,
-          height: verseHeight,
-          color: textColor,
-        );
+          // Skip empty non-final lines (artifact of split)
+          if (lineText.isEmpty && !isLastLine) continue;
 
-        // Apply ColorFilter for dark mode (invert colors like qcf_quran_plus does)
-        if (isDark) {
-          baseStyle = baseStyle.copyWith(color: null).merge(
-            TextStyle(
-              foreground: Paint()
-                ..colorFilter = const ColorFilter.matrix([
-                  -1, 0, 0, 0, 255,
-                  0, -1, 0, 0, 255,
-                  0, 0, -1, 0, 255,
-                  0, 0, 0, 1, 0,
-                ]),
+          // The last line of each verse gets the circle-number glyph appended
+          final Widget lineContent = isLastLine && endsWithGlyph
+              ? Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: lineText, style: baseStyle),
+                    TextSpan(text: verseGlyph, style: glyphStyle),
+                  ]),
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                )
+              : Text(
+                  lineText,
+                  textDirection: TextDirection.rtl,
+                  style: baseStyle,
+                  maxLines: 1,
+                );
+
+          widgets.add(
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerEnd,
+              child: lineContent,
             ),
           );
         }
-
-        // Create verse number style
-        TextStyle numberStyle = TextStyle(
-          fontFamily: fontFamily,
-          fontSize: fontSize,
-          height: verseHeight,
-          color: verseNumberColor ?? textColor,
-        );
-
-        if (isDark) {
-          numberStyle = numberStyle.copyWith(color: null).merge(
-            TextStyle(
-              foreground: Paint()
-                ..colorFilter = const ColorFilter.matrix([
-                  -1, 0, 0, 0, 255,
-                  0, -1, 0, 0, 255,
-                  0, 0, -1, 0, 255,
-                  0, 0, 0, 1, 0,
-                ]),
-            ),
-          );
-        }
-
-        // Add verse text span
-        spans.add(
-          TextSpan(
-            text: verseTextWithoutNumber,
-            style: baseStyle,
-            children: [
-              // Add verse number glyph
-              if (verseNumberGlyph.isNotEmpty)
-                TextSpan(
-                  text: verseNumberGlyph,
-                  style: numberStyle,
-                ),
-              // Add spacing after verse
-              if (verseNumber != lastVerse)
-                TextSpan(
-                  text: ' ',
-                  style: TextStyle(fontSize: fontSize * 0.5),
-                ),
-            ],
-          ),
-        );
-      } catch (e) {
-        // Skip verses that cause errors
+      } catch (_) {
         continue;
       }
     }
 
-    return spans;
+    return widgets;
   }
 
-  /// Helper to get verse data from quran list
+  TextStyle _makeStyle(String fontFamily, Color? color) {
+    TextStyle style = TextStyle(
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      height: verseHeight,
+      color: color,
+    );
+
+    if (isDark) {
+      style = style.copyWith(color: null).merge(
+        TextStyle(
+          foreground: Paint()
+            ..colorFilter = const ColorFilter.matrix([
+              -1, 0, 0, 0, 255,
+              0, -1, 0, 0, 255,
+              0, 0, -1, 0, 255,
+              0, 0, 0, 1, 0,
+            ]),
+        ),
+      );
+    }
+
+    return style;
+  }
+
   Map<String, dynamic>? _getVerseData(int surahNumber, int ayaNo) {
     try {
       for (var verse in quran) {

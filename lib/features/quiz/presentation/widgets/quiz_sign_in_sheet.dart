@@ -99,8 +99,8 @@ class _QuizSignInSheet extends StatelessWidget {
           // Subtitle
           Text(
             isArabic
-                ? 'للمشاركة في المسابقة اليومية وظهورك\nفي لوحة المتصدرين، يلزمك تسجيل الدخول أولاً.'
-                : 'You need to sign in to participate in the\ndaily quiz and appear on the leaderboard.',
+                ? 'للمشاركة في التحدي اليومي وظهورك\nفي لوحة المتصدرين، يلزمك تسجيل الدخول أولاً.'
+                : 'You need to sign in to participate in the\ndaily challenge and appear on the leaderboard.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,

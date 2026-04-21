@@ -13,7 +13,7 @@ import '../data/quiz_repository.dart';
 /// • ID 6000 — daily quiz reminder (repeating daily).
 class QuizNotificationService {
   static const String _channelId = 'quiz_daily_reminder_v1';
-  static const String _channelName = 'المسابقة اليومية';
+  static const String _channelName = 'التحدي اليومي';
   static const String _channelDescription =
       'تذكير يومي للمشاركة في المسابقة الدينية اليومية';
 
@@ -71,7 +71,7 @@ class QuizNotificationService {
             'سؤال اليوم جاهز! هل تقدر تجاوب صح؟',
             'حافظ على سلسلة إجاباتك الصحيحة!',
             'تحدَّ نفسك بسؤال ديني جديد اليوم',
-            'لا تنسَ سؤال المسابقة اليومية!',
+            'لا تنسَ التحدي اليومي!',
             'اختبر معلوماتك الدينية الآن!',
             'سؤال جديد في انتظارك، جاوب قبل ما الوقت يخلص!',
             'حافظ على ترتيبك في لوحة المتصدرين!',
@@ -80,14 +80,14 @@ class QuizNotificationService {
             "Today's question is ready! Can you answer it?",
             'Keep your correct answer streak going!',
             'Challenge yourself with a new religious question',
-            "Don't forget the daily quiz!",
+            "Don't forget the daily challenge!",
             'Test your Islamic knowledge now!',
             'A new question awaits — answer before time runs out!',
             'Maintain your leaderboard position!',
           ];
 
     final msgIndex = _repository.totalAnswered % messages.length;
-    final title = isArabic ? 'المسابقة اليومية' : 'Daily Quiz';
+    final title = isArabic ? 'التحدي اليومي' : 'Daily Challenge';
     final body = messages[msgIndex];
 
     try {
@@ -127,6 +127,7 @@ class QuizNotificationService {
             presentSound: true,
           ),
         ),
+        payload: 'quiz',
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );

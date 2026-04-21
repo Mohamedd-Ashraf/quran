@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/navigation/notification_router.dart';
 import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/font_download_manager.dart';
@@ -33,6 +35,10 @@ class _MainNavigatorState extends State<MainNavigator> {
       GlobalKey<BookmarksScreenState>();
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
+  /// MethodChannel used to receive navigation events sent from native Android
+  /// (e.g. when the user taps the Adhan foreground-service notification).
+  static const _navChannel = MethodChannel('quraan/navigation');
+
   late final List<Widget> _screens;
 
   @override
@@ -52,7 +58,22 @@ class _MainNavigatorState extends State<MainNavigator> {
       const SettingsScreen(),
     ];
 
+    // ── Listen for navigation events sent from native Android ──────────────
+    // Triggered when the user taps the Adhan foreground-service notification
+    // (which is a native notification, not a flutter_local_notifications one).
+    _navChannel.setMethodCallHandler((call) async {
+      if (call.method == 'navigateTo') {
+        final route = call.arguments as String?;
+        if (route != null && route.isNotEmpty) {
+          navigateFromNotification(route);
+        }
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Consume any notification route stored during cold-start.
+      consumePendingNotificationRoute();
+
       _showAdhanBannerIfNeeded();
       // Show mobile-data consent dialog if font download is waiting.
       _checkFontMobileConsent();

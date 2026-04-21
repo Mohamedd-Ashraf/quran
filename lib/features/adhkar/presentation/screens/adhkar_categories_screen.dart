@@ -25,7 +25,6 @@ class _AdhkarCategoriesScreenState extends State<AdhkarCategoriesScreen> {
   @override
   void initState() {
     super.initState();
-    // Trigger after the first frame so all keys are attached.
     WidgetsBinding.instance.addPostFrameCallback((_) => _showTutorialIfNeeded());
   }
 
@@ -61,6 +60,19 @@ class _AdhkarCategoriesScreenState extends State<AdhkarCategoriesScreen> {
 
     final categories = AdhkarData.categories;
 
+    final featured = categories.where((c) => c.group == AdhkarGroup.featured).toList();
+    final prayer   = categories.where((c) => c.group == AdhkarGroup.prayer).toList();
+    final home     = categories.where((c) => c.group == AdhkarGroup.homeTavel).toList();
+    final food     = categories.where((c) => c.group == AdhkarGroup.food).toList();
+    final health   = categories.where((c) => c.group == AdhkarGroup.health).toList();
+    final occasions= categories.where((c) => c.group == AdhkarGroup.occasions).toList();
+
+    void openCategory(AdhkarCategory cat) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AdhkarListScreen(category: cat)),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isArabicUi ? 'الأذكار والأدعية' : 'Adhkar & Duas'),
@@ -72,43 +84,189 @@ class _AdhkarCategoriesScreenState extends State<AdhkarCategoriesScreen> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            // categoryGrid key is on a SizedBox (RenderBox) wrapping the
-            // header so that tutorial_coach_mark can find the render object.
-            // It must NOT be placed on a Sliver widget (RenderSliver).
             child: SizedBox(
               key: AdhkarTutorialKeys.categoryGrid,
               child: _HeaderBanner(isArabicUi: isArabicUi),
             ),
           ),
+
+          // ── الأذكار اليومية الأساسية ──────────────────────────────
+          _SectionHeader(
+            icon: Icons.today_rounded,
+            titleAr: 'الأذكار اليومية الأساسية',
+            titleEn: 'Daily Essentials',
+            accentColor: const Color(0xFFD4AF37),
+            isArabicUi: isArabicUi,
+          ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 14,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
                 childAspectRatio: 0.62,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _CategoryCard(
                   key: index == 0 ? AdhkarTutorialKeys.morningCard : null,
-                  category: categories[index],
+                  category: featured[index],
                   isArabicUi: isArabicUi,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => AdhkarListScreen(
-                          category: categories[index],
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () => openCategory(featured[index]),
                 ),
-                childCount: categories.length,
+                childCount: featured.length,
               ),
             ),
           ),
+
+          // ── الطهارة والصلاة ────────────────────────────────────────
+          _SectionHeader(
+            icon: Icons.mosque_rounded,
+            titleAr: 'الطهارة والصلاة',
+            titleEn: 'Purification & Prayer',
+            accentColor: const Color(0xFF0288D1),
+            isArabicUi: isArabicUi,
+          ),
+          _buildSmallGrid(prayer, isArabicUi, openCategory),
+
+          // ── المنزل والسفر ──────────────────────────────────────────
+          _SectionHeader(
+            icon: Icons.home_rounded,
+            titleAr: 'المنزل والسفر',
+            titleEn: 'Home & Travel',
+            accentColor: const Color(0xFF1565C0),
+            isArabicUi: isArabicUi,
+          ),
+          _buildSmallGrid(home, isArabicUi, openCategory),
+
+          // ── الطعام والشراب ─────────────────────────────────────────
+          _SectionHeader(
+            icon: Icons.restaurant_rounded,
+            titleAr: 'الطعام والشراب',
+            titleEn: 'Food & Drink',
+            accentColor: const Color(0xFF8B4513),
+            isArabicUi: isArabicUi,
+          ),
+          _buildSmallGrid(food, isArabicUi, openCategory),
+
+          // ── الصحة والأحوال ─────────────────────────────────────────
+          _SectionHeader(
+            icon: Icons.favorite_rounded,
+            titleAr: 'الصحة والأحوال',
+            titleEn: 'Health & Wellbeing',
+            accentColor: const Color(0xFFC62828),
+            isArabicUi: isArabicUi,
+          ),
+          _buildSmallGrid(health, isArabicUi, openCategory),
+
+          // ── المناسبات والمجتمع ─────────────────────────────────────
+          _SectionHeader(
+            icon: Icons.celebration_rounded,
+            titleAr: 'المناسبات والمجتمع',
+            titleEn: 'Occasions & Society',
+            accentColor: const Color(0xFF4527A0),
+            isArabicUi: isArabicUi,
+          ),
+          _buildSmallGrid(occasions, isArabicUi, openCategory),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
+      ),
+    );
+  }
+
+  SliverPadding _buildSmallGrid(
+    List<AdhkarCategory> cats,
+    bool isArabicUi,
+    void Function(AdhkarCategory) onTap,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.76,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _SmallCategoryCard(
+            category: cats[index],
+            isArabicUi: isArabicUi,
+            onTap: () => onTap(cats[index]),
+          ),
+          childCount: cats.length,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String titleAr;
+  final String titleEn;
+  final Color accentColor;
+  final bool isArabicUi;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.titleAr,
+    required this.titleEn,
+    required this.accentColor,
+    required this.isArabicUi,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: isDark
+                ? [
+                    accentColor.withValues(alpha: 0.18),
+                    accentColor.withValues(alpha: 0.06),
+                  ]
+                : [
+                    accentColor.withValues(alpha: 0.12),
+                    accentColor.withValues(alpha: 0.03),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: accentColor.withValues(alpha: isDark ? 0.35 : 0.25),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isDark ? 0.3 : 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: accentColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              isArabicUi ? titleAr : titleEn,
+              style: GoogleFonts.amiri(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: accentColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -193,7 +351,7 @@ class _HeaderBanner extends StatelessWidget {
   }
 }
 
-// ─── Category Card ────────────────────────────────────────────────────────────
+// ─── Large Category Card (featured) ──────────────────────────────────────────
 class _CategoryCard extends StatelessWidget {
   final AdhkarCategory category;
   final bool isArabicUi;
@@ -239,7 +397,6 @@ class _CategoryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon container
               Container(
                 width: 44,
                 height: 44,
@@ -250,7 +407,6 @@ class _CategoryCard extends StatelessWidget {
                 child: Icon(category.icon, color: progressColor, size: 22),
               ),
               const SizedBox(height: 10),
-              // Title
               Text(
                 isArabicUi ? category.titleAr : category.titleEn,
                 style: GoogleFonts.amiri(
@@ -276,7 +432,6 @@ class _CategoryCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const Spacer(),
-              // Count chip + progress
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -326,6 +481,112 @@ class _CategoryCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Small Category Card (groups) ────────────────────────────────────────────
+class _SmallCategoryCard extends StatelessWidget {
+  final AdhkarCategory category;
+  final bool isArabicUi;
+  final VoidCallback onTap;
+
+  const _SmallCategoryCard({
+    required this.category,
+    required this.isArabicUi,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = category.color;
+    final progressState = context.watch<AdhkarProgressCubit>().state;
+    final completedCount = category.items
+        .where((item) =>
+            progressState.countFor(category.id, item.id) >= item.repeatCount)
+        .length;
+    final isFullyDone = completedCount == category.count && category.count > 0;
+    final progress = category.count > 0 ? completedCount / category.count : 0.0;
+    final progressColor = isFullyDone ? AppColors.success : color;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isFullyDone
+              ? AppColors.success.withValues(alpha: 0.5)
+              : color.withValues(alpha: isDark ? 0.35 : 0.2),
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 4),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: progressColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(category.icon, color: progressColor, size: 19),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isArabicUi ? category.titleAr : category.titleEn,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.amiri(
+                  fontSize: isArabicUi ? 13 : 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.88)
+                      : AppColors.textPrimary,
+                  height: 1.25,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              // count badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: progressColor.withValues(alpha: isDark ? 0.22 : 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  isArabicUi ? '${category.count} ذكر' : '${category.count}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: progressColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor:
+                      color.withValues(alpha: isDark ? 0.15 : 0.08),
+                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                  minHeight: 3,
+                ),
               ),
             ],
           ),

@@ -12,6 +12,39 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import 'select_download_screen.dart';
 
+// ── Timed/Qira'at classification helpers (shared across this file) ──────────
+
+const Set<String> _kTimedEditionIds = {
+  'ar.qiraat.husary.qalon',
+  'ar.qiraat.husary.warsh',
+  'ar.qiraat.husary.duri',
+  'ar.qiraat.sosi.abuamr',
+  'ar.qiraat.huthifi.qalon',
+  'ar.qiraat.koshi.warsh',
+  'ar.qiraat.yasseen.warsh',
+  'ar.qiraat.qazabri.warsh',
+  'ar.qiraat.dokali.qalon',
+  'ar.qiraat.okasha.bazi',
+  'ar.khaledjleel',
+  'ar.raadialkurdi',
+  'ar.abdulaziahahmad',
+};
+
+const Set<String> _kWarshIds = {
+  'ar.warsh.ibrahimdosary',
+  'ar.warsh.yassinjazaery',
+  'ar.warsh.abdulbasit',
+};
+
+bool _kIsQiraat(AudioEdition e) =>
+    e.identifier.startsWith('ar.qiraat.') ||
+    _kWarshIds.contains(e.identifier) ||
+    _kTimedEditionIds.contains(e.identifier);
+
+bool _kIsSurahLevelOnly(AudioEdition e) =>
+    e.identifier.startsWith('ar.qiraat.') &&
+    !_kTimedEditionIds.contains(e.identifier);
+
 class OfflineAudioScreen extends StatefulWidget {
   const OfflineAudioScreen({super.key});
 
@@ -1740,6 +1773,66 @@ class _ReciterCardState extends State<_ReciterCard> {
                                     ),
                                   ),
                                 ],
+                                if (_kTimedEditionIds.contains(selected)) ...[
+                                  const SizedBox(height: 5),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryLight
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          ar ? 'آية بآية ✦' : 'Per-ayah ✦',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppColors.primaryLight,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueAccent
+                                              .withValues(alpha: 0.10),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          ar ? 'توقيتات ⏱' : 'Timed ⏱',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.blueAccent,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    ar
+                                        ? 'ينصح بالتحميل — يوفر البيانات ويجعل التشغيل أسرع وأدق ↓'
+                                        : 'Download recommended — saves data & improves accuracy ↓',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.orange.shade700,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -2033,9 +2126,14 @@ class _OfflineReciterPickerSheetState
         .where((e) => e.identifier == widget.selected)
         .cast<AudioEdition?>()
         .firstOrNull;
-    _langFilter = sel?.language?.trim().isNotEmpty == true
-        ? sel!.language!.trim()
-        : 'all';
+    // Auto-select 'قراءات' tab when the current edition is a Qira'at
+    if (sel != null && _kIsQiraat(sel)) {
+      _langFilter = 'qiraat';
+    } else {
+      _langFilter = sel?.language?.trim().isNotEmpty == true
+          ? sel!.language!.trim()
+          : 'all';
+    }
   }
 
   @override
@@ -2055,7 +2153,9 @@ class _OfflineReciterPickerSheetState
 
   List<AudioEdition> get _filtered {
     var list = widget.all;
-    if (_langFilter != 'all') {
+    if (_langFilter == 'qiraat') {
+      list = list.where(_kIsQiraat).toList();
+    } else if (_langFilter != 'all') {
       list = list.where((e) => e.language == _langFilter).toList();
     }
     if (_query.isNotEmpty) {
@@ -2079,6 +2179,266 @@ class _OfflineReciterPickerSheetState
     return list;
   }
 
+  // ── Badge helpers ──────────────────────────────────────────────────────────
+
+  Widget _badge(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+
+  Widget _buildEditionBadges(AudioEdition ed, bool isAr) {
+    if (_kTimedEditionIds.contains(ed.identifier)) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _badge(isAr ? 'آية بآية ✦' : 'Per-ayah ✦', AppColors.primaryLight),
+          const SizedBox(width: 4),
+          _badge(isAr ? 'توقيتات ⏱' : 'Timed ⏱', Colors.blueAccent),
+        ],
+      );
+    }
+    if (_kIsSurahLevelOnly(ed)) {
+      return _badge(
+        isAr ? 'سورة كاملة' : 'Full surah',
+        AppColors.secondary,
+      );
+    }
+    if (_kWarshIds.contains(ed.identifier)) {
+      return _badge(isAr ? 'آية بآية' : 'Per-ayah', AppColors.primaryLight);
+    }
+    return const SizedBox.shrink();
+  }
+
+  // ── Reciter tile ───────────────────────────────────────────────────────────
+
+  Widget _buildTile(
+    BuildContext context,
+    AudioEdition ed,
+    bool isAr,
+    Color nameColor,
+    Color dividerItemColor,
+  ) {
+    final isSelected = ed.identifier == _currentSelected;
+    final name = ed.displayNameForAppLanguage(widget.langCode);
+    final badges = _buildEditionBadges(ed, isAr);
+
+    return InkWell(
+      onTap: () async {
+        setState(() => _currentSelected = ed.identifier);
+        await widget.onSelected(ed.identifier);
+        if (context.mounted) Navigator.pop(context);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isSelected ? Icons.mic_rounded : Icons.mic_none_rounded,
+                color: isSelected ? Colors.white : AppColors.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 14,
+                      color: isSelected ? AppColors.primary : nameColor,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  badges,
+                ],
+              ),
+            ),
+            if (isSelected)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Section header ─────────────────────────────────────────────────────────
+
+  Widget _buildSectionHeader(String label, IconData icon, Color subtleColor) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: subtleColor),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: subtleColor,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  // ── Categorised Qira'at view ───────────────────────────────────────────────
+
+  Widget _buildQiraatSections(
+    BuildContext context,
+    bool isAr,
+    Color nameColor,
+    Color subtleColor,
+    Color dividerItemColor,
+  ) {
+    final timedList = widget.all
+        .where((e) => _kTimedEditionIds.contains(e.identifier))
+        .toList();
+    final surahList = widget.all.where(_kIsSurahLevelOnly).toList();
+    final warshList =
+        widget.all.where((e) => _kWarshIds.contains(e.identifier)).toList();
+
+    final items = <Widget>[];
+
+    // ── Timed per-ayah section ─────────────────────────────────────────────
+    if (timedList.isNotEmpty) {
+      items.add(
+        _buildSectionHeader(
+          isAr ? 'القراءات — آية بآية ⏱' : "Qira'at — Per-ayah ⏱",
+          Icons.auto_stories_rounded,
+          subtleColor,
+        ),
+      );
+      // Download recommendation banner
+      items.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.orange.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.download_for_offline_rounded,
+                  size: 15,
+                  color: Colors.orange.shade700,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    isAr
+                        ? 'ينصح بتحميل ملفات هذه التلاوات. التوقيتات تقريبية وقد تختلف بآية أحياناً — التحميل يوفر البيانات ويجعل التشغيل أسرع وأدق.'
+                        : 'Download recommended. Timings are approximate and may occasionally be off by one ayah. Downloading saves data and improves accuracy.',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.orange.shade800,
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      for (final ed in timedList) {
+        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+      }
+    }
+
+    // ── Surah-level Qira'at section ────────────────────────────────────────
+    if (surahList.isNotEmpty) {
+      items.add(
+        _buildSectionHeader(
+          isAr ? 'القراءات — سورة كاملة' : "Qira'at — Full Surah",
+          Icons.auto_stories_outlined,
+          subtleColor,
+        ),
+      );
+      for (final ed in surahList) {
+        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+      }
+    }
+
+    // ── Warsh per-ayah section ─────────────────────────────────────────────
+    if (warshList.isNotEmpty) {
+      items.add(
+        _buildSectionHeader(
+          isAr ? "ورش عن نافع (آية بآية)" : "Warsh an Nafi' (per-ayah)",
+          Icons.library_music_outlined,
+          subtleColor,
+        ),
+      );
+      for (final ed in warshList) {
+        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+      }
+    }
+
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            isAr ? 'لا توجد نتائج' : 'No results',
+            style: TextStyle(color: subtleColor),
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
+      children: items,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAr = widget.isAr;
@@ -2095,6 +2455,7 @@ class _OfflineReciterPickerSheetState
     final dividerItemColor = isDark ? Colors.white10 : Colors.grey.shade100;
     final nameColor = isDark ? const Color(0xFFE8E8E8) : Colors.black87;
     final subColor = isDark ? Colors.white38 : Colors.grey.shade500;
+    final subtleColor = isDark ? Colors.white38 : Colors.black45;
     final emptyIconColor = isDark ? Colors.white24 : Colors.grey.shade300;
     final emptyTextColor = isDark ? Colors.white38 : Colors.grey.shade500;
 
@@ -2162,7 +2523,6 @@ class _OfflineReciterPickerSheetState
             child: TextField(
               controller: _searchCtrl,
               textDirection: TextDirection.rtl,
-              
               style: TextStyle(color: nameColor),
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
@@ -2211,7 +2571,7 @@ class _OfflineReciterPickerSheetState
             ),
           ),
 
-          // ── Language chips ────────────────────────────────────
+          // ── Language + Qira'at chips ──────────────────────────
           SizedBox(
             height: 38,
             child: ListView(
@@ -2222,6 +2582,11 @@ class _OfflineReciterPickerSheetState
                   label: isAr ? 'الكل' : 'All',
                   selected: _langFilter == 'all',
                   onTap: () => setState(() => _langFilter = 'all'),
+                ),
+                _OfflineLangChip(
+                  label: isAr ? 'القراءات ✦' : "Qira'at ✦",
+                  selected: _langFilter == 'qiraat',
+                  onTap: () => setState(() => _langFilter = 'qiraat'),
                 ),
                 ...languages.map(
                   (code) => _OfflineLangChip(
@@ -2239,127 +2604,46 @@ class _OfflineReciterPickerSheetState
 
           // ── Reciter list ──────────────────────────────────────
           Flexible(
-            child: filtered.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 48,
-                          color: emptyIconColor,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isAr ? 'لا توجد نتائج' : 'No results',
-                          style: TextStyle(color: emptyTextColor),
-                        ),
-                      ],
-                    ),
+            child: _langFilter == 'qiraat' && _query.isEmpty
+                ? _buildQiraatSections(
+                    context,
+                    isAr,
+                    nameColor,
+                    subtleColor,
+                    dividerItemColor,
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, indent: 70, color: dividerItemColor),
-                    itemBuilder: (context, i) {
-                      final ed = filtered[i];
-                      final isSelected = ed.identifier == _currentSelected;
-                      final name = ed.displayNameForAppLanguage(
-                        widget.langCode,
-                      );
-                      final lang = ed.language;
-                      final langStr = (lang != null && lang.trim().isNotEmpty)
-                          ? widget.languageLabel(lang, isAr)
-                          : '';
-
-                      return InkWell(
-                        onTap: () async {
-                          setState(() => _currentSelected = ed.identifier);
-                          await widget.onSelected(ed.identifier);
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              // Avatar
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.primary.withValues(
-                                          alpha: 0.08,
-                                        ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isSelected
-                                      ? Icons.mic_rounded
-                                      : Icons.mic_none_rounded,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-
-                              // Name + language
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: TextStyle(
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        fontSize: 14,
-                                        color: isSelected
-                                            ? AppColors.primary
-                                            : nameColor,
-                                      ),
-                                    ),
-                                    if (langStr.isNotEmpty)
-                                      Text(
-                                        langStr,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: subColor,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-
-                              // Check icon
-                              if (isSelected)
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.check_rounded,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                            ],
-                          ),
+                : filtered.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 48,
+                              color: emptyIconColor,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              isAr ? 'لا توجد نتائج' : 'No results',
+                              style: TextStyle(color: emptyTextColor),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(height: 1, indent: 70, color: dividerItemColor),
+                        itemBuilder: (context, i) => _buildTile(
+                          context,
+                          filtered[i],
+                          isAr,
+                          nameColor,
+                          dividerItemColor,
+                        ),
+                      ),
           ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),

@@ -48,6 +48,10 @@ class QuizRepository {
   static const _kReminderHour = 'quiz_reminder_hour';
   static const _kReminderMinute = 'quiz_reminder_minute';
 
+  // ── Pending offline-sync keys ─────────────────────────────────────────────
+  static const _kPendingSync = 'quiz_pending_sync';
+  static const _kPendingSyncDate = 'quiz_pending_sync_date';
+
   // ── In-memory session cache ───────────────────────────────────────────────
   int _totalScore = 0;
   int _streak = 0;
@@ -166,6 +170,38 @@ class QuizRepository {
       debugPrint('[Quiz] Firestore load failed, using local prefs: $e\n$st');
       _loadFromPrefs();
     }
+
+    // Apply any offline-answered question that hasn't been synced yet.
+    // This prevents the user from seeing an empty/unanswered screen when they
+    // return after answering while offline.
+    _applyPendingLocalAnswerIfValid();
+  }
+
+  /// Overlays the locally-saved post-answer data when there is a pending sync
+  /// for today AND Firestore doesn't already show an answer for today.
+  void _applyPendingLocalAnswerIfValid() {
+    if (!hasPendingSync) return;
+    final pendingDate = _prefs.getString(_kPendingSyncDate) ?? '';
+    if (pendingDate != _todayString()) {
+      // Pending is stale (different day) — discard.
+      _clearPendingSync();
+      return;
+    }
+    if (hasAnsweredToday) {
+      // Firestore already has today's answer — pending is no longer needed.
+      _clearPendingSync();
+      return;
+    }
+    // Override in-memory state with locally saved post-answer values.
+    _totalScore = _prefs.getInt(_kScore) ?? _totalScore;
+    _streak = _prefs.getInt(_kStreak) ?? _streak;
+    _correctAnswers = _prefs.getInt(_kCorrect) ?? _correctAnswers;
+    _totalAnswered = _prefs.getInt(_kTotal) ?? _totalAnswered;
+    _lastAnsweredDate = pendingDate;
+    _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
+    _lastAnswerCorrect = _prefs.getBool(_kLastCorrect);
+    _lastAnswerPoints = _prefs.getInt(_kLastPoints) ?? 0;
+    debugPrint('[Quiz] Applied pending offline answer to in-memory state');
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -288,17 +324,6 @@ class QuizRepository {
     final isCorrect = selectedIndex == question.correctIndex;
     final points = isCorrect ? question.points : 0;
 
-    // Snapshot previous state so we can revert on failure.
-    final prevScore = _totalScore;
-    final prevStreak = _streak;
-    final prevCorrect = _correctAnswers;
-    final prevTotal = _totalAnswered;
-    final prevDate = _lastAnsweredDate;
-    final prevIds = List<int>.from(_answeredIds);
-    final prevLastCorrect = _lastAnswerCorrect;
-    final prevLastPoints = _lastAnswerPoints;
-    final prevServerTimestamp = _lastAnsweredServerTimestamp;
-
     // Update in-memory cache immediately.
     _totalScore += points;
     if (isCorrect) {
@@ -322,23 +347,54 @@ class QuizRepository {
     if (_isLoggedIn) {
       final saved = await _saveToFirestore(isAnswer: true);
       if (!saved) {
-        // Revert in-memory state so UI stays consistent with Firestore.
-        _totalScore = prevScore;
-        _streak = prevStreak;
-        _correctAnswers = prevCorrect;
-        _totalAnswered = prevTotal;
-        _lastAnsweredDate = prevDate;
-        _answeredIds = prevIds;
-        _lastAnswerCorrect = prevLastCorrect;
-        _lastAnswerPoints = prevLastPoints;
-        _lastAnsweredServerTimestamp = prevServerTimestamp;
-        throw Exception('[Quiz] Answer rejected by server — possible rule violation or network error.');
+        // Firestore write failed (offline or transient error).
+        // Accept the answer locally and schedule a sync for when connectivity
+        // returns. Do NOT revert in-memory state — the user gets the result now.
+        await _saveToPrefs();
+        await _prefs.setBool(_kPendingSync, true);
+        await _prefs.setString(_kPendingSyncDate, _todayString());
+        debugPrint('[Quiz] Offline: answer saved locally, pending Firestore sync.');
       }
     } else {
       await _saveToPrefs();
     }
 
     return isCorrect;
+  }
+
+  // ── Offline sync ──────────────────────────────────────────────────────────
+
+  bool get hasPendingSync => _prefs.getBool(_kPendingSync) ?? false;
+
+  /// Attempts to push the locally-saved offline answer to Firestore.
+  /// Returns true if the sync succeeded (or was no longer needed).
+  Future<bool> syncPendingAnswer() async {
+    if (!hasPendingSync) return false;
+    if (!_isLoggedIn) {
+      await _clearPendingSync();
+      return false;
+    }
+    // Load fresh Firestore state, which also calls _applyPendingLocalAnswerIfValid
+    // so in-memory state reflects the pending answer.
+    await loadData();
+
+    // If pending was stale or already synced during loadData, we're done.
+    if (!hasPendingSync) return true;
+
+    // In-memory state now has the pending answer applied; write it to Firestore.
+    final saved = await _saveToFirestore(isAnswer: true);
+    if (saved) {
+      await _clearPendingSync();
+      debugPrint('[Quiz] Pending offline answer synced to Firestore.');
+      return true;
+    }
+    debugPrint('[Quiz] Pending sync still failing (still offline?).');
+    return false;
+  }
+
+  Future<void> _clearPendingSync() async {
+    await _prefs.remove(_kPendingSync);
+    await _prefs.remove(_kPendingSyncDate);
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────

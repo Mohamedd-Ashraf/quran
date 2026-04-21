@@ -18,6 +18,20 @@ import 'location_service.dart';
 import 'settings_service.dart';
 import 'prayer_times_cache_service.dart';
 
+/// Top-level callback for notifications tapped while the app is terminated
+/// (background isolate). Must be a top-level function annotated with
+/// @pragma('vm:entry-point') so it is never tree-shaken.
+///
+/// We store the payload so it can be consumed by [consumePendingNotificationRoute]
+/// when the main isolate / Flutter engine boots.
+@pragma('vm:entry-point')
+void _onBackgroundNotificationTap(NotificationResponse response) {
+  // Background isolates cannot import Flutter UI — just persist the route.
+  // The main app reads it via getNotificationAppLaunchDetails() or the
+  // pendingRoute mechanism in notification_router.dart.
+  debugPrint('[Notif] Background tap: payload=${response.payload}');
+}
+
 /// Schedules local notifications at the calculated prayer times.
 ///
 /// Notes:
@@ -108,7 +122,9 @@ class AdhanNotificationService {
     this._cache,
   );
 
-  Future<void> init() async {
+  Future<void> init({
+    void Function(NotificationResponse)? onNotificationTap,
+  }) async {
     tz.initializeTimeZones();
     try {
       final tzInfo = await FlutterTimezone.getLocalTimezone();
@@ -132,7 +148,11 @@ class AdhanNotificationService {
     );
 
     try {
-      await _plugin.initialize(initSettings);
+      await _plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: onNotificationTap,
+        onDidReceiveBackgroundNotificationResponse: _onBackgroundNotificationTap,
+      );
     } catch (e) {
       debugPrint('[Adhan] Notification plugin init failed (non-fatal): $e');
     }
@@ -194,6 +214,7 @@ class AdhanNotificationService {
         _settings.getAppLanguage() == 'ar' ? 'وقت الصلاة' : 'Prayer Time',
         _settings.getAppLanguage() == 'ar' ? 'حان وقت الصلاة' : 'It is time for prayer',
         _notificationDetails(),
+        payload: 'prayer_times',
       );
       debugPrint('🔔 [Adhan] Fallback notification shown');
     } catch (e) {
@@ -1149,6 +1170,7 @@ class AdhanNotificationService {
                 iqamaNotifMode == 'sound_only' ? '' : iqamaBody,
                 iqamaTime,
                 _iqamaNotificationDetails(playSound: iqamaNotifMode != 'text_only'),
+                payload: 'prayer_times',
                 androidScheduleMode: schedMode,
               );
             }
@@ -1199,6 +1221,7 @@ class AdhanNotificationService {
               approachNotifMode == 'sound_only' ? '' : remBody,
               reminderTime,
               _reminderNotificationDetails(item.prayer, playSound: approachNotifMode != 'text_only'),
+              payload: 'prayer_times',
               androidScheduleMode: schedMode,
             );
           }

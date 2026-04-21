@@ -2178,11 +2178,33 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
       (e.name ?? '').contains('ورش') ||
       (e.englishName ?? '').toLowerCase().contains('warsh');
 
-  /// Returns true ONLY for editions that store one file per surah (mp3quran.net).
-  /// ar.warsh.* reciters are per-ayah (everyayah.com) — NOT surah-level.
+  /// Edition IDs that use mp3quran.net timing for per-ayah playback.
+  static const Set<String> _timedQiraatIds = {
+    // ── الحصري (3 روايات)
+    'ar.qiraat.husary.qalon',
+    'ar.qiraat.husary.warsh',
+    'ar.qiraat.husary.duri',
+    // ── الصوفي
+    'ar.qiraat.sosi.abuamr',
+    // ── قراءات ورش وقالون إضافية
+    'ar.qiraat.huthifi.qalon',
+    'ar.qiraat.koshi.warsh',
+    'ar.qiraat.yasseen.warsh',
+    'ar.qiraat.qazabri.warsh',
+    'ar.qiraat.dokali.qalon',
+    'ar.qiraat.okasha.bazi',
+    // ── حفص — mp3quran.net مع توقيتات
+    'ar.khaledjleel',
+    'ar.raadialkurdi',
+    'ar.abdulaziahahmad',
+  };
+
+  /// Returns true ONLY for pure surah-level editions (no timing data).
+  /// ar.warsh.* and timed Qira’at reciters are per-ayah — NOT surah-level.
   /// Used for the "سورة كاملة" badge.
   static bool _isSurahLevelOnly(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.');
+      e.identifier.startsWith('ar.qiraat.') &&
+      !_timedQiraatIds.contains(e.identifier);
 
   List<AudioEdition> _applyFilter(List<AudioEdition> src) {
     List<AudioEdition> list;
@@ -2456,8 +2478,8 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                       Expanded(
                         child: Text(
                           widget.isAr
-                              ? 'هذه التلاوات تعمل بمستوى السورة الكاملة — لا يمكن الانتقال بين الآيات منفردة'
-                              : 'These recitations play the full surah — per-ayah seeking is not available',
+                              ? 'التلاوات المعلَّمة بـ ⏱ تشتغل آية بآية عبر نظام التوقيتات. التوقيتات تقريبية وقد تختلف بآية أحياناً — تحميل الملفات يوفر البيانات.'
+                              : 'Recitations marked ⏱ play per-ayah using timing data. Timings are approximate and may occasionally be off. Download files to save data.',
                           style: GoogleFonts.cairo(
                             fontSize: 11,
                             color: accent.withValues(alpha: 0.90),
@@ -2536,15 +2558,56 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                                   : FontWeight.w500,
                                             ),
                                           ),
-                                          if (_isSurahLevelOnly(e))
+                                          if (_timedQiraatIds.contains(e.identifier))
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 3),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      color: AppColors.primaryLight.withValues(alpha: 0.12),
+                                                    ),
+                                                    child: Text(
+                                                      widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+                                                      style: GoogleFonts.cairo(
+                                                        fontSize: 9.5,
+                                                        color: AppColors.primaryLight,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      color: Colors.blueAccent.withValues(alpha: 0.12),
+                                                    ),
+                                                    child: Text(
+                                                      widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                                                      style: GoogleFonts.cairo(
+                                                        fontSize: 9.5,
+                                                        color: Colors.blueAccent,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          else if (_isSurahLevelOnly(e))
                                             Padding(
                                               padding: const EdgeInsets.only(top: 3),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(
                                                     horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
+                                                  borderRadius: BorderRadius.circular(4),
                                                   color: accent.withValues(alpha: 0.12),
                                                 ),
                                                 child: Text(
@@ -2564,8 +2627,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                                 padding: const EdgeInsets.symmetric(
                                                     horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
+                                                  borderRadius: BorderRadius.circular(4),
                                                   color: AppColors.primaryLight.withValues(alpha: 0.12),
                                                 ),
                                                 child: Text(

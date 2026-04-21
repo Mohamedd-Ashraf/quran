@@ -13,7 +13,13 @@ import 'leaderboard_screen.dart';
 import 'quiz_admin_preview_screen.dart';
 
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
+  /// When `true`, the landing screen is shown before the timer starts.
+  /// Set this only when opening the quiz from a notification tap.
+  /// Navigating from within the app should use `fromNotification: false`
+  /// (the default) to skip the landing screen and go straight to the question.
+  final bool fromNotification;
+
+  const QuizScreen({super.key, this.fromNotification = false});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -32,7 +38,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     // ensuring the QuizLoading → QuizReady transition is caught and
     // _startTimerAnimation() is called correctly.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _cubit.load();
+      if (mounted) _cubit.load(skipLanding: !widget.fromNotification);
     });
   }
 
@@ -72,7 +78,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       value: _cubit,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(isArabic ? 'المسابقة اليومية' : 'Daily Quiz'),
+          title: Text(isArabic ? 'التحدي اليومي' : 'Daily Challenge'),
           centerTitle: true,
           flexibleSpace: Container(
             decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
@@ -133,6 +139,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             if (state is QuizInitial || state is QuizLoading) {
               return const Center(child: CircularProgressIndicator());
             }
+            if (state is QuizReadyToStart) {
+              return _buildLandingView(context, state, isArabic: isArabic, isDark: isDark);
+            }
             if (state is QuizReady) {
               return _buildQuestionView(
                 context, state.question, null, state.streak, state.totalScore,
@@ -166,6 +175,210 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             return const SizedBox.shrink();
           },
         ),
+      ),
+    );
+  }
+
+  // ── Landing View (shown before the timer starts) ──────────────────────────
+
+  Widget _buildLandingView(
+    BuildContext context,
+    QuizReadyToStart state, {
+    required bool isArabic,
+    required bool isDark,
+  }) {
+    final diffColor = _difficultyColor(state.question.difficulty);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Icon ────────────────────────────────────────────────────────
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 44),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Title ────────────────────────────────────────────────────────
+            Text(
+              isArabic ? 'سؤال اليوم جاهز!' : "Today's Question is Ready!",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              isArabic
+                  ? 'الوقت يبدأ فقط لما تضغط ابدأ'
+                  : 'Timer starts only when you tap Start',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // ── Stats row ────────────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _landingStat(
+                  icon: Icons.local_fire_department,
+                  iconColor: Colors.deepOrange,
+                  label: isArabic ? 'السلسلة' : 'Streak',
+                  value: '${state.streak}',
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 16),
+                _landingStat(
+                  icon: Icons.star_rounded,
+                  iconColor: const Color(0xFFFFC107),
+                  label: isArabic ? 'نقاطك' : 'Your Score',
+                  value: '${state.totalScore}',
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 16),
+                _landingStat(
+                  icon: Icons.timer_rounded,
+                  iconColor: AppColors.primary,
+                  label: isArabic ? 'الوقت' : 'Time',
+                  value: '${state.question.timerSeconds}s',
+                  isDark: isDark,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Difficulty / Points badges ───────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: diffColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: diffColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    isArabic
+                        ? state.question.difficultyLabelAr
+                        : state.question.difficultyLabelEn,
+                    style: TextStyle(
+                      color: diffColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: AppColors.secondary.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    isArabic
+                        ? '+${state.question.points} نقطة'
+                        : '+${state.question.points} pts',
+                    style: const TextStyle(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 40),
+
+            // ── Start button ─────────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 60,
+              child: ElevatedButton.icon(
+                onPressed: () => _cubit.startQuiz(),
+                icon: const Icon(Icons.play_arrow_rounded,
+                    color: Colors.white, size: 28),
+                label: Text(
+                  isArabic ? 'ابدأ التحدي' : 'Start Challenge',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: const StadiumBorder(),
+                  elevation: 8,
+                  shadowColor: AppColors.primary.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _landingStat({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color:
+                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -330,7 +543,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                       color: Colors.white.withValues(alpha: 0.2)),
                 ),
                 child: Text(
-                  isArabic ? 'السؤال اليومي' : 'Daily Question',
+                  isArabic ? 'التحدي اليومي' : 'Daily Challenge',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 11,

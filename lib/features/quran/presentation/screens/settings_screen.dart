@@ -696,30 +696,118 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   ),
                                 ],
-                                // Qira'at badge: show only for surah-level editions (ar.qiraat.*)
-                                // ar.warsh.* reciters are per-ayah (everyayah.com) — no badge
+                                // Qira'at badges: timed editions → "آية بآية ✦" + "توقيتات ⏱", pure surah-level → "سورة كاملة"
                                 if (selectedEdition != null &&
-                                    selected.startsWith('ar.qiraat.')) ...[
+                                    (selected.startsWith('ar.qiraat.') ||
+                                     const {'ar.khaledjleel', 'ar.raadialkurdi', 'ar.abdulaziahahmad'}.contains(selected))) ...[
                                   const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.secondary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                          color: AppColors.secondary
-                                              .withValues(alpha: 0.30)),
+                                  if (const {
+                                    'ar.qiraat.husary.qalon',
+                                    'ar.qiraat.husary.warsh',
+                                    'ar.qiraat.husary.duri',
+                                    'ar.qiraat.sosi.abuamr',
+                                    'ar.qiraat.huthifi.qalon',
+                                    'ar.qiraat.koshi.warsh',
+                                    'ar.qiraat.yasseen.warsh',
+                                    'ar.qiraat.qazabri.warsh',
+                                    'ar.qiraat.dokali.qalon',
+                                    'ar.qiraat.okasha.bazi',
+                                    'ar.khaledjleel',
+                                    'ar.raadialkurdi',
+                                    'ar.abdulaziahahmad',
+                                  }.contains(selected))
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryLight
+                                                .withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: AppColors.primaryLight
+                                                    .withValues(alpha: 0.30)),
+                                          ),
+                                          child: Text(
+                                            isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.primaryLight,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueAccent
+                                                .withValues(alpha: 0.10),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: Colors.blueAccent
+                                                    .withValues(alpha: 0.30)),
+                                          ),
+                                          child: Text(
+                                            isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.blueAccent,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.secondary
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: AppColors.secondary
+                                                .withValues(alpha: 0.30)),
+                                      ),
+                                      child: Text(
+                                        isAr ? 'سورة كاملة' : 'Full surah',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.secondary,
+                                            fontWeight: FontWeight.w600),
+                                      ),
                                     ),
-                                    child: Text(
-                                      isAr ? 'سورة كاملة' : 'Full surah',
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.secondary,
-                                          fontWeight: FontWeight.w600),
+                                  // Disclaimer for timed editions
+                                  if (const {
+                                    'ar.qiraat.husary.qalon',
+                                    'ar.qiraat.husary.warsh',
+                                    'ar.qiraat.husary.duri',
+                                    'ar.qiraat.sosi.abuamr',
+                                    'ar.qiraat.huthifi.qalon',
+                                    'ar.qiraat.koshi.warsh',
+                                    'ar.qiraat.yasseen.warsh',
+                                    'ar.qiraat.qazabri.warsh',
+                                    'ar.qiraat.dokali.qalon',
+                                    'ar.qiraat.okasha.bazi',
+                                    'ar.khaledjleel',
+                                    'ar.raadialkurdi',
+                                    'ar.abdulaziahahmad',
+                                  }.contains(selected)) ...[
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      isAr
+                                          ? 'التوقيتات تقريبية وقد تختلف بآية أحياناً. يُنصح بتحميل الملفات لتوفير البيانات.'
+                                          : 'Timings are approximate and may occasionally be off by one ayah. Download files to save data.',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.orange.shade700,
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
                               ],
                             ),

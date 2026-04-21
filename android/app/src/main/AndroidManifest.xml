@@ -378,6 +378,9 @@
                 <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_WEEK" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_DAY" />
+                <action android:name="com.nooraliman.quran.HIJRI_RESET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -396,6 +399,9 @@
                 <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_WEEK" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_DAY" />
+                <action android:name="com.nooraliman.quran.HIJRI_RESET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -414,6 +420,9 @@
                 <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="com.nooraliman.quran.HIJRI_WIDGET_UPDATE" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_WEEK" />
+                <action android:name="com.nooraliman.quran.HIJRI_ZOOM_DAY" />
+                <action android:name="com.nooraliman.quran.HIJRI_RESET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

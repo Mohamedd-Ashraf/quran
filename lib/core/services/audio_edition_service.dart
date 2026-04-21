@@ -623,7 +623,88 @@ class AudioEditionService {
       language: 'ar',
       format: 'audio',
       type: 'versebyverse',
-    ),  ];
+    ),
+    // ─── قراءات إضافية — توقيتات ⏱ ─────────────────────────────────────────
+    // نافع المدني: قالون (علي الحذيفي) ───────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.huthifi.qalon',
+      name: 'علي الحذيفي (قالون عن نافع)',
+      englishName: "Ali Al-Huthaifi (Qalon an Nafi')",
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: ورش (العيون الكوشي) ───────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.koshi.warsh',
+      name: 'العيون الكوشي (ورش عن نافع)',
+      englishName: "Al-Oyoun Al-Koshi (Warsh an Nafi')",
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: ورش (القارئ ياسين) ────────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.yasseen.warsh',
+      name: 'القارئ ياسين (ورش عن نافع)',
+      englishName: "Al-Qari Yasseen (Warsh an Nafi')",
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: ورش (عمر القزابري) ────────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.qazabri.warsh',
+      name: 'عمر القزابري (ورش عن نافع)',
+      englishName: "Omar Al-Qazabri (Warsh an Nafi')",
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // نافع المدني: قالون (الدوكالي محمد العالم) ──────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.dokali.qalon',
+      name: 'الدوكالي محمد العالم (قالون عن نافع)',
+      englishName: "Al-Dokali Muhammad Al-Alam (Qalon an Nafi')",
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ابن كثير المكي: البزي (عكاشة كميني) ────────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.okasha.bazi',
+      name: 'عكاشة كميني (البزي عن ابن كثير)',
+      englishName: 'Okasha Kameny (Al-Bazi an Ibn Katheer)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    // ─── قراء حفص — mp3quran.net (توقيتات) ──────────────────────────────────
+    AudioEdition(
+      identifier: 'ar.khaledjleel',
+      name: 'خالد الجليل',
+      englishName: 'Khaled Al-Jaleel',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    AudioEdition(
+      identifier: 'ar.raadialkurdi',
+      name: 'رعد محمد الكردي',
+      englishName: 'Raad Muhammad Al-Kurdi',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+    AudioEdition(
+      identifier: 'ar.abdulaziahahmad',
+      name: 'عبدالعزيز الأحمد',
+      englishName: 'AbdulAziz Al-Ahmad',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
+  ];
 
   List<AudioEdition> _readCache() {
     final raw = _prefs.getString(_cacheKey);

@@ -8,7 +8,7 @@
     android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/adhkar_widget_dark"
-    android:previewLayout="@layout/adhkar_widget_dark"
+    android:previewLayout="@layout/adhkar_widget_dark_preview"
     android:description="@string/adhkar_widget_dark_description"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"

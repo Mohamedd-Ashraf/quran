@@ -729,7 +729,7 @@ class PrayerTimesWidget : BasePrayerTimesWidget() {
     override val receiverClass = PrayerTimesWidget::class.java
     override val requestCode = 7867
     override val defaultTimeColor = 0xFFFDFBF6.toInt()
-    override val currentTimeColor = 0xFF2C2416.toInt()
+    override val currentTimeColor = 0xFFFDFBF6.toInt()
     override val nextTimeColor = 0xFFE8D79A.toInt()
     override val currentHighlightDrawable = R.drawable.widget_current_highlight_balanced
     override val currentBadgeDrawable = R.drawable.widget_badge_balanced

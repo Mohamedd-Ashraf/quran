@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -13,6 +15,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   final QuizNotificationService _notifService;
 
   Timer? _timer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   int _remainingSeconds = 0;
   bool _hasSubmitted = false;
 
@@ -24,13 +27,20 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   QuizCubit(this._repository, this._notifService) : super(const QuizInitial()) {
     WidgetsBinding.instance.addObserver(this);
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final isOnline = results.any((r) => r != ConnectivityResult.none);
+      if (isOnline) _trySyncPendingAnswer();
+    });
   }
 
   int get remainingSeconds => _remainingSeconds;
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  Future<void> load() async {
+  /// [skipLanding] — when `true`, skips the landing/ready screen and starts
+  /// the timer immediately. Pass `true` when the user navigates from within
+  /// the app; pass `false` (default) only when arriving from a notification.
+  Future<void> load({bool skipLanding = false}) async {
     _hasSubmitted = false;
     _questionStartTime = null;
     _totalTimerSeconds = 0;
@@ -65,11 +75,35 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       return;
     }
 
-    _startTimer(question.timerSeconds);
+    if (skipLanding) {
+      // Navigated from within the app — start the timer immediately.
+      _startTimer(question.timerSeconds);
+      emit(QuizReady(
+        question: question,
+        streak: _repository.streak,
+        totalScore: _repository.totalScore,
+      ));
+    } else {
+      // Navigated from a notification — show landing screen first so the
+      // timer only starts when the user consciously presses "Start".
+      emit(QuizReadyToStart(
+        question: question,
+        streak: _repository.streak,
+        totalScore: _repository.totalScore,
+      ));
+    }
+  }
+
+  /// Called when the user presses the "Start" button on the landing screen.
+  /// Starts the countdown timer and transitions to [QuizReady].
+  void startQuiz() {
+    final s = state;
+    if (s is! QuizReadyToStart) return;
+    _startTimer(s.question.timerSeconds);
     emit(QuizReady(
-      question: question,
-      streak: _repository.streak,
-      totalScore: _repository.totalScore,
+      question: s.question,
+      streak: s.streak,
+      totalScore: s.totalScore,
     ));
   }
 
@@ -97,8 +131,12 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   /// Called by Flutter when the app transitions to/from background.
   /// If the user has backgrounded the app while a question is active and
   /// the full timer duration has already elapsed, auto-submit as a timeout.
+  /// Also retries any pending offline sync on resume.
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    if (lifecycleState == AppLifecycleState.resumed) {
+      _trySyncPendingAnswer();
+    }
     if (lifecycleState == AppLifecycleState.resumed &&
         _questionStartTime != null &&
         !_hasSubmitted) {
@@ -229,10 +267,25 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
+  // ── Offline sync ──────────────────────────────────────────────────────────
+
+  Future<void> _trySyncPendingAnswer() async {
+    if (!_repository.hasPendingSync) return;
+    try {
+      final synced = await _repository.syncPendingAnswer();
+      if (synced) {
+        debugPrint('[Quiz] Offline answer successfully synced to Firestore');
+      }
+    } catch (e) {
+      debugPrint('[Quiz] Pending sync attempt failed: $e');
+    }
+  }
+
   @override
   Future<void> close() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _connectivitySub?.cancel();
     return super.close();
   }
 }

@@ -27,6 +27,9 @@ import '../../../islamic/presentation/screens/qiblah_screen.dart';
 import '../../../islamic/presentation/screens/hijri_calendar_screen.dart';
 import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
 import 'search_screen.dart';
+import '../../../quiz/presentation/screens/quiz_screen.dart';
+import '../../../quiz/presentation/widgets/quiz_sign_in_sheet.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
@@ -983,20 +986,32 @@ class _QuickAccessBar extends StatelessWidget {
                 },
               ),
               _QuickAccessItem(
-                label: isArabicUi ? 'الإذاعة' : 'Radio',
-                imagePath: 'assets/logo/button icons/radio.png',
-                imagePadding: 3,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const QuranRadioScreen()),
-                ),
-              ),
-              _QuickAccessItem(
                 label: isArabicUi ? 'الأحاديث' : 'Hadiths',
                 imagePath: 'assets/logo/button icons/hadith.png',
                 imagePadding: 3,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const HadithCategoriesScreen()),
                 ),
+              ),
+              _QuickAccessItem(
+                label: isArabicUi ? 'المسابقة' : 'Quiz',
+                imagePath: 'assets/logo/button icons/cup.png',
+                onTap: () {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null || user.isAnonymous) {
+                    showQuizSignInSheet(
+                      context,
+                      isArabic: isArabicUi,
+                      onAuthenticated: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const QuizScreen()),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const QuizScreen()),
+                    );
+                  }
+                },
               ),
               _QuickAccessItem(
                 label: isArabicUi ? 'القبلة' : 'Qibla',
@@ -1007,8 +1022,16 @@ class _QuickAccessBar extends StatelessWidget {
                 ),
               ),
               _QuickAccessItem(
+                label: isArabicUi ? 'الإذاعة' : 'Radio',
+                imagePath: 'assets/logo/button icons/radio.png',
+                imagePadding: 3,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QuranRadioScreen()),
+                ),
+              ),
+              _QuickAccessItem(
                 label: isArabicUi ? 'التقويم' : 'Hijri',
-                icon: Icons.calendar_month_rounded,
+                imagePath: 'assets/logo/button icons/calendar_1.png',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const HijriCalendarScreen()),
                 ),

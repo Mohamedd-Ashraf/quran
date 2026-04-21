@@ -18,6 +18,23 @@ class QuizLoading extends QuizState {
   const QuizLoading();
 }
 
+/// Question loaded — waiting for the user to press "Start".
+/// The countdown timer has NOT started yet.
+class QuizReadyToStart extends QuizState {
+  final QuizQuestion question;
+  final int streak;
+  final int totalScore;
+
+  const QuizReadyToStart({
+    required this.question,
+    required this.streak,
+    required this.totalScore,
+  });
+
+  @override
+  List<Object?> get props => [question.id, streak, totalScore];
+}
+
 /// Today's question is ready to answer.
 class QuizReady extends QuizState {
   final QuizQuestion question;

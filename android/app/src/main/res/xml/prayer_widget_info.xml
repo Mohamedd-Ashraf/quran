@@ -18,7 +18,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/prayer_widget"
-    android:previewLayout="@layout/prayer_widget"
+    android:previewLayout="@layout/prayer_widget_preview"
     android:description="@string/prayer_widget_description"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"

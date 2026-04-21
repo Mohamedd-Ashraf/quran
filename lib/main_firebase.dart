@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,6 +14,7 @@ import 'package:qcf_quran_plus/qcf_quran_plus.dart' show QcfFontLoader;
 import 'core/services/qcf_font_download_service.dart';
 import 'core/services/font_download_manager.dart';
 import 'core/di/injection_container_firebase.dart' as di;
+import 'core/navigation/notification_router.dart';
 import 'core/services/adhan_notification_service.dart';
 import 'core/services/quran_cache_warmup_service.dart';
 import 'core/services/app_update_service_firebase.dart';
@@ -160,7 +163,33 @@ void main() {
 
   // Notifications are used for prayer reminders (adhan). Initialize early.
   final adhanService = di.sl<AdhanNotificationService>();
-  await adhanService.init();
+  await adhanService.init(
+    onNotificationTap: (NotificationResponse response) {
+      final payload = response.payload;
+      if (payload != null && payload.isNotEmpty) {
+        navigateFromNotification(payload);
+      }
+    },
+  );
+
+  // ── Cold-start: check if the app was launched by tapping a notification ──
+  // This covers the case where the app was killed and the user tapped a
+  // flutter_local_notifications notification (quiz reminder).
+  try {
+    final launchDetails = await di.sl<FlutterLocalNotificationsPlugin>()
+        .getNotificationAppLaunchDetails();
+    if (launchDetails != null &&
+        launchDetails.didNotificationLaunchApp &&
+        launchDetails.notificationResponse?.payload != null) {
+      final payload = launchDetails.notificationResponse!.payload!;
+      if (payload.isNotEmpty) {
+        setPendingNotificationRoute(payload);
+        debugPrint('[Notif] Cold-start from notification: payload=$payload');
+      }
+    }
+  } catch (e) {
+    debugPrint('[Notif] getNotificationAppLaunchDetails failed: $e');
+  }
 
   // Prime adhan scheduling immediately from cached coordinates or Egypt fallback.
   // Permissions are requested from the first-frame callback (with a delay)
@@ -342,6 +371,7 @@ class MyApp extends StatelessWidget {
             return MaterialApp(
               title: 'Quran App',
               debugShowCheckedModeBanner: false,
+              navigatorKey: appNavigatorKey,
               theme: AppTheme.lightTheme(isArabicUi: isArabicUi),
               darkTheme: AppTheme.darkTheme(isArabicUi: isArabicUi),
               themeMode: settings.darkMode ? ThemeMode.dark : ThemeMode.light,

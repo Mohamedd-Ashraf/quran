@@ -25,6 +25,13 @@ class MainActivity : AudioServiceFragmentActivity() {
 
     private val adhanChannel = "quraan/adhan_player"
 
+    /** MethodChannel for sending navigation destinations to Flutter. */
+    private val navChannel = "quraan/navigation"
+    private var navMethodChannel: MethodChannel? = null
+
+    /** Navigation destination pending delivery to Flutter (used for cold-start). */
+    private var pendingNavDestination: String? = null
+
     /** MediaPlayer used ONLY for short in-settings previews. */
     private var previewPlayer: MediaPlayer? = null
 
@@ -43,6 +50,25 @@ class MainActivity : AudioServiceFragmentActivity() {
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
+        }
+        // Store any notification navigation intent for delivery after Flutter boots.
+        pendingNavDestination = intent?.getStringExtra("navigate_to")
+    }
+
+    /** Called when the Activity is already running and receives a new intent
+     *  (e.g. user taps the Adhan notification while the app is in the foreground/background).
+     *  Because launchMode="singleTop", Android calls this instead of creating a new instance. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val dest = intent.getStringExtra("navigate_to") ?: return
+        val ch = navMethodChannel
+        if (ch != null) {
+            // Flutter engine is ready — invoke immediately on the main thread.
+            runOnUiThread { ch.invokeMethod("navigateTo", dest) }
+        } else {
+            // Unlikely (engine always ready if app was running), but store just in case.
+            pendingNavDestination = dest
         }
     }
 
@@ -440,6 +466,23 @@ class MainActivity : AudioServiceFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // ── Navigation channel (notification tap → Flutter routing) ───────────
+        // Flutter's MainNavigator listens on this channel for "navigateTo" calls.
+        val navCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, navChannel)
+        navMethodChannel = navCh
+        // No incoming methods from Flutter on this channel; it is send-only from native.
+        navCh.setMethodCallHandler { _, result -> result.notImplemented() }
+
+        // Deliver any pending cold-start navigation (intent arrived before engine was ready).
+        val pending = pendingNavDestination
+        if (pending != null) {
+            pendingNavDestination = null
+            // Short delay so Flutter widget tree has time to build before we push a route.
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                navCh.invokeMethod("navigateTo", pending)
+            }, 800)
+        }
 
         // ── Tasbeeh widget refresh channel ────────────────────────────────────
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "quraan/tasbeeh_widget")

@@ -196,6 +196,20 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Suppresses spurious `ProcessingState.completed` events that just_audio
   /// fires during the internal FLUSHING/RESUMING cycle of a seek operation.
   bool _isSeeking = false;
+
+  // ── Timed-range playback (single-source, position-based) ─────────────────────
+  // Active only for isTimedSurahEdition when playing a surah or ayah range.
+  // A SINGLE surah file is loaded once; ayah boundaries are tracked via the
+  // positionStream.  This avoids loading the same remote file N times in
+  // a ConcatenatingAudioSource and eliminates clip-to-clip seek latency.
+  List<({int ayah, int startMs, int endMs})> _timedSegments  = [];
+  int  _timedRangeStart   = 0; // first ayah in the requested range (1-based)
+  int  _timedRangeEnd     = 0; // last ayah in the requested range (1-based)
+  int  _timedRangeStartMs = 0; // absolute file offset of range start (ms)
+  int  _timedRangeEndMs   = 0; // absolute file offset of range end (ms)
+  bool _isTimedRangeMode  = false;
+  StreamSubscription<Duration>? _timedPosSub;
+
   AyahAudioCubit(this._service, this._adhanService)
     : _player = AudioPlayer(),
       super(const AyahAudioState.idle()) {
@@ -356,15 +370,22 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Position relative to the START of the playlist.
   /// For single-ayah mode this is identical to [positionStream].
   /// For page/surah mode it accumulates the durations of completed items.
-  Stream<Duration> get effectivePositionStream =>
-      _player.positionStream.map((pos) => _accumulatedDuration + pos);
+  Stream<Duration> get effectivePositionStream => _isTimedRangeMode
+      ? _player.positionStream.map((pos) {
+          final offsetMs = pos.inMilliseconds - _timedRangeStartMs;
+          final clampedMs = offsetMs.clamp(0, _timedRangeEndMs - _timedRangeStartMs);
+          return Duration(milliseconds: clampedMs);
+        })
+      : _player.positionStream.map((pos) => _accumulatedDuration + pos);
 
   /// Total duration of the full playlist.
   /// Uses actual cached durations for known items; estimates the rest via
   /// the running average.  The estimate only changes for the *unknown* part,
   /// so already-known durations never shift the total unexpectedly.
-  Stream<Duration?> get effectiveDurationStream =>
-      _player.durationStream.map((_) => _computeEffectiveDuration());
+  Stream<Duration?> get effectiveDurationStream => _isTimedRangeMode
+      ? _player.positionStream.map(
+          (_) => Duration(milliseconds: _timedRangeEndMs - _timedRangeStartMs))
+      : _player.durationStream.map((_) => _computeEffectiveDuration());
 
   /// Compute the effective total duration synchronously so both the stream
   /// and [seekToAbsolute] can call it without duplicating logic.
@@ -408,9 +429,14 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// Called when the current audio source finishes.
   /// If a surah queue is active, starts the next surah; otherwise goes idle.
   void _onPlaylistCompleted() {
+    // Guard: ignore if we're already idle (prevents double-fire when both
+    // the position listener and _playerSub fire for the same completion).
+    if (state.status == AyahAudioStatus.idle) return;
+
     // Structured queue takes priority.
     if (_structuredQueue.isNotEmpty &&
         _structuredQueueIndex < _structuredQueue.length - 1) {
+      _resetTimedRangeState();
       final next = _structuredQueueIndex + 1;
       _structuredQueueIndex = next;
       Future(() => _playStructuredItem(next));
@@ -419,6 +445,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     if (_structuredQueue.isNotEmpty) {
       _structuredQueue = [];
       _structuredQueueIndex = 0;
+      _resetTimedRangeState();
       emit(const AyahAudioState.idle());
       _player.stop();
       return;
@@ -426,6 +453,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     if (_surahQueue.isNotEmpty &&
         _surahQueueIndex < _surahQueue.length - 1) {
+      _resetTimedRangeState();
       final next = _surahQueueIndex + 1;
       _surahQueueIndex = next;
       // Schedule async work in the next microtask so the listener can return.
@@ -438,8 +466,22 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     // returns after a transient interruption (e.g. a notification sound).
     _surahQueue = [];
     _surahQueueIndex = 0;
+    _resetTimedRangeState();
     emit(const AyahAudioState.idle());
     _player.stop(); // intentionally not awaited — fire-and-forget
+  }
+
+  /// Cancels the position listener and clears all timed-range state.
+  /// Must be called at the start of every new playback action.
+  void _resetTimedRangeState() {
+    _timedPosSub?.cancel();
+    _timedPosSub      = null;
+    _isTimedRangeMode = false;
+    _timedSegments    = [];
+    _timedRangeStart  = 0;
+    _timedRangeEnd    = 0;
+    _timedRangeStartMs = 0;
+    _timedRangeEndMs   = 0;
   }
 
   Future<void> _playSurahQueueItem(int index) async {
@@ -496,6 +538,182 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     }
   }
 
+  // ── Timed-range playback (per-ayah with position tracking) ─────────────────
+
+  /// Plays [startAyah]..[endAyah] from [surahNumber] using a SINGLE surah-level
+  /// audio file with a position listener for ayah tracking.  This approach
+  /// avoids loading the same remote file N times via ClippingAudioSource and
+  /// delivers accurate, gap-free per-ayah playback.
+  Future<void> _playTimedRange({
+    required int surahNumber,
+    required int startAyah,
+    required int endAyah,
+    int queueIndex = 0,
+    int queueTotal = 0,
+  }) async {
+    _resetTimedRangeState();
+    await _adhanService.stopCurrentAdhan();
+    if (!_initialized) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    _resetPlaylistTracking(1);
+    emit(
+      AyahAudioState(
+        status: AyahAudioStatus.buffering,
+        mode: AyahAudioMode.surah,
+        surahNumber: surahNumber,
+        ayahNumber: startAyah,
+        queueIndex: queueIndex,
+        queueTotal: queueTotal,
+      ),
+    );
+
+    try {
+      final result = await _service.resolveTimedSurahSource(
+        surahNumber: surahNumber,
+      );
+      final segments = result.segments;
+      final segMap = <int, ({int ayah, int startMs, int endMs})>{
+        for (final s in segments) s.ayah: s,
+      };
+
+      final basmala    = segMap[0];
+      final startEntry = segMap[startAyah];
+      final endEntry   = segMap[endAyah];
+
+      if (startEntry == null || endEntry == null) {
+        // Timing data incomplete — fall back to full surah without tracking.
+        final src  = result.source;
+        final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+        final mi   = MediaItem(
+          id: '${surahNumber}_$startAyah',
+          title: _surahNameFor(surahNumber),
+          album: isAr ? 'الآية $startAyah' : 'Verse $startAyah',
+          artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
+        );
+        final fallback = src.isLocal
+            ? AudioSource.file(src.localFilePath!, tag: mi)
+            : AudioSource.uri(src.remoteUri!, tag: mi);
+        await _player.setAudioSource(fallback);
+        await _player.setLoopMode(LoopMode.off);
+        await _player.setShuffleModeEnabled(false);
+        await _player.play();
+        return;
+      }
+
+      // Include basmala in ayah 1 by starting from its offset.
+      final rangeStartMs = (startAyah == 1 && basmala != null)
+          ? basmala.startMs
+          : startEntry.startMs;
+      final rangeEndMs = endEntry.endMs;
+
+      _timedSegments     = segments;
+      _timedRangeStart   = startAyah;
+      _timedRangeEnd     = endAyah;
+      _timedRangeStartMs = rangeStartMs;
+      _timedRangeEndMs   = rangeEndMs;
+      _isTimedRangeMode  = true;
+
+      final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final firstMediaItem = MediaItem(
+        id: '${surahNumber}_$startAyah',
+        title: _surahNameFor(surahNumber),
+        album: isAr ? 'الآية $startAyah' : 'Verse $startAyah',
+        artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
+      );
+      final src = result.source;
+      final AudioSource audioSrc = src.isLocal
+          ? AudioSource.file(src.localFilePath!, tag: firstMediaItem)
+          : AudioSource.uri(src.remoteUri!, tag: firstMediaItem);
+
+      await _player.setAudioSource(audioSrc);
+      await _player.setLoopMode(LoopMode.off);
+      await _player.setShuffleModeEnabled(false);
+
+      // Seek to range start inside the surah file.
+      _isSeeking = true;
+      try {
+        await _player.seek(Duration(milliseconds: rangeStartMs));
+      } finally {
+        _isSeeking = false;
+      }
+
+      await _player.play();
+
+      _startTimedPositionMonitoring(
+        surahNumber: surahNumber,
+        segMap: segMap,
+        queueIndex: queueIndex,
+        queueTotal: queueTotal,
+      );
+    } catch (e) {
+      _resetTimedRangeState();
+      emit(
+        AyahAudioState(
+          status: AyahAudioStatus.error,
+          mode: AyahAudioMode.surah,
+          surahNumber: surahNumber,
+          ayahNumber: startAyah,
+          queueIndex: queueIndex,
+          queueTotal: queueTotal,
+          errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        ),
+      );
+    }
+  }
+
+  /// Listens to the player position and:
+  /// 1. Updates the current ayah number in the state as playback crosses
+  ///    ayah boundaries (using the timing map).
+  /// 2. Calls [_onPlaylistCompleted] when the position passes [_timedRangeEndMs]
+  ///    so that the queue can advance or playback can stop.
+  void _startTimedPositionMonitoring({
+    required int surahNumber,
+    required Map<int, ({int ayah, int startMs, int endMs})> segMap,
+    int queueIndex = 0,
+    int queueTotal = 0,
+  }) {
+    _timedPosSub?.cancel();
+    int lastReportedAyah = _timedRangeStart;
+    final basmala = segMap[0];
+
+    _timedPosSub = _player.positionStream.listen((pos) {
+      if (!_isTimedRangeMode || isClosed) return;
+      if (state.mode != AyahAudioMode.surah) return;
+      if (state.surahNumber != surahNumber) return;
+
+      final posMs = pos.inMilliseconds;
+
+      // Find the highest ayah whose start offset is ≤ current position.
+      int currentAyah = _timedRangeStart;
+      for (var a = _timedRangeStart; a <= _timedRangeEnd; a++) {
+        final seg = segMap[a];
+        if (seg == null) continue;
+        final segStartMs = (a == 1 && basmala != null)
+            ? basmala.startMs
+            : seg.startMs;
+        if (posMs >= segStartMs) {
+          currentAyah = a;
+        } else {
+          break; // list is sorted, no need to continue
+        }
+      }
+
+      if (currentAyah != lastReportedAyah) {
+        lastReportedAyah = currentAyah;
+        if (!isClosed) emit(state.copyWith(ayahNumber: currentAyah));
+      }
+
+      // Stop when we have passed the end of the last requested ayah.
+      if (posMs >= _timedRangeEndMs) {
+        _timedPosSub?.cancel();
+        _timedPosSub    = null;
+        _isTimedRangeMode = false;
+        if (!isClosed) _onPlaylistCompleted();
+      }
+    });
+  }
+
   /// Skip to the next surah in the queue. No-op if not in queue mode or
   /// already at the last surah.
   Future<void> nextSurah() async {
@@ -520,26 +738,68 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     required int surahNumber,
     required int ayahNumber,
   }) async {
-    // ── Surah-level editions (10-Qira'at from mp3quran.net) ─────────────────
-    // These editions have no per-ayah audio; tapping an ayah plays the whole
-    // surah.  Toggle pause/resume if the same surah is already playing;
-    // otherwise start the surah from the beginning.
+    // ── Pure surah-level editions (mp3quran.net, no timing data) ────────────
+    // No per-ayah audio; tapping any ayah plays (or toggles) the whole surah.
     if (_service.isSurahLevelEdition) {
       if (state.mode == AyahAudioMode.surah &&
           state.surahNumber == surahNumber) {
-        if (_player.playing) {
-          await pause();
-          return;
-        }
-        if (state.status == AyahAudioStatus.paused) {
-          await resume();
-          return;
-        }
+        if (_player.playing) { await pause(); return; }
+        if (state.status == AyahAudioStatus.paused) { await resume(); return; }
       }
       await playAyah(surahNumber: surahNumber, ayahNumber: ayahNumber);
       return;
     }
 
+    // ── Timed surah editions (mp3quran.net + timing data) ───────────────────
+    // Per-ayah playback is supported via position tracking in a single file.
+    if (_service.isTimedSurahEdition) {
+      // ── Currently in surah/range mode for the SAME surah ──────────────────
+      if (state.mode == AyahAudioMode.surah &&
+          state.surahNumber == surahNumber) {
+        // Same ayah that's playing → pause.
+        if (state.ayahNumber == ayahNumber) {
+          if (_player.playing) { await pause(); return; }
+          if (state.status == AyahAudioStatus.paused) { await resume(); return; }
+        }
+        // Different ayah in the SAME surah while in timed-range mode → seek.
+        if (_isTimedRangeMode &&
+            ayahNumber >= _timedRangeStart &&
+            ayahNumber <= _timedRangeEnd &&
+            _timedSegments.isNotEmpty) {
+          final segMap = <int, ({int ayah, int startMs, int endMs})>{
+            for (final s in _timedSegments) s.ayah: s,
+          };
+          final basmala = segMap[0];
+          final seg = segMap[ayahNumber];
+          if (seg != null) {
+            final seekMs = (ayahNumber == 1 && basmala != null)
+                ? basmala.startMs
+                : seg.startMs;
+            _isSeeking = true;
+            try {
+              await _player.seek(Duration(milliseconds: seekMs));
+            } finally {
+              await Future<void>.delayed(const Duration(milliseconds: 50));
+              _isSeeking = false;
+            }
+            emit(state.copyWith(ayahNumber: ayahNumber));
+            if (!_player.playing) await _player.play();
+            return;
+          }
+        }
+      }
+      // ── Currently in single-ayah mode for the SAME ayah ───────────────────
+      if (state.mode == AyahAudioMode.ayah &&
+          state.isCurrent(surahNumber, ayahNumber)) {
+        if (_player.playing) { await pause(); return; }
+        if (state.status == AyahAudioStatus.paused) { await resume(); return; }
+      }
+      // ── Different surah or out-of-range ayah → play that single ayah ──────
+      await playAyah(surahNumber: surahNumber, ayahNumber: ayahNumber);
+      return;
+    }
+
+    // ── Regular per-ayah editions (everyayah.com etc.) ──────────────────────
     if (state.mode == AyahAudioMode.ayah &&
         state.isCurrent(surahNumber, ayahNumber)) {
       if (_player.playing) {
@@ -626,13 +886,23 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
         artUri: null,
       );
-      if (source.isLocal) {
-        await _player.setAudioSource(
-            AudioSource.file(source.localFilePath!, tag: mediaItem));
+      late final AudioSource audioSrc;
+      if (source.isTimed) {
+        final inner = source.isLocal
+            ? AudioSource.file(source.localFilePath!, tag: mediaItem)
+            : AudioSource.uri(source.remoteUri!, tag: mediaItem);
+        audioSrc = ClippingAudioSource(
+          child: inner,
+          start: source.startTime,
+          end: source.endTime,
+          tag: mediaItem,
+        );
+      } else if (source.isLocal) {
+        audioSrc = AudioSource.file(source.localFilePath!, tag: mediaItem);
       } else {
-        await _player.setAudioSource(
-            AudioSource.uri(source.remoteUri!, tag: mediaItem));
+        audioSrc = AudioSource.uri(source.remoteUri!, tag: mediaItem);
       }
+      await _player.setAudioSource(audioSrc);
 
       await _player.setLoopMode(LoopMode.off);
       await _player.setShuffleModeEnabled(false);
@@ -807,6 +1077,18 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     int queueIndex = 0,
     int queueTotal = 0,
   }) async {
+    // ── Timed editions: single-source position-based playback ────────────────
+    if (_service.isTimedSurahEdition) {
+      await _playTimedRange(
+        surahNumber: surahNumber,
+        startAyah: 1,
+        endAyah: numberOfAyahs,
+        queueIndex: queueIndex,
+        queueTotal: queueTotal,
+      );
+      return;
+    }
+
     // Stop Adhan (await so native stop completes before audio starts).
     await _adhanService.stopCurrentAdhan();
     if (!_initialized) {
@@ -850,7 +1132,17 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
           artUri: null,
         );
-        if (s.isLocal) {
+        if (s.isTimed) {
+          final inner = s.isLocal
+              ? AudioSource.file(s.localFilePath!, tag: mediaItem)
+              : AudioSource.uri(s.remoteUri!, tag: mediaItem);
+          children.add(ClippingAudioSource(
+            child: inner,
+            start: s.startTime,
+            end: s.endTime,
+            tag: mediaItem,
+          ));
+        } else if (s.isLocal) {
           children.add(AudioSource.file(s.localFilePath!, tag: mediaItem));
         } else {
           children.add(AudioSource.uri(s.remoteUri!, tag: mediaItem));
@@ -907,13 +1199,23 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     int queueIndex = 0,
     int queueTotal = 0,
   }) async {
-    // ── Surah-level editions (10-Qira'at from mp3quran.net) ──────────────────
-    // No per-ayah source; redirect to full-surah playback.
+    // ── Pure surah-level editions: redirect to full-surah playback ───────────
     if (_service.isSurahLevelEdition) {
       final numberOfAyahs = OfflineAudioService.getAyahCount(surahNumber);
       await _playSurahInternal(
         surahNumber: surahNumber,
         numberOfAyahs: numberOfAyahs,
+        queueIndex: queueIndex,
+        queueTotal: queueTotal,
+      );
+      return;
+    }
+    // ── Timed editions: single-source position-based playback ────────────────
+    if (_service.isTimedSurahEdition) {
+      await _playTimedRange(
+        surahNumber: surahNumber,
+        startAyah: startAyah,
+        endAyah: endAyah,
         queueIndex: queueIndex,
         queueTotal: queueTotal,
       );
@@ -1001,6 +1303,26 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   Future<void> seekToAbsolute(Duration position) async {
     if (state.mode == AyahAudioMode.radio) return;
     if (position < Duration.zero) position = Duration.zero;
+
+    // ── Timed-range mode: slider position is relative to range start ─────────
+    if (_isTimedRangeMode) {
+      final rangeMs = (_timedRangeEndMs - _timedRangeStartMs).clamp(1, double.maxFinite.toInt());
+      final clampedMs = position.inMilliseconds.clamp(0, rangeMs - 500);
+      final absMs = _timedRangeStartMs + clampedMs;
+      _isSeeking = true;
+      try {
+        await _player.seek(Duration(milliseconds: absMs));
+      } finally {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        _isSeeking = false;
+        if (!isClosed &&
+            _player.playerState.processingState == ProcessingState.completed) {
+          _onPlaylistCompleted();
+        }
+      }
+      return;
+    }
+
     _isSeeking = true;
     try {
       // Single-item: just seek directly.
@@ -1122,6 +1444,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   Future<void> stop() async {
     _surahQueue = [];
     _surahQueueIndex = 0;
+    _resetTimedRangeState();
     await _player.stop();
     emit(const AyahAudioState.idle());
   }
@@ -1131,6 +1454,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     await _playerSub?.cancel();
     await _indexSub?.cancel();
     await _durationCacheSub?.cancel();
+    _timedPosSub?.cancel();
     // Pause before dispose so ExoPlayer doesn't need to flush the codec
     // during release. Flushing from a PLAYING state on some devices causes
     // FLUSHING→RESUMING→RUNNING→RELEASING race → LegacyMessageQueue dead thread.

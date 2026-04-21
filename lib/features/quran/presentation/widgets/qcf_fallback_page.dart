@@ -1339,10 +1339,31 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
       (e.name ?? '').contains('ورش') ||
       (e.englishName ?? '').toLowerCase().contains('warsh');
 
-  /// Returns true ONLY for editions that store one file per surah (mp3quran.net).
-  /// ar.warsh.* reciters are per-ayah (everyayah.com) — NOT surah-level.
+  /// Edition IDs that use mp3quran.net timing for per-ayah playback.
+  static const Set<String> _timedQiraatIds = {
+    // ── الحصري (3 روايات)
+    'ar.qiraat.husary.qalon',
+    'ar.qiraat.husary.warsh',
+    'ar.qiraat.husary.duri',
+    // ── الصوفي
+    'ar.qiraat.sosi.abuamr',
+    // ── قراءات ورش وقالون إضافية
+    'ar.qiraat.huthifi.qalon',
+    'ar.qiraat.koshi.warsh',
+    'ar.qiraat.yasseen.warsh',
+    'ar.qiraat.qazabri.warsh',
+    'ar.qiraat.dokali.qalon',
+    'ar.qiraat.okasha.bazi',
+    // ── حفص — mp3quran.net مع توقيتات
+    'ar.khaledjleel',
+    'ar.raadialkurdi',
+    'ar.abdulaziahahmad',
+  };
+
+  /// Returns true ONLY for pure surah-level editions (no timing data).
   static bool _isSurahLevelOnly(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.');
+      e.identifier.startsWith('ar.qiraat.') &&
+      !_timedQiraatIds.contains(e.identifier);
 
   @override
   void initState() {
@@ -1364,10 +1385,13 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
     final others = widget.all.where((e) => e.language != 'ar').toList();
     final all = [...arReciters, ...others];
 
-    // Split into surah-level Qira'at + warsh (per-ayah) + Regular for display
+    // Split into timed Qira'at + pure surah-level Qira'at + warsh + regular
+    final timedQiraatList = all.where((e) => _timedQiraatIds.contains(e.identifier)).toList();
     final surahLevelList = all.where(_isSurahLevelOnly).toList();
     final warshList = all.where((e) => _warshIds.contains(e.identifier)).toList();
-    final regularList = all.where((e) => !_isQiraat(e)).toList();
+    final regularList = all
+        .where((e) => !_isQiraat(e) && !_timedQiraatIds.contains(e.identifier))
+        .toList();
 
     // Helper to build a reciter tile
     Widget buildTile(AudioEdition e) {
@@ -1375,6 +1399,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
       final isSelected = e.identifier == _selected;
       final isSurahLevel = _isSurahLevelOnly(e);
       final isWarsh = _warshIds.contains(e.identifier);
+      final isTimed = _timedQiraatIds.contains(e.identifier);
       const perAyahColor = AppColors.primaryLight; // green badge for per-ayah
       return ListTile(
         dense: true,
@@ -1386,25 +1411,48 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
           ),
         ),
-        subtitle: isSurahLevel
-            ? Text(
-                widget.isAr ? 'سورة كاملة' : 'Full surah',
-                style: _cachedAmiriQuran.copyWith(
-                  fontSize: 10.5,
-                  color: accent.withValues(alpha: 0.75),
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            : isWarsh
-                ? Text(
-                    widget.isAr ? 'آية بآية' : 'Per-ayah',
+        subtitle: isTimed
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
                     style: _cachedAmiriQuran.copyWith(
                       fontSize: 10.5,
                       color: perAyahColor.withValues(alpha: 0.85),
                       fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                    style: _cachedAmiriQuran.copyWith(
+                      fontSize: 10.5,
+                      color: Colors.blueAccent.withValues(alpha: 0.80),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+            : isSurahLevel
+                ? Text(
+                    widget.isAr ? 'سورة كاملة' : 'Full surah',
+                    style: _cachedAmiriQuran.copyWith(
+                      fontSize: 10.5,
+                      color: accent.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w600,
+                    ),
                   )
-                : null,
+                : isWarsh
+                    ? Text(
+                        widget.isAr ? 'آية بآية' : 'Per-ayah',
+                        style: _cachedAmiriQuran.copyWith(
+                          fontSize: 10.5,
+                          color: perAyahColor.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    : null,
         trailing: isSelected
             ? const Icon(Icons.check_rounded, color: accent, size: 18)
             : null,
@@ -1478,11 +1526,32 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
+                    // ── القراءات العشر (آية بآية ✦) ─────────────────
+                    if (timedQiraatList.isNotEmpty) ...[
+                      buildSectionHeader(
+                        widget.isAr ? 'القراءات — آية بآية ✦' : "Qira'at — Per-ayah ✦",
+                        Icons.auto_stories_rounded,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                        child: Text(
+                          widget.isAr
+                              ? 'التوقيتات تقريبية وقد تختلف بآية أحياناً. تحميل الملفات يوفر البيانات ويتيح الاستماع بدون إنترنت.'
+                              : 'Timings are approximate and may occasionally be off by one ayah. Download files to save data and enable offline playback.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.orange.shade700,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                      ...timedQiraatList.map(buildTile),
+                    ],
                     // ── القراءات العشر (سورة كاملة) ─────────────────
                     if (surahLevelList.isNotEmpty) ...[
                       buildSectionHeader(
-                        widget.isAr ? 'القراءات العشر — سورة كاملة' : "Qira'at — Full Surah",
-                        Icons.auto_stories_rounded,
+                        widget.isAr ? 'القراءات — سورة كاملة' : "Qira'at — Full Surah",
+                        Icons.auto_stories_outlined,
                       ),
                       ...surahLevelList.map(buildTile),
                     ],
