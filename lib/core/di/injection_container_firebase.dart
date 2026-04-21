@@ -184,7 +184,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AudioEditionService(sl(), sl(), sl()));
   sl.registerLazySingleton(() => WirdService(sl()));
   sl.registerLazySingleton(() => WirdNotificationService(sl(), sl(), sl()));
-  sl.registerFactory(() => WirdCubit(sl(), sl()));
+  sl.registerFactory(() => WirdCubit(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AudioDownloadStateService(sl()));
   sl.registerLazySingleton(() => TafsirDownloadStateService(sl()));
   sl.registerLazySingleton(

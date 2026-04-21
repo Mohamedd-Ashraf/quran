@@ -75,9 +75,46 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       return;
     }
 
+    // ── Check for a previously-started (and still-running) timer ─────────
+    // If the user opened the question, backed out, killed the app, or lost
+    // connectivity, the timer start-time was persisted to SharedPrefs.
+    // We resume from the actual elapsed wall-clock time instead of resetting.
+    final saved = _repository.getActiveTimerState(question.id);
+    if (saved != null) {
+      if (saved.remainingSeconds <= 0) {
+        // Timer expired while the user was away (back-nav, app kill, etc.).
+        // Set internal state so _submitAsTimeout can use it, then call it.
+        // IMPORTANT: do NOT set _hasSubmitted here — _submitAsTimeout does it.
+        // IMPORTANT: do NOT clearTimerState here — _submitAsTimeout does it on success.
+        _questionStartTime = saved.startTime;
+        _totalTimerSeconds = saved.totalSeconds;
+        _remainingSeconds = 0;
+        // _submitAsTimeout emits QuizTimeUp immediately before the Firestore write,
+        // so the UI updates without waiting for the network.
+        await _submitAsTimeout(question);
+        return;
+      }
+      // Resume the countdown from the correct remaining time.
+      // Timer state is already saved — no need to re-persist.
+      _startTimer(question.timerSeconds, startTime: saved.startTime);
+      emit(QuizReady(
+        question: question,
+        streak: _repository.streak,
+        totalScore: _repository.totalScore,
+      ));
+      return;
+    }
+
     if (skipLanding) {
-      // Navigated from within the app — start the timer immediately.
-      _startTimer(question.timerSeconds);
+      // Persist the timer start time BEFORE starting the ticker so the state
+      // is on disk even if the app is killed immediately after this point.
+      final startTime = DateTime.now();
+      await _repository.saveTimerStartTime(
+        questionId: question.id,
+        startTime: startTime,
+        totalSeconds: question.timerSeconds,
+      );
+      _startTimer(question.timerSeconds, startTime: startTime);
       emit(QuizReady(
         question: question,
         streak: _repository.streak,
@@ -96,10 +133,17 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   /// Called when the user presses the "Start" button on the landing screen.
   /// Starts the countdown timer and transitions to [QuizReady].
-  void startQuiz() {
+  Future<void> startQuiz() async {
     final s = state;
     if (s is! QuizReadyToStart) return;
-    _startTimer(s.question.timerSeconds);
+    // Persist BEFORE starting the ticker — survives immediate app kill.
+    final startTime = DateTime.now();
+    await _repository.saveTimerStartTime(
+      questionId: s.question.id,
+      startTime: startTime,
+      totalSeconds: s.question.timerSeconds,
+    );
+    _startTimer(s.question.timerSeconds, startTime: startTime);
     emit(QuizReady(
       question: s.question,
       streak: s.streak,
@@ -109,17 +153,23 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   // ── Timer ─────────────────────────────────────────────────────────────────
 
-  void _startTimer(int seconds) {
+  /// Starts (or resumes) the countdown ticker from [startTime].
+  /// Does NOT persist state — callers must call [QuizRepository.saveTimerStartTime]
+  /// before invoking this method.
+  void _startTimer(int seconds, {required DateTime startTime}) {
     _timer?.cancel();
-    _remainingSeconds = seconds;
     _totalTimerSeconds = seconds;
-    _questionStartTime = DateTime.now();
+    _questionStartTime = startTime;
+
+    // Compute initial remaining based on actual elapsed (matters when resuming).
+    final elapsed = DateTime.now().difference(startTime).inSeconds;
+    _remainingSeconds = (seconds - elapsed).clamp(0, seconds);
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       // Compute remaining time from actual wall-clock elapsed time.
       // This is cheat-proof: backgrounding the app doesn't pause DateTime.now().
-      final elapsed = DateTime.now().difference(_questionStartTime!).inSeconds;
-      _remainingSeconds = (_totalTimerSeconds - elapsed).clamp(0, _totalTimerSeconds);
+      final elapsedNow = DateTime.now().difference(_questionStartTime!).inSeconds;
+      _remainingSeconds = (_totalTimerSeconds - elapsedNow).clamp(0, _totalTimerSeconds);
       if (_remainingSeconds <= 0) {
         timer.cancel();
         _onTimeUp();
@@ -164,22 +214,26 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (_hasSubmitted) return;
     _hasSubmitted = true;
 
+    // Emit QuizTimeUp IMMEDIATELY — don't block on the Firestore write.
+    // Timeout is always wrong (0 points, streak resets to 0), so the values
+    // shown are accurate without waiting for the repository to update.
+    // The actual submission (and clearTimerState) happen below in the background.
+    emit(QuizTimeUp(
+      question: question,
+      totalScore: _repository.totalScore,
+      streak: 0, // timeout = wrong answer = streak resets
+    ));
+
     try {
-      // selectedIndex = -1 counts as wrong (no matching correctIndex)
+      // selectedIndex = -1 counts as wrong (no matching correctIndex).
+      // submitAnswer already handles offline gracefully via pending-sync.
       await _repository.submitAnswer(question.id, -1);
-      emit(QuizTimeUp(
-        question: question,
-        totalScore: _repository.totalScore,
-        streak: _repository.streak,
-      ));
+      await _repository.clearTimerState();
     } catch (e) {
-      // Revert submission lock so user can retry.
-      _hasSubmitted = false;
-      emit(QuizSubmitError(
-        question: question,
-        selectedIndex: -1,
-        message: e.toString(),
-      ));
+      // QuizTimeUp is already showing — don't revert or re-emit.
+      // The pending-sync mechanism will retry when connectivity returns.
+      // Do NOT revert _hasSubmitted: we must not re-show the question.
+      debugPrint('[Quiz] Timeout submission failed: $e');
     }
   }
 
@@ -231,6 +285,9 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       final isCorrect =
           await _repository.submitAnswer(questionId, selectedIndex);
 
+      // Clear the persisted timer — question is now answered.
+      await _repository.clearTimerState();
+
       emit(QuizResult(
         question: question,
         selectedIndex: selectedIndex,
@@ -245,7 +302,12 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       // the repository before throwing.
       _hasSubmitted = false;
       _timer?.cancel();
-      _startTimer(question.timerSeconds);
+      // Resume from the ORIGINAL start time — not from now. The timer state
+      // is still in SharedPrefs (clearTimerState is only called on success),
+      // so passing _questionStartTime avoids resetting the clock.
+      if (_questionStartTime != null) {
+        _startTimer(question.timerSeconds, startTime: _questionStartTime!);
+      }
       emit(QuizSubmitError(
         question: question,
         selectedIndex: selectedIndex,

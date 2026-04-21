@@ -2507,163 +2507,223 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 4),
-                        itemBuilder: (ctx, i) {
-                          final e = filtered[i];
+                    : Builder(builder: (context) {
+                        // Build a reusable reciter tile.
+                        Widget buildTile(AudioEdition e) {
                           final name = e.displayNameForAppLanguage(
                             widget.isAr ? 'ar' : 'en',
                           );
                           final isSelected = e.identifier == _selected;
-                          return Material(
-                            color: isSelected
-                                ? accent.withValues(alpha: 0.10)
-                                : surfaceColor,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 2,
+                            ),
+                            child: Material(
+                              color: isSelected
+                                  ? accent.withValues(alpha: 0.10)
+                                  : surfaceColor,
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () async {
-                                setState(() => _selected = e.identifier);
-                                await widget.onSelected(e.identifier);
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            name,
-                                            style: GoogleFonts.cairo(
-                                              fontSize: 13.5,
-                                              color: isSelected
-                                                  ? accent
-                                                  : textColor,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w500,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  setState(() => _selected = e.identifier);
+                                  await widget.onSelected(e.identifier);
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 13.5,
+                                                color: isSelected
+                                                    ? accent
+                                                    : textColor,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w500,
+                                              ),
                                             ),
+                                            if (_timedQiraatIds.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        color: AppColors.primaryLight.withValues(alpha: 0.12),
+                                                      ),
+                                                      child: Text(
+                                                        widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+                                                        style: GoogleFonts.cairo(
+                                                          fontSize: 9.5,
+                                                          color: AppColors.primaryLight,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        color: Colors.blueAccent.withValues(alpha: 0.12),
+                                                      ),
+                                                      child: Text(
+                                                        widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                                                        style: GoogleFonts.cairo(
+                                                          fontSize: 9.5,
+                                                          color: Colors.blueAccent,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            else if (_isSurahLevelOnly(e))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: accent.withValues(alpha: 0.12),
+                                                  ),
+                                                  child: Text(
+                                                    widget.isAr ? 'سورة كاملة' : 'Full surah',
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 9.5,
+                                                      color: accent,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            else if (_warshIds.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: AppColors.primaryLight.withValues(alpha: 0.12),
+                                                  ),
+                                                  child: Text(
+                                                    widget.isAr ? 'آية بآية' : 'Per-ayah',
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 9.5,
+                                                      color: AppColors.primaryLight,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Container(
+                                          width: 22,
+                                          height: 22,
+                                          decoration: const BoxDecoration(
+                                            color: accent,
+                                            shape: BoxShape.circle,
                                           ),
-                                          if (_timedQiraatIds.contains(e.identifier))
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 3),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      color: AppColors.primaryLight.withValues(alpha: 0.12),
-                                                    ),
-                                                    child: Text(
-                                                      widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
-                                                      style: GoogleFonts.cairo(
-                                                        fontSize: 9.5,
-                                                        color: AppColors.primaryLight,
-                                                        fontWeight: FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      color: Colors.blueAccent.withValues(alpha: 0.12),
-                                                    ),
-                                                    child: Text(
-                                                      widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
-                                                      style: GoogleFonts.cairo(
-                                                        fontSize: 9.5,
-                                                        color: Colors.blueAccent,
-                                                        fontWeight: FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            )
-                                          else if (_isSurahLevelOnly(e))
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 3),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  color: accent.withValues(alpha: 0.12),
-                                                ),
-                                                child: Text(
-                                                  widget.isAr ? 'سورة كاملة' : 'Full surah',
-                                                  style: GoogleFonts.cairo(
-                                                    fontSize: 9.5,
-                                                    color: accent,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                          else if (_warshIds.contains(e.identifier))
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 3),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  color: AppColors.primaryLight.withValues(alpha: 0.12),
-                                                ),
-                                                child: Text(
-                                                  widget.isAr ? 'آية بآية' : 'Per-ayah',
-                                                  style: GoogleFonts.cairo(
-                                                    fontSize: 9.5,
-                                                    color: AppColors.primaryLight,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      Container(
-                                        width: 22,
-                                        height: 22,
-                                        decoration: const BoxDecoration(
-                                          color: accent,
-                                          shape: BoxShape.circle,
+                                          child: const Icon(
+                                            Icons.check_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
                                         ),
-                                        child: const Icon(
-                                          Icons.check_rounded,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           );
-                        },
-                      ),
+                        }
+
+                        // Section header helper
+                        Widget buildSectionHeader(String label, IconData icon) {
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+                            child: Row(
+                              children: [
+                                Icon(icon, size: 13, color: subtleColor),
+                                const SizedBox(width: 6),
+                                Text(
+                                  label,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 11,
+                                    color: subtleColor,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        // When searching: flat list. Otherwise: categorized.
+                        final showCategorized = _query.isEmpty &&
+                            (_langFilter == 'all' || _langFilter == 'ar');
+
+                        if (showCategorized) {
+                          final qiratList = filtered.where(_isQiraat).toList();
+                          final regularList = filtered.where((e) => !_isQiraat(e)).toList();
+                          return ListView(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            children: [
+                              if (regularList.isNotEmpty) ...[
+                                buildSectionHeader(
+                                  widget.isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',
+                                  Icons.record_voice_over_rounded,
+                                ),
+                                ...regularList.map(buildTile),
+                              ],
+                              if (qiratList.isNotEmpty) ...[
+                                buildSectionHeader(
+                                  widget.isAr ? 'القراءات والروايات ✦' : "Qira'at & Recitations ✦",
+                                  Icons.auto_stories_rounded,
+                                ),
+                                ...qiratList.map(buildTile),
+                              ],
+                            ],
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 4),
+                          itemBuilder: (ctx, i) => buildTile(filtered[i]),
+                        );
+                      }),
               ),
               const SizedBox(height: 8),
             ],

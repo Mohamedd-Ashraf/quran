@@ -380,8 +380,10 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             val smallIconRes = context.resources.getIdentifier("ic_notification", "drawable", context.packageName)
                 .takeIf { it != 0 } ?: android.R.drawable.ic_lock_idle_alarm
 
-            // ── Open app on tap ──
+            // ── Open app on tap → navigate to prayer times screen ──
             val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                it.putExtra("navigate_to", "prayer_times")
+                it.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 PendingIntent.getActivity(context, 2, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             }
 
@@ -436,6 +438,8 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
                 "Tap to open the app"
             }
             val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                it.putExtra("navigate_to", "prayer_times")
+                it.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             }
             val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

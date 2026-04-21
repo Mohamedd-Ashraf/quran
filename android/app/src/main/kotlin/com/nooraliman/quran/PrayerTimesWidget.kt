@@ -175,6 +175,8 @@ abstract class BasePrayerTimesWidget : AppWidgetProvider() {
         try {
             val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             if (launchIntent != null) {
+                launchIntent.putExtra("navigate_to", "prayer_times")
+                launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 val pendingIntent = PendingIntent.getActivity(
                     context,
                     requestCode,

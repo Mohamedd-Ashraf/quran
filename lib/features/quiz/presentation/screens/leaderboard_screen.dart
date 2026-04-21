@@ -584,14 +584,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         children: [
           // Rank
           SizedBox(
-            width: 36,
-            child: Text(
-              rank != null ? '$rank' : '-',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                color: Colors.white70,
-              ),
+            width: 44,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rank != null ? '$rank' : '-',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  isArabic ? 'مرتبتك' : 'Rank',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
             ),
           ),
           // Avatar
@@ -659,7 +673,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ),
               ),
               Text(
-                isArabic ? 'مرتبتك' : 'Your rank',
+                isArabic ? 'نقطة' : 'pts',
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,

@@ -530,7 +530,8 @@ class HomeScreenState extends State<HomeScreen>
                         ),
                         child: InkWell(
                           onTap: () {
-                            di.sl<SettingsService>().setLastReadPosition(
+                            final settingsSvc = di.sl<SettingsService>();
+                            settingsSvc.setLastReadPosition(
                               surahNumber: surah.number,
                               surahNameAr: surah.name,
                               surahNameEn: surah.englishName,
@@ -541,6 +542,14 @@ class HomeScreenState extends State<HomeScreen>
                                 builder: (context) => SurahDetailScreen(
                                   surahNumber: surah.number,
                                   surahName: nameDisplay,
+                                  onPageChanged: (p) =>
+                                      settingsSvc.updateLastReadProgress(
+                                        page: p,
+                                      ),
+                                  onPositionChanged: (_, a) =>
+                                      settingsSvc.updateLastReadProgress(
+                                        ayah: a,
+                                      ),
                                 ),
                               ),
                             );
@@ -744,16 +753,23 @@ class _ContinueReadingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = di.sl<SettingsService>();
     final surahNumber = settings.getLastReadSurahNumber();
-    if (surahNumber == null) return const SizedBox.shrink();
+    // Guard: surah must be valid (1–114)
+    if (surahNumber == null || surahNumber < 1 || surahNumber > 114) {
+      return const SizedBox.shrink();
+    }
 
     final nameAr = settings.getLastReadSurahNameAr() ?? '';
     final nameEn = settings.getLastReadSurahNameEn() ?? '';
     final name = isArabicUi ? nameAr : nameEn;
     if (name.isEmpty) return const SizedBox.shrink();
 
-    final lastAyah = settings.getLastReadAyah();
+    final lastPage = settings.getLastReadPage(); // 1–604, most precise
+    final lastAyah = settings.getLastReadAyah(); // 1–N, only show if > 1
 
-    // Find ayah count for this surah for progress bar
+    // Meaningful ayah = user has real in-surah progress (ayah 1 = just entered)
+    final meaningfulAyah = (lastAyah != null && lastAyah > 1) ? lastAyah : null;
+
+    // Find total ayahs for this surah (for ayah-based progress bar)
     int? totalAyahs;
     try {
       final match = surahs.firstWhere(
@@ -763,19 +779,36 @@ class _ContinueReadingCard extends StatelessWidget {
       if (match != null) totalAyahs = match.numberOfAyahs as int?;
     } catch (_) {}
 
-    final surahProgress = surahNumber / 114.0;
-    final ayahProgress =
-        (lastAyah != null && totalAyahs != null && totalAyahs > 0)
-        ? (lastAyah / totalAyahs).clamp(0.0, 1.0)
-        : null;
-    final progressValue = ayahProgress ?? surahProgress;
+    // ── Progress bar value (most precise source wins) ────────────────────
+    double progressValue;
+    if (lastPage != null && lastPage >= 1 && lastPage <= 604) {
+      // Page-based: shows where user is in the whole Quran
+      progressValue = lastPage / 604.0;
+    } else if (meaningfulAyah != null &&
+        totalAyahs != null &&
+        totalAyahs > 0) {
+      // Ayah-based: progress within the current surah
+      progressValue = (meaningfulAyah / totalAyahs).clamp(0.0, 1.0);
+    } else {
+      // Fallback: surah-level progress across the Quran
+      progressValue = surahNumber / 114.0;
+    }
 
-    // Sub-label: show ayah info if available, else surah count
-    final String subLabel = lastAyah != null
-        ? (isArabicUi ? 'آية ${_toArabicNumStr(lastAyah)}' : 'Verse $lastAyah')
-        : (isArabicUi
-              ? 'السورة ${_toArabicNumStr(surahNumber)} من ١١٤'
-              : 'Surah $surahNumber of 114');
+    // ── Sub-label (priority: page > ayah > surah count) ─────────────────
+    final String subLabel;
+    if (lastPage != null && lastPage >= 1 && lastPage <= 604) {
+      subLabel = isArabicUi
+          ? 'صفحة ${_toArabicNumStr(lastPage)}'
+          : 'Page $lastPage';
+    } else if (meaningfulAyah != null) {
+      subLabel = isArabicUi
+          ? 'آية ${_toArabicNumStr(meaningfulAyah)}'
+          : 'Verse $meaningfulAyah';
+    } else {
+      subLabel = isArabicUi
+          ? 'السورة ${_toArabicNumStr(surahNumber)} من ١١٤'
+          : 'Surah $surahNumber of 114';
+    }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -791,6 +824,12 @@ class _ContinueReadingCard extends StatelessWidget {
                 builder: (_) => SurahDetailScreen(
                   surahNumber: surahNumber,
                   surahName: name,
+                  initialAyahNumber: lastAyah,
+                  initialPageNumber: lastPage,
+                  onPageChanged: (p) =>
+                      settings.updateLastReadProgress(page: p),
+                  onPositionChanged: (_, a) =>
+                      settings.updateLastReadProgress(ayah: a),
                 ),
               ),
             );
@@ -994,7 +1033,7 @@ class _QuickAccessBar extends StatelessWidget {
                 ),
               ),
               _QuickAccessItem(
-                label: isArabicUi ? 'المسابقة' : 'Quiz',
+                label: isArabicUi ? 'التحدي' : 'Challenge',
                 imagePath: 'assets/logo/button icons/cup.png',
                 onTap: () {
                   final user = FirebaseAuth.instance.currentUser;
@@ -1030,6 +1069,14 @@ class _QuickAccessBar extends StatelessWidget {
                 ),
               ),
               _QuickAccessItem(
+                label: isArabicUi ? 'الصوت' : 'Audio',
+                imagePath: 'assets/logo/button icons/microphone.png',
+                imagePadding: 2,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
+                ),
+              ),
+              _QuickAccessItem(
                 label: isArabicUi ? 'التقويم' : 'Hijri',
                 imagePath: 'assets/logo/button icons/calendar_1.png',
                 onTap: () => Navigator.of(context).push(
@@ -1043,14 +1090,7 @@ class _QuickAccessBar extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const JuzListScreen()),
                 ),
               ),
-              _QuickAccessItem(
-                label: isArabicUi ? 'الصوت' : 'Audio',
-                imagePath: 'assets/logo/button icons/microphone.png',
-                imagePadding: 2,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
-                ),
-              ),
+              
               _QuickAccessItem(
                 label: isArabicUi ? 'المزيد' : 'More',
                 icon: Icons.grid_view_rounded,

@@ -1591,11 +1591,50 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   late String _selected;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  String _langFilter = 'all';
+
+  static const _warshIds = {
+    'ar.warsh.ibrahimdosary',
+    'ar.warsh.yassinjazaery',
+    'ar.warsh.abdulbasit',
+  };
+
+  static bool _isQiraat(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.') ||
+      _warshIds.contains(e.identifier) ||
+      (e.name ?? '').contains('ورش') ||
+      (e.englishName ?? '').toLowerCase().contains('warsh');
+
+  static const Set<String> _timedQiraatIds = {
+    'ar.qiraat.husary.qalon',
+    'ar.qiraat.husary.warsh',
+    'ar.qiraat.husary.duri',
+    'ar.qiraat.sosi.abuamr',
+    'ar.qiraat.huthifi.qalon',
+    'ar.qiraat.koshi.warsh',
+    'ar.qiraat.yasseen.warsh',
+    'ar.qiraat.qazabri.warsh',
+    'ar.qiraat.dokali.qalon',
+    'ar.qiraat.okasha.bazi',
+    'ar.khaledjleel',
+    'ar.raadialkurdi',
+    'ar.abdulaziahahmad',
+  };
+
+  static bool _isSurahLevelOnly(AudioEdition e) =>
+      e.identifier.startsWith('ar.qiraat.') &&
+      !_timedQiraatIds.contains(e.identifier);
 
   @override
   void initState() {
     super.initState();
     _selected = widget.currentEdition;
+    // Auto-open Qira'at tab if currently selected edition is a Qira'at.
+    final sel = widget.all
+        .where((e) => e.identifier == widget.currentEdition)
+        .cast<AudioEdition?>()
+        .firstOrNull;
+    if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
     });
@@ -1605,6 +1644,27 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  List<AudioEdition> _applyFilter(List<AudioEdition> src) {
+    List<AudioEdition> list;
+    if (_langFilter == 'qiraat') {
+      list = src.where(_isQiraat).toList();
+    } else if (_langFilter == 'ar') {
+      list = src.where((e) => e.language == 'ar').toList();
+    } else if (_langFilter == 'other') {
+      list = src.where((e) => e.language != 'ar').toList();
+    } else {
+      list = src;
+    }
+    if (_query.isEmpty) return list;
+    final q = _query;
+    return list.where((e) {
+      final name = e
+          .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
+          .toLowerCase();
+      return name.contains(q) || e.identifier.toLowerCase().contains(q);
+    }).toList();
   }
 
   @override
@@ -1625,14 +1685,7 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
     final others = widget.all.where((e) => e.language != 'ar').toList();
     final all = [...arReciters, ...others];
 
-    final filtered = _query.isEmpty
-        ? all
-        : all.where((e) {
-            final name = e
-                .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
-                .toLowerCase();
-            return name.contains(_query);
-          }).toList();
+    final filtered = _applyFilter(all);
 
     return SafeArea(
       child: Directionality(
@@ -1753,16 +1806,100 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                     : Colors.black.withValues(alpha: 0.06),
               ),
 
+              // ── Filter chips ──────────────────────────────────────────
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildFilterChip(
+                      label: widget.isAr ? 'الكل' : 'All',
+                      selected: _langFilter == 'all',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'all'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'القراءات ✦' : "Qira'at ✦",
+                      selected: _langFilter == 'qiraat',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'qiraat'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'العربية' : 'Arabic',
+                      selected: _langFilter == 'ar',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'ar'),
+                    ),
+                    const SizedBox(width: 6),
+                    _buildFilterChip(
+                      label: widget.isAr ? 'أخرى' : 'Other',
+                      selected: _langFilter == 'other',
+                      accent: accent,
+                      surfaceColor: surfaceColor,
+                      textColor: textColor,
+                      onTap: () => setState(() => _langFilter = 'other'),
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(
+                height: 1,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : Colors.black.withValues(alpha: 0.04),
+              ),
+
+              // ── Qira'at info banner ───────────────────────────────────
+              if (_langFilter == 'qiraat')
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: accent.withValues(alpha: 0.08),
+                    border: Border.all(color: accent.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 15, color: accent),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          widget.isAr
+                              ? 'التلاوات المعلَّمة بـ ⏱ تشتغل آية بآية. التلاوات المعلَّمة بـ "سورة كاملة" تتطلب تحميل الملف أولاً.'
+                              : 'Recitations marked ⏱ play per-ayah. Those marked "Full surah" require downloading first.',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            color: accent.withValues(alpha: 0.90),
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // ── List ─────────────────────────────────────────────────
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.50,
+                  maxHeight: MediaQuery.of(context).size.height * 0.45,
                 ),
                 child: filtered.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          'لا توجد نتائج',
+                          widget.isAr ? 'لا توجد نتائج' : 'No results',
                           style: GoogleFonts.cairo(
                             fontSize: 13,
                             color: subtleColor,
@@ -1770,79 +1907,227 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 4),
-                        itemBuilder: (ctx, i) {
-                          final e = filtered[i];
+                    : Builder(builder: (context) {
+                        // Reusable tile builder
+                        Widget buildTile(AudioEdition e) {
                           final name = e.displayNameForAppLanguage(
                             widget.isAr ? 'ar' : 'en',
                           );
                           final isSelected = e.identifier == _selected;
-                          return Material(
-                            color: isSelected
-                                ? accent.withValues(alpha: 0.10)
-                                : surfaceColor,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 2,
+                            ),
+                            child: Material(
+                              color: isSelected
+                                  ? accent.withValues(alpha: 0.10)
+                                  : surfaceColor,
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () async {
-                                setState(() => _selected = e.identifier);
-                                await widget.onSelected(e.identifier);
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        name,
-                                        style: GoogleFonts.cairo(
-                                          fontSize: 13.5,
-                                          color: isSelected
-                                              ? accent
-                                              : textColor,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  setState(() => _selected = e.identifier);
+                                  await widget.onSelected(e.identifier);
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 13.5,
+                                                color: isSelected ? accent : textColor,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w500,
+                                              ),
+                                            ),
+                                            if (_timedQiraatIds.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    _badge(widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+                                                        AppColors.primaryLight),
+                                                    const SizedBox(width: 4),
+                                                    _badge(widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                                                        Colors.blueAccent),
+                                                  ],
+                                                ),
+                                              )
+                                            else if (_isSurahLevelOnly(e))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: _badge(
+                                                  widget.isAr ? 'سورة كاملة' : 'Full surah',
+                                                  accent,
+                                                ),
+                                              )
+                                            else if (_warshIds.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: _badge(
+                                                  widget.isAr ? 'آية بآية' : 'Per-ayah',
+                                                  AppColors.primaryLight,
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    if (isSelected)
-                                      Container(
-                                        width: 22,
-                                        height: 22,
-                                        decoration: const BoxDecoration(
-                                          color: accent,
-                                          shape: BoxShape.circle,
+                                      if (isSelected)
+                                        Container(
+                                          width: 22,
+                                          height: 22,
+                                          decoration: const BoxDecoration(
+                                            color: accent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.check_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
                                         ),
-                                        child: const Icon(
-                                          Icons.check_rounded,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           );
-                        },
-                      ),
+                        }
+
+                        // Section header helper
+                        Widget buildSectionHeader(String label, IconData icon) {
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+                            child: Row(
+                              children: [
+                                Icon(icon, size: 13, color: subtleColor),
+                                const SizedBox(width: 6),
+                                Text(
+                                  label,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 11,
+                                    color: subtleColor,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        // Categorized view for All/Arabic tabs; flat list for search/Qira'at tab
+                        final showCategorized = _query.isEmpty &&
+                            (_langFilter == 'all' || _langFilter == 'ar');
+
+                        if (showCategorized) {
+                          final qiratList = filtered.where(_isQiraat).toList();
+                          final regularList = filtered.where((e) => !_isQiraat(e)).toList();
+                          return ListView(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            children: [
+                              if (regularList.isNotEmpty) ...[
+                                buildSectionHeader(
+                                  widget.isAr
+                                      ? 'القراء (حفص عن عاصم)'
+                                      : 'Reciters (Hafs)',
+                                  Icons.record_voice_over_rounded,
+                                ),
+                                ...regularList.map(buildTile),
+                              ],
+                              if (qiratList.isNotEmpty) ...[
+                                buildSectionHeader(
+                                  widget.isAr
+                                      ? 'القراءات والروايات ✦'
+                                      : "Qira'at & Recitations ✦",
+                                  Icons.auto_stories_rounded,
+                                ),
+                                ...qiratList.map(buildTile),
+                              ],
+                            ],
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 4),
+                          itemBuilder: (ctx, i) => buildTile(filtered[i]),
+                        );
+                      }),
               ),
               const SizedBox(height: 8),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required Color accent,
+    required Color surfaceColor,
+    required Color textColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? accent : surfaceColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? accent : accent.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.cairo(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? Colors.white : textColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: color.withValues(alpha: 0.12),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.cairo(
+          fontSize: 9.5,
+          color: color,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

@@ -27,7 +27,12 @@ class AuthCubit extends Cubit<AuthState> {
         status: AuthStatus.unauthenticated,
         clearUser: true,
         clearError: true,
-        isLoading: false,
+        // isLoading intentionally NOT reset here.  When signInWithGoogle /
+        // signUpWithEmail hits "credential-already-in-use" it calls
+        // _auth.signOut() internally, which fires this callback while the
+        // public sign-in Future is still running (isLoading: true).  Keeping
+        // isLoading: true lets OnboardingGate distinguish this transient
+        // sign-out from a deliberate user sign-out (where isLoading is false).
       ));
     } else if (user.isAnonymous) {
       emit(state.copyWith(

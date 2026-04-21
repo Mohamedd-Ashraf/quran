@@ -2318,6 +2318,51 @@ class _OfflineReciterPickerSheetState
         ),
       );
 
+  // ── Categorised list (regular + qira'at sections) ────────────────────────
+
+  Widget _buildCategorizedList(
+    BuildContext context,
+    List<AudioEdition> source,
+    bool isAr,
+    Color nameColor,
+    Color subtleColor,
+    Color dividerItemColor,
+  ) {
+    final qiratList = source.where(_kIsQiraat).toList();
+    final regularList = source.where((e) => !_kIsQiraat(e)).toList();
+
+    final items = <Widget>[];
+
+    if (regularList.isNotEmpty) {
+      items.add(_buildSectionHeader(
+        isAr ? 'القراء (آية بآية)' : 'Reciters (per-ayah)',
+        Icons.record_voice_over_rounded,
+        subtleColor,
+      ));
+      for (final ed in regularList) {
+        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+      }
+    }
+
+    if (qiratList.isNotEmpty) {
+      items.add(_buildSectionHeader(
+        isAr ? 'القراءات والروايات ✦' : "Qira'at & Recitations ✦",
+        Icons.auto_stories_rounded,
+        subtleColor,
+      ));
+      for (final ed in qiratList) {
+        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
+      children: items,
+    );
+  }
+
   // ── Categorised Qira'at view ───────────────────────────────────────────────
 
   Widget _buildQiraatSections(
@@ -2631,19 +2676,28 @@ class _OfflineReciterPickerSheetState
                           ],
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            Divider(height: 1, indent: 70, color: dividerItemColor),
-                        itemBuilder: (context, i) => _buildTile(
-                          context,
-                          filtered[i],
-                          isAr,
-                          nameColor,
-                          dividerItemColor,
-                        ),
-                      ),
+                    : _query.isEmpty
+                        ? _buildCategorizedList(
+                            context,
+                            filtered,
+                            isAr,
+                            nameColor,
+                            subtleColor,
+                            dividerItemColor,
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                Divider(height: 1, indent: 70, color: dividerItemColor),
+                            itemBuilder: (context, i) => _buildTile(
+                              context,
+                              filtered[i],
+                              isAr,
+                              nameColor,
+                              dividerItemColor,
+                            ),
+                          ),
           ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),

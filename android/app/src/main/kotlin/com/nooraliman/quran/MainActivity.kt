@@ -64,10 +64,12 @@ class MainActivity : AudioServiceFragmentActivity() {
         val dest = intent.getStringExtra("navigate_to") ?: return
         val ch = navMethodChannel
         if (ch != null) {
-            // Flutter engine is ready — invoke immediately on the main thread.
+            // Flutter engine is ready — invoke directly on the main thread.
+            // This covers the foreground case where the app is already on screen
+            // (didChangeAppLifecycleState won't fire because it was never paused).
             runOnUiThread { ch.invokeMethod("navigateTo", dest) }
         } else {
-            // Unlikely (engine always ready if app was running), but store just in case.
+            // Engine not yet ready — store for Flutter to pull on next getPendingNavigation call.
             pendingNavDestination = dest
         }
     }
@@ -467,21 +469,22 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
             }
 
-        // ── Navigation channel (notification tap → Flutter routing) ───────────
-        // Flutter's MainNavigator listens on this channel for "navigateTo" calls.
+        // ── Navigation channel (native adhan notification tap → Flutter routing) ──────
+        // Flutter's MainNavigator pulls pending navigation via getPendingNavigation.
+        // This "pull" pattern avoids race conditions between Kotlin pushing a message
+        // and the Dart handler not yet being registered (fragile timing with delays).
         val navCh = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, navChannel)
         navMethodChannel = navCh
-        // No incoming methods from Flutter on this channel; it is send-only from native.
-        navCh.setMethodCallHandler { _, result -> result.notImplemented() }
-
-        // Deliver any pending cold-start navigation (intent arrived before engine was ready).
-        val pending = pendingNavDestination
-        if (pending != null) {
-            pendingNavDestination = null
-            // Short delay so Flutter widget tree has time to build before we push a route.
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                navCh.invokeMethod("navigateTo", pending)
-            }, 800)
+        navCh.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getPendingNavigation" -> {
+                    // Return the pending route (if any) and clear it so it is only consumed once.
+                    val pending = pendingNavDestination
+                    pendingNavDestination = null
+                    result.success(pending)
+                }
+                else -> result.notImplemented()
+            }
         }
 
         // ── Tasbeeh widget refresh channel ────────────────────────────────────

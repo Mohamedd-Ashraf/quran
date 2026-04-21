@@ -190,7 +190,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => FeedbackService(sl()));
   sl.registerLazySingleton(() => WirdService(sl()));
   sl.registerLazySingleton(() => WirdNotificationService(sl(), sl(), sl()));
-  sl.registerFactory(() => WirdCubit(sl(), sl()));
+  sl.registerFactory(() => WirdCubit(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AdhkarProgressService(sl()));
   sl.registerFactory(() => AdhkarProgressCubit(sl()));
   sl.registerLazySingleton(() => AudioDownloadStateService(sl()));

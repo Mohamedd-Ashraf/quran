@@ -2,13 +2,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/wird_service.dart';
 import '../../data/quran_boundaries.dart';
 import '../../services/wird_notification_service.dart';
+import '../../../../core/services/settings_service.dart';
+import '../../../../core/constants/surah_names.dart';
 import 'wird_state.dart';
 
 class WirdCubit extends Cubit<WirdState> {
   final WirdService _wirdService;
   final WirdNotificationService _notifService;
+  final SettingsService _settingsService;
 
-  WirdCubit(this._wirdService, this._notifService) : super(const WirdInitial());
+  WirdCubit(this._wirdService, this._notifService, this._settingsService)
+      : super(const WirdInitial());
 
   // ── Test notification ─────────────────────────────────────────────────
 
@@ -219,18 +223,51 @@ class WirdCubit extends Cubit<WirdState> {
   // ── Reading bookmark (last-read position) ─────────────────────────────────
 
   /// Saves the user's current reading position (surah+ayah, on surah navigation).
+  /// Also syncs to the home-screen "Continue Reading" tracker.
   Future<void> saveLastRead(int surah, int ayah) async {
     await _wirdService.saveLastRead(surah, ayah);
+    // Sync to home-screen tracker with surah names.
+    final nameAr = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['arabic'] ?? ''
+        : '';
+    final nameEn = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['english'] ?? ''
+        : '';
+    await _settingsService.updateLastReadProgress(
+      surahNumber: surah,
+      surahNameAr: nameAr.isNotEmpty ? nameAr : null,
+      surahNameEn: nameEn.isNotEmpty ? nameEn : null,
+      ayah: ayah,
+    );
     load();
   }
 
   /// Saves the current mushaf page number (fires on every page swipe).
+  /// Also syncs to the home-screen "Continue Reading" tracker with surah info.
   Future<void> saveLastReadPage(int page) async {
     await _wirdService.saveLastReadPage(page);
+    // Derive the surah that starts on this page so the home tracker shows
+    // the correct surah name alongside the page number.
+    final safeP = page.clamp(1, 604);
+    final pos = pageStartPosition(safeP);
+    final surah = pos.surah;
+    final nameAr = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['arabic'] ?? ''
+        : '';
+    final nameEn = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['english'] ?? ''
+        : '';
+    await _settingsService.updateLastReadProgress(
+      surahNumber: surah,
+      surahNameAr: nameAr.isNotEmpty ? nameAr : null,
+      surahNameEn: nameEn.isNotEmpty ? nameEn : null,
+      page: page,
+    );
     load();
   }
 
   /// Clears the reading bookmark (also called automatically when day is marked complete).
+  /// Does NOT clear the home-screen tracker — overall progress is preserved.
   Future<void> clearLastRead() async {
     await _wirdService.clearLastRead();
     load();

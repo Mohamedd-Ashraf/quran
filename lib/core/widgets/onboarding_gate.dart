@@ -256,9 +256,20 @@ class _OnboardingGateState extends State<OnboardingGate> {
     // ── 3. Authentication ──────────────────────────────────────────────────
     // Listen to auth state so that when the user signs out we reset _authComplete.
     return BlocListener<AuthCubit, AuthState>(
-      listenWhen: (prev, curr) => prev.status != curr.status,
+      listenWhen: (prev, curr) =>
+          prev.status != curr.status ||
+          // Also react when status stays unauthenticated but isLoading drops
+          // to false — this means a sign-in attempt failed after an internal
+          // credential-already-in-use signOut.
+          (curr.status == AuthStatus.unauthenticated &&
+              prev.isLoading != curr.isLoading),
       listener: (context, state) {
-        if (state.status == AuthStatus.unauthenticated) {
+        // Only treat unauthenticated as a real sign-out when isLoading is
+        // false.  When isLoading is true the unauthenticated state is a
+        // transient internal signOut inside Google/email sign-in (the
+        // credential-already-in-use path); disrupting the UI in that case
+        // causes the auth screen to flash and leaves the user stuck.
+        if (state.status == AuthStatus.unauthenticated && !state.isLoading) {
           setState(() {
             _authComplete = false;
             _showWhatsNew = null;

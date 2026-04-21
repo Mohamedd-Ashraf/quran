@@ -22,12 +22,18 @@ class PrayerTimesCacheService {
     );
     
     final now = DateTime.now();
+    // Anchor to calendar-midnight so Duration(days: i) always lands on the
+    // correct local date.  Using DateTime.now() directly is unsafe across a
+    // DST spring-forward: adding 24 h to 23:00 on the eve of the clock change
+    // lands one hour into the day after the transition, silently skipping the
+    // transition day from the cache.
+    final today = DateTime(now.year, now.month, now.day);
 
     // Store prayer times for next 30 days
     final Map<String, Map<String, String>> cachedTimes = {};
 
     for (int i = 0; i < 30; i++) {
-      final date = now.add(Duration(days: i));
+      final date = today.add(Duration(days: i));
       final dateComponents = DateComponents(date.year, date.month, date.day);
       final prayerTimes = PrayerTimes(coords, dateComponents, params);
 

@@ -28,14 +28,15 @@ class MainNavigator extends StatefulWidget {
   State<MainNavigator> createState() => _MainNavigatorState();
 }
 
-class _MainNavigatorState extends State<MainNavigator> {
+class _MainNavigatorState extends State<MainNavigator>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   final GlobalKey<BookmarksScreenState> _bookmarksKey =
       GlobalKey<BookmarksScreenState>();
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
-  /// MethodChannel used to receive navigation events sent from native Android
+  /// MethodChannel used to pull pending navigation events from native Android
   /// (e.g. when the user taps the Adhan foreground-service notification).
   static const _navChannel = MethodChannel('quraan/navigation');
 
@@ -44,6 +45,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _screens = [
       HomeScreen(key: _homeKey),
       BookmarksScreen(
@@ -58,21 +60,30 @@ class _MainNavigatorState extends State<MainNavigator> {
       const SettingsScreen(),
     ];
 
-    // ── Listen for navigation events sent from native Android ──────────────
-    // Triggered when the user taps the Adhan foreground-service notification
-    // (which is a native notification, not a flutter_local_notifications one).
+    // ── Native navigation channel ──────────────────────────────────────────
+    // Handles two scenarios:
+    // 1) Push ("navigateTo"): app is already in foreground when notification
+    //    is tapped — Kotlin invokes this directly via onNewIntent.
+    // 2) Pull ("getPendingNavigation"): cold-start or background-to-foreground —
+    //    Flutter calls this in initState postFrameCallback and on resume.
     _navChannel.setMethodCallHandler((call) async {
       if (call.method == 'navigateTo') {
         final route = call.arguments as String?;
-        if (route != null && route.isNotEmpty) {
+        if (route != null && route.isNotEmpty && mounted) {
           navigateFromNotification(route);
         }
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Consume any notification route stored during cold-start.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Consume any notification route stored during cold-start via
+      // flutter_local_notifications (quiz reminders, iOS adhan fallback).
       consumePendingNotificationRoute();
+
+      // Pull any native Android adhan notification pending route from Kotlin.
+      // This covers both cold-start (Kotlin stored it in onCreate) and the
+      // first-frame case. Warm-start is handled in didChangeAppLifecycleState.
+      await _checkNativePendingNavigation();
 
       _showAdhanBannerIfNeeded();
       // Show mobile-data consent dialog if font download is waiting.
@@ -93,8 +104,35 @@ class _MainNavigatorState extends State<MainNavigator> {
     FontDownloadManager.instance.addListener(_onFontManagerChanged);
   }
 
+  /// Called when the app transitions between foreground/background.
+  /// When the user taps an Adhan notification and the app is brought from
+  /// background, [AppLifecycleState.resumed] fires — we pull any pending
+  /// native navigation route from Kotlin at this point.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkNativePendingNavigation();
+    }
+  }
+
+  /// Asks Kotlin if there is a pending navigation destination (set when the
+  /// user tapped a native Adhan notification). If one exists, Kotlin returns
+  /// the route string and clears it so it is only consumed once.
+  Future<void> _checkNativePendingNavigation() async {
+    try {
+      final route =
+          await _navChannel.invokeMethod<String?>('getPendingNavigation');
+      if (route != null && route.isNotEmpty && mounted) {
+        navigateFromNotification(route);
+      }
+    } catch (_) {
+      // Non-fatal: channel may not be set up on non-Android platforms.
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     FontDownloadManager.instance.removeListener(_onFontManagerChanged);
     super.dispose();
   }

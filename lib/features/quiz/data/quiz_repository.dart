@@ -52,6 +52,13 @@ class QuizRepository {
   static const _kPendingSync = 'quiz_pending_sync';
   static const _kPendingSyncDate = 'quiz_pending_sync_date';
 
+  // ── Active-timer persistence keys ────────────────────────────────────────
+  // These let us resume the correct countdown when the user leaves and returns
+  // to the quiz mid-session (back navigation, app kill, etc.).
+  static const _kTimerQuestionId    = 'quiz_timer_question_id';
+  static const _kTimerStartMs       = 'quiz_timer_start_ms';
+  static const _kTimerTotalSeconds  = 'quiz_timer_total_seconds';
+
   // ── In-memory session cache ───────────────────────────────────────────────
   int _totalScore = 0;
   int _streak = 0;
@@ -360,6 +367,67 @@ class QuizRepository {
     }
 
     return isCorrect;
+  }
+
+  // ── Active-timer state ───────────────────────────────────────────────────
+
+  /// Persists the moment the countdown timer started for [questionId].
+  /// Called by [QuizCubit._startTimer] so the start time survives app kills
+  /// and back-navigation (a new cubit can resume from the correct remaining
+  /// time instead of restarting the clock).
+  Future<void> saveTimerStartTime({
+    required int questionId,
+    required DateTime startTime,
+    required int totalSeconds,
+  }) async {
+    await Future.wait([
+      _prefs.setInt(_kTimerQuestionId, questionId),
+      _prefs.setInt(_kTimerStartMs, startTime.millisecondsSinceEpoch),
+      _prefs.setInt(_kTimerTotalSeconds, totalSeconds),
+    ]);
+  }
+
+  /// Clears the persisted timer state.
+  /// Called after the user submits an answer or the timer expires.
+  Future<void> clearTimerState() async {
+    await Future.wait([
+      _prefs.remove(_kTimerQuestionId),
+      _prefs.remove(_kTimerStartMs),
+      _prefs.remove(_kTimerTotalSeconds),
+    ]);
+  }
+
+  /// Returns the persisted timer state for [questionId], or null if none is
+  /// stored or the stored state belongs to a different question.
+  ///
+  /// The returned record:
+  ///  - `startTime`    — wall-clock moment the timer started
+  ///  - `totalSeconds` — the original total duration
+  ///  - `elapsedSeconds` — seconds elapsed since `startTime` (using DateTime.now())
+  ///  - `remainingSeconds` — clamped to [0, totalSeconds]
+  ({
+    DateTime startTime,
+    int totalSeconds,
+    int elapsedSeconds,
+    int remainingSeconds,
+  })? getActiveTimerState(int questionId) {
+    final storedId = _prefs.getInt(_kTimerQuestionId);
+    if (storedId != questionId) return null;
+
+    final startMs = _prefs.getInt(_kTimerStartMs);
+    final total   = _prefs.getInt(_kTimerTotalSeconds);
+    if (startMs == null || total == null) return null;
+
+    final startTime = DateTime.fromMillisecondsSinceEpoch(startMs);
+    final elapsed   = DateTime.now().difference(startTime).inSeconds;
+    final remaining = (total - elapsed).clamp(0, total);
+
+    return (
+      startTime: startTime,
+      totalSeconds: total,
+      elapsedSeconds: elapsed,
+      remainingSeconds: remaining,
+    );
   }
 
   // ── Offline sync ──────────────────────────────────────────────────────────

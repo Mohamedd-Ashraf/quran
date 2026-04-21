@@ -634,23 +634,53 @@ class SettingsService {
   static const String _keyLastReadSurahNameAr = 'last_read_surah_name_ar';
   static const String _keyLastReadSurahNameEn = 'last_read_surah_name_en';
   static const String _keyLastReadAyah = 'last_read_ayah';
+  static const String _keyLastReadPage = 'last_read_page';
 
   int? getLastReadSurahNumber() => _prefs.getInt(_keyLastReadSurahNumber);
   String? getLastReadSurahNameAr() => _prefs.getString(_keyLastReadSurahNameAr);
   String? getLastReadSurahNameEn() => _prefs.getString(_keyLastReadSurahNameEn);
   int? getLastReadAyah() => _prefs.getInt(_keyLastReadAyah);
+  int? getLastReadPage() => _prefs.getInt(_keyLastReadPage);
 
+  /// Called when the user explicitly opens a surah from the list.
+  /// Resets ayah and page to null so "Continue Reading" starts from
+  /// the beginning of the newly selected surah.
   Future<void> setLastReadPosition({
     required int surahNumber,
     required String surahNameAr,
     required String surahNameEn,
-    int? ayah,
   }) async {
     await _prefs.setInt(_keyLastReadSurahNumber, surahNumber);
     await _prefs.setString(_keyLastReadSurahNameAr, surahNameAr);
     await _prefs.setString(_keyLastReadSurahNameEn, surahNameEn);
-    if (ayah != null) {
+    // Reset progress: user is starting this surah fresh.
+    await _prefs.remove(_keyLastReadAyah);
+    await _prefs.remove(_keyLastReadPage);
+  }
+
+  /// Called continuously during reading to persist the exact position.
+  /// Pass the fields you have — null values are silently ignored.
+  Future<void> updateLastReadProgress({
+    int? surahNumber,
+    String? surahNameAr,
+    String? surahNameEn,
+    int? ayah,
+    int? page,
+  }) async {
+    if (surahNumber != null) {
+      await _prefs.setInt(_keyLastReadSurahNumber, surahNumber);
+    }
+    if (surahNameAr != null) {
+      await _prefs.setString(_keyLastReadSurahNameAr, surahNameAr);
+    }
+    if (surahNameEn != null) {
+      await _prefs.setString(_keyLastReadSurahNameEn, surahNameEn);
+    }
+    if (ayah != null && ayah >= 1) {
       await _prefs.setInt(_keyLastReadAyah, ayah);
+    }
+    if (page != null && page >= 1 && page <= 604) {
+      await _prefs.setInt(_keyLastReadPage, page);
     }
   }
 

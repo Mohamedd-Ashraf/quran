@@ -2591,28 +2591,39 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   }) {
     final cubitState = context.read<WirdCubit>().state;
     final savedPage = (cubitState is WirdPlanLoaded) ? cubitState.lastReadPage : null;
-    final savedSurah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadSurah : null;
-    final savedAyah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadAyah : null;
     final cubit = context.read<WirdCubit>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAr = widget.isAr;
 
-    // For juz-based plans in mushaf mode, compute a page range from the
-    // reading range so the dialog always asks for a page number.
-    PageReadingRange? effectivePageRange = pageRange;
-    if (effectivePageRange == null && savedPage != null) {
-      // User was reading in mushaf mode — derive page range from the reading range.
+    // Always use page mode: derive the page range from the surah range if not
+    // already provided (covers both page-based and juz/day-based plans).
+    PageReadingRange effectivePageRange;
+    if (pageRange != null) {
+      effectivePageRange = pageRange;
+    } else {
+      // Compute from surah boundaries — works for any plan type.
       final startP = getPageNumber(targetRange.start.surah, targetRange.start.ayah);
       final endP = getPageNumber(targetRange.end.surah, targetRange.end.ayah);
       effectivePageRange = PageReadingRange(startPage: startP, endPage: endP);
     }
 
-    // ── Page mode (mushaf view) ──────────────────────────────────────────
-    if (effectivePageRange != null) {
+    // ── Page mode (always) ───────────────────────────────────────────────
+    {
       final startP = effectivePageRange.startPage;
       final endP = effectivePageRange.endPage;
-      // Use saved page if available (even if outside today's range), else day start.
-      int enteredPage = savedPage ?? startP;
+      // Resolve default page: saved page → derive from surah/ayah bookmark → day start.
+      final cubitStateNow = context.read<WirdCubit>().state;
+      final savedSurahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadSurah : null;
+      final savedAyahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadAyah : null;
+      int enteredPage;
+      if (savedPage != null) {
+        enteredPage = savedPage;
+      } else if (savedSurahFallback != null) {
+        final p = getPageNumber(savedSurahFallback, savedAyahFallback ?? 1);
+        enteredPage = (p >= 1 && p <= _kMushafPagesTotal) ? p : startP;
+      } else {
+        enteredPage = startP;
+      }
 
       showModalBottomSheet(
         context: context,
@@ -2734,214 +2745,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           },
         ),
       );
-      return;
     }
-
-    // ── Surah+ayah mode (classic ayah view) ─────────────────────────────
-    final startS = targetRange.start.surah;
-    final endS = targetRange.end.surah;
-    final surahInRange = savedSurah != null &&
-        savedSurah >= startS && savedSurah <= endS;
-    int selectedSurah = surahInRange ? savedSurah! : startS;
-    int enteredAyah = (surahInRange && savedSurah == selectedSurah && savedAyah != null)
-        ? savedAyah
-        : targetRange.start.ayah;
-    // Rename local var for UI code below
-    final range = targetRange;
-
-    int minAyahFor(int s) => s == startS ? range.start.ayah : 1;
-    int maxAyahFor(int s) => s == endS ? range.end.ayah : kSurahAyahCounts[s - 1];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          final minAyah = minAyahFor(selectedSurah);
-          final maxAyah = maxAyahFor(selectedSurah);
-          if (enteredAyah < minAyah) enteredAyah = minAyah;
-          if (enteredAyah > maxAyah) enteredAyah = maxAyah;
-          final ayahCtrl = TextEditingController(text: enteredAyah.toString());
-
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: isAr
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.divider,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(Icons.bookmark_add_rounded,
-                          color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        isAr ? 'حتى أين وصلت؟' : 'Where did you stop?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isAr
-                        ? 'سيُحفظ موضعك لتتابع القراءة منه في المرة القادمة'
-                        : 'Your position will be saved to resume next time',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isAr ? 'السورة:' : 'Surah:',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<int>(
-                    value: selectedSurah,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                    items: List.generate(endS - startS + 1, (i) {
-                      final n = startS + i;
-                      return DropdownMenuItem(
-                        value: n,
-                        child: Text(
-                          isAr
-                              ? '${_arabicNumerals(n)}. ${_surahArabicNames[n] ?? n.toString()}'
-                              : '$n. Surah $n',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setSheetState(() {
-                          selectedSurah = v;
-                          enteredAyah = minAyahFor(v);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    isAr
-                        ? 'رقم الآية ($minAyah – $maxAyah):'
-                        : 'Ayah number ($minAyah–$maxAyah):',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: ayahCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      hintText: '$minAyah – $maxAyah',
-                    ),
-                    onChanged: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= minAyah && n <= maxAyah) {
-                        enteredAyah = n;
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(isAr ? 'تخطي' : 'Skip'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.save_rounded, size: 18),
-                          onPressed: () {
-                            final n = int.tryParse(ayahCtrl.text);
-                            final ayah =
-                                (n != null && n >= minAyah && n <= maxAyah)
-                                    ? n
-                                    : enteredAyah;
-                            cubit.saveLastRead(selectedSurah, ayah);
-                            Navigator.pop(ctx);
-                          },
-                          label: Text(
-                            isAr ? 'حفظ الموضع' : 'Save Position',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
   }
 }
 

@@ -79,6 +79,12 @@ class _AuthScreenState extends State<AuthScreen>
         if (state.status == AuthStatus.authenticated ||
             state.status == AuthStatus.guest ||
             state.status == AuthStatus.offlineGuest) {
+          // If this AuthScreen was pushed as a named route (e.g. from the
+          // quiz sign-in sheet), pop it before handing off.  When shown
+          // inline by OnboardingGate canPop() is false so this is a no-op.
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
           widget.onAuthComplete();
         }
         if (state.errorMessage != null) {

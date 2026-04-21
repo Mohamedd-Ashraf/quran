@@ -166,6 +166,8 @@ class IqamaAlarmReceiver : BroadcastReceiver() {
                 nm.createNotificationChannel(ch)
             }
             val openPi = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                it.putExtra("navigate_to", "prayer_times")
+                it.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             }
             val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
