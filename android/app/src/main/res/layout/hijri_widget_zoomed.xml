@@ -40,28 +40,26 @@
             android:layout_height="wrap_content"
             android:text="١٥"
             android:textColor="#FFFFFFFF"
-            android:textSize="54sp"
+            android:textSize="40sp"
             android:textStyle="bold" />
 
-        <!-- Arabic day of week -->
         <TextView
             android:id="@+id/zoom_day_of_week"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="الأحد"
             android:textColor="#FFF0C040"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
-        <!-- Hijri month + year -->
         <TextView
             android:id="@+id/zoom_hijri_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="ذو الحجة  ١٤٤٧ هـ"
             android:textColor="#AAFFFFFF"
-            android:textSize="11sp"
-            android:paddingTop="2dp" />
+            android:textSize="10sp"
+            android:paddingTop="1dp" />
 
         <!-- Gregorian equivalent -->
         <TextView
@@ -69,9 +67,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="٢٠ أبريل ٢٠٢٦"
-            android:textColor="#88FFFFFF"
-            android:textSize="9sp"
-            android:paddingTop="1dp" />
+            android:textColor="#BBFFFFFF"
+            android:textSize="10sp"
+            android:paddingTop="4dp" />
 
         <!-- Islamic event badge (hidden if no event) -->
         <TextView

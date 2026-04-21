@@ -266,19 +266,20 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         applyHeaders(views, minWidthDp)
 
         val grid = dayGrid(g.startCol, g.daysInMonth)
+        val maxRowUsed = (g.startCol + g.daysInMonth - 1) / 7
 
-        // Clear all cells and reset row backgrounds
+        // Show only rows actually needed, hide the rest to avoid blank space
         for (i in rowIds.indices) {
-            views.setViewVisibility(rowIds[i], View.VISIBLE)
+            views.setViewVisibility(rowIds[i], if (i <= maxRowUsed) View.VISIBLE else View.GONE)
             views.setInt(rowIds[i], "setBackgroundColor", 0x00000000)
         }
         for (rowArr in cellIds) for (id in rowArr) {
             views.setTextViewText(id, "")
             views.setInt(id, "setBackgroundColor", 0x00000000)
         }
-        // Reset text colors to default
+        // Reset text colors to per-theme default
         for (rowArr in cellIds) for (id in rowArr) {
-            views.setTextColor(id, 0xCCFFFFFF.toInt())
+            views.setTextColor(id, defaultCellTextColor)
         }
 
         // Fill day numbers + set per-cell click → zoom to week
@@ -339,11 +340,16 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         // Highlight the active row only
         views.setInt(rowIds[activeRow], "setBackgroundColor", 0x44F0C040)
 
-        // Clear all cells first
+        val maxRowUsed = (g.startCol + g.daysInMonth - 1) / 7
+
+        // Clear all cells first; hide rows beyond what the month needs
+        for (i in rowIds.indices) {
+            views.setViewVisibility(rowIds[i], if (i <= maxRowUsed) View.VISIBLE else View.GONE)
+        }
         for (rowArr in cellIds) for (id in rowArr) {
             views.setTextViewText(id, "")
             views.setInt(id, "setBackgroundColor", 0x00000000)
-            views.setTextColor(id, 0x44FFFFFF)
+            views.setTextColor(id, dimmedCellTextColor)
         }
 
         // Fill ALL day numbers — active row bright, others dimmed
@@ -358,7 +364,7 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
                     views.setInt(cid, "setBackgroundColor", todayHighlightColor)
                     views.setTextColor(cid, todayTextColor)
                 } else {
-                    views.setTextColor(cid, 0xEEFFFFFF.toInt())
+                    views.setTextColor(cid, activeCellTextColor)
                 }
                 val dayIntent = Intent(context, receiverClass).apply {
                     action = ACTION_HIJRI_DAY
@@ -372,7 +378,7 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
                 ))
             } else {
                 // Other rows: dimmed, tap → switch highlight to that row
-                views.setTextColor(cid, 0x55FFFFFF)
+                views.setTextColor(cid, dimmedCellTextColor)
                 val weekIntent = Intent(context, receiverClass).apply {
                     action = ACTION_HIJRI_WEEK
                     putExtra("wid", widgetId)
@@ -477,6 +483,13 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
     /** Colors for today's highlight — overridden per theme */
     protected open val todayHighlightColor: Int = 0x44F0C040  // gold semi-transparent
     protected open val todayTextColor: Int = 0xFFF0C040.toInt() // bright gold
+
+    /** Default day-number text color for all cells (overridden per theme) */
+    protected open val defaultCellTextColor: Int = 0xCCFFFFFF.toInt()  // white for dark/balanced
+    /** Dimmed text color for non-active rows in weekly view */
+    protected open val dimmedCellTextColor: Int  = 0x44FFFFFF.toInt()  // faint white
+    /** Active row text color in weekly view */
+    protected open val activeCellTextColor: Int  = 0xEEFFFFFF.toInt()  // bright white
 
     /**
      * Approximate Hijri month length.
@@ -605,4 +618,8 @@ class HijriCalendarWidgetLight : BaseHijriCalendarWidget() {
     override val requestCode = 8002
     override val todayHighlightColor: Int = 0x33D4AF37
     override val todayTextColor: Int = 0xFF064E3B.toInt()
+    // Light cream background needs dark text
+    override val defaultCellTextColor: Int = 0xCC2F3A32.toInt()  // dark green
+    override val dimmedCellTextColor: Int  = 0x552F3A32.toInt()  // faint dark green
+    override val activeCellTextColor: Int  = 0xEE1A2E1A.toInt()  // rich dark green
 }

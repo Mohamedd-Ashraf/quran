@@ -108,10 +108,18 @@ class QcfVersesWidget extends StatelessWidget {
                   maxLines: 1,
                 );
 
+          // Use AlignmentDirectional so the layout respects the app's text
+          // direction (RTL for Arabic) regardless of the device language.
+          // - centerStart = right side in RTL → full Mushaf lines
+          // - centerEnd   = left  side in RTL → last partial line (verse number)
+          final alignment = (isLastLine && mushafLines.length > 1)
+              ? AlignmentDirectional.centerStart
+              : AlignmentDirectional.centerEnd;
+
           widgets.add(
             FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerEnd,
+              alignment: alignment,
               child: lineContent,
             ),
           );
