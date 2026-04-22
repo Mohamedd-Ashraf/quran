@@ -1053,6 +1053,13 @@ class _QuickAccessBar extends StatelessWidget {
                 },
               ),
               _QuickAccessItem(
+                label: isArabicUi ? 'السبحة' : 'Tasbeeh',
+                imagePath: 'assets/logo/button icons/beads.png',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TasbeehScreen()),
+                ),
+              ),
+              _QuickAccessItem(
                 label: isArabicUi ? 'القبلة' : 'Qibla',
                 imagePath: 'assets/logo/button icons/qibla.png',
                 imagePadding: 0,

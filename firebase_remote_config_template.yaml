@@ -3,7 +3,7 @@
 
 latest_version:
   Type: String
-  Value: "1.0.11"
+  Value: "1.1.1"
   Description: "Latest available version of the app"
 
 minimum_version:
@@ -43,21 +43,27 @@ download_url_x86_64:
 changelog_ar:
   Type: String
   Value: |
-    ✨ الجديد في هذا الإصدار (1.0.11):
-    • عرض دقيق واحتياطي لصفحات المصحف الشريف
-    • تحسين دقة أوقات الأذان وتحديد الموقع تلقائيًا
-    • معالجة محسّنة لصلاحيات التنبيهات لضمان وصولها
-    • تحسينات شاملة في الأداء واستقرار التطبيق
+    ✨ الجديد في نور الإيمان 1.1.1:
+    • أداة التقويم الهجري الشهرية على الشاشة الرئيسية
+    • توسعة مكتبة الأذكار بأقسام جديدة (الوضوء، الاستخارة، القنوت وغيرها)
+    • دعم القراءات العشر والروايات في التلاوة الصوتية
+    • تحديد نقطة بداية الورد اليومي في القرآن
+    • التحدي اليومي يحفظ إجابتك بدون إنترنت
+    • إشعار الأذان يفتح شاشة مواقيت الصلاة مباشرة
+    • إصلاحات وتحسينات عامة في الأداء والاستقرار
   Description: "Changelog in Arabic"
 
 changelog_en:
   Type: String
   Value: |
-    ✨ What's New in 1.0.11:
-    • Accurate Mushaf page rendering
-    • Enhanced Adhan scheduling & location accuracy
-    • Better permission handling for continuous alerts
-    • Important performance and stability improvements
+    ✨ What's New in Noor Al-Iman 1.1.1:
+    • Monthly Hijri Calendar home-screen widget
+    • Expanded adhkar library with new sections (Wudu, Istikhara, Qunut & more)
+    • Ten Qira'at & recitation variants support
+    • Set a custom starting point for your daily Wird
+    • Daily Challenge saves answers offline and syncs when connected
+    • Adhan notification opens Prayer Times directly
+    • Bug fixes and general performance improvements
   Description: "Changelog in English"
 
 release_date:

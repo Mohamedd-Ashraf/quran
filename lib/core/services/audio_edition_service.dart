@@ -706,6 +706,16 @@ class AudioEditionService {
     ),
   ];
 
+  /// Returns an edition by its identifier using only the local cache (no network call).
+  /// Falls back to [_extraEditions] if the identifier is not in the stored cache.
+  /// Returns null only if the identifier is completely unknown.
+  AudioEdition? findEditionById(String identifier) {
+    return _readCache()
+        .where((e) => e.identifier == identifier)
+        .cast<AudioEdition?>()
+        .firstOrNull;
+  }
+
   List<AudioEdition> _readCache() {
     final raw = _prefs.getString(_cacheKey);
     if (raw == null || raw.isEmpty) return _mergeExtras(const []);

@@ -102,6 +102,10 @@ class QuizRepository {
     } else {
       _loadFromPrefs();
     }
+    // Always apply any locally-saved pending answer, regardless of whether
+    // Firestore succeeded or fell back to prefs. Without this, an app that
+    // can't reach Firestore shows stale pre-answer score/streak.
+    _applyPendingLocalAnswerIfValid();
   }
 
   void _loadFromPrefs() {
@@ -152,7 +156,9 @@ class QuizRepository {
         }
         // Fetch authoritative server time so _todayString() is not
         // influenced by the device clock (guards against clock-advance cheats).
-        if (_lastAnsweredServerTimestamp != null) {
+        // Condition: any user who has answered before (has a lastAnsweredDate),
+        // including old documents that pre-date the lastAnsweredTimestamp field.
+        if (_lastAnsweredDate != null && _lastAnsweredDate!.isNotEmpty) {
           _serverNowUtc = await _fetchServerNow();
         }
         debugPrint('[Quiz] Loaded from Firestore for ${_user!.uid}');
@@ -177,11 +183,8 @@ class QuizRepository {
       debugPrint('[Quiz] Firestore load failed, using local prefs: $e\n$st');
       _loadFromPrefs();
     }
-
-    // Apply any offline-answered question that hasn't been synced yet.
-    // This prevents the user from seeing an empty/unanswered screen when they
-    // return after answering while offline.
-    _applyPendingLocalAnswerIfValid();
+    // Note: _applyPendingLocalAnswerIfValid() is called in loadData() after
+    // this returns, so it runs regardless of Firestore success or fallback.
   }
 
   /// Overlays the locally-saved post-answer data when there is a pending sync

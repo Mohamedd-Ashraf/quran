@@ -19,11 +19,21 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   int _remainingSeconds = 0;
   bool _hasSubmitted = false;
 
-  /// Wall-clock time when the question was shown. Used to compute actual
-  /// elapsed time when the app resumes from background, preventing the
-  /// timer-pause cheat (backgrounding the app to buy extra thinking time).
+  /// Wall-clock time when the question was shown. Used ONLY to compute the
+  /// cross-session elapsed time (app kill → reopen). The in-session ticker
+  /// uses [_sessionStopwatch] instead, which is monotonic and immune to
+  /// device-clock manipulation.
   DateTime? _questionStartTime;
   int _totalTimerSeconds = 0;
+
+  /// Monotonic stopwatch started when the in-session countdown begins.
+  /// Counts forward from zero regardless of system clock changes, so rolling
+  /// the device clock backward cannot extend the countdown.
+  Stopwatch? _sessionStopwatch;
+
+  /// Remaining seconds at the moment the stopwatch was (re)started.
+  /// Updated on initial start and again after each app-resume recalculation.
+  int _sessionStartRemaining = 0;
 
   QuizCubit(this._repository, this._notifService) : super(const QuizInitial()) {
     WidgetsBinding.instance.addObserver(this);
@@ -158,18 +168,28 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   /// before invoking this method.
   void _startTimer(int seconds, {required DateTime startTime}) {
     _timer?.cancel();
+    _sessionStopwatch?.stop();
+
     _totalTimerSeconds = seconds;
     _questionStartTime = startTime;
 
-    // Compute initial remaining based on actual elapsed (matters when resuming).
-    final elapsed = DateTime.now().difference(startTime).inSeconds;
-    _remainingSeconds = (seconds - elapsed).clamp(0, seconds);
+    // One-time DateTime.now() call: compute how far we are into this session
+    // (matters when resuming after an app kill — cross-session elapsed is fine
+    // here since the attacker would have to roll the clock back BEFORE killing
+    // the app, giving at most the time elapsed while the app was closed back,
+    // which is bounded by [seconds] anyway).
+    final crossSessionElapsed =
+        DateTime.now().difference(startTime).inSeconds.clamp(0, seconds);
+    _sessionStartRemaining = seconds - crossSessionElapsed;
+    _remainingSeconds = _sessionStartRemaining;
+
+    // From here the Stopwatch drives the ticker — monotonic, immune to any
+    // subsequent system-clock change (forward or backward).
+    _sessionStopwatch = Stopwatch()..start();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Compute remaining time from actual wall-clock elapsed time.
-      // This is cheat-proof: backgrounding the app doesn't pause DateTime.now().
-      final elapsedNow = DateTime.now().difference(_questionStartTime!).inSeconds;
-      _remainingSeconds = (_totalTimerSeconds - elapsedNow).clamp(0, _totalTimerSeconds);
+      final elapsed = _sessionStopwatch!.elapsed.inSeconds;
+      _remainingSeconds = (_sessionStartRemaining - elapsed).clamp(0, _sessionStartRemaining);
       if (_remainingSeconds <= 0) {
         timer.cancel();
         _onTimeUp();
@@ -190,14 +210,24 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (lifecycleState == AppLifecycleState.resumed &&
         _questionStartTime != null &&
         !_hasSubmitted) {
-      final elapsed =
+      // One-time DateTime.now() call on resume: compute cross-session elapsed
+      // (time the app was closed/backgrounded) and recalibrate the remaining
+      // seconds. After this, the Stopwatch takes over again — so any clock
+      // manipulation that happens AFTER the user reopens the app has no effect.
+      final crossSessionElapsed =
           DateTime.now().difference(_questionStartTime!).inSeconds;
       _remainingSeconds =
-          (_totalTimerSeconds - elapsed).clamp(0, _totalTimerSeconds);
+          (_totalTimerSeconds - crossSessionElapsed).clamp(0, _totalTimerSeconds);
       if (_remainingSeconds <= 0) {
         _timer?.cancel();
+        _sessionStopwatch?.stop();
         _onTimeUp();
+        return;
       }
+      // Reset the Stopwatch from this new baseline so the in-session ticker
+      // counts forward from the recalibrated remaining time.
+      _sessionStartRemaining = _remainingSeconds;
+      _sessionStopwatch = Stopwatch()..start();
     }
   }
 
@@ -347,6 +377,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   Future<void> close() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _sessionStopwatch?.stop();
     _connectivitySub?.cancel();
     return super.close();
   }

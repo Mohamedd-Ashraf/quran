@@ -60,6 +60,10 @@ class _QiblahScreenState extends State<QiblahScreen>
   bool _showCalibrationStep = false;
   /// true after auto-nav snackbar is shown to prevent double-trigger.
   bool _autoNavScheduled = false;
+  /// true once we've seen a poor-accuracy reading during this calibration session.
+  /// Auto-nav only fires when this is true (prevents instant dismiss if compass
+  /// was already calibrated when the screen opened).
+  bool _calibrationAccuracyWasPoor = false;
 
   // ── View mode toggle ───────────────────────────────────────────────────────
   /// true = Qibla Map view, false = Compass view (default)
@@ -118,9 +122,19 @@ class _QiblahScreenState extends State<QiblahScreen>
       });
       _checkAlignment(smoothed);
 
-      // Auto-navigate away from calibration screen when accuracy reaches HIGH.
+      // Track whether accuracy was poor at any point in this calibration session.
+      if (_showCalibrationStep &&
+          _compassAccuracy != null &&
+          _needsCalibration(_compassAccuracy!)) {
+        _calibrationAccuracyWasPoor = true;
+      }
+
+      // Auto-navigate away from calibration screen when accuracy reaches HIGH,
+      // but ONLY if accuracy was actually poor first — prevents instant dismiss
+      // when the compass was already calibrated on screen entry.
       if (_showCalibrationStep &&
           !_autoNavScheduled &&
+          _calibrationAccuracyWasPoor &&
           _compassAccuracy != null &&
           !_needsCalibration(_compassAccuracy!)) {
         _autoNavScheduled = true;
@@ -388,6 +402,9 @@ class _QiblahScreenState extends State<QiblahScreen>
       _locationFromCache = fromCache;
       _showCalibrationStep = true;
       _calibrationDialogShown = true; // skip auto-dialog; step screen shown
+      // Reset per-session calibration flags every time we enter the screen.
+      _autoNavScheduled = false;
+      _calibrationAccuracyWasPoor = false;
     });
     _fetchPlaceName(coords.latitude, coords.longitude);
   }
@@ -450,7 +467,11 @@ class _QiblahScreenState extends State<QiblahScreen>
             IconButton(
               icon: const Icon(Icons.explore_rounded),
               tooltip: isAr ? 'معايرة البوصلة' : 'Calibrate Compass',
-              onPressed: () => setState(() => _showCalibrationStep = true),
+              onPressed: () => setState(() {
+                _showCalibrationStep = true;
+                _autoNavScheduled = false;
+                _calibrationAccuracyWasPoor = false;
+              }),
             ),
           if (_updatingLocation)
             const Padding(
@@ -787,10 +808,13 @@ class _QiblahScreenState extends State<QiblahScreen>
         ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
-          child: Column(
-            children: [
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+                child: Column(
+                  children: [
               const SizedBox(height: 20),
 
               // ── Animated compass hero ───────────────────────────────────
@@ -978,80 +1002,83 @@ class _QiblahScreenState extends State<QiblahScreen>
                     ? 'ابتعد عن المغناطيس ومكبرات الصوت والأجهزة الإلكترونية القريبة.'
                     : 'Stay away from magnets, speakers, and nearby electronics.',
               ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-            ],
-          ),
-        ),
-      ),
-
-      // ── Sticky CTA + skip — always visible outside the scroll ───────────
-      Padding(
-        padding: const EdgeInsets.fromLTRB(22, 8, 22, 4),
-        child: GestureDetector(
-          onTap: () => setState(() {
-            _showCalibrationStep = false;
-            _autoNavScheduled = false;
-          }),
-          child: Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [AppColors.secondary, AppColors.accent],
+                ],
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.secondary.withValues(alpha: 0.45),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Color(0xFF0A1C12),
-                  size: 22,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  isAr
-                      ? 'تمّت المعايرة — انتقل للبوصلة'
-                      : 'Done — Open Compass',
-                  style: GoogleFonts.cairo(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0A1C12),
+          ),
+
+          // ── Sticky CTA + skip — always visible outside the scroll ───────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 4),
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _showCalibrationStep = false;
+                _autoNavScheduled = false;
+              }),
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [AppColors.secondary, AppColors.accent],
                   ),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.secondary.withValues(alpha: 0.45),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-              ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF0A1C12),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      isAr
+                          ? 'تمّت المعايرة — انتقل للبوصلة'
+                          : 'Done — Open Compass',
+                      style: GoogleFonts.cairo(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0A1C12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      TextButton(
-        onPressed: () => setState(() {
-          _showCalibrationStep = false;
-          _autoNavScheduled = false;
-        }),
-        child: Text(
-          isAr ? 'تخطي المعايرة' : 'Skip calibration',
-          style: TextStyle(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.30)
-                : AppColors.textSecondary.withValues(alpha: 0.55),
-            fontSize: 12,
+          TextButton(
+            onPressed: () => setState(() {
+              _showCalibrationStep = false;
+              _autoNavScheduled = false;
+            }),
+            child: Text(
+              isAr ? 'تخطي المعايرة' : 'Skip calibration',
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.30)
+                    : AppColors.textSecondary.withValues(alpha: 0.55),
+                fontSize: 12,
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+        ],
       ),
-      const SizedBox(height: 8),
-    ];
+    ),
+  );
   }
 
   // ── Main compass body ──────────────────────────────────────────────────────

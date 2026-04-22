@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:equatable/equatable.dart';
@@ -372,8 +371,10 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   /// For page/surah mode it accumulates the durations of completed items.
   Stream<Duration> get effectivePositionStream => _isTimedRangeMode
       ? _player.positionStream.map((pos) {
-          final offsetMs = pos.inMilliseconds - _timedRangeStartMs;
-          final clampedMs = offsetMs.clamp(0, _timedRangeEndMs - _timedRangeStartMs);
+          final clampedMs = pos.inMilliseconds.clamp(
+            0,
+            _timedRangeEndMs - _timedRangeStartMs,
+          );
           return Duration(milliseconds: clampedMs);
         })
       : _player.positionStream.map((pos) => _accumulatedDuration + pos);
@@ -601,9 +602,10 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         return;
       }
 
-      // Include basmala in ayah 1 by starting from its offset.
-      final rangeStartMs = (startAyah == 1 && basmala != null)
-          ? basmala.startMs
+      // Include Basmala in ayah 1: use ayah-0 startMs when available;
+      // fall back to 0 (beginning of file) for readers that omit ayah 0.
+      final rangeStartMs = startAyah == 1
+          ? (basmala?.startMs ?? 0)
           : startEntry.startMs;
       final rangeEndMs = endEntry.endMs;
 
@@ -622,21 +624,19 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
       );
       final src = result.source;
-      final AudioSource audioSrc = src.isLocal
+      final innerSource = src.isLocal
           ? AudioSource.file(src.localFilePath!, tag: firstMediaItem)
           : AudioSource.uri(src.remoteUri!, tag: firstMediaItem);
+      final AudioSource audioSrc = ClippingAudioSource(
+        child: innerSource,
+        start: Duration(milliseconds: rangeStartMs),
+        end: Duration(milliseconds: rangeEndMs),
+        tag: firstMediaItem,
+      );
 
       await _player.setAudioSource(audioSrc);
       await _player.setLoopMode(LoopMode.off);
       await _player.setShuffleModeEnabled(false);
-
-      // Seek to range start inside the surah file.
-      _isSeeking = true;
-      try {
-        await _player.seek(Duration(milliseconds: rangeStartMs));
-      } finally {
-        _isSeeking = false;
-      }
 
       await _player.play();
 
@@ -662,11 +662,12 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     }
   }
 
-  /// Listens to the player position and:
-  /// 1. Updates the current ayah number in the state as playback crosses
-  ///    ayah boundaries (using the timing map).
-  /// 2. Calls [_onPlaylistCompleted] when the position passes [_timedRangeEndMs]
-  ///    so that the queue can advance or playback can stop.
+  /// Listens to the player position and updates the current ayah number in
+  /// the state as playback crosses ayah boundaries (using the timing map).
+  ///
+  /// In timed-range mode the loaded source is clipped to the requested range,
+  /// so the player's reported position is relative to the clip start while the
+  /// timing entries remain absolute offsets inside the original surah file.
   void _startTimedPositionMonitoring({
     required int surahNumber,
     required Map<int, ({int ayah, int startMs, int endMs})> segMap,
@@ -683,16 +684,17 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       if (state.surahNumber != surahNumber) return;
 
       final posMs = pos.inMilliseconds;
+      final absolutePosMs = _timedRangeStartMs + posMs;
 
       // Find the highest ayah whose start offset is ≤ current position.
       int currentAyah = _timedRangeStart;
       for (var a = _timedRangeStart; a <= _timedRangeEnd; a++) {
         final seg = segMap[a];
         if (seg == null) continue;
-        final segStartMs = (a == 1 && basmala != null)
-            ? basmala.startMs
+        final segStartMs = a == 1
+            ? (basmala?.startMs ?? 0)
             : seg.startMs;
-        if (posMs >= segStartMs) {
+        if (absolutePosMs >= segStartMs) {
           currentAyah = a;
         } else {
           break; // list is sorted, no need to continue
@@ -702,14 +704,6 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       if (currentAyah != lastReportedAyah) {
         lastReportedAyah = currentAyah;
         if (!isClosed) emit(state.copyWith(ayahNumber: currentAyah));
-      }
-
-      // Stop when we have passed the end of the last requested ayah.
-      if (posMs >= _timedRangeEndMs) {
-        _timedPosSub?.cancel();
-        _timedPosSub    = null;
-        _isTimedRangeMode = false;
-        if (!isClosed) _onPlaylistCompleted();
       }
     });
   }
@@ -772,12 +766,18 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           final basmala = segMap[0];
           final seg = segMap[ayahNumber];
           if (seg != null) {
-            final seekMs = (ayahNumber == 1 && basmala != null)
-                ? basmala.startMs
+            // Use ayah-0 startMs when available; fall back to 0 so the
+            // Basmala is not skipped for readers without an explicit entry.
+            final seekMs = ayahNumber == 1
+                ? (basmala?.startMs ?? 0)
                 : seg.startMs;
+            final relativeSeekMs = seekMs.clamp(
+              _timedRangeStartMs,
+              _timedRangeEndMs,
+            ) - _timedRangeStartMs;
             _isSeeking = true;
             try {
-              await _player.seek(Duration(milliseconds: seekMs));
+              await _player.seek(Duration(milliseconds: relativeSeekMs));
             } finally {
               await Future<void>.delayed(const Duration(milliseconds: 50));
               _isSeeking = false;
@@ -1308,10 +1308,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     if (_isTimedRangeMode) {
       final rangeMs = (_timedRangeEndMs - _timedRangeStartMs).clamp(1, double.maxFinite.toInt());
       final clampedMs = position.inMilliseconds.clamp(0, rangeMs - 500);
-      final absMs = _timedRangeStartMs + clampedMs;
       _isSeeking = true;
       try {
-        await _player.seek(Duration(milliseconds: absMs));
+        await _player.seek(Duration(milliseconds: clampedMs));
       } finally {
         await Future<void>.delayed(const Duration(milliseconds: 200));
         _isSeeking = false;

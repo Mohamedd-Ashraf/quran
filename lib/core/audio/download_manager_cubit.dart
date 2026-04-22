@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../services/audio_download_notification_service.dart';
 import '../services/audio_download_state_service.dart';
 import '../services/audio_edition_service.dart';
+import '../services/ayah_audio_service.dart';
 import '../services/offline_audio_service.dart';
 import 'download_manager_state.dart';
 
@@ -18,6 +19,7 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
   final AudioDownloadStateService _stateService;
   final AudioDownloadNotificationService _notifService;
   final AudioEditionService _editionService;
+  final AyahAudioService _playbackService;
 
   bool _cancelRequested = false;
 
@@ -33,10 +35,12 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
     required AudioDownloadStateService stateService,
     required AudioDownloadNotificationService notifService,
     required AudioEditionService editionService,
+    required AyahAudioService playbackService,
   })  : _audioService = audioService,
         _stateService = stateService,
         _notifService = notifService,
         _editionService = editionService,
+        _playbackService = playbackService,
         super(const DownloadIdle());
 
   // ──────────────────────────────────────────────────────────────
@@ -204,7 +208,11 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
           ));
         }
       } else {
-        // Full success.
+        // Full success — also pre-cache timing data for timed editions so
+        // the user can play verse-by-verse while offline without re-fetching.
+        await _playbackService.preCacheTimingForSurahs(
+          List<int>.from(completedSurahs),
+        );
         await _stateService.clearSession();
         final stats = await _audioService.getDownloadStatistics();
         final totalFiles =

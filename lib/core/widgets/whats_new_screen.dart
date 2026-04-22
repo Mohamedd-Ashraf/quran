@@ -377,136 +377,87 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFF5D4037),
     ),
   ],
-  // --- v1.0.11 -----------------------------------------------------------------
-  '1.0.11': [
- 
+  // --- v1.1.1 -----------------------------------------------------------------
+  '1.1.1': [
     _WhatsNewEntry(
-      icon: Icons.widgets_rounded,
-      titleAr: 'أداة مواقيت الصلاة',
-      titleEn: 'Prayer Times Widget',
+      icon: Icons.calendar_month_rounded,
+      titleAr: 'التقويم الهجري على الشاشة الرئيسية',
+      titleEn: 'Hijri Calendar Home-Screen Widget',
       descAr:
-          'تم تحسين أداة مواقيت الصلاة والصلاة القادمة التي يمكن إضافتها الآن إلى شاشة هاتفك الرئيسية.',
+          'أداة شهرية جديدة تعرض الشهر الهجري كاملاً مع تمييز اليوم والأحداث الإسلامية، بثيمين فاتح وداكن.',
       descEn:
-          'Improved the prayer times and next prayer widget that can now be added to your phone\'s home screen.',
-      color: const Color(0xFF5D4037),
+          'A new monthly home-screen widget showing the full Hijri month with today highlighted and Islamic events, in light and dark themes.',
+      color: const Color(0xFFD4AF37),
     ),
     _WhatsNewEntry(
-      icon: Icons.download_for_offline_rounded,
-      titleAr: 'تحميل التفسير للعمل بدون إنترنت',
-      titleEn: 'Offline Tafsir Download',
+      icon: Icons.mosque_rounded,
+      titleAr: 'الأذكار – مكتبة موسّعة ومنظَّمة',
+      titleEn: 'Expanded & Organised Adhkar Library',
       descAr:
-          'تمت إضافة صفحة لتحميل تفاسير القرآن للعمل بدون اتصال بالإنترنت.',
+          'أضفنا أذكار الوضوء والاستخارة والقنوت والصيام والهم والمرض والجنازة والحج، مع تنظيم جديد بأقسام وعناوين واضحة.',
       descEn:
-          'Added a page to download Quran Tafsirs to work offline without an internet connection.',
-      color: const Color(0xFF00838F),
+          'Added Wudu, Istikhara, Qunut, Fasting, Distress, Illness, Janaza, and Hajj adhkar, now organised into clearly labelled themed sections.',
+      color: const Color(0xFF0288D1),
     ),
     _WhatsNewEntry(
-      icon: Icons.healing_rounded,
-      titleAr: 'تحسينات شاشة الرقية الشرعية',
-      titleEn: 'Ruqyah Shariah Fixes',
+      icon: Icons.auto_stories_rounded,
+      titleAr: 'القراءات العشر والروايات',
+      titleEn: "Ten Qira'at & Recitation Variants",
       descAr:
-          'تم إصلاح بعض المشكلات في شاشة الرقية الشرعية لضمان تجربة سلسة.',
+          'دعم تلاوات ورش وقالون والدوري والبزي وغيرها من القراءات العشر، مع تصنيف القراء وشارات (آية بآية) و(سورة كاملة).',
       descEn:
-          'Fixed issues in the Ruqyah screen to ensure a seamless experience.',
-      color: const Color(0xFF8E6C1F),
+          "Added Warsh, Qalun, Al-Duri, Al-Bazi and more from the Ten Qira'at, with a categorised reciter picker and per-ayah / full-surah badges.",
+      color: const Color(0xFF6A1B9A),
     ),
     _WhatsNewEntry(
-      icon: Icons.sync_problem_rounded,
-      titleAr: 'تحسين صلاحيات الإشعارات',
-      titleEn: 'Enhanced Notifications Permission',
+      icon: Icons.pin_drop_rounded,
+      titleAr: 'الورد – تحديد نقطة البداية',
+      titleEn: 'Wird — Set Your Starting Point',
       descAr:
-          'تم تحسين التعامل مع الصلاحيات والمعالجة في الخلفية للحفاظ على الأذان والإشعارات دون انقطاع.',
+          'حدد مكان وصولك في القرآن ليُعلَّم ما سبقه مكتملاً تلقائياً، مع استعادة الإشارة عند التراجع عن إتمام يوم.',
       descEn:
-          'Advanced handling for background processing and permissions to keep Adhan and continuous notifications uninterrupted.',
-      color: const Color(0xFFD84315),
-    ),
-  ],
-
-  // --- v1.0.12 -----------------------------------------------------------------
-  '1.0.12': [
-    _WhatsNewEntry(
-      icon: Icons.scatter_plot_rounded,
-      titleAr: 'أداة التسبيح على الشاشة الرئيسية',
-      titleEn: 'Tasbeeh Home-Screen Widget',
-      descAr:
-          'أضف أداة التسبيح على الشاشة الرئيسية لعد الذكر السريع مع عداد ذكي واهتزاز عند الأهداف.',
-      descEn:
-          'Add the Tasbeeh widget to your home screen for quick dhikr counting with smart counter and haptic feedback at goals.',
+          'Choose where you left off in the Quran; previous days are auto-marked complete, with bookmark restoration when undoing a completed day.',
       color: AppColors.secondary,
     ),
     _WhatsNewEntry(
-      icon: Icons.do_not_disturb_on_rounded,
-      titleAr: 'كتم الصوت أثناء الصلاة',
-      titleEn: 'Silent Mode During Prayer',
+      icon: Icons.emoji_events_rounded,
+      titleAr: 'التحدي اليومي – موثوقية محسّنة',
+      titleEn: 'Daily Challenge — Improved Reliability',
       descAr:
-          'وضع الصامت يُفعَّل تلقائياً عند وقت الصلاة لتجنب الإزعاج – خصّصه من إعدادات الأذان.',
+          'يحفظ التحدي اليومي إجابتك حتى بدون إنترنت ويرسلها تلقائياً عند الاتصال، مع تحسينات على لوحة المتصدرين.',
       descEn:
-          'Silent mode activates automatically at prayer time to avoid interruptions - customize it in Adhan Settings.',
-      color: const Color(0xFF37474F),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.timer_rounded,
-      titleAr: 'تخصيص وقت الإقامة لكل صلاة',
-      titleEn: 'Customizable Iqama Time Per Prayer',
-      descAr:
-          'حدد وقت الإقامة لكل صلاة بشكل منفصل – الفجر 20 دقيقة والظهر 15، والمغرب 5... كما تفضل.',
-      descEn:
-          'Set iqama time for each prayer individually - Fajr 20 min, Dhuhr 15, Maghrib 5... as you prefer.',
+          'The daily challenge now saves your answer offline and syncs automatically when back online, with leaderboard screen improvements.',
       color: const Color(0xFFE65100),
     ),
     _WhatsNewEntry(
-      icon: Icons.play_circle_outline_rounded,
-      titleAr: 'متابعة التلاوة تلقائياً',
-      titleEn: 'Auto-Continue Recitation',
+      icon: Icons.notifications_active_rounded,
+      titleAr: 'إشعار الأذان يفتح شاشة الصلاة مباشرة',
+      titleEn: 'Adhan Notification Opens Prayer Times',
       descAr:
-          'اضغط على آية لتشغيل السورة أو الصفحة كاملة بدلاً من آية واحدة فقط – فعّلها من إعدادات المصحف.',
+          'الضغط على إشعار الأذان ينقلك مباشرة لشاشة مواقيت الصلاة سواء كان التطبيق في الخلفية أو مغلقاً.',
       descEn:
-          'Tap an ayah to play the entire surah or page instead of just one verse - enable it in Mushaf Settings.',
-      color: const Color(0xFF0277BD),
-    ),
-    _WhatsNewEntry(
-      icon: Icons.calendar_today_rounded,
-      titleAr: 'ضبط التاريخ الهجري',
-      titleEn: 'Hijri Date Adjustment',
-      descAr:
-          'إذا اختلف التاريخ الهجري عن بلدك يمكنك الآن ضبطه يدوياً من إعدادات أوقات الصلاة.',
-      descEn:
-          'If the Hijri date differs from your country, you can now adjust it manually in Prayer Times Settings.',
-      color: const Color(0xFF6A1B9A),
-    ),
-  ],
-
-  // --- v1.0.13 ----------------------------------------------------
-  '1.0.13': [
-    _WhatsNewEntry(
-      icon: Icons.auto_fix_high_rounded,
-      titleAr: 'إصلاح صفحات المصحف',
-      titleEn: 'Mushaf Pages Fix',
-      descAr:
-          'تم إصلاح بعض صفحات المصحف التي لم تكن تُعرض بشكل صحيح بخط المصحف العثماني.',
-      descEn:
-          'Fixed some Mushaf pages that were not displaying correctly with the Uthmanic script.',
+          'Tapping an Adhan notification now opens Prayer Times directly, even when the app is in the background or fully closed.',
       color: const Color(0xFF2E7D32),
     ),
     _WhatsNewEntry(
-      icon: Icons.record_voice_over_rounded,
-      titleAr: 'المصحف الملوّن',
-      titleEn: 'Tajweed Mushaf',
+      icon: Icons.home_rounded,
+      titleAr: 'الشاشة الرئيسية – وصول سريع محدَّث',
+      titleEn: 'Home Screen — Updated Quick Access',
       descAr:
-          'تمت إضافة مصحف التجويد الملوّن للمساعدة على تعلم أحكام التجويد أثناء التلاوة.',
+          'أضفنا اختصارات التحدي اليومي والأجزاء والتقويم الهجري في شريط الوصول السريع لتجربة أسهل وأسرع.',
       descEn:
-          'Added the color-coded Tajweed Mushaf to help learn tajweed rules while reciting.',
-      color: const Color(0xFF6A1B9A),
+          'Added Daily Challenge, Juz view, and Hijri Calendar shortcuts to the quick-access bar for a faster, cleaner home screen.',
+      color: AppColors.primary,
     ),
     _WhatsNewEntry(
-      icon: Icons.speed_rounded,
-      titleAr: 'تحسينات عامة',
-      titleEn: 'General Improvements',
+      icon: Icons.auto_fix_high_rounded,
+      titleAr: 'إصلاحات وتحسينات عامة',
+      titleEn: 'General Fixes & Improvements',
       descAr:
-          'تحسين الأداء العام للتطبيق وتجربة المستخدم للتصفح بشكل أسرع وأكثر سلاسة.',
+          'إصلاح مشاركة الآيات كبطاقات QCF، تحسين تسجيل الدخول في مسارات إعادة الهوية، وتحسينات في الأداء والاستقرار.',
       descEn:
-          'Improved overall app performance and user experience for faster and smoother browsing.',
-      color: const Color(0xFF00838F),
+          'Fixed ayah share cards (QCF text rendering), improved sign-in reliability in credential-conflict flows, and general performance improvements.',
+      color: const Color(0xFF00695C),
     ),
   ],
 };

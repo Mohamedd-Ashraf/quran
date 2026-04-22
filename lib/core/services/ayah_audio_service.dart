@@ -281,7 +281,66 @@ class AyahAudioService {
 
   // ── Ayat Timing API (mp3quran.net) ───────────────────────────────────────────────────────
 
-  /// Fetches and caches (in-memory) ayat timing for [edition]'s [surahNumber].
+  // ── Disk-based timing cache ────────────────────────────────────────────────
+
+  Future<Directory> _timingCacheDir() async {
+    final base = await getApplicationDocumentsDirectory();
+    final dir = Directory(
+      '${base.path}${Platform.pathSeparator}timing_cache',
+    );
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir;
+  }
+
+  Future<List<({int ayah, int startMs, int endMs})>?> _loadTimingFromDisk(
+    String edition,
+    int surahNumber,
+  ) async {
+    try {
+      final dir = await _timingCacheDir();
+      final safeEdition = edition.replaceAll(RegExp(r'[\\/:.]+'), '_');
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}${safeEdition}_$surahNumber.json',
+      );
+      if (!file.existsSync()) return null;
+      final decoded = json.decode(await file.readAsString()) as List;
+      return (decoded.map((e) {
+        final m = e as Map<String, dynamic>;
+        return (
+          ayah: (m['ayah'] as int),
+          startMs: (m['start_time'] as int),
+          endMs: (m['end_time'] as int),
+        );
+      }).toList())
+        ..sort((a, b) => a.ayah.compareTo(b.ayah));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveTimingToDisk(
+    String edition,
+    int surahNumber,
+    List<({int ayah, int startMs, int endMs})> timing,
+  ) async {
+    try {
+      final dir = await _timingCacheDir();
+      final safeEdition = edition.replaceAll(RegExp(r'[\\/:.]+'), '_');
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}${safeEdition}_$surahNumber.json',
+      );
+      final data = timing
+          .map((t) => {
+                'ayah': t.ayah,
+                'start_time': t.startMs,
+                'end_time': t.endMs,
+              })
+          .toList();
+      await file.writeAsString(json.encode(data));
+    } catch (_) {}
+  }
+
+  /// Fetches and caches (in-memory + disk) ayat timing for [edition]'s [surahNumber].
   /// Returns a list sorted by ayah; entry with ayah==0 is the Basmala/intro.
   /// Throws on network error, API error, or timeout.
   Future<List<({int ayah, int startMs, int endMs})>> _fetchAyatTiming({
@@ -292,9 +351,19 @@ class AyahAudioService {
     if (readId == null) throw Exception('No timing read ID for $edition');
 
     final cacheKey = '$edition:timing:$surahNumber';
-    final cached = _timingCache[cacheKey];
-    if (cached != null) return cached;
 
+    // 1. Memory cache.
+    final memCached = _timingCache[cacheKey];
+    if (memCached != null) return memCached;
+
+    // 2. Disk cache — available offline after first use.
+    final diskCached = await _loadTimingFromDisk(edition, surahNumber);
+    if (diskCached != null) {
+      _timingCache[cacheKey] = diskCached;
+      return diskCached;
+    }
+
+    // 3. Network fetch.
     final uri = Uri.parse(
       'https://mp3quran.net/api/v3/ayat_timing?surah=$surahNumber&read=$readId',
     );
@@ -317,6 +386,8 @@ class AyahAudioService {
       ..sort((a, b) => a.ayah.compareTo(b.ayah));
 
     _timingCache[cacheKey] = result;
+    // Persist to disk so next offline session can use it.
+    await _saveTimingToDisk(edition, surahNumber, result);
     return result;
   }
 
@@ -349,8 +420,12 @@ class AyahAudioService {
       final basmala = timingMap[0];
       final entry = timingMap[ayahNumber];
       if (entry != null) {
-        final startMs =
-            (ayahNumber == 1 && basmala != null) ? basmala.startMs : entry.startMs;
+        // When ayahNumber==1, start from the Basmala if it has an explicit
+        // timing entry; otherwise seek to 0 (beginning of file) so the
+        // Basmala is not skipped even when the API omits a ayah-0 entry.
+        final startMs = ayahNumber == 1
+            ? (basmala?.startMs ?? 0)
+            : entry.startMs;
         final start = Duration(milliseconds: startMs);
         final end = Duration(milliseconds: entry.endMs);
         return localSurah != null
@@ -416,8 +491,9 @@ class AyahAudioService {
               : AyahAudioSource.remote(surahUri),
         ];
       }
-      final startMs =
-          (i == 1 && basmala != null) ? basmala.startMs : entry.startMs;
+      // Same Basmala-inclusive logic: use ayah-0 startMs when available;
+      // fall back to 0 so the Basmala at the head of the file is never skipped.
+      final startMs = i == 1 ? (basmala?.startMs ?? 0) : entry.startMs;
       final start = Duration(milliseconds: startMs);
       final end = Duration(milliseconds: entry.endMs);
       results.add(
@@ -433,6 +509,21 @@ class AyahAudioService {
   /// list for the current timed edition.  Used by the cubit for position-based
   /// per-ayah tracking so the same surah file is loaded only once.
   ///
+  /// Pre-fetches and persists timing data for each surah in [surahs] when
+  /// the current edition supports ayat timing.  Called automatically after an
+  /// offline audio download so timing is available without a network connection.
+  /// Errors are silenced — a failed fetch for one surah does not abort others.
+  Future<void> preCacheTimingForSurahs(List<int> surahs) async {
+    if (!isTimedSurahEdition) return;
+    for (final surah in surahs) {
+      try {
+        await _fetchAyatTiming(surahNumber: surah, edition: currentEdition);
+      } catch (_) {
+        // Non-fatal: skip surahs that could not be fetched.
+      }
+    }
+  }
+
   /// Throws if offline and the surah is not downloaded.
   /// Throws (propagated) if the timing API fails and there is no cached data.
   Future<({

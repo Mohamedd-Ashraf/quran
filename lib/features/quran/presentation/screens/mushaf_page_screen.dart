@@ -1525,14 +1525,37 @@ class _RsReciterRowState extends State<_RsReciterRow> {
       future: _editionsFuture,
       builder: (ctx, snap) {
         final currentId = _offlineAudio.edition;
+        // Prefer resolved list; fall back to synchronous cache so the name
+        // is always visible even while the future is loading.
         final edition = snap.data
-            ?.where((e) => e.identifier == currentId)
-            .cast<AudioEdition?>()
-            .firstOrNull;
+                ?.where((e) => e.identifier == currentId)
+                .cast<AudioEdition?>()
+                .firstOrNull ??
+            _editionService.findEditionById(currentId);
         final settings = ctx.read<AppSettingsCubit>().state;
         final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
         final name =
-            edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ?? currentId;
+            edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ??
+                currentId;
+        // Determine playback type badge.
+        const timedIds = {
+          'ar.qiraat.husary.qalon', 'ar.qiraat.husary.warsh',
+          'ar.qiraat.husary.duri', 'ar.qiraat.sosi.abuamr',
+          'ar.qiraat.huthifi.qalon', 'ar.qiraat.koshi.warsh',
+          'ar.qiraat.yasseen.warsh', 'ar.qiraat.qazabri.warsh',
+          'ar.qiraat.dokali.qalon', 'ar.qiraat.okasha.bazi',
+          'ar.khaledjleel', 'ar.raadialkurdi', 'ar.abdulaziahahmad',
+        };
+        const warshIds = {
+          'ar.warsh.ibrahimdosary',
+          'ar.warsh.yassinjazaery',
+          'ar.warsh.abdulbasit',
+        };
+        final isTimedQiraat = timedIds.contains(currentId);
+        final isWarsh = warshIds.contains(currentId);
+        final isSurahLevelQiraat = !isTimedQiraat &&
+            !isWarsh &&
+            currentId.startsWith('ar.qiraat.');
         return Row(
           children: [
             Expanded(
@@ -1547,6 +1570,89 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                       fontSize: 12,
                     ),
                   ),
+                  if (isTimedQiraat)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Wrap(
+                        spacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color:
+                                  AppColors.primaryLight.withValues(alpha: 0.12),
+                            ),
+                            child: Text(
+                              isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+                              style: GoogleFonts.cairo(
+                                fontSize: 9.5,
+                                color: AppColors.primaryLight,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.blueAccent.withValues(alpha: 0.12),
+                            ),
+                            child: Text(
+                              isAr ? 'توقيتات ⏱' : 'Timed ⏱',
+                              style: GoogleFonts.cairo(
+                                fontSize: 9.5,
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (isWarsh)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          color:
+                              AppColors.primaryLight.withValues(alpha: 0.12),
+                        ),
+                        child: Text(
+                          isAr ? 'آية بآية' : 'Per-ayah',
+                          style: GoogleFonts.cairo(
+                            fontSize: 9.5,
+                            color: AppColors.primaryLight,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (isSurahLevelQiraat)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          color: AppColors.secondary.withValues(alpha: 0.12),
+                        ),
+                        child: Text(
+                          isAr ? 'سورة كاملة' : 'Full surah',
+                          style: GoogleFonts.cairo(
+                            fontSize: 9.5,
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

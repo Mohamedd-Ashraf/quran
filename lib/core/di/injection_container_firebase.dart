@@ -198,6 +198,7 @@ Future<void> init() async {
       stateService: sl(),
       notifService: sl(),
       editionService: sl(),
+      playbackService: sl(),
     ),
   );
 

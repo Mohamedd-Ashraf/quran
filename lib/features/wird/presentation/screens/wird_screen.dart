@@ -4717,28 +4717,25 @@ class _MakeupCardState extends State<_MakeupCard> {
   ) {
     final isAr = widget.isAr;
     final isDark = widget.isDark;
-    final startS = range.start.surah;
-    final endS = range.end.surah;
+    final cubit = context.read<WirdCubit>();
+
+    // Derive the page range for this makeup day from its surah boundaries.
+    final startP = getPageNumber(range.start.surah, range.start.ayah);
+    final endP = getPageNumber(range.end.surah, range.end.ayah);
+
+    // Default: use saved page for this makeup day if it falls in range,
+    // otherwise start of the day's page range.
     final hasBookmark =
         widget.makeupBookmarkDay == day &&
         widget.makeupBookmarkSurah != null &&
         widget.makeupBookmarkAyah != null;
-
-    int selectedSurah =
-        (hasBookmark &&
-            widget.makeupBookmarkSurah! >= startS &&
-            widget.makeupBookmarkSurah! <= endS)
-        ? widget.makeupBookmarkSurah!
-        : startS;
-    int enteredAyah =
-        (hasBookmark && widget.makeupBookmarkSurah == selectedSurah)
-        ? widget.makeupBookmarkAyah!
-        : range.start.ayah;
-    final cubit = context.read<WirdCubit>();
-
-    int minAyahFor(int s) => s == startS ? range.start.ayah : 1;
-    int maxAyahFor(int s) =>
-        s == endS ? range.end.ayah : kSurahAyahCounts[s - 1];
+    int enteredPage;
+    if (hasBookmark) {
+      final bp = getPageNumber(widget.makeupBookmarkSurah!, widget.makeupBookmarkAyah!);
+      enteredPage = (bp >= startP && bp <= endP) ? bp : startP;
+    } else {
+      enteredPage = startP;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -4746,16 +4743,9 @@ class _MakeupCardState extends State<_MakeupCard> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final minAyah = minAyahFor(selectedSurah);
-          final maxAyah = maxAyahFor(selectedSurah);
-          if (enteredAyah < minAyah) enteredAyah = minAyah;
-          if (enteredAyah > maxAyah) enteredAyah = maxAyah;
-          final ayahCtrl = TextEditingController(text: enteredAyah.toString());
-
+          final pageCtrl = TextEditingController(text: enteredPage.toString());
           return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
@@ -4790,9 +4780,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : _kOrange,
+                          color: isDark ? AppColors.darkTextPrimary : _kOrange,
                         ),
                       ),
                     ],
@@ -4800,8 +4788,8 @@ class _MakeupCardState extends State<_MakeupCard> {
                   const SizedBox(height: 4),
                   Text(
                     isAr
-                        ? 'سيُحفظ موضعك لتتابع منه في المرة القادمة'
-                        : 'Your position will be saved to resume next time',
+                        ? 'القضاء: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
+                        : 'Makeup range: Page $startP–$endP',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark
@@ -4810,68 +4798,23 @@ class _MakeupCardState extends State<_MakeupCard> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    isAr ? 'السورة:' : 'Surah:',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<int>(
-                    value: selectedSurah,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                    items: List.generate(endS - startS + 1, (i) {
-                      final n = startS + i;
-                      return DropdownMenuItem(
-                        value: n,
-                        child: Text(
-                          isAr
-                              ? '${_arabicNumerals(n)}. ${_surahArabicNames[n] ?? n.toString()}'
-                              : '$n. Surah $n',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setSheetState(() {
-                          selectedSurah = v;
-                          enteredAyah = minAyahFor(v);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    isAr
-                        ? 'رقم الآية ($minAyah – $maxAyah):'
-                        : 'Ayah number ($minAyah–$maxAyah):',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
                   TextFormField(
-                    controller: ayahCtrl,
+                    controller: pageCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      hintText: '$minAyah – $maxAyah',
+                          borderRadius: BorderRadius.circular(10)),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      labelText: isAr
+                          ? 'رقم الصفحة (١ – ٦٠٤)'
+                          : 'Page number (1–604)',
                     ),
                     onChanged: (v) {
                       final n = int.tryParse(v);
-                      if (n != null && n >= minAyah && n <= maxAyah) {
-                        enteredAyah = n;
+                      if (n != null && n >= 1 && n <= _kMushafPagesTotal) {
+                        enteredPage = n;
                       }
                     },
                   ),
@@ -4906,18 +4849,25 @@ class _MakeupCardState extends State<_MakeupCard> {
                           ),
                           icon: const Icon(Icons.save_rounded, size: 18),
                           onPressed: () {
-                            final n = int.tryParse(ayahCtrl.text);
-                            final ayah =
-                                (n != null && n >= minAyah && n <= maxAyah)
-                                    ? n
-                                    : enteredAyah;
-                            cubit.saveMakeupBookmark(day, selectedSurah, ayah);
+                            final n = int.tryParse(pageCtrl.text);
+                            final pg = (n != null &&
+                                    n >= 1 &&
+                                    n <= _kMushafPagesTotal)
+                                ? n
+                                : enteredPage;
+                            // Convert page → surah+ayah for makeup bookmark.
+                            final pos = pageStartPosition(pg);
+                            cubit.saveMakeupBookmark(
+                                day, pos.surah, pos.ayah);
+                            // If user reached end of makeup day, auto-complete.
+                            if (pg >= endP) {
+                              cubit.toggleDayComplete(day);
+                            }
                             Navigator.pop(ctx);
                           },
                           label: Text(
-                            isAr ? 'حفظ الموضع' : 'Save Position',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                            isAr ? 'حفظ الصفحة' : 'Save Page',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -4944,10 +4894,13 @@ class _MakeupCardState extends State<_MakeupCard> {
     final int targetAyah = hasBookmark
         ? widget.makeupBookmarkAyah!
         : range.start.ayah;
-    final cubit = context.read<WirdCubit>();
 
-    // Always save the starting position immediately (handles app-close).
-    cubit.saveMakeupBookmark(day, targetSurah, targetAyah);
+    // Derive initial page so MushafPageView opens at the right place.
+    final int? targetPage = hasBookmark
+        ? getPageNumber(targetSurah, targetAyah)
+        : getPageNumber(range.start.surah, range.start.ayah);
+
+    final cubit = context.read<WirdCubit>();
 
     Navigator.push(
       context,
@@ -4955,14 +4908,23 @@ class _MakeupCardState extends State<_MakeupCard> {
         builder: (_) => SurahDetailScreen(
           surahNumber: targetSurah,
           surahName: _surahName(context, targetSurah),
-          initialAyahNumber: targetAyah,
-          // Auto-save every time the user navigates to a new surah.
+          initialPageNumber: targetPage,
+          initialAyahNumber: targetPage == null ? targetAyah : null,
+          // Save on every surah navigation (non-QCF mode).
           onPositionChanged: (s, a) => cubit.saveMakeupBookmark(day, s, a),
+          // Save on every page swipe (QCF mode): update BOTH the makeup
+          // bookmark and the home-screen general tracker so the user always
+          // resumes from their actual last page, even if they skip the dialog.
+          onPageChanged: (p) {
+            final pos = pageStartPosition(p.clamp(1, _kMushafPagesTotal));
+            cubit.saveMakeupBookmark(day, pos.surah, pos.ayah);
+            cubit.saveLastReadPage(p);
+          },
         ),
       ),
     ).then((_) {
       if (!context.mounted) return;
-      // Auto-show position sheet so the user can confirm/adjust where they stopped.
+      // Show position sheet so the user can confirm/adjust where they stopped.
       _showMakeupBookmarkDialog(context, range, day);
     });
   }

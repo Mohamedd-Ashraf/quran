@@ -449,27 +449,6 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Question ID badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.secondary.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    'ID: ${question.id}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.secondary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 Text(
                   isArabic ? 'الصعوبة' : 'DIFFICULTY',
                   style: TextStyle(

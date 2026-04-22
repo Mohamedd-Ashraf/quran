@@ -2,6 +2,32 @@
 
 ---
 
+## [1.1.1] – 2026-04-21
+
+### عربي
+- **التقويم الهجري:** أداة شهرية جديدة على الشاشة الرئيسية تعرض الشهر الهجري كاملاً مع تمييز اليوم والأحداث الإسلامية بثيمين فاتح وداكن.
+- **الأذكار – مكتبة موسّعة:** إضافة أذكار الوضوء والاستخارة والقنوت والصيام والهم والمرض والجنازة والحج، مع تنظيم جديد بأقسام وعناوين واضحة.
+- **القراءات العشر والروايات:** دعم تلاوات ورش وقالون والدوري والبزي وغيرها من القراءات العشر، مع تصنيف القراء وشارات (آية بآية / سورة كاملة).
+- **الورد – تحديد نقطة البداية:** حدد مكان وصولك في القرآن ليُعلَّم ما سبقه مكتملاً تلقائياً، مع إمكانية استعادة الإشارة عند التراجع.
+- **التحدي اليومي – موثوقية محسّنة:** حفظ الإجابات أثناء انقطاع الإنترنت وإرسالها تلقائياً عند الاتصال، مع تحسينات على لوحة المتصدرين.
+- **إشعار الأذان – تنقل مباشر:** الضغط على إشعار الأذان ينقلك مباشرة لشاشة مواقيت الصلاة حتى لو التطبيق مغلق.
+- **الشاشة الرئيسية:** اختصارات التحدي اليومي والأجزاء والتقويم الهجري في شريط الوصول السريع.
+- **إصلاحات عامة:** إصلاح مشاركة الآيات كبطاقات QCF، تحسين تسجيل الدخول، وتحسينات الأداء والاستقرار.
+- تحديث رقم الإصدار إلى **1.1.1**.
+
+### English
+- **Hijri Calendar Widget:** A new monthly home-screen widget showing the full Hijri month with today highlighted and Islamic events, in both light and dark themes.
+- **Expanded Adhkar Library:** Added Wudu, Istikhara, Qunut, Fasting, Distress, Illness, Janaza, and Hajj adhkar, now organised into clearly labelled themed sections.
+- **Ten Qira'at & Recitations:** Added Warsh, Qalun, Al-Duri, Al-Bazi and more from the Ten Qira'at, with a categorised reciter picker and per-ayah / full-surah badges.
+- **Wird — Set Starting Point:** Choose where you left off in the Quran; previous days are auto-marked complete, with bookmark restoration on undo.
+- **Daily Challenge — Reliability:** Saves answers offline and syncs automatically when back online, with leaderboard screen improvements.
+- **Adhan Notification — Direct Navigation:** Tapping an Adhan notification now opens Prayer Times directly, even from background or cold start.
+- **Home Screen:** Added Daily Challenge, Juz view, and Hijri Calendar shortcuts to the quick-access bar.
+- **General Fixes:** Fixed ayah share cards (QCF rendering), improved sign-in reliability in credential-conflict flows, and general performance improvements.
+- Version bumped to **1.1.1**.
+
+---
+
 ## [1.0.9] – 2026-03-10
 
 ### عربي
