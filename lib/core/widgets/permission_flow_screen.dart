@@ -411,70 +411,72 @@ class _PermissionFlowScreenState extends State<PermissionFlowScreen>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(),
-          Container(
-            width: 100, height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 16),
+            Container(
+              width: 100, height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.location_on_rounded, size: 52, color: AppColors.primary),
             ),
-            child: const Icon(Icons.location_on_rounded, size: 52, color: AppColors.primary),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            isAr ? 'تحديد موقعك' : 'Set Your Location',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: textPrimary, fontWeight: FontWeight.bold,
+            const SizedBox(height: 28),
+            Text(
+              isAr ? 'تحديد موقعك' : 'Set Your Location',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: textPrimary, fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isAr
-                ? 'نحتاج معرفة مدينتك لعرض مواقيت الصلاة بدقة.\nيمكنك إدخال اسم المدينة يدوياً أو السماح للتطبيق باستخدام موقعك التقريبي.'
-                : 'We need your city to show accurate prayer times.\nYou can enter your city name manually or allow the app to use your approximate location.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: textSecondary, height: 1.65,
+            const SizedBox(height: 12),
+            Text(
+              isAr
+                  ? 'نحتاج معرفة مدينتك لعرض مواقيت الصلاة بدقة.\nيمكنك إدخال اسم المدينة يدوياً أو السماح للتطبيق باستخدام موقعك التقريبي.'
+                  : 'We need your city to show accurate prayer times.\nYou can enter your city name manually or allow the app to use your approximate location.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: textSecondary, height: 1.65,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 36),
-          // Manual city entry button
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.edit_location_alt_rounded),
-              label: Text(isAr ? 'أدخل اسم مدينتك' : 'Enter City Name'),
-              onPressed: _goToManualCity,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 36),
+            // Manual city entry button
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.edit_location_alt_rounded),
+                label: Text(isAr ? 'أدخل اسم مدينتك' : 'Enter City Name'),
+                onPressed: _goToManualCity,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          // Use approximate location button
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.my_location_rounded),
-              label: Text(isAr ? 'استخدام موقعي التقريبي' : 'Use My Approximate Location'),
-              onPressed: _skipToGpsLocation,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 14),
+            // Use approximate location button
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.my_location_rounded),
+                label: Text(isAr ? 'استخدام موقعي التقريبي' : 'Use My Approximate Location'),
+                onPressed: _skipToGpsLocation,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
-          ),
-          const Spacer(),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }

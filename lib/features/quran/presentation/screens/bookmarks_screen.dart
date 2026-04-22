@@ -7,6 +7,7 @@ import '../../../../core/constants/mushaf_page_map.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
 import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
@@ -69,7 +70,8 @@ class BookmarksScreenState extends State<BookmarksScreen> {
       return trimmed;
     }
 
-    return isArabicUi ? 'السورة $surahNumber' : 'Surah $surahNumber';
+    final localized = localizeNumber(surahNumber, isArabic: isArabicUi);
+    return isArabicUi ? 'السورة $localized' : 'Surah $surahNumber';
   }
 
   @override
@@ -455,7 +457,12 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                 .appLanguageCode
                                 .toLowerCase()
                                 .startsWith('ar');
-                            return Container(
+                              final chipStyle = _cachedAmiri.copyWith(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              );
+                              return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 6,
@@ -464,17 +471,25 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Text(
-                                _formatBookmarkLabel(bookmark),
-                                textDirection: isAr
-                                    ? TextDirection.rtl
-                                    : TextDirection.ltr,
-                                style: _cachedAmiri.copyWith(
-                                  fontSize: 12,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: isAr
+                                  ? buildRichTextWithAmiriDigits(
+                                      text: _formatBookmarkLabel(bookmark),
+                                      baseStyle: chipStyle,
+                                      amiriStyle: amiriDigitTextStyle(
+                                        chipStyle,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : Text(
+                                      _formatBookmarkLabel(bookmark),
+                                      textDirection: TextDirection.ltr,
+                                      style: chipStyle.copyWith(
+                                        fontFamily: null,
+                                      ),
+                                    ),
                             );
                           },
                         ),
@@ -666,16 +681,28 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                   .appLanguageCode
                                   .toLowerCase()
                                   .startsWith('ar');
-                              return Text(
-                                _formatBookmarkLabel(bookmark),
-                                textDirection: isAr
-                                    ? TextDirection.rtl
-                                    : TextDirection.ltr,
-                                style: _cachedAmiri.copyWith(
-                                  fontSize: 12,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
+                              final chipStyle = _cachedAmiri.copyWith(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              );
+                              if (!isAr) {
+                                return Text(
+                                  _formatBookmarkLabel(bookmark),
+                                  textDirection: TextDirection.ltr,
+                                  style: chipStyle.copyWith(fontFamily: null),
+                                );
+                              }
+                              return buildRichTextWithAmiriDigits(
+                                text: _formatBookmarkLabel(bookmark),
+                                baseStyle: chipStyle,
+                                amiriStyle: amiriDigitTextStyle(
+                                  chipStyle,
+                                  fontWeight: FontWeight.w700,
                                 ),
+                                textDirection: TextDirection.rtl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               );
                             },
                           ),
@@ -781,13 +808,15 @@ class BookmarksScreenState extends State<BookmarksScreen> {
               : (isArabicUi ? 'السورة' : 'Surah'));
 
     if (ayahNumber != null) {
+      final localizedAyah = localizeNumber(ayahNumber, isArabic: isArabicUi);
       return isArabicUi
-          ? '$resolvedSurahName • الآية $ayahNumber'
+        ? '$resolvedSurahName • الآية $localizedAyah'
           : '$resolvedSurahName • Ayah $ayahNumber';
     }
     if (pageNumber != null) {
+      final localizedPage = localizeNumber(pageNumber, isArabic: isArabicUi);
       return isArabicUi
-          ? '$resolvedSurahName • صفحة $pageNumber'
+        ? '$resolvedSurahName • صفحة $localizedPage'
           : '$resolvedSurahName • Page $pageNumber';
     }
     final reference = bookmark['reference'] as String?;

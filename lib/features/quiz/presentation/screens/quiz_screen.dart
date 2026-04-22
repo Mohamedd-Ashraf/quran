@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/quiz_question_model.dart';
 import '../cubit/quiz_cubit.dart';
 import '../cubit/quiz_state.dart';
@@ -62,6 +63,49 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     _uiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+  }
+
+  String _localizeInt(int value, {required bool isArabic}) {
+    return localizeNumber(value, isArabic: isArabic);
+  }
+
+  String _localizeTextDigits(String text, {required bool isArabic}) {
+    return localizeDigits(text, isArabic: isArabic);
+  }
+
+  Widget _digitAwareText({
+    required String text,
+    required TextStyle style,
+    required bool isArabic,
+    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
+    int? maxLines,
+    TextOverflow overflow = TextOverflow.clip,
+  }) {
+    if (!isArabic) {
+      return Text(
+        text,
+        style: style,
+        textAlign: textAlign,
+        textDirection: textDirection,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    return buildRichTextWithAmiriDigits(
+      text: text,
+      baseStyle: style,
+      amiriStyle: amiriDigitTextStyle(
+        style,
+        fontWeight: style.fontWeight ?? FontWeight.w700,
+        height: style.height,
+      ),
+      textAlign: textAlign,
+      textDirection: textDirection,
+      maxLines: maxLines,
+      overflow: overflow,
+    );
   }
 
   @override
@@ -244,7 +288,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   icon: Icons.local_fire_department,
                   iconColor: Colors.deepOrange,
                   label: isArabic ? 'السلسلة' : 'Streak',
-                  value: '${state.streak}',
+                  value: _localizeInt(state.streak, isArabic: isArabic),
+                  isArabic: isArabic,
                   isDark: isDark,
                 ),
                 const SizedBox(width: 16),
@@ -252,7 +297,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   icon: Icons.star_rounded,
                   iconColor: const Color(0xFFFFC107),
                   label: isArabic ? 'نقاطك' : 'Your Score',
-                  value: '${state.totalScore}',
+                  value: _localizeInt(state.totalScore, isArabic: isArabic),
+                  isArabic: isArabic,
                   isDark: isDark,
                 ),
                 const SizedBox(width: 16),
@@ -260,7 +306,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   icon: Icons.timer_rounded,
                   iconColor: AppColors.primary,
                   label: isArabic ? 'الوقت' : 'Time',
-                  value: '${state.question.timerSeconds}s',
+                  value: _localizeTextDigits(
+                    '${state.question.timerSeconds}s',
+                    isArabic: isArabic,
+                  ),
+                  isArabic: isArabic,
                   isDark: isDark,
                 ),
               ],
@@ -301,15 +351,20 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                     border: Border.all(
                         color: AppColors.secondary.withValues(alpha: 0.3)),
                   ),
-                  child: Text(
-                    isArabic
-                        ? '+${state.question.points} نقطة'
+                  child: _digitAwareText(
+                    text: isArabic
+                        ? '+${_localizeInt(state.question.points, isArabic: true)} نقطة'
                         : '+${state.question.points} pts',
                     style: const TextStyle(
                       color: AppColors.secondary,
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),
+                    isArabic: isArabic,
+                    textAlign: TextAlign.center,
+                    textDirection: isArabic
+                        ? TextDirection.rtl
+                        : TextDirection.ltr,
                   ),
                 ),
               ],
@@ -352,6 +407,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     required Color iconColor,
     required String label,
     required String value,
+    required bool isArabic,
     required bool isDark,
   }) {
     return Container(
@@ -365,9 +421,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         children: [
           Icon(icon, color: iconColor, size: 22),
           const SizedBox(height: 6),
-          Text(
-            value,
+          _digitAwareText(
+            text: value,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            isArabic: isArabic,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
           Text(
@@ -425,13 +483,17 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   const Icon(Icons.local_fire_department,
                       color: Colors.deepOrange, size: 16),
                   const SizedBox(width: 5),
-                  Text(
-                    '$streak ${isArabic ? "أيام" : "days"}',
+                  _digitAwareText(
+                    text: '${_localizeInt(streak, isArabic: isArabic)} ${isArabic ? "أيام" : "days"}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
                       color: Color(0xFF574500),
                     ),
+                    isArabic: isArabic,
+                    textDirection: isArabic
+                        ? TextDirection.rtl
+                        : TextDirection.ltr,
                   ),
                 ],
               ),
@@ -544,15 +606,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                isArabic
-                    ? '+${question.points} نقطة للإجابة الصحيحة'
+              _digitAwareText(
+                text: isArabic
+                    ? '+${_localizeInt(question.points, isArabic: true)} نقطة للإجابة الصحيحة'
                     : '+${question.points} pts for correct answer',
                 style: const TextStyle(
                   color: Color(0xFFFED65B),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
+                isArabic: isArabic,
+                textAlign: TextAlign.center,
+                textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
               ),
             ],
           ),
@@ -704,6 +769,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             ? AppColors.warning
             : AppColors.secondary;
 
+    final remainingText = _localizeInt(remaining, isArabic: isArabic);
+
     return SizedBox(
       width: 80,
       height: 80,
@@ -725,13 +792,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '$remaining',
+              _digitAwareText(
+                text: remainingText,
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: color,
                 ),
+                isArabic: isArabic,
+                textAlign: TextAlign.center,
               ),
               Text(
                 isArabic ? 'ثانية' : 'sec',
@@ -796,9 +865,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         ),
         if (state.isCorrect) ...[
           const SizedBox(height: 8),
-          Text(
-            isArabic
-                ? '+${state.pointsEarned} نقطة'
+          _digitAwareText(
+            text: isArabic
+                ? '+${_localizeInt(state.pointsEarned, isArabic: true)} نقطة'
                 : '+${state.pointsEarned} points',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -806,6 +875,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               fontWeight: FontWeight.w700,
               color: AppColors.secondary,
             ),
+            isArabic: isArabic,
+            textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
           ),
         ],
 
@@ -1125,18 +1196,24 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 children: [
                   _statItem(
                     isArabic ? 'الإجابات' : 'Answered',
-                    '${state.totalAnswered}',
+                    _localizeInt(state.totalAnswered, isArabic: isArabic),
                     isDark,
+                    isArabic: isArabic,
                   ),
                   _statItem(
                     isArabic ? 'صحيحة' : 'Correct',
-                    '${state.correctAnswers}',
+                    _localizeInt(state.correctAnswers, isArabic: isArabic),
                     isDark,
+                    isArabic: isArabic,
                   ),
                   _statItem(
                     isArabic ? 'الدقة' : 'Accuracy',
-                    '${(state.totalAnswered > 0 ? (state.correctAnswers / state.totalAnswered * 100).round() : 0)}%',
+                    _localizeTextDigits(
+                      '${(state.totalAnswered > 0 ? (state.correctAnswers / state.totalAnswered * 100).round() : 0)}%',
+                      isArabic: isArabic,
+                    ),
                     isDark,
+                    isArabic: isArabic,
                   ),
                 ],
               ),
@@ -1195,13 +1272,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               children: [
                 Icon(Icons.stars_rounded, color: AppColors.secondary, size: 28),
                 const SizedBox(height: 6),
-                Text(
-                  '$totalScore',
+                _digitAwareText(
+                  text: _localizeInt(totalScore, isArabic: isArabic),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: AppColors.primary,
                   ),
+                  isArabic: isArabic,
+                  textAlign: TextAlign.center,
                 ),
                 Text(
                   isArabic ? 'مجموع النقاط' : 'Total Score',
@@ -1226,13 +1305,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               children: [
                 const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
                 const SizedBox(height: 6),
-                Text(
-                  '$streak',
+                _digitAwareText(
+                  text: _localizeInt(streak, isArabic: isArabic),
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: Colors.orange,
                   ),
+                  isArabic: isArabic,
+                  textAlign: TextAlign.center,
                 ),
                 Text(
                   isArabic ? 'أيام متواصلة' : 'Day Streak',
@@ -1249,16 +1330,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _statItem(String label, String value, bool isDark) {
+  Widget _statItem(String label, String value, bool isDark, {required bool isArabic}) {
     return Column(
       children: [
-        Text(
-          value,
+        _digitAwareText(
+          text: value,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: AppColors.primary,
           ),
+          isArabic: isArabic,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 2),
         Text(

@@ -580,7 +580,14 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
       final basmala    = segMap[0];
       final startEntry = segMap[startAyah];
-      final endEntry   = segMap[endAyah];
+      // Fall back to the last available segment when a reader's timing API
+      // omits the final ayah (e.g. Qalon narration: 285 entries for Baqara
+      // which has 286 ayahs).  This keeps per-ayah tracking alive for all
+      // earlier ayahs instead of bailing out to untracked full-surah play.
+      final endEntry = segMap[endAyah] ??
+          (segMap.isEmpty
+              ? null
+              : segMap.values.reduce((a, b) => a.ayah > b.ayah ? a : b));
 
       if (startEntry == null || endEntry == null) {
         // Timing data incomplete — fall back to full surah without tracking.

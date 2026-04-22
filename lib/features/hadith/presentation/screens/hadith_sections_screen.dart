@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/hadith_category_info.dart';
 import '../../data/models/remote_hadith.dart';
 import '../../data/repositories/hadith_repository.dart';
@@ -261,7 +262,9 @@ class _SectionTile extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '${section.sectionNumber}',
+                    isArabic
+                        ? localizeNumber(section.sectionNumber, isArabic: true)
+                        : '${section.sectionNumber}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -290,7 +293,9 @@ class _SectionTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        hasCount ? '${section.count} ${isArabic ? 'حديث' : 'hadith'}' : (isArabic ? 'صحيح البخاري' : 'Sahih Bukhari'),
+                        hasCount
+                            ? '${isArabic ? localizeNumber(section.count, isArabic: true) : section.count} ${isArabic ? 'حديث' : 'hadith'}'
+                            : (isArabic ? 'صحيح البخاري' : 'Sahih Bukhari'),
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'Amiri',

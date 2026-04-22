@@ -216,6 +216,23 @@ const Map<String, int> _mp3QuranTimingReadIds = {
   'ar.raadialkurdi':         221,
   'ar.abdulaziahahmad':       55,
 };
+
+/// Surahs whose Hafs Ayah 1 is a fawatih (opening letter sequence)
+/// e.g. "الم", "الر", "يس" — which is always very short (≤ 5 s to recite).
+/// Some readers' timing APIs do NOT include the fawatih as a separate ayah,
+/// so the API's Ayah 1 is actually Hafs's Ayah 2, causing a systematic 1-off.
+const Set<int> _fawatihSurahs = {
+  2, 3, 7, 10, 11, 12, 13, 14, 15,
+  19, 20, 26, 27, 28,
+  29, 30, 31, 32, 36, 38,
+  40, 41, 42, 43, 44, 45, 46,
+  50, 68,
+};
+
+/// Maximum plausible duration (ms) for a fawatih ayah even with a slow
+/// reader.  "كهيعص" (the longest) should still take well under 8 seconds.
+const int _kMaxFawatihDurationMs = 8000;
+
 class MergedSurahAudio {
   final String filePath;
   final List<Duration> ayahDurations;
@@ -357,10 +374,17 @@ class AyahAudioService {
     if (memCached != null) return memCached;
 
     // 2. Disk cache — available offline after first use.
+    //    Apply the same numbering corrections as the network path so that
+    //    stale cache files from before the fix are corrected on next read.
     final diskCached = await _loadTimingFromDisk(edition, surahNumber);
     if (diskCached != null) {
-      _timingCache[cacheKey] = diskCached;
-      return diskCached;
+      final fixed = _applyTimingCorrections(surahNumber, diskCached);
+      // Re-persist if the data changed (old stale cache detected and fixed).
+      if (!identical(fixed, diskCached)) {
+        await _saveTimingToDisk(edition, surahNumber, fixed);
+      }
+      _timingCache[cacheKey] = fixed;
+      return fixed;
     }
 
     // 3. Network fetch.
@@ -375,7 +399,7 @@ class AyahAudioService {
     }
 
     final decoded = json.decode(res.body) as List;
-    final result = decoded.map((e) {
+    var result = decoded.map((e) {
       final m = e as Map<String, dynamic>;
       return (
         ayah: (m['ayah'] as int),
@@ -385,10 +409,90 @@ class AyahAudioService {
     }).toList()
       ..sort((a, b) => a.ayah.compareTo(b.ayah));
 
+    result = _applyTimingCorrections(surahNumber, result);
+
     _timingCache[cacheKey] = result;
     // Persist to disk so next offline session can use it.
     await _saveTimingToDisk(edition, surahNumber, result);
     return result;
+  }
+
+  /// Central place to apply all off-by-one timing corrections.
+  /// Called for both network-fetched and disk-cached data so old cache
+  /// files are healed automatically on the next app launch.
+  List<({int ayah, int startMs, int endMs})> _applyTimingCorrections(
+    int surahNumber,
+    List<({int ayah, int startMs, int endMs})> raw,
+  ) {
+    if (raw.isEmpty || raw.first.ayah != 1) return raw;
+
+    // Surah 1 (Al-Fatiha): some readers don't count the Basmala as Ayah 1.
+    // Detection: API's Ayah 1 starts after 6 500 ms (isti'adha + Basmala).
+    if (surahNumber == 1 && raw.first.startMs > 6500) {
+      return _fixFatihaTiming(raw);
+    }
+
+    // Fawatih surahs: some readers don't count "الم" / "الر" / … as Ayah 1.
+    // Detection: API's Ayah 1 duration far exceeds any realistic fawatih recitation.
+    if (surahNumber != 1 &&
+        _fawatihSurahs.contains(surahNumber) &&
+        (raw.first.endMs - raw.first.startMs) > _kMaxFawatihDurationMs) {
+      return _fixFawatihTiming(raw);
+    }
+
+    return raw;
+  }
+
+  /// Fixes the timing list for fawatih surahs (2, 3, 7, …) when the
+  /// reader's API omits the fawatih letter sequence as a separate ayah.
+  /// The API's Ayah 1 is then Hafs's Ayah 2, causing a systematic 1-off.
+  ///
+  /// Fix: prepend a synthetic Ayah 1 covering [0, first.startMs) — which
+  /// captures the isti'adha + Basmala + the fawatih pronunciation — then
+  /// shift every existing entry up by 1 so they align with Hafs numbering.
+  List<({int ayah, int startMs, int endMs})> _fixFawatihTiming(
+    List<({int ayah, int startMs, int endMs})> raw,
+  ) {
+    final fawatihCutMs = raw.first.startMs;
+    return [
+      (ayah: 1, startMs: 0, endMs: fawatihCutMs),
+      ...raw.map((t) => (ayah: t.ayah + 1, startMs: t.startMs, endMs: t.endMs)),
+    ];
+  }
+
+  /// Fixes the Surah-1 timing list for readers where the API's Ayah 1 is
+  /// "الحمد لله رب العالمين" (Hafs Ayah 2), not the Basmala.
+  ///
+  /// Strategy:
+  /// 1. Insert synthetic Ayah 0 + Ayah 1 spanning [0, first.startMs) so the
+  ///    Basmala block maps to the correct mushaf position.
+  /// 2. Shift all existing API entries up by 1 (API ayah N → mushaf N+1).
+  /// 3. Extend the entry that lands at mushaf Ayah 7 to cover the entire
+  ///    remaining audio, which in Qalon-style counting ends later.
+  List<({int ayah, int startMs, int endMs})> _fixFatihaTiming(
+    List<({int ayah, int startMs, int endMs})> raw,
+  ) {
+    final basmalaCutMs = raw.first.startMs;
+    final lastEndMs    = raw.last.endMs;
+
+    // Shift every API entry up by 1 (API 1→mushaf 2, API 2→mushaf 3, …).
+    final shifted = raw
+        .map((t) => (ayah: t.ayah + 1, startMs: t.startMs, endMs: t.endMs))
+        .toList();
+
+    // The entry that falls at mushaf position 7 (old API ayah 6) covers only
+    // the first half of Hafs's final verse.  Extend its endMs to absorb the
+    // old API ayah 7 so nothing is clipped during surah playback.
+    if (shifted.length >= 7) {
+      shifted[5] = (ayah: 7, startMs: shifted[5].startMs, endMs: lastEndMs);
+      if (shifted.length > 6) shifted.removeAt(6); // drop excess entry
+    }
+
+    return [
+      (ayah: 0, startMs: 0, endMs: basmalaCutMs), // separator marker
+      (ayah: 1, startMs: 0, endMs: basmalaCutMs), // mushaf Ayah 1 = Basmala
+      ...shifted,
+    ];
   }
 
   /// Resolves a single timed [AyahAudioSource] for [ayahNumber] from the

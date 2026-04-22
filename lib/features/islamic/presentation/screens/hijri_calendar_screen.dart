@@ -835,6 +835,7 @@ class _CalendarGrid extends StatelessWidget {
                 isAr ? hijri.toArabicNumerals(ghostDay) : '$ghostDay',
             gregLabel: _gregShort(ghostGreg, isAr),
             isDark: isDark,
+            isArabic: isAr,
           );
         }
 
@@ -851,6 +852,7 @@ class _CalendarGrid extends StatelessWidget {
                 isAr ? hijri.toArabicNumerals(ghostDay) : '$ghostDay',
             gregLabel: _gregShort(ghostGreg, isAr),
             isDark: isDark,
+            isArabic: isAr,
           );
         }
 
@@ -871,6 +873,7 @@ class _CalendarGrid extends StatelessWidget {
           event: event,
           isDark: isDark,
           cardColor: cellCardColor,
+          isArabic: isAr,
         );
       },
     );
@@ -881,11 +884,13 @@ class _GhostCell extends StatelessWidget {
   final String dayLabel;
   final String gregLabel;
   final bool isDark;
+  final bool isArabic;
 
   const _GhostCell({
     required this.dayLabel,
     required this.gregLabel,
     required this.isDark,
+    required this.isArabic,
   });
 
   @override
@@ -898,7 +903,7 @@ class _GhostCell extends StatelessWidget {
       children: [
         Text(dayLabel,
             style: TextStyle(
-                fontSize: 16, fontFamily: 'Amiri', color: c)),
+            fontSize: 16, fontFamily: isArabic ? 'Amiri' : null, color: c)),
         Text(gregLabel,
             style: TextStyle(fontSize: 8, color: c),
             overflow: TextOverflow.ellipsis),
@@ -915,6 +920,7 @@ class _DayCell extends StatelessWidget {
   final _EventData? event;
   final bool isDark;
   final Color cardColor;
+  final bool isArabic;
 
   const _DayCell({
     required this.dayLabel,
@@ -924,6 +930,7 @@ class _DayCell extends StatelessWidget {
     required this.event,
     required this.isDark,
     required this.cardColor,
+    required this.isArabic,
   });
 
   @override
@@ -984,7 +991,7 @@ class _DayCell extends StatelessWidget {
           Text(
             dayLabel,
             style: TextStyle(
-              fontFamily: 'Amiri',
+              fontFamily: isArabic ? 'Amiri' : null,
               fontSize: 19,
               fontWeight: isToday || isEid ? FontWeight.w800 : FontWeight.w500,
               color: dayColor,

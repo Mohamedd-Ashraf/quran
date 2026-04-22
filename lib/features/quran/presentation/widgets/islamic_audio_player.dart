@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/surah_names.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
 
@@ -50,6 +51,36 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
     if (_collapsed == value) return;
     setState(() => _collapsed = value);
     widget.collapsedNotifier?.value = value;
+  }
+
+  Widget _digitAwareTitleText({
+    required String text,
+    required TextStyle style,
+    required bool isArabic,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    if (!isArabic) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+        style: style,
+      );
+    }
+
+    return buildRichTextWithAmiriDigits(
+      text: text,
+      baseStyle: style,
+      amiriStyle: amiriDigitTextStyle(
+        style,
+        fontWeight: style.fontWeight ?? FontWeight.w700,
+      ),
+      textAlign: textAlign,
+      textDirection: TextDirection.rtl,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   @override
@@ -180,7 +211,7 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
             : '';
         final isSurahLevel = cubit.isSurahLevelEdition;
         final ayahLabel = !isRadioMode && !isSurahLevel && playingAyahNumber != null
-            ? ' \u2022 ${isArabicUi ? '\u0622\u064a\u0629 $playingAyahNumber' : 'Ayah $playingAyahNumber'}'
+          ? ' \u2022 ${isArabicUi ? '\u0622\u064a\u0629 ${localizeNumber(playingAyahNumber, isArabic: true)}' : 'Ayah $playingAyahNumber'}'
             : '';
         final surahLevelSuffix = !isRadioMode && isSurahLevel
             ? ' \u2022 ${isArabicUi ? 'سورة كاملة' : 'Full Surah'}'
@@ -283,10 +314,9 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                   const SizedBox(width: 8),
                   // Surah/ayah label
                   Flexible(
-                    child: Text(
-                      titleText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: _digitAwareTitleText(
+                      text: titleText,
+                      isArabic: isArabicUi,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -421,17 +451,22 @@ class _IslamicAudioPlayerState extends State<IslamicAudioPlayer> {
                                       width: 0.8,
                                     ),
                                   ),
-                                  child: Text(
-                                    titleText,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: _digitAwareTitleText(
+                                    text: titleText,
+                                    isArabic: isArabicUi,
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.2,
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.90),
+                                            ) ??
+                                        TextStyle(
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.2,
                                           color: AppColors.primary
                                               .withValues(alpha: 0.90),
                                         ),

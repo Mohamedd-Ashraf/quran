@@ -91,7 +91,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _onTabActivated() {
     if (di.sl<TutorialService>().activeTabIndex.value != 4) return;
     _tutorialShown = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showTutorialIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showTutorialIfNeeded(),
+    );
   }
 
   bool _tutorialShown = false;
@@ -121,8 +123,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _refreshReciters() {
     setState(() {
-      _audioEditionsFuture =
-          _audioEditionService.getVerseByVerseAudioEditions();
+      _audioEditionsFuture = _audioEditionService
+          .getVerseByVerseAudioEditions();
     });
   }
 
@@ -177,8 +179,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ─────────────────────────────────────────────────────
           // 1. العرض والمظهر
           // ─────────────────────────────────────────────────────
-          AppSectionHeader(isAr ? 'العرض والمظهر' : 'Display & Theme',
-              Icons.palette_outlined),
+          AppSectionHeader(
+            isAr ? 'العرض والمظهر' : 'Display & Theme',
+            Icons.palette_outlined,
+          ),
 
           // App Language
           _SettingsCard(
@@ -215,24 +219,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                       selected: {
-                        settings.appLanguageCode
-                                .toLowerCase()
-                                .startsWith('ar')
+                        settings.appLanguageCode.toLowerCase().startsWith('ar')
                             ? 'ar'
-                            : 'en'
+                            : 'en',
                       },
                       onSelectionChanged: (val) async {
                         if (val.isEmpty) return;
-                        await context
-                            .read<AppSettingsCubit>()
-                            .setAppLanguage(val.first);
+                        await context.read<AppSettingsCubit>().setAppLanguage(
+                          val.first,
+                        );
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(val.first == 'ar'
-                              ? 'تم تحديث لغة التطبيق'
-                              : 'App language updated'),
-                          duration: const Duration(seconds: 1),
-                        ));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              val.first == 'ar'
+                                  ? 'تم تحديث لغة التطبيق'
+                                  : 'App language updated',
+                            ),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -244,15 +250,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Dark Mode
           _SettingsCard(
             child: SwitchListTile(
-              secondary: const Icon(Icons.dark_mode_outlined,
-                  color: AppColors.primary),
+              secondary: const Icon(
+                Icons.dark_mode_outlined,
+                color: AppColors.primary,
+              ),
               title: _TileTitle(isAr ? 'الوضع الداكن' : 'Dark Mode'),
               subtitle: _TileSubtitle(
-                  isAr ? 'تفعيل المظهر الداكن' : 'Enable dark theme'),
+                isAr ? 'تفعيل المظهر الداكن' : 'Enable dark theme',
+              ),
               value: settings.darkMode,
               activeColor: AppColors.primary,
-              onChanged: (v) =>
-                  context.read<AppSettingsCubit>().setDarkMode(v),
+              onChanged: (v) => context.read<AppSettingsCubit>().setDarkMode(v),
             ),
           ),
 
@@ -271,17 +279,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SegmentedButton<String>(
                     segments: [
                       ButtonSegment(
-                          value: 'different',
-                          label: Text(isAr ? 'مختلف' : 'Color',
-                              style: const TextStyle(fontSize: 12))),
+                        value: 'different',
+                        label: Text(
+                          isAr ? 'مختلف' : 'Color',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                       ButtonSegment(
-                          value: 'subtle',
-                          label: Text(isAr ? 'خفيف' : 'Subtle',
-                              style: const TextStyle(fontSize: 12))),
+                        value: 'subtle',
+                        label: Text(
+                          isAr ? 'خفيف' : 'Subtle',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                       ButtonSegment(
-                          value: 'same',
-                          label: Text(isAr ? 'موحد' : 'Same',
-                              style: const TextStyle(fontSize: 12))),
+                        value: 'same',
+                        label: Text(
+                          isAr ? 'موحد' : 'Same',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                     ],
                     selected: {settings.diacriticsColorMode},
                     onSelectionChanged: (s) => context
@@ -292,17 +309,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     settings.diacriticsColorMode == 'different'
                         ? (isAr
-                            ? 'التشكيل بلون مميز وواضح'
-                            : 'Diacritics in clearly distinct color')
+                              ? 'التشكيل بلون مميز وواضح'
+                              : 'Diacritics in clearly distinct color')
                         : settings.diacriticsColorMode == 'subtle'
-                            ? (isAr
-                                ? 'التشكيل أخف قليلاً من النص'
-                                : 'Slightly lighter than body text')
-                            : (isAr
-                                ? 'الحروف والتشكيل بنفس اللون'
-                                : 'Text and diacritics in unified color'),
+                        ? (isAr
+                              ? 'التشكيل أخف قليلاً من النص'
+                              : 'Slightly lighter than body text')
+                        : (isAr
+                              ? 'الحروف والتشكيل بنفس اللون'
+                              : 'Text and diacritics in unified color'),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -311,56 +330,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Arabic Font Size – hidden when QCF font is active (QCF controls its own rendering)
           if (!settings.useQcfFont)
-          _SettingsCard(
-            key: SettingsTutorialKeys.fontSizeSlider,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.format_size_rounded,
-                        color: AppColors.primary, size: 18),
-                    const SizedBox(width: 8),
-                    Text(isAr ? 'حجم الخط العربي' : 'Arabic Font Size',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 14)),
-                    const Spacer(),
-                    _ValueBadge('${_arabicFontSizeDraft.round()}'),
-                  ]),
-                  Slider(
-                    value: _arabicFontSizeDraft,
-                    min: 14,
-                    max: 40,
-                    divisions: 26,
-                    label: _arabicFontSizeDraft.round().toString(),
-                    activeColor: AppColors.primary,
-                    onChanged: (v) {
-                      setState(() => _arabicFontSizeDraft = v);
-                      context
-                          .read<AppSettingsCubit>()
-                          .previewArabicFontSize(v);
-                    },
-                    onChangeEnd: (v) =>
-                        context.read<AppSettingsCubit>().setArabicFontSize(v),
-                  ),
-                  _PreviewBox(
-                    color: scheme.surfaceContainerLowest,
-                    child: Text(
-                      'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
-                      textAlign: TextAlign.center,
-                      textDirection: TextDirection.rtl,
-                      style: ArabicTextStyleHelper.quranFontStyle(
-                        fontKey: settings.quranFont,
-                        fontSize: _arabicFontSizeDraft,
-                        color: scheme.onSurface,
+            _SettingsCard(
+              key: SettingsTutorialKeys.fontSizeSlider,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.format_size_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAr ? 'حجم الخط العربي' : 'Arabic Font Size',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const Spacer(),
+                        _ValueBadge('${_arabicFontSizeDraft.round()}'),
+                      ],
+                    ),
+                    Slider(
+                      value: _arabicFontSizeDraft,
+                      min: 14,
+                      max: 40,
+                      divisions: 26,
+                      label: _arabicFontSizeDraft.round().toString(),
+                      activeColor: AppColors.primary,
+                      onChanged: (v) {
+                        setState(() => _arabicFontSizeDraft = v);
+                        context.read<AppSettingsCubit>().previewArabicFontSize(
+                          v,
+                        );
+                      },
+                      onChangeEnd: (v) =>
+                          context.read<AppSettingsCubit>().setArabicFontSize(v),
+                    ),
+                    _PreviewBox(
+                      color: scheme.surfaceContainerLowest,
+                      child: Text(
+                        'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                        textAlign: TextAlign.center,
+                        textDirection: TextDirection.rtl,
+                        style: ArabicTextStyleHelper.quranFontStyle(
+                          fontKey: settings.quranFont,
+                          fontSize: _arabicFontSizeDraft,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
           const SizedBox(height: 16),
 
@@ -368,77 +396,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 2. التقويم الهجري
           // ─────────────────────────────────────────────────────
           AppSectionHeader(
-              isAr ? 'التقويم الهجري' : 'Hijri Calendar',
-              Icons.brightness_3_outlined),
+            isAr ? 'التقويم الهجري' : 'Hijri Calendar',
+            Icons.brightness_3_outlined,
+          ),
 
           _SettingsCard(
-            child: Builder(builder: (ctx) {
-              final offset =
-                  ctx.watch<AppSettingsCubit>().state.hijriDateOffset;
-              final hDate = hijri.todayHijri(offset);
-              final dateStr = hijri.formatHijriDate(
-                hDate[0], hDate[1], hDate[2],
-                isAr: isAr,
-              );
-              return ListTile(
-                leading: const Icon(Icons.brightness_3_outlined,
-                    color: AppColors.primary),
-                title: _TileTitle(isAr
-                    ? 'تعديل التاريخ الهجري'
-                    : 'Hijri Date Adjustment'),
-                subtitle: Text(
-                  dateStr,
-                  style: const TextStyle(
+            child: Builder(
+              builder: (ctx) {
+                final offset = ctx
+                    .watch<AppSettingsCubit>()
+                    .state
+                    .hijriDateOffset;
+                final hDate = hijri.todayHijri(offset);
+                final dateStr = hijri.formatHijriDate(
+                  hDate[0],
+                  hDate[1],
+                  hDate[2],
+                  isAr: isAr,
+                );
+                return ListTile(
+                  leading: const Icon(
+                    Icons.brightness_3_outlined,
                     color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
                   ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(4),
-                      onPressed: offset > -3
-                          ? () => ctx
-                              .read<AppSettingsCubit>()
-                              .setHijriDateOffset(offset - 1)
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline, size: 22),
+                  title: _TileTitle(
+                    isAr ? 'تعديل التاريخ الهجري' : 'Hijri Date Adjustment',
+                  ),
+                  subtitle: Text(
+                    dateStr,
+                    style: const TextStyle(
                       color: AppColors.primary,
-                      disabledColor: AppColors.textHint,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
-                    SizedBox(
-                      width: 28,
-                      child: Text(
-                        offset == 0
-                            ? '0'
-                            : (offset > 0 ? '+$offset' : '$offset'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(4),
+                        onPressed: offset > -3
+                            ? () => ctx
+                                  .read<AppSettingsCubit>()
+                                  .setHijriDateOffset(offset - 1)
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline, size: 22),
+                        color: AppColors.primary,
+                        disabledColor: AppColors.textHint,
+                      ),
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          offset == 0
+                              ? '0'
+                              : (offset > 0 ? '+$offset' : '$offset'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(4),
-                      onPressed: offset < 3
-                          ? () => ctx
-                              .read<AppSettingsCubit>()
-                              .setHijriDateOffset(offset + 1)
-                          : null,
-                      icon: const Icon(Icons.add_circle_outline, size: 22),
-                      color: AppColors.primary,
-                      disabledColor: AppColors.textHint,
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(4),
+                        onPressed: offset < 3
+                            ? () => ctx
+                                  .read<AppSettingsCubit>()
+                                  .setHijriDateOffset(offset + 1)
+                            : null,
+                        icon: const Icon(Icons.add_circle_outline, size: 22),
+                        color: AppColors.primary,
+                        disabledColor: AppColors.textHint,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
 
           const SizedBox(height: 16),
@@ -447,7 +484,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 3. القراءة
           // ─────────────────────────────────────────────────────
           AppSectionHeader(
-              isAr ? 'إعدادات القراءة' : 'Reading', Icons.menu_book_outlined),
+            isAr ? 'إعدادات القراءة' : 'Reading',
+            Icons.menu_book_outlined,
+          ),
 
           // ─── Mushaf Settings Entry Card ────
           _MushafEntryCard(
@@ -461,21 +500,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onToggleQcf: (v) =>
                 context.read<AppSettingsCubit>().setUseQcfFont(v),
             onOpenSettings: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const MushafSettingsScreen()),
+              MaterialPageRoute(builder: (_) => const MushafSettingsScreen()),
             ),
           ),
 
           // Show Translation
           _SettingsCard(
             child: SwitchListTile(
-              secondary: const Icon(Icons.translate_rounded,
-                  color: AppColors.primary),
-              title:
-                  _TileTitle(isAr ? 'إظهار الترجمة' : 'Show Translation'),
-              subtitle: _TileSubtitle(isAr
-                  ? 'عرض الترجمة أسفل كل آية'
-                  : 'Show translation below each verse'),
+              secondary: const Icon(
+                Icons.translate_rounded,
+                color: AppColors.primary,
+              ),
+              title: _TileTitle(isAr ? 'إظهار الترجمة' : 'Show Translation'),
+              subtitle: _TileSubtitle(
+                isAr
+                    ? 'عرض الترجمة أسفل كل آية'
+                    : 'Show translation below each verse',
+              ),
               value: settings.showTranslation,
               activeColor: AppColors.primary,
               onChanged: (v) =>
@@ -491,16 +532,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      const Icon(Icons.format_size_rounded,
-                          color: AppColors.primary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(isAr ? 'حجم خط الترجمة' : 'Translation Font Size',
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.format_size_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAr ? 'حجم خط الترجمة' : 'Translation Font Size',
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 14)),
-                      const Spacer(),
-                      _ValueBadge('${_translationFontSizeDraft.round()}'),
-                    ]),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const Spacer(),
+                        _ValueBadge('${_translationFontSizeDraft.round()}'),
+                      ],
+                    ),
                     Slider(
                       value: _translationFontSizeDraft,
                       min: 12,
@@ -535,19 +585,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ─────────────────────────────────────────────────────
           // 3. الصوت دون إنترنت
           // ─────────────────────────────────────────────────────
-          AppSectionHeader(isAr ? 'الصوت دون إنترنت' : 'Offline Audio',
-              Icons.headphones_outlined),
+          AppSectionHeader(
+            isAr ? 'الصوت دون إنترنت' : 'Offline Audio',
+            Icons.headphones_outlined,
+          ),
 
           // Enable offline audio
           _SettingsCard(
             child: SwitchListTile(
-              secondary:
-                  const Icon(Icons.wifi_off_rounded, color: AppColors.primary),
+              secondary: const Icon(
+                Icons.wifi_off_rounded,
+                color: AppColors.primary,
+              ),
               title: _TileTitle(
-                  isAr ? 'تفعيل الصوت دون إنترنت' : 'Enable Offline Audio'),
-              subtitle: _TileSubtitle(isAr
-                  ? 'حفظ التلاوة على الجهاز للاستماع بلا إنترنت'
-                  : 'Save recitation locally on device'),
+                isAr ? 'تفعيل الصوت دون إنترنت' : 'Enable Offline Audio',
+              ),
+              subtitle: _TileSubtitle(
+                isAr
+                    ? 'حفظ التلاوة على الجهاز للاستماع بلا إنترنت'
+                    : 'Save recitation locally on device',
+              ),
               value: _offlineAudio.enabled,
               activeColor: AppColors.primary,
               onChanged: (v) async {
@@ -572,13 +629,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               final isLoading =
                   snap.connectionState == ConnectionState.waiting &&
-                      snap.data == null;
+                  snap.data == null;
               final displayName = isLoading
                   ? (isAr ? 'جارٍ التحميل...' : 'Loading...')
                   : (selectedEdition?.displayNameForAppLanguage(
-                          settings.appLanguageCode) ??
-                      selected);
-              final langLabel = (selectedEdition?.language != null &&
+                          settings.appLanguageCode,
+                        ) ??
+                        selected);
+              final langLabel =
+                  (selectedEdition?.language != null &&
                       selectedEdition!.language!.trim().isNotEmpty)
                   ? _languageLabel(selectedEdition.language!, isAr: isAr)
                   : '';
@@ -586,7 +645,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 2,
                 clipBehavior: Clip.hardEdge,
                 child: Column(
@@ -595,32 +655,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       decoration: const BoxDecoration(
                         gradient: AppColors.primaryGradient,
                       ),
-                      child: Row(children: [
-                        const Icon(Icons.record_voice_over_rounded,
-                            color: Colors.white, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          isAr ? 'القارئ المختار' : 'Selected Reciter',
-                          style: const TextStyle(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.record_voice_over_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isAr ? 'القارئ المختار' : 'Selected Reciter',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
-                              fontSize: 13),
-                        ),
-                        const Spacer(),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: _refreshReciters,
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.refresh_rounded,
-                                color: Colors.white70, size: 18),
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ]),
+                          const Spacer(),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: _refreshReciters,
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.refresh_rounded,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     // ── Current reciter + change button ───────────
@@ -636,20 +707,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               gradient: LinearGradient(
                                 colors: [
                                   AppColors.primary.withValues(alpha: 0.15),
-                                  const Color(0xFFD4AF37)
-                                      .withValues(alpha: 0.2),
+                                  const Color(
+                                    0xFFD4AF37,
+                                  ).withValues(alpha: 0.2),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.3),
-                                  width: 1.5),
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
                             ),
-                            child: const Icon(Icons.mic_rounded,
-                                color: AppColors.primary, size: 24),
+                            child: const Icon(
+                              Icons.mic_rounded,
+                              color: AppColors.primary,
+                              size: 24,
+                            ),
                           ),
                           const SizedBox(width: 14),
 
@@ -670,36 +745,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     : Text(
                                         displayName,
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 15),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                 if (langLabel.isNotEmpty) ...[
                                   const SizedBox(height: 5),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFD4AF37)
-                                          .withValues(alpha: 0.15),
+                                      color: const Color(
+                                        0xFFD4AF37,
+                                      ).withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                          color: const Color(0xFFD4AF37)
-                                              .withValues(alpha: 0.4)),
+                                        color: const Color(
+                                          0xFFD4AF37,
+                                        ).withValues(alpha: 0.4),
+                                      ),
                                     ),
                                     child: Text(
                                       langLabel,
                                       style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF8B6914),
-                                          fontWeight: FontWeight.w600),
+                                        fontSize: 11,
+                                        color: Color(0xFF8B6914),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
                                 // Qira'at badges: timed editions → "آية بآية ✦" + "توقيتات ⏱", pure surah-level → "سورة كاملة"
                                 if (selectedEdition != null &&
                                     (selected.startsWith('ar.qiraat.') ||
-                                     const {'ar.khaledjleel', 'ar.raadialkurdi', 'ar.abdulaziahahmad'}.contains(selected))) ...[
+                                        const {
+                                          'ar.khaledjleel',
+                                          'ar.raadialkurdi',
+                                          'ar.abdulaziahahmad',
+                                        }.contains(selected))) ...[
                                   const SizedBox(height: 4),
                                   if (const {
                                     'ar.qiraat.husary.qalon',
@@ -721,41 +807,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: AppColors.primaryLight
                                                 .withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             border: Border.all(
-                                                color: AppColors.primaryLight
-                                                    .withValues(alpha: 0.30)),
+                                              color: AppColors.primaryLight
+                                                  .withValues(alpha: 0.30),
+                                            ),
                                           ),
                                           child: Text(
                                             isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
                                             style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppColors.primaryLight,
-                                                fontWeight: FontWeight.w600),
+                                              fontSize: 11,
+                                              color: AppColors.primaryLight,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: Colors.blueAccent
-                                                .withValues(alpha: 0.10),
-                                            borderRadius: BorderRadius.circular(12),
+                                            color: Colors.blueAccent.withValues(
+                                              alpha: 0.10,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             border: Border.all(
-                                                color: Colors.blueAccent
-                                                    .withValues(alpha: 0.30)),
+                                              color: Colors.blueAccent
+                                                  .withValues(alpha: 0.30),
+                                            ),
                                           ),
                                           child: Text(
                                             isAr ? 'توقيتات ⏱' : 'Timed ⏱',
                                             style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.blueAccent,
-                                                fontWeight: FontWeight.w600),
+                                              fontSize: 11,
+                                              color: Colors.blueAccent,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -763,21 +862,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   else
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.secondary
-                                            .withValues(alpha: 0.12),
+                                        color: AppColors.secondary.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                            color: AppColors.secondary
-                                                .withValues(alpha: 0.30)),
+                                          color: AppColors.secondary.withValues(
+                                            alpha: 0.30,
+                                          ),
+                                        ),
                                       ),
                                       child: Text(
                                         isAr ? 'سورة كاملة' : 'Full surah',
                                         style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.secondary,
-                                            fontWeight: FontWeight.w600),
+                                          fontSize: 11,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   // Disclaimer for timed editions
@@ -817,22 +922,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // Change button
                           FilledButton.tonal(
                             style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  AppColors.primary.withValues(alpha: 0.12),
+                              backgroundColor: AppColors.primary.withValues(
+                                alpha: 0.12,
+                              ),
                               foregroundColor: AppColors.primary,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 9),
+                                horizontal: 14,
+                                vertical: 9,
+                              ),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             onPressed: isLoading
                                 ? null
-                                : () => _showReciterPicker(context, all,
-                                    selected, isAr, settings.appLanguageCode),
+                                : () => _showReciterPicker(
+                                    context,
+                                    all,
+                                    selected,
+                                    isAr,
+                                    settings.appLanguageCode,
+                                  ),
                             child: Text(
                               isAr ? 'تغيير' : 'Change',
                               style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w700),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -848,18 +964,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (_offlineAudio.enabled)
             _SettingsCard(
               child: ListTile(
-                leading: const Icon(Icons.download_for_offline_rounded,
-                    color: AppColors.primary),
+                leading: const Icon(
+                  Icons.download_for_offline_rounded,
+                  color: AppColors.primary,
+                ),
                 title: _TileTitle(
-                    isAr ? 'تنزيل صوت القرآن' : 'Download Quran Audio'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'تنزيل التلاوة آية بآية (حجم كبير)'
-                    : 'Verse-by-verse recitation (large size)'),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.primary),
+                  isAr ? 'تنزيل صوت القرآن' : 'Download Quran Audio',
+                ),
+                subtitle: _TileSubtitle(
+                  isAr
+                      ? 'تنزيل التلاوة آية بآية (حجم كبير)'
+                      : 'Verse-by-verse recitation (large size)',
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.primary,
+                ),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => const OfflineAudioScreen()),
+                  MaterialPageRoute(builder: (_) => const OfflineAudioScreen()),
                 ),
               ),
             ),
@@ -870,8 +992,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 4. الورد اليومي
           // ─────────────────────────────────────────────────────
           AppSectionHeader(
-              isAr ? 'الورد اليومي' : 'Daily Wird',
-              Icons.auto_stories_outlined),
+            isAr ? 'الورد اليومي' : 'Daily Wird',
+            Icons.auto_stories_outlined,
+          ),
 
           _SettingsCard(
             child: BlocBuilder<WirdCubit, WirdState>(
@@ -879,19 +1002,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final notifEnabled = wirdState is WirdPlanLoaded
                     ? wirdState.notificationsEnabled
                     : wirdState is WirdNoPlan
-                        ? wirdState.notificationsEnabled
-                        : true;
+                    ? wirdState.notificationsEnabled
+                    : true;
                 return Column(
                   children: [
                     SwitchListTile(
                       secondary: const Icon(
-                          Icons.notifications_active_outlined,
-                          color: AppColors.primary),
+                        Icons.notifications_active_outlined,
+                        color: AppColors.primary,
+                      ),
                       title: _TileTitle(
-                          isAr ? 'تذكيرات الورد اليومي' : 'Wird Reminders'),
-                      subtitle: _TileSubtitle(isAr
-                          ? 'إشعار يومي + تذكيرات متابعة إن لم تسجّل وردك'
-                          : 'Daily notification + follow-up reminders until marked'),
+                        isAr ? 'تذكيرات الورد اليومي' : 'Wird Reminders',
+                      ),
+                      subtitle: _TileSubtitle(
+                        isAr
+                            ? 'إشعار يومي + تذكيرات متابعة إن لم تسجّل وردك'
+                            : 'Daily notification + follow-up reminders until marked',
+                      ),
                       value: notifEnabled,
                       activeThumbColor: AppColors.primary,
                       onChanged: (v) =>
@@ -900,22 +1027,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
-                          Icons.notifications_outlined,
-                          color: AppColors.primary),
+                        Icons.notifications_outlined,
+                        color: AppColors.primary,
+                      ),
                       title: _TileTitle(
-                          isAr ? 'اختبار الإشعار' : 'Test Notification'),
-                      subtitle: _TileSubtitle(isAr
-                          ? 'أرسل إشعارًا تجريبيًا الآن'
-                          : 'Send a test notification now'),
+                        isAr ? 'اختبار الإشعار' : 'Test Notification',
+                      ),
+                      subtitle: _TileSubtitle(
+                        isAr
+                            ? 'أرسل إشعارًا تجريبيًا الآن'
+                            : 'Send a test notification now',
+                      ),
                       trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textSecondary),
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textSecondary,
+                      ),
                       onTap: () {
                         context.read<WirdCubit>().testNotification();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              isAr ? 'تم إرسال الإشعار التجريبي' : 'Test notification sent',
+                              isAr
+                                  ? 'تم إرسال الإشعار التجريبي'
+                                  : 'Test notification sent',
                             ),
                             duration: const Duration(seconds: 2),
                             backgroundColor: AppColors.primary,
@@ -929,8 +1063,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       intervalHours: wirdState is WirdPlanLoaded
                           ? wirdState.followUpIntervalHours
                           : wirdState is WirdNoPlan
-                              ? wirdState.followUpIntervalHours
-                              : 4,
+                          ? wirdState.followUpIntervalHours
+                          : 4,
                     ),
                     const Divider(height: 1, indent: 56),
                     _WirdNotificationModeTile(isAr: isAr),
@@ -945,8 +1079,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ─────────────────────────────────────────────────────
           // 5. الحساب
           // ─────────────────────────────────────────────────────
-          AppSectionHeader(
-              isAr ? 'الحساب' : 'Account', Icons.person_outline),
+          AppSectionHeader(isAr ? 'الحساب' : 'Account', Icons.person_outline),
           _AccountSection(isAr: isAr),
 
           const SizedBox(height: 16),
@@ -954,223 +1087,279 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ─────────────────────────────────────────────────────
           // 6. حول التطبيق
           // ─────────────────────────────────────────────────────
-          AppSectionHeader(
-              isAr ? 'حول التطبيق' : 'About', Icons.info_outline),
+          AppSectionHeader(isAr ? 'حول التطبيق' : 'About', Icons.info_outline),
 
           Card(
             margin: const EdgeInsets.only(bottom: 28),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(16),
+            ),
             clipBehavior: Clip.hardEdge,
-            child: Column(children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
-                decoration: const BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                ),
-                child: Row(children: [
-                  const Icon(Icons.auto_awesome_rounded,
-                      color: Colors.white, size: 18),
-                  const SizedBox(width: 10),
-                  Text(
-                    isAr ? 'حول التطبيق' : 'About the App',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
-                  const Spacer(),
-                  if (_version.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(12),
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 18,
                       ),
-                      child: Text(
-                        'v$_version',
+                      const SizedBox(width: 10),
+                      Text(
+                        isAr ? 'حول التطبيق' : 'About the App',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
+                          fontSize: 14,
                         ),
                       ),
-                    ),
-                ]),
-              ),
+                      const Spacer(),
+                      if (_version.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'v$_version',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
 
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(9),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.verified_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
                   ),
-                  child: const Icon(Icons.verified_rounded,
-                      color: AppColors.primary, size: 18),
-                ),
-                title: _TileTitle(isAr ? 'الإصدار' : 'Version'),
-                trailing: Text(_version.isEmpty ? '...' : _version,
+                  title: _TileTitle(isAr ? 'الإصدار' : 'Version'),
+                  trailing: Text(
+                    _version.isEmpty ? '...' : _version,
                     style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13)),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: _checkingForUpdate
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.primary),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: const Icon(Icons.system_update_rounded,
-                            color: AppColors.primary, size: 18),
-                      ),
-                title: _TileTitle(
-                    isAr ? 'البحث عن تحديثات' : 'Check for Updates'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'التحقق من توفر إصدار جديد'
-                    : 'Look for a newer version of the app'),
-                trailing: _checkingForUpdate
-                    ? null
-                    : const Icon(Icons.chevron_right_rounded,
-                        color: AppColors.primary),
-                onTap: _checkingForUpdate ? null : _manualCheckForUpdates,
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(Icons.cloud_outlined,
-                      color: AppColors.primary, size: 18),
-                ),
-                title: _TileTitle(isAr ? 'مصدر البيانات' : 'Data Source'),
-                subtitle: const Text('AlQuran.cloud API',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.primary),
-                onTap: _showDataSourceDialog,
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                key: SettingsTutorialKeys.replayTutorial,
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(Icons.school_outlined,
-                      color: AppColors.primary, size: 18),
-                ),
-                title: _TileTitle(
-                    isAr ? 'إعادة الشرح التوضيحي' : 'Replay Tutorial'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'مشاهدة الجولة التعريفية مرة أخرى'
-                    : 'Watch the app walkthrough again'),
-                trailing: const Icon(Icons.replay_rounded,
-                    color: AppColors.primary),
-                onTap: () async {
-                  final tutorialService = di.sl<TutorialService>();
-                  await tutorialService.resetAll();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(isAr
-                            ? 'تم إعادة تعيين الشرح التوضيحي — ستظهر الجولة عند فتح كل شاشة'
-                            : 'Tutorial reset — walkthrough will appear when you open each screen'),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
-                  }
-                },
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(Icons.feedback_outlined,
-                      color: AppColors.secondary, size: 18),
-                ),
-                title: _TileTitle(
-                    isAr ? 'اقتراحات ومشاركات' : 'Feedback & Suggestions'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'ساعدنا في تحسين التطبيق — نسخة بيتا'
-                    : 'Help us improve the app — Beta'),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'BETA',
-                    style: TextStyle(
-                      color: AppColors.secondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
                     ),
                   ),
                 ),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => const FeedbackScreen()),
-                ),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(9),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: _checkingForUpdate
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(
+                            Icons.system_update_rounded,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
+                        ),
+                  title: _TileTitle(
+                    isAr ? 'البحث عن تحديثات' : 'Check for Updates',
                   ),
-                  child: const Icon(Icons.privacy_tip_outlined,
-                      color: Colors.teal, size: 18),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'التحقق من توفر إصدار جديد'
+                        : 'Look for a newer version of the app',
+                  ),
+                  trailing: _checkingForUpdate
+                      ? null
+                      : const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.primary,
+                        ),
+                  onTap: _checkingForUpdate ? null : _manualCheckForUpdates,
                 ),
-                title: _TileTitle(
-                    isAr ? 'سياسة الخصوصية' : 'Privacy Policy'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'كيف نحمي بياناتك'
-                    : 'How we protect your data'),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: Colors.grey),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => PrivacyPolicyScreen(
-                            isArabic: isAr,
-                          )),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_outlined,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                  title: _TileTitle(isAr ? 'مصدر البيانات' : 'Data Source'),
+                  subtitle: const Text(
+                    'AlQuran.cloud API',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                  ),
+                  onTap: _showDataSourceDialog,
                 ),
-              ),
-            ]),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  key: SettingsTutorialKeys.replayTutorial,
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.school_outlined,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                  title: _TileTitle(
+                    isAr ? 'إعادة الشرح التوضيحي' : 'Replay Tutorial',
+                  ),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'مشاهدة الجولة التعريفية مرة أخرى'
+                        : 'Watch the app walkthrough again',
+                  ),
+                  trailing: const Icon(
+                    Icons.replay_rounded,
+                    color: AppColors.primary,
+                  ),
+                  onTap: () async {
+                    final tutorialService = di.sl<TutorialService>();
+                    await tutorialService.resetAll();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isAr
+                                ? 'تم إعادة تعيين الشرح التوضيحي — ستظهر الجولة عند فتح كل شاشة'
+                                : 'Tutorial reset — walkthrough will appear when you open each screen',
+                          ),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.feedback_outlined,
+                      color: AppColors.secondary,
+                      size: 18,
+                    ),
+                  ),
+                  title: _TileTitle(
+                    isAr ? 'اقتراحات ومشاركات' : 'Feedback & Suggestions',
+                  ),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'ساعدنا في تحسين التطبيق — نسخة بيتا'
+                        : 'Help us improve the app — Beta',
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'BETA',
+                      style: TextStyle(
+                        color: AppColors.secondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.privacy_tip_outlined,
+                      color: Colors.teal,
+                      size: 18,
+                    ),
+                  ),
+                  title: _TileTitle(isAr ? 'سياسة الخصوصية' : 'Privacy Policy'),
+                  subtitle: _TileSubtitle(
+                    isAr ? 'كيف نحمي بياناتك' : 'How we protect your data',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PrivacyPolicyScreen(isArabic: isAr),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-
 
   Future<void> _manualCheckForUpdates() async {
     final isAr = context
@@ -1247,9 +1436,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Text(
           isAr
               ? 'يستخدم هذا التطبيق واجهة AlQuran.cloud لتوفير نص القرآن الكريم.\n'
-                  'توفّر الواجهة الوصول إلى القرآن بعدة إصدارات ولغات.'
+                    'توفّر الواجهة الوصول إلى القرآن بعدة إصدارات ولغات.'
               : 'This app uses the AlQuran.cloud API to provide authentic Quranic text.\n'
-                  'The API offers access to the Holy Quran in multiple editions and languages.',
+                    'The API offers access to the Holy Quran in multiple editions and languages.',
         ),
         actions: [
           TextButton(
@@ -1275,8 +1464,7 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: child,
     );
@@ -1308,12 +1496,16 @@ class _SettingLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Icon(icon, color: AppColors.primary, size: 18),
-      const SizedBox(width: 8),
-      Text(label,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-    ]);
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.primary, size: 18),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+      ],
+    );
   }
 }
 
@@ -1333,9 +1525,10 @@ class _ValueBadge extends StatelessWidget {
       child: Text(
         value,
         style: TextStyle(
-            color: isDark ? AppColors.primaryLight : AppColors.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 14),
+          color: isDark ? AppColors.primaryLight : AppColors.primary,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -1398,8 +1591,9 @@ class _MushafEntryCard extends StatelessWidget {
 
   String _editionShortName() {
     try {
-      return ApiConstants.quranEditions
-              .firstWhere((e) => e['id'] == editionId)[isAr ? 'nameAr' : 'nameEn'] ??
+      return ApiConstants.quranEditions.firstWhere(
+            (e) => e['id'] == editionId,
+          )[isAr ? 'nameAr' : 'nameEn'] ??
           editionId;
     } catch (_) {
       return editionId;
@@ -1408,8 +1602,9 @@ class _MushafEntryCard extends StatelessWidget {
 
   String _fontShortName() {
     try {
-      return ApiConstants.quranFonts
-              .firstWhere((f) => f['id'] == fontKey)[isAr ? 'nameAr' : 'nameEn'] ??
+      return ApiConstants.quranFonts.firstWhere((f) => f['id'] == fontKey)[isAr
+              ? 'nameAr'
+              : 'nameEn'] ??
           fontKey;
     } catch (_) {
       return fontKey;
@@ -1420,44 +1615,49 @@ class _MushafEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
           // ── Mushaf-view toggle ────────────────────────────────
           SwitchListTile(
-            secondary: const Icon(Icons.auto_stories_rounded,
-                color: AppColors.primary),
-            title: _TileTitle(
-                isAr ? 'عرض المصحف الشريف' : 'Mushaf View'),
-            subtitle: _TileSubtitle(isAr
-                ? 'صفحات المصحف القابلة للتقليب'
-                : 'Flippable Mushaf pages'),
+            secondary: const Icon(
+              Icons.auto_stories_rounded,
+              color: AppColors.primary,
+            ),
+            title: _TileTitle(isAr ? 'عرض المصحف الشريف' : 'Mushaf View'),
+            subtitle: _TileSubtitle(
+              isAr ? 'صفحات المصحف القابلة للتقليب' : 'Flippable Mushaf pages',
+            ),
             value: useUthmani,
             activeColor: AppColors.primary,
             onChanged: onToggleMushaf,
           ),
           // ── QCF sub-toggle (only when Mushaf view is ON) ──────
-          if (useUthmani) ...
-            [
-              const Divider(height: 1, indent: 56, endIndent: 16),
-              SwitchListTile(
-                secondary: const Padding(
-                  padding: EdgeInsets.only(left: 8),
-                  child: Icon(Icons.draw_rounded,
-                      color: AppColors.secondary, size: 22),
+          if (useUthmani) ...[
+            const Divider(height: 1, indent: 56, endIndent: 16),
+            SwitchListTile(
+              secondary: const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.draw_rounded,
+                  color: AppColors.secondary,
+                  size: 22,
                 ),
-                title: _TileTitle(
-                    isAr ? 'رسم المصحف الشريف' : 'Mushaf Script Font'),
-                subtitle: _TileSubtitle(isAr
-                    ? 'يعرض القرآن بالرسم العثماني كما في المصحف المطبوع — أوقفه إن ظهرت الحروف غريبة على جهازك'
-                    : 'Displays Quran in printed-Mushaf (Uthmani) script — disable if letters look incorrect on your device'),
-                value: useQcfFont,
-                activeColor: AppColors.secondary,
-                onChanged: onToggleQcf,
               ),
-            ],
+              title: _TileTitle(
+                isAr ? 'رسم المصحف الشريف' : 'Mushaf Script Font',
+              ),
+              subtitle: _TileSubtitle(
+                isAr
+                    ? 'يعرض القرآن بالرسم العثماني كما في المصحف المطبوع — أوقفه إن ظهرت الحروف غريبة على جهازك'
+                    : 'Displays Quran in printed-Mushaf (Uthmani) script — disable if letters look incorrect on your device',
+              ),
+              value: useQcfFont,
+              activeColor: AppColors.secondary,
+              onChanged: onToggleQcf,
+            ),
+          ],
           // ── Navigate to full Mushaf settings (hidden when QCF is on) ──
           if (!useQcfFont) ...[
             const Divider(height: 1, indent: 56, endIndent: 16),
@@ -1473,8 +1673,11 @@ class _MushafEntryCard extends StatelessWidget {
                         gradient: AppColors.primaryGradient,
                         borderRadius: BorderRadius.circular(9),
                       ),
-                      child: const Icon(Icons.tune_rounded,
-                          color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.tune_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1486,23 +1689,33 @@ class _MushafEntryCard extends StatelessWidget {
                                 ? 'إعدادات المصحف الشريف'
                                 : 'Mushaf Display Settings',
                             style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 14),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           // current-selection chips
                           Wrap(
                             spacing: 6,
                             children: [
-                              _Chip(_fontShortName(), Icons.font_download_rounded),
                               _Chip(
-                                  _editionShortName(), Icons.menu_book_rounded),
+                                _fontShortName(),
+                                Icons.font_download_rounded,
+                              ),
+                              _Chip(
+                                _editionShortName(),
+                                Icons.menu_book_rounded,
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: AppColors.primary, size: 22),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                   ],
                 ),
               ),
@@ -1528,7 +1741,9 @@ class _Chip extends StatelessWidget {
         color: AppColors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2), width: 0.8),
+          color: AppColors.primary.withValues(alpha: 0.2),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1538,9 +1753,10 @@ class _Chip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-                fontSize: 10,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600),
+              fontSize: 10,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1571,21 +1787,22 @@ class _FollowUpIntervalTile extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.timer_outlined, color: AppColors.primary),
       title: _TileTitle(isAr ? 'فترة إعادة التذكير' : 'Follow-up Interval'),
-      subtitle: _TileSubtitle(intervalHours == 0
-          ? (isAr ? 'لا توجد تذكيرات متابعة' : 'No follow-up reminders')
-          : _label(intervalHours)),
+      subtitle: _TileSubtitle(
+        intervalHours == 0
+            ? (isAr ? 'لا توجد تذكيرات متابعة' : 'No follow-up reminders')
+            : _label(intervalHours),
+      ),
       trailing: DropdownButton<int>(
         value: _options.contains(intervalHours) ? intervalHours : 4,
         underline: const SizedBox(),
         borderRadius: BorderRadius.circular(12),
         items: _options
-            .map((h) => DropdownMenuItem(
-                  value: h,
-                  child: Text(
-                    _label(h),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ))
+            .map(
+              (h) => DropdownMenuItem(
+                value: h,
+                child: Text(_label(h), style: const TextStyle(fontSize: 13)),
+              ),
+            )
             .toList(),
         onChanged: (v) {
           if (v != null) {
@@ -1644,29 +1861,30 @@ class _WirdNotificationModeTileState extends State<_WirdNotificationModeTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.tune_rounded, color: AppColors.primary),
-      title: _TileTitle(widget.isAr ? 'نوع الإشعار' : 'Notification Type'),
-      subtitle:
-          _TileSubtitle(widget.isAr ? 'صوت، نص، أو كلاهما' : 'Sound, text, or both'),
-      trailing: DropdownButton<String>(
-        value: _mode,
-        underline: const SizedBox(),
-        borderRadius: BorderRadius.circular(12),
-        items: ['both', 'sound_only', 'text_only']
-            .map((m) => DropdownMenuItem(
-                  value: m,
-                  child: Text(_label(m), style: const TextStyle(fontSize: 13)),
-                ))
-            .toList(),
-        onChanged: (v) {
-          if (v != null) {
-            setState(() => _mode = v);
-            _settings.setWirdNotificationMode(v);
-          }
-        },
-      ),
-    );
+    return Container();
+    // return ListTile(
+    //   leading: const Icon(Icons.tune_rounded, color: AppColors.primary),
+    //   title: _TileTitle(widget.isAr ? 'نوع الإشعار' : 'Notification Type'),
+    //   subtitle:
+    //       _TileSubtitle(widget.isAr ? 'صوت، نص، أو كلاهما' : 'Sound, text, or both'),
+    //   trailing: DropdownButton<String>(
+    //     value: _mode,
+    //     underline: const SizedBox(),
+    //     borderRadius: BorderRadius.circular(12),
+    //     items: ['both', 'sound_only', 'text_only']
+    //         .map((m) => DropdownMenuItem(
+    //               value: m,
+    //               child: Text(_label(m), style: const TextStyle(fontSize: 13)),
+    //             ))
+    //         .toList(),
+    //     onChanged: (v) {
+    //       if (v != null) {
+    //         setState(() => _mode = v);
+    //         _settings.setWirdNotificationMode(v);
+    //       }
+    //     },
+    //   ),
+    // );
   }
 }
 
@@ -1746,10 +1964,12 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list
-          .where((e) =>
-              (e.englishName ?? '').toLowerCase().contains(q) ||
-              (e.name ?? '').toLowerCase().contains(q) ||
-              e.identifier.toLowerCase().contains(q))
+          .where(
+            (e) =>
+                (e.englishName ?? '').toLowerCase().contains(q) ||
+                (e.name ?? '').toLowerCase().contains(q) ||
+                e.identifier.toLowerCase().contains(q),
+          )
           .toList();
     }
     // Ensure current selection always appears
@@ -1764,10 +1984,7 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
   }
 
   /// Identifiers of teacher/muallim reciters
-  static const _teacherIds = {
-    'ar.husarymuallim',
-    'ar.minshawiteacher',
-  };
+  static const _teacherIds = {'ar.husarymuallim', 'ar.minshawiteacher'};
 
   /// Identifiers of reciters who recite by Warsh 'an Nafi' (ورش عن نافع)
   static const _warshIds = {
@@ -1785,7 +2002,12 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
   }
 
   /// Split filtered list into categories: teachers, qira'at, then regular
-  ({List<AudioEdition> teachers, List<AudioEdition> qiraat, List<AudioEdition> regular}) get _categorized {
+  ({
+    List<AudioEdition> teachers,
+    List<AudioEdition> qiraat,
+    List<AudioEdition> regular,
+  })
+  get _categorized {
     final filtered = _filtered;
     final teachers = <AudioEdition>[];
     final qiraat = <AudioEdition>[];
@@ -1813,7 +2035,9 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     final sheetBg = isDark ? AppColors.darkSurface : Colors.white;
     final handleColor = isDark ? Colors.white24 : Colors.grey.shade300;
     final closeColor = isDark ? Colors.white54 : Colors.grey.shade600;
-    final searchFill = isDark ? const Color(0xFF242B33) : const Color(0xFFF5F8F5);
+    final searchFill = isDark
+        ? const Color(0xFF242B33)
+        : const Color(0xFFF5F8F5);
     final dividerColor = isDark ? Colors.white12 : Colors.grey.shade200;
     final dividerItemColor = isDark ? Colors.white10 : Colors.grey.shade100;
     final nameColor = isDark ? const Color(0xFFE8E8E8) : Colors.black87;
@@ -1854,16 +2078,20 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.record_voice_over_rounded,
-                      color: Colors.white, size: 18),
+                  child: const Icon(
+                    Icons.record_voice_over_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   isAr ? 'اختيار القارئ' : 'Choose Reciter',
                   style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
@@ -1887,8 +2115,10 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                 isDense: true,
                 hintText: isAr ? 'ابحث عن القارئ...' : 'Search reciter...',
                 hintStyle: TextStyle(color: subColor),
-                prefixIcon:
-                    const Icon(Icons.search_rounded, color: AppColors.primary),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.primary,
+                ),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 18),
@@ -1902,21 +2132,27 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                 fillColor: searchFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
+                  borderSide: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
+                  borderSide: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
@@ -1939,11 +2175,13 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                   selected: _langFilter == 'qiraat',
                   onTap: () => setState(() => _langFilter = 'qiraat'),
                 ),
-                ...languages.map((code) => _LangChip(
-                      label: widget.languageLabel(code, isAr: isAr),
-                      selected: _langFilter == code,
-                      onTap: () => setState(() => _langFilter = code),
-                    )),
+                ...languages.map(
+                  (code) => _LangChip(
+                    label: widget.languageLabel(code, isAr: isAr),
+                    selected: _langFilter == code,
+                    onTap: () => setState(() => _langFilter = code),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1959,9 +2197,11 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 48,
-                            color: emptyIconColor),
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48,
+                          color: emptyIconColor,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           isAr ? 'لا توجد نتائج' : 'No results',
@@ -1970,47 +2210,74 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       ],
                     ),
                   )
-                : Builder(builder: (context) {
-                    final cats = _categorized;
-                    return ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      children: [
-                        // ── Teacher / Muallim section ──
-                        if (cats.teachers.isNotEmpty) ...[
-                          _SectionHeader(
-                            icon: Icons.school_rounded,
-                            label: isAr ? 'المعلم (مع الترديد)' : 'Teacher (with repetition)',
-                            isDark: isDark,
-                          ),
-                          ...cats.teachers.map((ed) => _buildReciterTile(
-                              ed, nameColor, subColor, dividerItemColor)),
-                          const SizedBox(height: 8),
-                        ],
-                        // ── Qira'at section (ورش عن نافع وغيرها) ──
-                        if (cats.qiraat.isNotEmpty) ...[
-                          _SectionHeader(
-                            icon: Icons.auto_stories_rounded,
-                            label: isAr ? 'القراءات العشر' : 'The Ten Qira\'at',
-                            isDark: isDark,
-                          ),
-                          ...cats.qiraat.map((ed) => _buildReciterTile(
-                              ed, nameColor, subColor, dividerItemColor)),
-                          const SizedBox(height: 8),
-                        ],
-                        // ── Regular reciters section (حفص عن عاصم) ──
-                        if (cats.regular.isNotEmpty) ...[
-                          if (cats.teachers.isNotEmpty || cats.qiraat.isNotEmpty)
+                : Builder(
+                    builder: (context) {
+                      final cats = _categorized;
+                      return ListView(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        children: [
+                          // ── Teacher / Muallim section ──
+                          if (cats.teachers.isNotEmpty) ...[
                             _SectionHeader(
-                              icon: Icons.record_voice_over_rounded,
-                              label: isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs an \'Asim)',
+                              icon: Icons.school_rounded,
+                              label: isAr
+                                  ? 'المعلم (مع الترديد)'
+                                  : 'Teacher (with repetition)',
                               isDark: isDark,
                             ),
-                          ...cats.regular.map((ed) => _buildReciterTile(
-                              ed, nameColor, subColor, dividerItemColor)),
+                            ...cats.teachers.map(
+                              (ed) => _buildReciterTile(
+                                ed,
+                                nameColor,
+                                subColor,
+                                dividerItemColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          // ── Qira'at section (ورش عن نافع وغيرها) ──
+                          if (cats.qiraat.isNotEmpty) ...[
+                            _SectionHeader(
+                              icon: Icons.auto_stories_rounded,
+                              label: isAr
+                                  ? 'القراءات العشر'
+                                  : 'The Ten Qira\'at',
+                              isDark: isDark,
+                            ),
+                            ...cats.qiraat.map(
+                              (ed) => _buildReciterTile(
+                                ed,
+                                nameColor,
+                                subColor,
+                                dividerItemColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          // ── Regular reciters section (حفص عن عاصم) ──
+                          if (cats.regular.isNotEmpty) ...[
+                            if (cats.teachers.isNotEmpty ||
+                                cats.qiraat.isNotEmpty)
+                              _SectionHeader(
+                                icon: Icons.record_voice_over_rounded,
+                                label: isAr
+                                    ? 'القراء (حفص عن عاصم)'
+                                    : 'Reciters (Hafs an \'Asim)',
+                                isDark: isDark,
+                              ),
+                            ...cats.regular.map(
+                              (ed) => _buildReciterTile(
+                                ed,
+                                nameColor,
+                                subColor,
+                                dividerItemColor,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    );
-                  }),
+                      );
+                    },
+                  ),
           ),
 
           // Bottom safe area
@@ -2020,7 +2287,12 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
     );
   }
 
-  Widget _buildReciterTile(AudioEdition ed, Color nameColor, Color subColor, Color dividerItemColor) {
+  Widget _buildReciterTile(
+    AudioEdition ed,
+    Color nameColor,
+    Color subColor,
+    Color dividerItemColor,
+  ) {
     final isSelected = ed.identifier == _currentSelected;
     final name = ed.displayNameForAppLanguage(widget.langCode);
     final lang = ed.language;
@@ -2064,13 +2336,18 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       Text(
                         name,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           fontSize: 14,
                           color: isSelected ? AppColors.primary : nameColor,
                         ),
                       ),
                       if (langStr.isNotEmpty)
-                        Text(langStr, style: TextStyle(fontSize: 11, color: subColor)),
+                        Text(
+                          langStr,
+                          style: TextStyle(fontSize: 11, color: subColor),
+                        ),
                     ],
                   ),
                 ),
@@ -2081,7 +2358,11 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                   ),
               ],
             ),
@@ -2158,8 +2439,9 @@ class _LangChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color:
-                selected ? AppColors.primary : AppColors.primary.withValues(alpha: 0.07),
+            color: selected
+                ? AppColors.primary
+                : AppColors.primary.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: selected
@@ -2193,7 +2475,8 @@ class _AccountSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, authState) {
-        final isGuest = authState.status == AuthStatus.guest ||
+        final isGuest =
+            authState.status == AuthStatus.guest ||
             authState.status == AuthStatus.offlineGuest;
         final isAuth = authState.status == AuthStatus.authenticated;
         final syncService = di.sl<CloudSyncService>();
@@ -2209,8 +2492,10 @@ class _AccountSection extends StatelessWidget {
               // ── Account Info Header ───────────────────────────────
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                 ),
@@ -2264,7 +2549,9 @@ class _AccountSection extends StatelessWidget {
                     if (isGuest)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.22),
                           borderRadius: BorderRadius.circular(12),
@@ -2291,16 +2578,22 @@ class _AccountSection extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.link_rounded,
-                        color: AppColors.primary, size: 18),
+                    child: const Icon(
+                      Icons.link_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
                   ),
-                  title: _TileTitle(
-                      isAr ? 'ربط حساب' : 'Link Account'),
-                  subtitle: _TileSubtitle(isAr
-                      ? 'سجّل بجوجل أو بريد إلكتروني لحفظ بياناتك'
-                      : 'Sign in with Google or email to save your data'),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.primary),
+                  title: _TileTitle(isAr ? 'ربط حساب' : 'Link Account'),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'سجّل بجوجل أو بريد إلكتروني لحفظ بياناتك'
+                        : 'Sign in with Google or email to save your data',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                  ),
                   onTap: () => _showLinkAccountOptions(context, isAr),
                 ),
               ],
@@ -2319,22 +2612,28 @@ class _AccountSection extends StatelessWidget {
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AppColors.primary),
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
                           )
-                        : const Icon(Icons.cloud_sync_rounded,
-                            color: AppColors.primary, size: 18),
+                        : const Icon(
+                            Icons.cloud_sync_rounded,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
                   ),
-                  title: _TileTitle(
-                      isAr ? 'مزامنة البيانات' : 'Sync Data'),
+                  title: _TileTitle(isAr ? 'مزامنة البيانات' : 'Sync Data'),
                   subtitle: _TileSubtitle(
                     syncService.hasSynced
                         ? (isAr
-                            ? 'آخر مزامنة: ${_formatSyncTime(syncService.lastSyncTime, isAr)}'
-                            : 'Last sync: ${_formatSyncTime(syncService.lastSyncTime, isAr)}')
+                              ? 'آخر مزامنة: ${_formatSyncTime(syncService.lastSyncTime, isAr)}'
+                              : 'Last sync: ${_formatSyncTime(syncService.lastSyncTime, isAr)}')
                         : (isAr ? 'لم تتم المزامنة بعد' : 'Not synced yet'),
                   ),
-                  trailing: const Icon(Icons.sync_rounded,
-                      color: AppColors.primary),
+                  trailing: const Icon(
+                    Icons.sync_rounded,
+                    color: AppColors.primary,
+                  ),
                   onTap: authState.isLoading
                       ? null
                       : () {
@@ -2351,7 +2650,8 @@ class _AccountSection extends StatelessWidget {
                               behavior: SnackBarBehavior.floating,
                               margin: const EdgeInsets.all(16),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           );
                         },
@@ -2364,8 +2664,11 @@ class _AccountSection extends StatelessWidget {
                       color: AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.logout_rounded,
-                        color: AppColors.error, size: 18),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.error,
+                      size: 18,
+                    ),
                   ),
                   title: Text(
                     isAr ? 'تسجيل الخروج' : 'Sign Out',
@@ -2385,8 +2688,11 @@ class _AccountSection extends StatelessWidget {
                       color: Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.delete_outline_rounded,
-                        color: Colors.orange, size: 18),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.orange,
+                      size: 18,
+                    ),
                   ),
                   title: Text(
                     isAr ? 'طلب حذف البيانات' : 'Request Data Deletion',
@@ -2396,9 +2702,11 @@ class _AccountSection extends StatelessWidget {
                       color: Colors.orange,
                     ),
                   ),
-                  subtitle: _TileSubtitle(isAr
-                      ? 'حذف بيانات محددة دون حذف الحساب'
-                      : 'Delete specific data without account deletion'),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'حذف بيانات محددة دون حذف الحساب'
+                        : 'Delete specific data without account deletion',
+                  ),
                   onTap: () => _showDataDeletionDialog(context, isAr),
                 ),
                 const Divider(height: 1, indent: 56),
@@ -2409,8 +2717,11 @@ class _AccountSection extends StatelessWidget {
                       color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.delete_forever_rounded,
-                        color: Colors.red, size: 18),
+                    child: const Icon(
+                      Icons.delete_forever_rounded,
+                      color: Colors.red,
+                      size: 18,
+                    ),
                   ),
                   title: Text(
                     isAr ? 'حذف الحساب والبيانات' : 'Delete Account & Data',
@@ -2420,9 +2731,11 @@ class _AccountSection extends StatelessWidget {
                       color: Colors.red,
                     ),
                   ),
-                  subtitle: _TileSubtitle(isAr
-                      ? 'حذف كل بياناتك نهائياً - لا يمكن التراجع'
-                      : 'Permanently delete all your data - irreversible'),
+                  subtitle: _TileSubtitle(
+                    isAr
+                        ? 'حذف كل بياناتك نهائياً - لا يمكن التراجع'
+                        : 'Permanently delete all your data - irreversible',
+                  ),
                   onTap: () => _confirmDeleteAccount(context, isAr),
                 ),
               ],
@@ -2478,7 +2791,9 @@ class _AccountSection extends StatelessWidget {
                   label: Text(
                     isAr ? 'ربط بحساب جوجل' : 'Link with Google',
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
@@ -2500,7 +2815,9 @@ class _AccountSection extends StatelessWidget {
                   label: Text(
                     isAr ? 'ربط بالبريد الإلكتروني' : 'Link with Email',
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
@@ -2591,10 +2908,16 @@ class _AccountSection extends StatelessWidget {
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
-                          return isAr ? 'أدخل البريد الإلكتروني' : 'Enter your email';
+                          return isAr
+                              ? 'أدخل البريد الإلكتروني'
+                              : 'Enter your email';
                         }
-                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) {
-                          return isAr ? 'البريد الإلكتروني غير صالح' : 'Invalid email';
+                        if (!RegExp(
+                          r'^[^@]+@[^@]+\.[^@]+',
+                        ).hasMatch(v.trim())) {
+                          return isAr
+                              ? 'البريد الإلكتروني غير صالح'
+                              : 'Invalid email';
                         }
                         return null;
                       },
@@ -2608,9 +2931,11 @@ class _AccountSection extends StatelessWidget {
                         labelText: isAr ? 'كلمة المرور' : 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
+                          icon: Icon(
+                            obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
                           onPressed: () =>
                               setModalState(() => obscure = !obscure),
                         ),
@@ -2620,7 +2945,9 @@ class _AccountSection extends StatelessWidget {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
-                          return isAr ? 'أدخل كلمة المرور' : 'Enter your password';
+                          return isAr
+                              ? 'أدخل كلمة المرور'
+                              : 'Enter your password';
                         }
                         if (isSignUp && v.length < 6) {
                           return isAr
@@ -2640,13 +2967,18 @@ class _AccountSection extends StatelessWidget {
                             onPressed: state.isLoading
                                 ? null
                                 : () {
-                                    if (!formKey.currentState!.validate()) return;
+                                    if (!formKey.currentState!.validate())
+                                      return;
                                     final email = emailCtrl.text.trim();
                                     final password = passwordCtrl.text;
                                     Navigator.pop(ctx);
                                     final cubit = context.read<AuthCubit>();
                                     if (isSignUp) {
-                                      cubit.signUpWithEmail(email, password, nameCtrl.text.trim());
+                                      cubit.signUpWithEmail(
+                                        email,
+                                        password,
+                                        nameCtrl.text.trim(),
+                                      );
                                     } else {
                                       cubit.signInWithEmail(email, password);
                                     }
@@ -2669,7 +3001,9 @@ class _AccountSection extends StatelessWidget {
                                   )
                                 : Text(
                                     isAr
-                                        ? (isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول')
+                                        ? (isSignUp
+                                              ? 'إنشاء حساب'
+                                              : 'تسجيل الدخول')
                                         : (isSignUp ? 'Sign Up' : 'Sign In'),
                                     style: const TextStyle(
                                       fontSize: 15,
@@ -2686,11 +3020,11 @@ class _AccountSection extends StatelessWidget {
                       child: Text(
                         isSignUp
                             ? (isAr
-                                ? 'لديك حساب بالفعل؟ سجّل دخولك'
-                                : 'Already have an account? Sign In')
+                                  ? 'لديك حساب بالفعل؟ سجّل دخولك'
+                                  : 'Already have an account? Sign In')
                             : (isAr
-                                ? 'ليس لديك حساب؟ أنشئ حساباً جديداً'
-                                : "Don't have an account? Sign Up"),
+                                  ? 'ليس لديك حساب؟ أنشئ حساباً جديداً'
+                                  : "Don't have an account? Sign Up"),
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
@@ -2768,7 +3102,9 @@ class _AccountSection extends StatelessWidget {
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
@@ -2809,9 +3145,7 @@ class _AccountSection extends StatelessWidget {
                 CheckboxListTile(
                   value: selected.contains('wird'),
                   onChanged: (v) => setDialogState(() {
-                    v == true
-                        ? selected.add('wird')
-                        : selected.remove('wird');
+                    v == true ? selected.add('wird') : selected.remove('wird');
                   }),
                   title: Text(isAr ? 'بيانات الورد' : 'Wird Data'),
                   secondary: const Icon(Icons.auto_stories_outlined),
@@ -2842,8 +3176,7 @@ class _AccountSection extends StatelessWidget {
                   : () async {
                       Navigator.pop(ctx);
                       try {
-                        await authCubit
-                            .deleteSelectiveData(selected.toList());
+                        await authCubit.deleteSelectiveData(selected.toList());
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -2857,7 +3190,8 @@ class _AccountSection extends StatelessWidget {
                               behavior: SnackBarBehavior.floating,
                               margin: const EdgeInsets.all(16),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           );
                         }
@@ -2875,7 +3209,8 @@ class _AccountSection extends StatelessWidget {
                               behavior: SnackBarBehavior.floating,
                               margin: const EdgeInsets.all(16),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           );
                         }
@@ -2958,7 +3293,8 @@ class _AccountSection extends StatelessWidget {
                   behavior: SnackBarBehavior.floating,
                   margin: const EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               );
             },

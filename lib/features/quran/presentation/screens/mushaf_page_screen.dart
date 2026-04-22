@@ -1496,6 +1496,16 @@ class _RsReciterRowState extends State<_RsReciterRow> {
     final currentEdition = _offlineAudio.edition;
     final settings = context.read<AppSettingsCubit>().state;
     final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
+
+    // Pre-compute which editions already have audio downloaded.
+    final otherInfo     = await _offlineAudio.getOtherDownloadedEditionsInfo();
+    final currentSurahs = await _offlineAudio.getDownloadedSurahs();
+    final downloadedEditions = <String>{
+      if (currentSurahs.isNotEmpty) _offlineAudio.edition,
+      ...otherInfo.map((m) => m['editionId'] as String),
+    };
+    if (!mounted) return;
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1504,6 +1514,7 @@ class _RsReciterRowState extends State<_RsReciterRow> {
         all: editions,
         currentEdition: currentEdition,
         isAr: isAr,
+        downloadedEditions: downloadedEditions,
         onSelected: (identifier) async {
           await _offlineAudio.setEdition(identifier);
           if (mounted) {
@@ -1680,12 +1691,14 @@ class _MushafReciterPickerSheet extends StatefulWidget {
   final String currentEdition;
   final bool isAr;
   final Future<void> Function(String identifier) onSelected;
+  final Set<String> downloadedEditions;
 
   const _MushafReciterPickerSheet({
     required this.all,
     required this.currentEdition,
     required this.isAr,
     required this.onSelected,
+    required this.downloadedEditions,
   });
 
   @override
@@ -2091,6 +2104,14 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                                                   AppColors.primaryLight,
                                                 ),
                                               ),
+                                            if (widget.downloadedEditions.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: _badge(
+                                                  widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓',
+                                                  Colors.green,
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -2293,16 +2314,24 @@ class _MushafFooter extends StatelessWidget {
                 colorBlendMode: BlendMode.srcIn,
                 fit: BoxFit.fill,
               ),
-              Positioned(
-                bottom: 5,
-                child: Text(
-                  _toArabicNum(page),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.amiri(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: _textCol,
-                    height: 1.0,
+              Align(
+                alignment: Alignment.center,
+                child: Transform.translate(
+                  // Fine-tune optical centering for Amiri digits.
+                  offset: const Offset(0, -2.0),
+                  child: Text(
+                    _toArabicNum(page),
+                    textAlign: TextAlign.center,
+                    strutStyle: const StrutStyle(
+                      forceStrutHeight: true,
+                      height: 1,
+                    ),
+                    style: GoogleFonts.amiri(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: _textCol,
+                      height: 1.0,
+                    ),
                   ),
                 ),
               ),

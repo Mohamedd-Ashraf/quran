@@ -27,6 +27,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../wird/data/quran_boundaries.dart' show kSurahAyahCounts;
 import '../../domain/entities/surah.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import '../screens/tafsir_screen.dart';
@@ -57,6 +58,11 @@ void _showVerseOptionsSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) {
+      final verseTitleStyle = GoogleFonts.arefRuqaa(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: AppColors.primary,
+      );
       return SafeArea(
         child: Directionality(
           textDirection: TextDirection.rtl,
@@ -76,15 +82,22 @@ void _showVerseOptionsSheet(
               // Ayah title
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: Text(
-                  isArabicUi ? '$surahName — آية $verse' : '$surahName — Verse $verse',
-                  style: GoogleFonts.arefRuqaa(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                  textDirection: TextDirection.rtl,
-                ),
+                child: isArabicUi
+                    ? buildRichTextWithAmiriDigits(
+                        text: '$surahName — آية ${toArabicIndicNumber(verse)}',
+                        baseStyle: verseTitleStyle,
+                        amiriStyle: amiriDigitTextStyle(
+                          verseTitleStyle,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.center,
+                      )
+                    : Text(
+                        '$surahName — Verse $verse',
+                        style: verseTitleStyle,
+                        textDirection: TextDirection.rtl,
+                      ),
               ),
               const Divider(height: 1),
               // Bookmark
@@ -852,7 +865,7 @@ class _MushafPageViewState extends State<MushafPageView>
               _bookmarkService.addBookmark(
                 id: pageId,
                 reference: pageId,
-                arabicText: 'صفحة $pageNumber',
+                arabicText: 'صفحة ${toArabicIndicNumber(pageNumber)}',
                 surahName: actualSurahName,
                 surahNumber: actualSurahNumber,
                 ayahNumber: null,
@@ -1046,7 +1059,7 @@ class _MushafPageViewState extends State<MushafPageView>
           ? 'الجزء ${_kJuzNames[juz - 1]}'
           : 'Juz $juz';
     }
-    return widget.isArabicUi ? _toArabicNumerals(juz).toString() : '$juz';
+    return widget.isArabicUi ? _toArabicNumerals(juz) : '$juz';
   }
 
   String _pageLabel(int page) {
@@ -1586,17 +1599,24 @@ class _MushafPageViewState extends State<MushafPageView>
                 colorBlendMode: BlendMode.srcIn,
                 fit: BoxFit.fill,
               ),
-
-              Positioned(
-                bottom: 5,
-                child: Text(
-                  _toArabicNumerals(pageNumber),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.amiri(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: textCol,
-                    height: 1,
+              Align(
+                alignment: Alignment.center,
+                child: Transform.translate(
+                  // Fine-tune optical centering for Amiri digits.
+                  offset: const Offset(0, -0.8),
+                  child: Text(
+                    _toArabicNumerals(pageNumber),
+                    textAlign: TextAlign.center,
+                    strutStyle: const StrutStyle(
+                      forceStrutHeight: true,
+                      height: 1,
+                    ),
+                    style: GoogleFonts.amiri(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: textCol,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
@@ -1610,12 +1630,7 @@ class _MushafPageViewState extends State<MushafPageView>
   // ── Ornament helpers ───────────────────────────────────────────────────────
 
   String _toArabicNumerals(int number) {
-    const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    return number
-        .toString()
-        .split('')
-        .map((d) => int.tryParse(d) != null ? arabicDigits[int.parse(d)] : d)
-        .join();
+    return toArabicIndicNumber(number);
   }
 }
 
@@ -1845,6 +1860,14 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
     List<AudioEdition> all,
     String currentEdition,
   ) async {
+    // Pre-compute which editions already have audio downloaded.
+    final otherInfo     = await _offlineAudio.getOtherDownloadedEditionsInfo();
+    final currentSurahs = await _offlineAudio.getDownloadedSurahs();
+    final downloadedEditions = <String>{
+      if (currentSurahs.isNotEmpty) _offlineAudio.edition,
+      ...otherInfo.map((m) => m['editionId'] as String),
+    };
+    if (!ctx.mounted) return;
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
@@ -1853,6 +1876,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
         all: all,
         currentEdition: currentEdition,
         isAr: widget.isAr,
+        downloadedEditions: downloadedEditions,
         onSelected: (identifier) async {
           await _offlineAudio.setEdition(identifier);
           if (ctx.mounted) {
@@ -2237,12 +2261,14 @@ class _QcfReciterPickerSheet extends StatefulWidget {
   final String currentEdition;
   final bool isAr;
   final Future<void> Function(String identifier) onSelected;
+  final Set<String> downloadedEditions;
 
   const _QcfReciterPickerSheet({
     required this.all,
     required this.currentEdition,
     required this.isAr,
     required this.onSelected,
+    required this.downloadedEditions,
   });
 
   @override
@@ -2725,6 +2751,26 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                                     style: GoogleFonts.cairo(
                                                       fontSize: 9.5,
                                                       color: AppColors.primaryLight,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            if (widget.downloadedEditions.contains(e.identifier))
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: Colors.green.withValues(alpha: 0.12),
+                                                  ),
+                                                  child: Text(
+                                                    widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓',
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 9.5,
+                                                      color: Colors.green,
                                                       fontWeight: FontWeight.w700,
                                                     ),
                                                   ),

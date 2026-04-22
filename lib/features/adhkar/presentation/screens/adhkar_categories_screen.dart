@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/utils/number_style_utils.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/adhkar_tutorial.dart';
 import '../../data/adhkar_data.dart';
@@ -446,9 +447,9 @@ class _CategoryCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          isArabicUi
-                              ? '${category.count} أذكار'
-                              : '${category.count} items',
+                              isArabicUi
+                                ? '${localizeNumber(category.count, isArabic: true)} أذكار'
+                                : '${category.count} items',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -459,7 +460,9 @@ class _CategoryCard extends StatelessWidget {
                       const Spacer(),
                       if (completedCount > 0)
                         Text(
-                          '$completedCount/${category.count}',
+                          isArabicUi
+                              ? '${localizeNumber(completedCount, isArabic: true)}/${localizeNumber(category.count, isArabic: true)}'
+                              : '$completedCount/${category.count}',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
@@ -569,7 +572,9 @@ class _SmallCategoryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  isArabicUi ? '${category.count} ذكر' : '${category.count}',
+                  isArabicUi
+                      ? '${localizeNumber(category.count, isArabic: true)} ذكر'
+                      : '${category.count}',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,

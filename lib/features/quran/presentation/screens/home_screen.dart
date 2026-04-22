@@ -33,6 +33,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
+import '../../../../core/utils/number_style_utils.dart';
 
 // Cached at file scope — avoids triggering loadFontIfNecessary on every build,
 // which causes unhandled rejections with google_fonts ≥6.2 in Flutter.
@@ -68,20 +69,12 @@ String _removeDiacriticsHelper(String text) {
 
 /// Converts an integer to Arabic-Indic numeral string (٠١٢٣٤٥٦٧٨٩).
 String _toArabicNumStr(int n) {
-  const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return n.toString().split('').map((c) {
-    final digit = int.tryParse(c);
-    return digit != null ? d[digit] : c;
-  }).join();
+  return toArabicIndicNumber(n);
 }
 
 /// Converts all ASCII digits in a string to Arabic-Indic.
 String _arabicizeDigits(String s) {
-  const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return s.split('').map((c) {
-    final digit = int.tryParse(c);
-    return digit != null ? d[digit] : c;
-  }).join();
+  return toArabicIndicDigits(s);
 }
 
 /// Surah number style with classical Amiri font.
@@ -467,13 +460,34 @@ class HomeScreenState extends State<HomeScreen>
                         ),
                         const Spacer(flex: 7),
 
-                        Text(
-                          isArabicUi ? '١١٤ سورة' : '114 Surahs',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? const Color(0xFFF0D060) : AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Builder(
+                          builder: (_) {
+                            final countStyle = TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? const Color(0xFFF0D060)
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            );
+                            final countText = isArabicUi
+                                ? '${toArabicIndicNumber(114)} سورة'
+                                : '114 Surahs';
+                            if (!isArabicUi) {
+                              return Text(countText, style: countStyle);
+                            }
+                            return buildRichTextWithAmiriDigits(
+                              text: countText,
+                              baseStyle: countStyle,
+                              amiriStyle: amiriDigitTextStyle(
+                                countStyle,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.right,
+                              textDirection: TextDirection.rtl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -928,16 +942,35 @@ class _ContinueReadingCard extends StatelessWidget {
                                 : TextDirection.ltr,
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            subLabel,
-                            style: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFFD4AF37).withValues(alpha: 0.60)
-                                  : AppColors.primary.withValues(alpha: 0.60),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: isArabicUi ? TextAlign.end : TextAlign.start,
+                          Builder(
+                            builder: (_) {
+                              final subLabelStyle = TextStyle(
+                                color: isDark
+                                    ? const Color(0xFFD4AF37).withValues(alpha: 0.60)
+                                    : AppColors.primary.withValues(alpha: 0.60),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              );
+                              if (!isArabicUi) {
+                                return Text(
+                                  subLabel,
+                                  style: subLabelStyle,
+                                  textAlign: TextAlign.start,
+                                );
+                              }
+                              return buildRichTextWithAmiriDigits(
+                                text: subLabel,
+                                baseStyle: subLabelStyle,
+                                amiriStyle: amiriDigitTextStyle(
+                                  subLabelStyle,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.end,
+                                textDirection: TextDirection.rtl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ],
                       ),

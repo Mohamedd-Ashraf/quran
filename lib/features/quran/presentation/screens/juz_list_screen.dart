@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/juz_data.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
@@ -40,8 +41,7 @@ const Map<int, String> _surahArabicNames = {
 };
 
 String _toArabicNumeralsJuz(int n) {
-  const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return n.toString().split('').map((c) => d[int.parse(c)]).join();
+  return toArabicIndicNumber(n);
 }
 
 class JuzListScreen extends StatelessWidget {
@@ -157,8 +157,19 @@ class _JuzCardState extends State<_JuzCard> {
                       ),
                       child: Center(
                         child: Text(
-                          '${widget.juz.number}',
-                          style: const TextStyle(
+                          widget.isArabicUi
+                              ? _toArabicNumeralsJuz(widget.juz.number)
+                              : '${widget.juz.number}',
+                          style: widget.isArabicUi
+                              ? amiriDigitTextStyle(
+                                  const TextStyle(
+                                    color: AppColors.onPrimary,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  fontWeight: FontWeight.bold,
+                                )
+                              : const TextStyle(
                             color: AppColors.onPrimary,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -341,11 +352,15 @@ class _JuzCardState extends State<_JuzCard> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      '${surah.number}',
+                                      _toArabicNumeralsJuz(surah.number),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.primary,
+                                      ).copyWith(
+                                        fontFamily: amiriDigitTextStyle(
+                                          const TextStyle(),
+                                        ).fontFamily,
                                       ),
                                     ),
                                   ),
@@ -365,18 +380,34 @@ class _JuzCardState extends State<_JuzCard> {
                                 : Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w600),
                           ),
-                          subtitle: Text(
-                            widget.isArabicUi
-                                ? '${surah.numberOfAyahs} آية'
-                                : '${surah.numberOfAyahs} Ayahs',
-                            textAlign: widget.isArabicUi
-                                ? TextAlign.right
-                                : TextAlign.left,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
+                          subtitle: widget.isArabicUi
+                              ? buildRichTextWithAmiriDigits(
+                                  text:
+                                      '${_toArabicNumeralsJuz(surah.numberOfAyahs)} آية',
+                                  baseStyle: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  amiriStyle: amiriDigitTextStyle(
+                                    const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                  textDirection: TextDirection.rtl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                              : Text(
+                                  '${surah.numberOfAyahs} Ayahs',
+                                  textAlign: TextAlign.left,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                         ),
                       );
                     }).toList(),
@@ -396,9 +427,11 @@ class _JuzCardState extends State<_JuzCard> {
     final String display;
     if (isAr) {
       final startName =
-          _surahArabicNames[juz.startSurahNumber] ?? 'سورة ${juz.startSurahNumber}';
+        _surahArabicNames[juz.startSurahNumber] ??
+          'سورة ${_toArabicNumeralsJuz(juz.startSurahNumber)}';
       final endName =
-          _surahArabicNames[juz.endSurahNumber] ?? 'سورة ${juz.endSurahNumber}';
+        _surahArabicNames[juz.endSurahNumber] ??
+          'سورة ${_toArabicNumeralsJuz(juz.endSurahNumber)}';
       final startA = _toArabicNumeralsJuz(juz.startAyah);
       final endA = _toArabicNumeralsJuz(juz.endAyah);
       if (juz.startSurahNumber == juz.endSurahNumber) {
@@ -427,15 +460,48 @@ class _JuzCardState extends State<_JuzCard> {
                 color: AppColors.primary, size: 13),
             const SizedBox(width: 6),
             Flexible(
-              child: Text(
-                display,
-                textAlign: isAr ? TextAlign.right : TextAlign.left,
-                style: _cachedAmiriQuran.copyWith(
-                  fontSize: 13,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                  height: 1.6,
-                ),
+              child: Builder(
+                builder: (_) {
+                  final baseStyle = isAr
+                      ? _cachedAmiriQuran.copyWith(
+                          fontSize: 13,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          height: 1.6,
+                        )
+                      : Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 13,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ) ??
+                          const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          );
+
+                  if (!isAr) {
+                    return Text(
+                      display,
+                      textAlign: TextAlign.left,
+                      style: baseStyle,
+                    );
+                  }
+
+                  return buildRichTextWithAmiriDigits(
+                    text: display,
+                    baseStyle: baseStyle,
+                    amiriStyle: amiriDigitTextStyle(
+                      baseStyle,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.right,
+                    textDirection: TextDirection.rtl,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                },
               ),
             ),
           ],

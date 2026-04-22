@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/theme/app_design_system.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/hadith_category_info.dart';
 import '../../data/models/hadith_item.dart';
 import '../../data/models/hadith_list_item.dart';
@@ -335,7 +336,7 @@ class _ListHeaderBackground extends StatelessWidget {
                     ),
                     child: Text(
                       isArabic
-                          ? '${category.count} حديث'
+                          ? '${localizeNumber(category.count, isArabic: true)} حديث'
                           : '${category.count} Hadiths',
                       style: const TextStyle(
                         color: Colors.white,

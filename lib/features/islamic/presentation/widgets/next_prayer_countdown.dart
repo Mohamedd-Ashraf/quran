@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/prayer_time_helper.dart';
 import '../../../../core/services/prayer_times_cache_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/utils/number_style_utils.dart';
 
 /// A widget that displays a countdown to the next prayer time.
 class NextPrayerCountdown extends StatefulWidget {
@@ -53,8 +54,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
 
   /// Convert ASCII digits to Arabic-Indic (same as verse numbers in Quran pages).
   static String _toArabicNum(int n) {
-    const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    return n.toString().split('').map((c) => d[int.parse(c)]).join();
+    return toArabicIndicNumber(n);
   }
 
   @override
@@ -98,11 +98,7 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
 
   /// Converts ASCII digits 0-9 to Arabic-Indic ٠-٩.
   String _toArabicDigits(String input) {
-    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    return input.split('').map((c) {
-      final d = int.tryParse(c);
-      return d != null ? ar[d] : c;
-    }).join();
+    return toArabicIndicDigits(input);
   }
 
   /// Returns 0..1 — how far through the current prayer window we are.
@@ -358,11 +354,11 @@ class _NextPrayerCountdownState extends State<NextPrayerCountdown> {
               padding: const EdgeInsets.fromLTRB(10, 5, 10, 8),
               child: Row(
                 children: [
-                  _CountUnit(value: displayH, label: isArabic ? 'ساعات'  : 'Hours',   digitColor: countdownDigitColor, labelColor: unitColor),
+                  _CountUnit(value: displayH, label: isArabic ? 'ساعات'  : 'Hours',   digitColor: countdownDigitColor, labelColor: unitColor, isArabic: isArabic),
                   _CountSep(color: sepColor),
-                  _CountUnit(value: displayM, label: isArabic ? 'دقائق'  : 'Minutes', digitColor: countdownDigitColor, labelColor: unitColor),
+                  _CountUnit(value: displayM, label: isArabic ? 'دقائق'  : 'Minutes', digitColor: countdownDigitColor, labelColor: unitColor, isArabic: isArabic),
                   _CountSep(color: sepColor),
-                  _CountUnit(value: displayS, label: isArabic ? 'ثواني'  : 'Seconds', digitColor: countdownDigitColor, labelColor: unitColor),
+                  _CountUnit(value: displayS, label: isArabic ? 'ثواني'  : 'Seconds', digitColor: countdownDigitColor, labelColor: unitColor, isArabic: isArabic),
                 ],
               ),
             ),
@@ -391,11 +387,13 @@ class _CountUnit extends StatelessWidget {
   final String label;
   final Color digitColor;
   final Color labelColor;
+  final bool isArabic;
   const _CountUnit({
     required this.value,
     required this.label,
     required this.digitColor,
     required this.labelColor,
+    required this.isArabic,
   });
 
   @override
@@ -416,11 +414,18 @@ class _CountUnit extends StatelessWidget {
           children: [
             Text(
               value,
-              style: _NextPrayerCountdownState._digitStyle(
-                color: digitColor,
-                fontSize: 24,
-                height: 1.0,
-              ),
+              style: isArabic
+                  ? _NextPrayerCountdownState._digitStyle(
+                      color: digitColor,
+                      fontSize: 24,
+                      height: 1.0,
+                    )
+                  : _NextPrayerCountdownState._cairo(
+                      color: digitColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 3),

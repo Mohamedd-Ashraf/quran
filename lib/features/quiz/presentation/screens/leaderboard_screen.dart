@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/leaderboard_entry.dart';
 import '../cubit/leaderboard_cubit.dart';
 import '../cubit/leaderboard_state.dart';
@@ -30,6 +31,45 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   void dispose() {
     _cubit.close();
     super.dispose();
+  }
+
+  String _localizeInt(int value, {required bool isArabic}) {
+    return localizeNumber(value, isArabic: isArabic);
+  }
+
+  Widget _digitAwareText({
+    required String text,
+    required TextStyle style,
+    required bool isArabic,
+    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
+    int? maxLines,
+    TextOverflow overflow = TextOverflow.clip,
+  }) {
+    if (!isArabic) {
+      return Text(
+        text,
+        style: style,
+        textAlign: textAlign,
+        textDirection: textDirection,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    return buildRichTextWithAmiriDigits(
+      text: text,
+      baseStyle: style,
+      amiriStyle: amiriDigitTextStyle(
+        style,
+        fontWeight: style.fontWeight ?? FontWeight.w700,
+        height: style.height,
+      ),
+      textAlign: textAlign,
+      textDirection: textDirection,
+      maxLines: maxLines,
+      overflow: overflow,
+    );
   }
 
   @override
@@ -344,13 +384,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   color: borderColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  '$rank',
+                child: _digitAwareText(
+                  text: _localizeInt(rank, isArabic: isArabic),
                   style: TextStyle(
                     color: rank == 1 ? AppColors.textPrimary : Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 10,
                   ),
+                  isArabic: isArabic,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -400,13 +442,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '${entry.totalScore}',
+                _digitAwareText(
+                  text: _localizeInt(entry.totalScore, isArabic: isArabic),
                   style: TextStyle(
                     fontSize: isFirst ? 18 : 13,
                     fontWeight: FontWeight.w900,
                     color: isFirst ? Colors.white : scoreColor,
                   ),
+                  isArabic: isArabic,
+                  textAlign: TextAlign.center,
                 ),
                 if (entry.streak > 0) ...[
                   const SizedBox(height: 2),
@@ -416,8 +460,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     children: [
                       Icon(Icons.local_fire_department,
                           color: Colors.orange, size: 11),
-                      Text(
-                        ' ${entry.streak}',
+                      _digitAwareText(
+                        text: ' ${_localizeInt(entry.streak, isArabic: isArabic)}',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
@@ -425,6 +469,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               ? Colors.white70
                               : AppColors.textSecondary,
                         ),
+                        isArabic: isArabic,
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -472,13 +518,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           // Rank number
           SizedBox(
             width: 32,
-            child: Text(
-              '$rank',
+            child: _digitAwareText(
+              text: _localizeInt(rank, isArabic: isArabic),
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 15,
                 color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
               ),
+              isArabic: isArabic,
             ),
           ),
           // Avatar
@@ -514,14 +561,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       const Icon(Icons.local_fire_department,
                           color: Colors.orange, size: 14),
                       const SizedBox(width: 3),
-                      Text(
-                        '${entry.streak} ${isArabic ? "يوم متواصل" : "day streak"}',
+                      _digitAwareText(
+                        text: '${_localizeInt(entry.streak, isArabic: isArabic)} ${isArabic ? "يوم متواصل" : "day streak"}',
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
                         ),
+                        isArabic: isArabic,
+                        textDirection: isArabic
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                       ),
                     ],
                   ),
@@ -533,13 +584,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${entry.totalScore}',
+              _digitAwareText(
+                text: _localizeInt(entry.totalScore, isArabic: isArabic),
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   color: AppColors.primary,
                   fontSize: 16,
                 ),
+                isArabic: isArabic,
+                textAlign: TextAlign.end,
               ),
               Text(
                 isArabic ? 'نقطة' : 'pts',
@@ -589,13 +642,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  rank != null ? '$rank' : '-',
+                _digitAwareText(
+                  text: rank != null
+                      ? _localizeInt(rank, isArabic: isArabic)
+                      : '-',
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 20,
                     color: Colors.white,
                   ),
+                  isArabic: isArabic,
                 ),
                 Text(
                   isArabic ? 'مرتبتك' : 'Rank',
@@ -664,13 +720,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${entry.totalScore}',
+              _digitAwareText(
+                text: _localizeInt(entry.totalScore, isArabic: isArabic),
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 22,
                   color: AppColors.secondary,
                 ),
+                isArabic: isArabic,
+                textAlign: TextAlign.end,
               ),
               Text(
                 isArabic ? 'نقطة' : 'pts',

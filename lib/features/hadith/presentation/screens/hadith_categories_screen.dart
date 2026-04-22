@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/number_style_utils.dart';
 import '../../data/models/hadith_category_info.dart';
 import '../../data/models/remote_hadith.dart';
 import '../../data/repositories/hadith_repository.dart';
@@ -846,7 +847,9 @@ class _CategoryCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '${category.count}',
+                            isArabic
+                                ? localizeNumber(category.count, isArabic: true)
+                                : '${category.count}',
                             style: TextStyle(
                               color: catColor,
                               fontWeight: FontWeight.w800,
@@ -1010,7 +1013,7 @@ class _BukhariBookCard extends StatelessWidget {
                             Text(
                               book.count > 0
                                   ? (isArabic
-                                      ? 'أحاديث: ${book.count}'
+                                  ? 'أحاديث: ${localizeNumber(book.count, isArabic: true)}'
                                       : 'Hadiths: ${book.count}')
                                   : 'صحيح البخاري',
                               style: TextStyle(

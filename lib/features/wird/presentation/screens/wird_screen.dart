@@ -17,6 +17,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/wird_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
+import '../../../../core/utils/number_style_utils.dart';
 import 'wird_setup_screen.dart';
 
 // Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
@@ -142,8 +143,7 @@ const Map<int, String> _surahArabicNames = {
 
 // ── Arabic helpers ─────────────────────────────────────────────────────────
 String _arabicNumerals(int n) {
-  const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return n.toString().split('').map((c) => d[int.parse(c)]).join();
+  return toArabicIndicNumber(n);
 }
 
 const _arabicMonths = [
@@ -207,9 +207,46 @@ String _formatTime12h(TimeOfDay tod, {required bool isAr}) {
       ? (isAr ? 'ص' : 'AM')
       : (isAr ? 'م' : 'PM');
   if (isAr) {
-    return '${_arabicNumerals(h)}:${m.split('').map((c) => ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'][int.parse(c)]).join()} $suffix';
+    return '${_arabicNumerals(h)}:${toArabicIndicDigits(m)} $suffix';
   }
   return '$h:$m $suffix';
+}
+
+Widget _digitAwareText(
+  String text, {
+  required TextStyle? style,
+  required bool isAr,
+  TextAlign textAlign = TextAlign.start,
+  TextDirection? textDirection,
+  int? maxLines,
+  TextOverflow overflow = TextOverflow.clip,
+}) {
+  final effectiveStyle = style ?? const TextStyle();
+  
+  if (!isAr) {
+    return Text(
+      text,
+      style: effectiveStyle,
+      textAlign: textAlign,
+      textDirection: textDirection,
+      maxLines: maxLines,
+      overflow: overflow,
+    );
+  }
+
+  return buildRichTextWithAmiriDigits(
+    text: text,
+    baseStyle: effectiveStyle,
+    amiriStyle: amiriDigitTextStyle(
+      effectiveStyle,
+      fontWeight: effectiveStyle.fontWeight ?? FontWeight.w700,
+      height: effectiveStyle.height,
+    ),
+    textAlign: textAlign,
+    textDirection: textDirection ?? TextDirection.rtl,
+    maxLines: maxLines,
+    overflow: overflow,
+  );
 }
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
@@ -1151,10 +1188,12 @@ class _SetupSheetState extends State<_SetupSheet> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
+                child: _digitAwareText(
                   isAr
                       ? 'ستظهر الأيام الـ ${_arabicNumerals(elapsed)} الماضية كأيام فائتة في «ورد القضاء» — يمكنك تعويضها في أي وقت بإذن الله.'
                       : '$elapsed missed day${elapsed == 1 ? "" : "s"} will appear in the Makeup section so you can catch up at your own pace.',
+                  isAr: isAr,
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   textAlign: isAr ? TextAlign.right : TextAlign.left,
                   style: const TextStyle(
                     color: Color(0xFFBF360C),
@@ -1197,11 +1236,14 @@ class _SetupSheetState extends State<_SetupSheet> {
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(
+                _digitAwareText(
                   isAr ? _formatDateAr(_startDate) : _formatDateEn(_startDate),
+                  isAr: isAr,
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600) ??
+                      const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
                 const Icon(
@@ -1233,10 +1275,12 @@ class _SetupSheetState extends State<_SetupSheet> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: _digitAwareText(
                     isAr
                         ? 'مرّت ${_arabicNumerals(past)} ${past == 1 ? "يوم" : "أيام"} من الورد حتى الآن'
                         : '$past day${past == 1 ? "" : "s"} of Ramadan have passed',
+                    isAr: isAr,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w600,
@@ -1272,10 +1316,12 @@ class _SetupSheetState extends State<_SetupSheet> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Text(
+                      _digitAwareText(
                         isAr
                             ? '${_arabicNumerals(past)} أيام ستُضاف لتقدمك تلقائيًا'
                             : '$past days will be added to your progress',
+                        isAr: isAr,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -1420,8 +1466,9 @@ class _SetupSheetState extends State<_SetupSheet> {
             return ChoiceChip(
               selected: selected,
               onSelected: (_) => setState(() => _selectedDays = days),
-              label: Text(
+              label: _digitAwareText(
                 isAr ? '${_arabicNumerals(days)} يومًا' : '$days days',
+                isAr: isAr,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: selected ? AppColors.onPrimary : AppColors.textPrimary,
@@ -1502,8 +1549,9 @@ class _SetupSheetState extends State<_SetupSheet> {
             return ChoiceChip(
               selected: selected,
               onSelected: (_) => setState(() => _selectedPagesPerDay = pages),
-              label: Text(
+              label: _digitAwareText(
                 isAr ? '${_arabicNumerals(pages)} صفحة' : '$pages pages',
+                isAr: isAr,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: selected ? AppColors.onPrimary : AppColors.textPrimary,
@@ -1568,11 +1616,14 @@ class _SetupSheetState extends State<_SetupSheet> {
                 size: 20,
               ),
               const SizedBox(width: 12),
-              Text(
+              _digitAwareText(
                 isAr ? _formatDateAr(_startDate) : _formatDateEn(_startDate),
+                isAr: isAr,
+                textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                 style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600) ??
+                    const TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               const Icon(
@@ -1612,10 +1663,12 @@ class _SetupSheetState extends State<_SetupSheet> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    _digitAwareText(
                       isAr
                           ? '${_arabicNumerals(regularPastDays)} ${regularPastDays == 1 ? "يوم" : "أيام"} سابقة لن تظهر في ورد القضاء'
                           : '$regularPastDays past day${regularPastDays == 1 ? "" : "s"} will not appear in makeup',
+                      isAr: isAr,
+                      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -1707,12 +1760,14 @@ class _SetupSheetState extends State<_SetupSheet> {
                 size: 22,
               ),
               const SizedBox(width: 12),
-              Text(
+              _digitAwareText(
                 isSet
                     ? _formatTime12h(_reminderTime!, isAr: isAr)
                     : (isAr
                           ? 'اختر وقتًا (اختياري)'
                           : 'Pick a time (optional)'),
+                isAr: isAr,
+                textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1737,14 +1792,18 @@ class _SetupSheetState extends State<_SetupSheet> {
     if (days <= 30) {
       final juzPerDay = (30 / days).ceil();
       final extra = juzPerDay > 1
-          ? (isAr ? ' ($juzPerDay أجزاء يوميًا)' : ' ($juzPerDay juz/day)')
+          ? (isAr
+              ? ' (${_arabicNumerals(juzPerDay)} أجزاء يوميًا)'
+              : ' ($juzPerDay juz/day)')
           : (isAr ? ' (جزء واحد يوميًا)' : ' (1 juz/day)');
       return isAr
-          ? 'تختم في $days يومًا$extra'
+          ? 'تختم في ${_arabicNumerals(days)} يومًا$extra'
           : 'Complete in $days days$extra';
     }
     final portions = days ~/ 30;
-    return isAr ? 'جزء واحد كل $portions أيام' : '1 juz every $portions days';
+    return isAr
+        ? 'جزء واحد كل ${_arabicNumerals(portions)} أيام'
+        : '1 juz every $portions days';
   }
 
   String _getPagesHint(int pagesPerDay, {required bool isAr}) {
@@ -2091,15 +2150,17 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                       color: Colors.white.withValues(alpha: 0.22),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
+                    child: _digitAwareText(
                       isAr
                           ? '${_arabicNumerals(completedCount)} / ${_arabicNumerals(plan.targetDays)}'
                           : '$completedCount / ${plan.targetDays}',
+                      isAr: isAr,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -2474,11 +2535,17 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                         final n = i + 1;
                         return DropdownMenuItem(
                           value: n,
-                          child: Text(
+                          child: _digitAwareText(
                             isAr
                                 ? '${_arabicNumerals(n)}. ${_surahArabicNames[n] ?? ""}'
                                 : '$n. ${_surahArabicNames[n] ?? "Surah $n"}',
+                            isAr: isAr,
+                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodyMedium ??
+                                const TextStyle(),
                           ),
                         );
                       }),
@@ -2669,10 +2736,12 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    _digitAwareText(
                       isAr
                           ? 'ورد اليوم: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
                           : "Today's range: Page $startP–$endP",
+                      isAr: isAr,
+                      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
@@ -2812,7 +2881,7 @@ class _MissedDaysBanner extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
+                child: _digitAwareText(
                   isMakeupMode
                       ? (isAr
                           ? 'وضع القضاء نشط — $count $dayWord للتعويض'
@@ -2820,6 +2889,8 @@ class _MissedDaysBanner extends StatelessWidget {
                       : (isAr
                           ? 'متأخر $count $dayWord — لا تُفوِّت الفرصة'
                           : '$count $dayWord behind — don\'t miss your chance'),
+                  isAr: isAr,
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2962,10 +3033,12 @@ class _CompletedWithMissedWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
+                  child: _digitAwareText(
                     isAr
                         ? 'لديك $count $dayWord — الأفضل أن تلحقها قبل ورد الغد. كل يوم تقضيه يُقربك من إتمام ختمتك 💚'
                         : 'You have $count $dayWord — best to catch up before tomorrow\'s wird. Each day you make up brings you closer to your khatm 💚',
+                    isAr: isAr,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark
@@ -3031,10 +3104,12 @@ class _CompletedWithMissedWidget extends StatelessWidget {
                         : Icons.arrow_forward_ios_rounded,
                     size: 13,
                   ),
-                  label: Text(
+                  label: _digitAwareText(
                     isAr
                         ? 'أو ابدأ وِرْدَ اليوم ${nextDayNumber != null ? _arabicNumerals(nextDayNumber!) : ''}'
                         : 'Or start Day ${nextDayNumber ?? "next"}\'s wird',
+                    isAr: isAr,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -3092,7 +3167,7 @@ class _NextDayWidget extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
+                child: _digitAwareText(
                   isAheadOfSchedule
                       ? (isAr
                           ? 'ما شاء الله! أنت متقدم عن الجدول 🚀 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)}.'
@@ -3100,6 +3175,8 @@ class _NextDayWidget extends StatelessWidget {
                       : (isAr
                           ? 'أتممت ورد اليوم! 🎉 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)} الآن.'
                           : "Today's wird done! 🎉 You can start Day $nextDayNumber's wird now."),
+                  isAr: isAr,
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -3130,10 +3207,12 @@ class _NextDayWidget extends StatelessWidget {
                     : Icons.arrow_forward_ios_rounded,
                 size: 16,
               ),
-              label: Text(
+              label: _digitAwareText(
                 isAr
                     ? 'ابدأ وِرْدَ اليوم ${_arabicNumerals(nextDayNumber)}'
                     : "Start Day $nextDayNumber's Wird",
+                isAr: isAr,
+                textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -3178,6 +3257,7 @@ class _WirdModeToggle extends StatelessWidget {
           _ToggleTab(
             label: isAr ? '📖 الورد اليومي' : '📖 Daily Wird',
             isActive: !isMakeupMode,
+            isAr: isAr,
             onTap: () => onToggle(false),
           ),
           _ToggleTab(
@@ -3185,6 +3265,7 @@ class _WirdModeToggle extends StatelessWidget {
                 ? '🔄 ورد القضاء (${_arabicNumerals(missedCount)})'
                 : '🔄 Makeup ($missedCount)',
             isActive: isMakeupMode,
+            isAr: isAr,
             onTap: () => onToggle(true),
           ),
         ],
@@ -3196,11 +3277,13 @@ class _WirdModeToggle extends StatelessWidget {
 class _ToggleTab extends StatelessWidget {
   final String label;
   final bool isActive;
+  final bool isAr;
   final VoidCallback onTap;
 
   const _ToggleTab({
     required this.label,
     required this.isActive,
+    required this.isAr,
     required this.onTap,
   });
 
@@ -3225,9 +3308,11 @@ class _ToggleTab extends StatelessWidget {
                   ]
                 : null,
           ),
-          child: Text(
+          child: _digitAwareText(
             label,
+            isAr: isAr,
             textAlign: TextAlign.center,
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
             style: TextStyle(
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               fontSize: 13,
@@ -3283,7 +3368,9 @@ class _TodayCard extends StatelessWidget {
   String _surahName(BuildContext context, int surahNum) {
     // For Arabic always use the clean map (SurahBloc names include a
     // "سُورَةُ" prefix that would double up when we prepend "سورة" in the UI).
-    if (isAr) return _surahArabicNames[surahNum] ?? 'سورة $surahNum';
+    if (isAr) {
+      return _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+    }
     // For English, prefer the live bloc data, fall back to a generic label.
     final surahState = context.read<SurahBloc>().state;
     if (surahState is SurahListLoaded) {
@@ -3423,8 +3510,9 @@ class _TodayCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
+                _digitAwareText(
                   isAr ? '${_arabicNumerals(pct)}٪' : '$pct%',
+                  isAr: isAr,
                   style: const TextStyle(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -3453,13 +3541,15 @@ class _TodayCard extends StatelessWidget {
                           color: const Color(0xFF059669).withValues(alpha: 0.3),
                         ),
                       ),
-                      child: Text(
+                      child: _digitAwareText(
                         isAr ? _arabicNumerals(completedCount) : '$completedCount',
+                        isAr: isAr,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                           fontSize: 13,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -3486,13 +3576,16 @@ class _TodayCard extends StatelessWidget {
                           color: AppColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
-                      child: Text(
+                      child: _digitAwareText(
                         isAr ? 'اليوم ${_arabicNumerals(today)}' : 'Day $today',
+                        isAr: isAr,
                         style: const TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
+                        textAlign: TextAlign.center,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                       ),
                     ),
                     if (isComplete) ...[
@@ -3552,10 +3645,12 @@ class _TodayCard extends StatelessWidget {
               ),
             if (isPagesBased)
               Center(
-                child: Text(
+                child: _digitAwareText(
                   isAr
                       ? '${_arabicNumerals(plan.pagesPerDay ?? 1)} صفحات يوميًا'
                       : '${plan.pagesPerDay ?? 1} pages/day',
+                  isAr: isAr,
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: GoogleFonts.notoNaskhArabic(
                     fontSize: 22,
                     color: AppColors.primary,
@@ -3602,11 +3697,13 @@ class _TodayCard extends StatelessWidget {
                         if (pageLine != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 2),
-                            child: Text(
+                            child: _digitAwareText(
                               pageLine,
+                              isAr: isAr,
                               textAlign: isAr
                                   ? TextAlign.right
                                   : TextAlign.left,
+                              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: AppColors.secondary,
@@ -3614,9 +3711,11 @@ class _TodayCard extends StatelessWidget {
                                   ),
                             ),
                           ),
-                        Text(
+                        _digitAwareText(
                           isAr ? rangeLineAr : rangeLineEn,
+                          isAr: isAr,
                           textAlign: isAr ? TextAlign.right : TextAlign.left,
+                          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                           style: GoogleFonts.notoNaskhArabic(
                             fontSize: 14,
                             color: AppColors.primary,
@@ -3659,7 +3758,7 @@ class _TodayCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: _digitAwareText(
                         lastReadPage != null
                             ? (isAr
                                 ? 'وصلت إلى: صفحة ${_arabicNumerals(lastReadPage!)}'
@@ -3667,6 +3766,8 @@ class _TodayCard extends StatelessWidget {
                             : (isAr
                                 ? 'وصلت إلى: ${_surahArabicNames[lastReadSurah] ?? "سورة $lastReadSurah"} آية ${_arabicNumerals(lastReadAyah!)}'
                                 : 'Stopped at: ${_surahArabicNames[lastReadSurah] ?? "Surah $lastReadSurah"} $lastReadAyah'),
+                        isAr: isAr,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.accent,
                           fontWeight: FontWeight.w600,
@@ -3697,10 +3798,12 @@ class _TodayCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                           ),
-                          child: Text(
+                          child: _digitAwareText(
                             isAr
                                 ? '↑ متقدم عن ورد اليوم (الورد ينتهي صفحة ${_arabicNumerals(pageRange!.endPage)})'
                                 : "↑ Ahead of today's range (ends at page ${pageRange!.endPage})",
+                            isAr: isAr,
+                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -4060,15 +4163,18 @@ class _DaysGrid extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
+                  child: _digitAwareText(
                     isAr
                         ? 'إنجاز ${_arabicNumerals(pct)}٪ — ${_arabicNumerals(completedCount)} / ${_arabicNumerals(plan.targetDays)}'
                         : '$pct% — $completedCount / ${plan.targetDays}',
+                    isAr: isAr,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
+                    textAlign: TextAlign.center,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   ),
                 ),
               ],
@@ -4154,8 +4260,10 @@ class _DaysGrid extends StatelessWidget {
                                   color: Colors.white,
                                   size: 16,
                                 )
-                              : Text(
+                              : _digitAwareText(
                                   isAr ? _arabicNumerals(day) : day.toString(),
+                                  isAr: isAr,
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: isToday
@@ -4387,10 +4495,12 @@ class _MakeupCardState extends State<_MakeupCard> {
                           fontSize: 14,
                         ),
                       ),
-                      Text(
+                      _digitAwareText(
                         isAr
                             ? 'تبقى ${_arabicNumerals(missed.length)} ${missed.length == 1 ? "يوم" : "أيام"} لم تُقرأ بعد'
                             : '${missed.length} day${missed.length == 1 ? "" : "s"} not yet made up',
+                        isAr: isAr,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: const TextStyle(
                           color: _kOrange,
                           fontSize: 11.5,
@@ -4418,10 +4528,12 @@ class _MakeupCardState extends State<_MakeupCard> {
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
+                    child: _digitAwareText(
                       isAr
                           ? '${_arabicNumerals(_index + 1)}/${_arabicNumerals(missed.length)}'
                           : '${_index + 1}/${missed.length}',
+                      isAr: isAr,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: _kOrange,
                         fontWeight: FontWeight.bold,
@@ -4472,8 +4584,10 @@ class _MakeupCardState extends State<_MakeupCard> {
                           color: _kOrange.withValues(alpha: 0.3),
                         ),
                       ),
-                      child: Text(
+                      child: _digitAwareText(
                         isAr ? 'اليوم ${_arabicNumerals(day)}' : 'Day $day',
+                        isAr: isAr,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: const TextStyle(
                           color: _kOrange,
                           fontWeight: FontWeight.bold,
@@ -4482,8 +4596,10 @@ class _MakeupCardState extends State<_MakeupCard> {
                       ),
                     ),
                     if (juzList.isNotEmpty || isPagesBased)
-                      Text(
+                      _digitAwareText(
                         dayDesc,
+                        isAr: isAr,
+                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: GoogleFonts.notoNaskhArabic(
                           fontSize: 17,
                           color: _kOrange,
@@ -4521,8 +4637,10 @@ class _MakeupCardState extends State<_MakeupCard> {
                             if (pageLine != null)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
-                                child: Text(
+                                child: _digitAwareText(
                                   pageLine,
+                                  isAr: isAr,
+                                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                                   style: const TextStyle(
                                     color: _kOrange,
                                     fontWeight: FontWeight.w700,
@@ -4530,8 +4648,10 @@ class _MakeupCardState extends State<_MakeupCard> {
                                   ),
                                 ),
                               ),
-                            Text(
+                            _digitAwareText(
                               rangeLine,
+                              isAr: isAr,
+                              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                               style: const TextStyle(
                                 color: _kOrange,
                                 fontWeight: FontWeight.bold,
@@ -4587,10 +4707,12 @@ class _MakeupCardState extends State<_MakeupCard> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
+                          child: _digitAwareText(
                             isAr
                                 ? 'آخر موضع: ${_surahArabicNames[widget.makeupBookmarkSurah!] ?? "سورة ${widget.makeupBookmarkSurah}"} — آية ${_arabicNumerals(widget.makeupBookmarkAyah!)}'
                                 : 'Last position: Surah ${widget.makeupBookmarkSurah} — ayah ${widget.makeupBookmarkAyah}',
+                            isAr: isAr,
+                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                             style: TextStyle(
                               color: _kOrange,
                               fontSize: 11.5,
@@ -4786,10 +4908,12 @@ class _MakeupCardState extends State<_MakeupCard> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  _digitAwareText(
                     isAr
                         ? 'القضاء: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
                         : 'Makeup range: Page $startP–$endP',
+                    isAr: isAr,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark
@@ -5300,10 +5424,12 @@ class _KhatmCompletionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          _digitAwareText(
             isAr
                 ? 'أكملت ختمة القرآن في ${_arabicNumerals(totalDays)} يوم${streak > 1 ? ' بأفضل سلسلة ${_arabicNumerals(streak)} أيام' : ''}'
                 : 'Completed the Quran in $totalDays days${streak > 1 ? ' with a best streak of $streak days' : ''}',
+            isAr: isAr,
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -5435,7 +5561,7 @@ class _SmartStatsCard extends StatelessWidget {
     String insightAr;
     String insightEn;
     if (streak >= 7) {
-      insightAr = 'ماشاء الله! $streak أيام متتالية 🔥';
+      insightAr = 'ماشاء الله! ${_arabicNumerals(streak)} أيام متتالية 🔥';
       insightEn = 'MashaAllah! $streak-day streak 🔥';
     } else if (streak >= 3) {
       insightAr = 'أحسنت! ${_arabicNumerals(streak)} أيام متتالية 💪';
@@ -5477,6 +5603,7 @@ class _SmartStatsCard extends StatelessWidget {
                   value: isAr
                       ? (streak == 0 ? '—' : '${_arabicNumerals(streak)} 🔥')
                       : (streak == 0 ? '—' : '$streak 🔥'),
+                  isAr: isAr,
                   isDark: isDark,
                 ),
               ),
@@ -5489,6 +5616,7 @@ class _SmartStatsCard extends StatelessWidget {
                   value: isAr
                       ? (best == 0 ? '—' : _arabicNumerals(best))
                       : (best == 0 ? '—' : '$best'),
+                  isAr: isAr,
                   isDark: isDark,
                 ),
               ),
@@ -5501,6 +5629,7 @@ class _SmartStatsCard extends StatelessWidget {
                   value: isAr
                       ? '${_arabicNumerals(today)} / ${_arabicNumerals(plan.targetDays)}'
                       : '$today / ${plan.targetDays}',
+                  isAr: isAr,
                   isDark: isDark,
                 ),
               ),
@@ -5520,10 +5649,12 @@ class _SmartStatsCard extends StatelessWidget {
                     color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
                   ),
                   const SizedBox(width: 6),
-                  Text(
+                  _digitAwareText(
                     isAr
                         ? 'باقي ${_arabicNumerals(remaining)} ${remaining == 1 ? 'يوم' : 'أيام'} — ${_arabicNumerals(estimatedDate!.day)}/${_arabicNumerals(estimatedDate.month)}'
                         : '$remaining ${remaining == 1 ? 'day' : 'days'} left — est. ${estimatedDate!.day}/${estimatedDate.month}',
+                    isAr: isAr,
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
@@ -5540,8 +5671,10 @@ class _SmartStatsCard extends StatelessWidget {
                   .withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
+            child: _digitAwareText(
               isAr ? insightAr : insightEn,
+              isAr: isAr,
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -5563,6 +5696,7 @@ class _StatPill extends StatelessWidget {
   final Color iconColor;
   final String label;
   final String value;
+  final bool isAr;
   final bool isDark;
 
   const _StatPill({
@@ -5570,6 +5704,7 @@ class _StatPill extends StatelessWidget {
     required this.iconColor,
     required this.label,
     required this.value,
+    required this.isAr,
     required this.isDark,
   });
 
@@ -5585,8 +5720,10 @@ class _StatPill extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 18),
           const SizedBox(height: 4),
-          Text(
+          _digitAwareText(
             value,
+            isAr: isAr,
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
