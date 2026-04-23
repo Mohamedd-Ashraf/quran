@@ -16,6 +16,7 @@ import 'package:qcf_quran_plus/src/data/suwar.dart';
 // ---------------------------------------------------------------------------
 export 'src/widgets/quran_page_view.dart';
 export 'src/widgets/quran_surah_list_view.dart';
+export 'src/widgets/surah_header_widget.dart';
 export 'src/utils/quran_text_styles.dart';
 export 'src/utils/font_loader_service.dart';
 // ---------------------------------------------------------------------------
@@ -30,6 +31,10 @@ export 'src/data/juzs.dart';
 export 'src/data/page_data.dart';
 export 'src/data/suwar.dart';
 export 'src/data/quran_data.dart' show quran;
+// ---------------------------------------------------------------------------
+// 3. Search Functions Exports
+// ---------------------------------------------------------------------------
+export 'src/data/quran_data.dart' show searchWords, normalise, normalizeArabicText;
 // ---------------------------------------------------------------------------
 // 3. Quran Data Helper Functions
 // ---------------------------------------------------------------------------

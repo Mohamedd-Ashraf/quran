@@ -1,22 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     // ── User data ─────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-
       match /data/{document=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
-
     // ── Hadith data (public read-only) ────────────────────────────────────
     match /hadith_data/{document=**} {
       allow read: if true;
       allow write: if false;
     }
-
     // ── Quiz leaderboard ──────────────────────────────────────────────────
     //
     // Any authenticated user can READ the full leaderboard.
@@ -28,9 +24,7 @@ service cloud.firestore {
     // score manipulation via direct Firestore API access.
     match /quiz_leaderboard/{docId} {
       allow get, list: if request.auth != null;
-
       // Delete is never allowed (no rule = denied by default).
-
       // ── CREATE: first-time document (fresh authenticated start) ──────
       // Score counters must be zeroed — score history from guest
       // SharedPrefs is NOT migrated to prevent data inflation attacks
@@ -47,7 +41,6 @@ service cloud.firestore {
         && request.resource.data.userSeed is int
         // Server timestamp required.
         && request.resource.data.lastUpdated == request.time;
-
       // ── UPDATE: answering a question (strict anti-cheat) ──────────
       allow update: if request.auth != null
         && request.auth.uid == docId
@@ -103,7 +96,6 @@ service cloud.firestore {
         // that pre-date the field (userSeed may be absent in old docs) ──
         && (!('userSeed' in resource.data) || request.resource.data.userSeed == resource.data.userSeed);
     }
-
     // ── Quiz server-time ping (anti device-clock-cheat) ───────────────────
     // Each authenticated user can write exactly one field (ts = server time)
     // to their own document in this collection.  The Flutter client reads it
@@ -116,7 +108,6 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['ts'])
         && request.resource.data.ts == request.time;
     }
-
     // ── Public data-deletion requests (hosting form) ─────────────────────
     // Create-only endpoint used by /data-deletion-request page.
     // No read/list/update/delete from clients.
@@ -151,10 +142,8 @@ service cloud.firestore {
         && request.resource.data.userAgent is string
         && request.resource.data.userAgent.size() <= 512
         && request.resource.data.createdAt == request.time;
-
       allow read, update, delete: if false;
     }
-
     // ── Feedback / suggestions ───────────────────────────────────────────
     // Public create-only endpoint used by the in-app feedback screen.
     match /feedback/{requestId} {
@@ -166,19 +155,16 @@ service cloud.firestore {
             'createdAt'
           ])
         && request.resource.data.type in ['suggestion', 'bug', 'other']
-        && (!('name' in request.resource.data)
-            || (request.resource.data.name is string
-                && request.resource.data.name.size() <= 80))
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
         && request.resource.data.message is string
         && request.resource.data.message.size() >= 10
         && request.resource.data.message.size() <= 1000
         && (!('appVersion' in request.resource.data)
             || request.resource.data.appVersion is string)
         && request.resource.data.createdAt == request.time;
-
       allow read, update, delete: if false;
     }
-
     // ── Account deletion requests (delete-account page – full account wipe) ──
     // Create-only endpoint used by /delete-account page.
     // No dataTypes field – always deletes everything including the Auth user.
@@ -209,10 +195,8 @@ service cloud.firestore {
         && request.resource.data.userAgent is string
         && request.resource.data.userAgent.size() <= 512
         && request.resource.data.createdAt == request.time;
-
       allow read, update, delete: if false;
     }
-
     // ── Default: deny everything else ─────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

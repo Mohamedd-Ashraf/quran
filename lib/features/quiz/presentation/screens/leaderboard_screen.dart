@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -25,6 +26,96 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     super.initState();
     _cubit = di.sl<LeaderboardCubit>();
     _cubit.load();
+  }
+
+  Future<void> _onLeaderboardAvatarLongPress() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final remoteConfig = di.sl<FirebaseRemoteConfig>();
+    try {
+      await remoteConfig.fetchAndActivate();
+    } catch (_) {
+      // Keep last activated value when fetch fails.
+    }
+
+    final adminUid = remoteConfig.getString('admin_uid').trim();
+    if (!mounted || adminUid.isEmpty || user.uid.trim() != adminUid) return;
+
+    _showAdminPanel();
+  }
+
+  void _showAdminPanel() {
+    final isArabic = context
+        .read<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAdminSheet(isArabic),
+    );
+  }
+
+  Widget _buildAdminSheet(bool isArabic) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E1E1E)
+            : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            isArabic ? 'لوحة الأدمن' : 'Admin Panel',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isArabic
+                ? 'أنت الأدمن - يمكنك إدارة لوحة المتصدرين'
+                : 'You are the admin - manage the leaderboard',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: Center(
+              child: Text(
+                isArabic
+                    ? 'ميزات الأدمن قريباً...'
+                    : 'Admin features coming soon...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -96,15 +187,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               padding: const EdgeInsetsDirectional.only(end: 16),
               child: Builder(builder: (context) {
                 final user = FirebaseAuth.instance.currentUser;
-                return CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white24,
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : null,
-                  child: user?.photoURL == null
-                      ? const Icon(Icons.person, color: Colors.white, size: 20)
-                      : null,
+                return GestureDetector(
+                  onLongPress: _onLeaderboardAvatarLongPress,
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.white24,
+                    backgroundImage: user?.photoURL != null
+                        ? NetworkImage(user!.photoURL!)
+                        : null,
+                    child: user?.photoURL == null
+                        ? const Icon(Icons.person, color: Colors.white, size: 20)
+                        : null,
+                  ),
                 );
               }),
             ),

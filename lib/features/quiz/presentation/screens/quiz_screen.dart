@@ -137,13 +137,14 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 );
               },
               onLongPress: () {
-                if (QuizAdminPreviewScreen.isAdmin()) {
+                QuizAdminPreviewScreen.isAdmin().then((isAdmin) {
+                  if (!context.mounted || !isAdmin) return;
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const QuizAdminPreviewScreen(),
                     ),
                   );
-                }
+                });
               },
             ),
           ],
@@ -158,7 +159,6 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               _timerController?.stop();
               _uiTimer?.cancel();
             } else if (state is QuizSubmitError) {
-              // Restart the timer animation so the user can retry.
               _startTimerAnimation(state.question.timerSeconds);
               final isAr = context
                   .read<AppSettingsCubit>()
@@ -186,39 +186,115 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             if (state is QuizReadyToStart) {
               return _buildLandingView(context, state, isArabic: isArabic, isDark: isDark);
             }
+
+            final question = _getQuestionFromState(state);
+            if (question == null) {
+              if (state is QuizResult) {
+                return _buildResultView(context, state, isArabic: isArabic, isDark: isDark);
+              }
+              if (state is QuizTimeUp) {
+                return _buildTimeUpView(context, state, isArabic: isArabic, isDark: isDark);
+              }
+              if (state is QuizAlreadyAnswered) {
+                return _buildAlreadyAnsweredView(context, state, isArabic: isArabic, isDark: isDark);
+              }
+              return const SizedBox.shrink();
+            }
+
+            int? selectedIndex;
             if (state is QuizReady) {
-              return _buildQuestionView(
-                context, state.question, null, state.streak, state.totalScore,
-                isArabic: isArabic, isDark: isDark,
-              );
+              selectedIndex = null;
+            } else if (state is QuizAnswerSelected) {
+              selectedIndex = state.selectedIndex;
+            } else if (state is QuizSubmitError) {
+              selectedIndex = state.selectedIndex;
             }
-            if (state is QuizAnswerSelected) {
-              return _buildQuestionView(
-                context, state.question, state.selectedIndex, state.streak,
-                state.totalScore,
-                isArabic: isArabic, isDark: isDark,
-              );
-            }
-            if (state is QuizResult) {
-              return _buildResultView(context, state, isArabic: isArabic, isDark: isDark);
-            }
-            if (state is QuizTimeUp) {
-              return _buildTimeUpView(context, state, isArabic: isArabic, isDark: isDark);
-            }
-            if (state is QuizAlreadyAnswered) {
-              return _buildAlreadyAnsweredView(context, state, isArabic: isArabic, isDark: isDark);
-            }
-            if (state is QuizSubmitError) {
-              // Show question again with previously selected answer still
-              // highlighted so the user can re-submit after the error.
-              return _buildQuestionView(
-                context, state.question, state.selectedIndex, 0, 0,
-                isArabic: isArabic, isDark: isDark,
-              );
-            }
-            return const SizedBox.shrink();
+
+            return _buildQuestionView(
+              context, question, selectedIndex,
+              _getStreakFromState(state),
+              _getScoreFromState(state),
+              isArabic: isArabic, isDark: isDark,
+            );
           },
         ),
+        floatingActionButton: BlocBuilder<QuizCubit, QuizState>(
+          builder: (context, state) => _buildStickySubmitButton(context, state),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      ),
+    );
+  }
+
+  QuizQuestion? _getQuestionFromState(QuizState state) {
+    if (state is QuizReady) return state.question;
+    if (state is QuizAnswerSelected) return state.question;
+    if (state is QuizSubmitError) return state.question;
+    return null;
+  }
+
+  int _getStreakFromState(QuizState state) {
+    if (state is QuizReady) return state.streak;
+    if (state is QuizAnswerSelected) return state.streak;
+    if (state is QuizResult) return state.newStreak;
+    if (state is QuizTimeUp) return state.streak;
+    return 0;
+  }
+
+  int _getScoreFromState(QuizState state) {
+    if (state is QuizReady) return state.totalScore;
+    if (state is QuizAnswerSelected) return state.totalScore;
+    if (state is QuizResult) return state.newTotalScore;
+    if (state is QuizTimeUp) return state.totalScore;
+    return 0;
+  }
+
+  Widget _buildStickySubmitButton(BuildContext context, QuizState state) {
+    int? selectedIndex;
+
+    if (state is QuizReady) {
+      selectedIndex = null;
+    } else if (state is QuizAnswerSelected) {
+      selectedIndex = state.selectedIndex;
+    } else if (state is QuizSubmitError) {
+      selectedIndex = state.selectedIndex;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    final isArabic = context
+        .watch<AppSettingsCubit>()
+        .state
+        .appLanguageCode
+        .toLowerCase()
+        .startsWith('ar');
+
+    return SizedBox(
+      width: MediaQuery.of(context).size.width - 32,
+      height: 56,
+      child: FloatingActionButton.extended(
+        onPressed: selectedIndex != null
+            ? () {
+                final question = _getQuestionFromState(state);
+                if (question != null && selectedIndex != null) {
+                  _cubit.submitAnswer(question.id, selectedIndex);
+                }
+              }
+            : null,
+        backgroundColor:
+            selectedIndex != null ? AppColors.primary : Colors.grey.shade400,
+        elevation: selectedIndex != null ? 8 : 2,
+        focusElevation: selectedIndex != null ? 12 : 4,
+        heroTag: 'quizSubmit',
+        label: Text(
+          isArabic ? 'إرسال الإجابة' : 'Submit Answer',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
       ),
     );
   }
@@ -458,17 +534,17 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final optionLabels = isArabic ? ['أ', 'ب', 'ج', 'د'] : ['A', 'B', 'C', 'D'];
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
       children: [
         // ── Streak badge ──────────────────────────────────────────────────────
         if (streak > 0)
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
                 color: const Color(0xFFFED65B),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFFED65B).withValues(alpha: 0.4),
@@ -710,37 +786,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           );
         }),
 
-        const SizedBox(height: 16),
-
-        // ── Submit button ─────────────────────────────────────────────────────
-        SizedBox(
-          width: double.infinity,
-          height: 58,
-          child: ElevatedButton.icon(
-            onPressed: selectedIndex != null
-                ? () => _cubit.submitAnswer(question.id, selectedIndex)
-                : null,
-            icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-            label: Text(
-              isArabic ? 'إرسال الإجابة' : 'Submit Answer',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              disabledBackgroundColor:
-                  isDark ? AppColors.darkBorder : AppColors.divider,
-              shape: const StadiumBorder(),
-              elevation: selectedIndex != null ? 6 : 0,
-              shadowColor: AppColors.primary.withValues(alpha: 0.4),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // ── Footer ───────────────────────────────────────────────────────────
         Center(
@@ -754,8 +800,6 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             ),
           ),
         ),
-
-        const SizedBox(height: 24),
       ],
     );
   }

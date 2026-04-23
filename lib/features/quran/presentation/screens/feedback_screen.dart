@@ -67,13 +67,20 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         appVersion = '${info.version}+${info.buildNumber}';
       } catch (_) {}
 
-      await FirebaseFirestore.instance.collection(_kCollection).add({
+      final payload = <String, dynamic>{
         'type': _selectedType.key,
-        'name': name.isEmpty ? null : name,
         'message': message,
-        'appVersion': appVersion.isEmpty ? null : appVersion,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (name.isNotEmpty) {
+        payload['name'] = name;
+      }
+      if (appVersion.isNotEmpty) {
+        payload['appVersion'] = appVersion;
+      }
+
+      await FirebaseFirestore.instance.collection(_kCollection).add(payload);
 
       if (!mounted) return;
       setState(() {

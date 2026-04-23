@@ -1,13 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../data/datasources/quiz_questions_data.dart';
 import '../../data/models/quiz_question_model.dart';
-
-/// Set this to the admin's Firebase UID.
-/// Only accounts whose UID matches this value can open the preview.
-const String _kAdminUid = 'G0WMPKyBFdf2weY5zJa34t8d0f93';
 
 /// Read-only admin screen for previewing and testing quiz questions.
 ///
@@ -20,9 +17,19 @@ class QuizAdminPreviewScreen extends StatefulWidget {
   const QuizAdminPreviewScreen({super.key});
 
   /// Returns true if the currently signed-in user is the admin.
-  static bool isAdmin() {
+  static Future<bool> isAdmin() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    return uid != null && uid == _kAdminUid;
+    if (uid == null) return false;
+
+    final remoteConfig = FirebaseRemoteConfig.instance;
+    try {
+      await remoteConfig.fetchAndActivate();
+    } catch (_) {
+      // Keep last activated value when fetch fails.
+    }
+
+    final adminUid = remoteConfig.getString('admin_uid').trim();
+    return adminUid.isNotEmpty && uid.trim() == adminUid;
   }
 
   @override

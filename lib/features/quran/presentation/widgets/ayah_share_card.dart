@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart'
-    show getVerseCount, getVerse, getVerseEndSymbol, getSurahNameArabic, quran, QuranTextStyles;
+    show getVerseCount, getVerse, getVerseEndSymbol, quran, QuranTextStyles, SurahHeaderWidget;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -464,7 +464,6 @@ Future<void> _captureAndShare(
                 key: captureKey,
                 child: AyahShareCard(
                   surahNumber: surahNumber,
-                  surahName: surahName,
                   startVerse: startVerse,
                   endVerse: endVerse,
                   isDarkMode: false, // Always light for shared images
@@ -529,7 +528,6 @@ Future<void> _captureAndShare(
 
 class AyahShareCard extends StatelessWidget {
   final int surahNumber;
-  final String surahName;
   final int startVerse;
   final int endVerse;
   final bool isDarkMode;
@@ -546,7 +544,6 @@ class AyahShareCard extends StatelessWidget {
   const AyahShareCard({
     super.key,
     required this.surahNumber,
-    required this.surahName,
     required this.startVerse,
     required this.endVerse,
     required this.isDarkMode,
@@ -622,10 +619,7 @@ class AyahShareCard extends StatelessWidget {
                 const SizedBox(height: 22),
 
                 // Surah ornamental banner (header)
-                _SurahHeader(
-                  surahNumber: surahNumber,
-                  isDarkMode: isDarkMode,
-                ),
+                SurahHeaderWidget(suraNumber: surahNumber),
 
                 const SizedBox(height: 14),
 
@@ -662,51 +656,6 @@ class AyahShareCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Surah ornamental header (light-mode, same look as MushafPageView)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SurahHeader extends StatelessWidget {
-  final int surahNumber;
-  final bool isDarkMode;
-
-  const _SurahHeader({
-    required this.surahNumber,
-    required this.isDarkMode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const double headerWidth = 320.0;
-    final Color nameColor = isDarkMode ? const Color(0xFFE8C46A) : const Color(0xFF3D2000);
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Ornamental frame from QCF Plus package
-        Image.asset(
-          'assets/surah_banner.png',
-          package: 'qcf_quran_plus',
-          width: headerWidth,
-          fit: BoxFit.contain,
-          color: isDarkMode ? const Color.fromARGB(255, 43, 63, 48) : null,
-          colorBlendMode: isDarkMode ? BlendMode.color : null,
-        ),
-        // Surah name using QCF Plus 'arsura' decorative font
-        // (arsura maps surah numbers to calligraphic surah name glyphs)
-        ExcludeSemantics(
-          child: Text(
-            '$surahNumber',
-            textAlign: TextAlign.center,
-            style: QuranTextStyles.surahHeaderStyle(
-              fontSize: headerWidth * 0.085,
-              color: nameColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Verse content: grouped by page, rendered continuously like the Mushaf
 // ─────────────────────────────────────────────────────────────────────────────

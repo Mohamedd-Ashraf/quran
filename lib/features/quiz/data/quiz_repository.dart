@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -295,19 +296,30 @@ class QuizRepository {
   // ── Today's question ──────────────────────────────────────────────────────
 
   /// Returns true if the currently signed-in user is the admin.
-  bool _isAdmin() {
+  Future<bool> _isAdmin() async {
     final uid = _user?.uid;
-    return uid != null && uid == 'G0WMPKyBFdf2weY5zJa34t8d0f93';
+    if (uid == null) return false;
+
+    final remoteConfig = FirebaseRemoteConfig.instance;
+    try {
+      await remoteConfig.fetchAndActivate();
+    } catch (_) {
+      // Keep last activated value when fetch fails.
+    }
+
+    final adminUid = remoteConfig.getString('admin_uid').trim();
+    return adminUid.isNotEmpty && uid.trim() == adminUid;
   }
 
   /// Public getter so the cubit can also bypass admin checks.
-  bool get isAdmin => _isAdmin();
+  Future<bool> get isAdmin => _isAdmin();
 
   /// Returns today's question, or null if already answered today.
   /// Admin users bypass the daily answer limit and can answer multiple times.
-  QuizQuestion? getTodayQuestion() {
+  Future<QuizQuestion?> getTodayQuestion() async {
     // Allow admin to bypass the daily limit
-    if (hasAnsweredToday && !_isAdmin()) return null;
+    final isAdmin = await _isAdmin();
+    if (hasAnsweredToday && !isAdmin) return null;
     final dayIndex = _answeredIds.length % quizQuestionsPool.length;
     final base = quizQuestionsPool[_getShuffledOrder()[dayIndex]];
     // Shuffle the four options using a deterministic seed derived from the

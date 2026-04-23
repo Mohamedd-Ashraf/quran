@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -60,7 +59,8 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     await _repository.loadData();
 
     // Admins bypass the daily-answer limit so they can test freely.
-    if (_repository.hasAnsweredToday && !_repository.isAdmin) {
+    final isAdmin = await _repository.isAdmin;
+    if (_repository.hasAnsweredToday && !isAdmin) {
       emit(QuizAlreadyAnswered(
         totalScore: _repository.totalScore,
         streak: _repository.streak,
@@ -72,7 +72,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       return;
     }
 
-    final question = _repository.getTodayQuestion();
+    final question = await _repository.getTodayQuestion();
     if (question == null) {
       emit(QuizAlreadyAnswered(
         totalScore: _repository.totalScore,
@@ -236,6 +236,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (currentState is QuizReady) {
       _submitAsTimeout(currentState.question);
     } else if (currentState is QuizAnswerSelected) {
+      // Auto-submit the selected answer when time runs out
       submitAnswer(currentState.question.id, currentState.selectedIndex);
     }
   }
