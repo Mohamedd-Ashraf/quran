@@ -21,6 +21,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/recitation_catalog.dart';
 import '../../../../core/constants/mushaf_page_map.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/favourite_reciters_service.dart';
 import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
@@ -1341,6 +1342,8 @@ class _FbReciterPickerSheet extends StatefulWidget {
 
 class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
   late String _selected;
+  late final FavouriteRecitersService _favService;
+  late Set<String> _favourites;
 
   /// Returns true for ALL alternative Qira'at readings (both surah-level and per-ayah).
   static bool _isQiraat(AudioEdition e) =>
@@ -1358,6 +1361,19 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
   void initState() {
     super.initState();
     _selected = widget.currentEdition;
+    _favService = di.sl<FavouriteRecitersService>();
+    _favourites = _favService.getFavourites().toSet();
+  }
+
+  Future<void> _toggleFavourite(String identifier) async {
+    await _favService.toggleFavourite(identifier);
+    setState(() {
+      if (_favourites.contains(identifier)) {
+        _favourites.remove(identifier);
+      } else {
+        _favourites.add(identifier);
+      }
+    });
   }
 
   @override
@@ -1388,6 +1404,9 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
           !_isQiraat(e) &&
           !RecitationCatalog.isTimedEdition(e.identifier),
       )
+        .toList();
+    final favList = all
+        .where((e) => _favourites.contains(e.identifier))
         .toList();
 
     // Helper to build a reciter tile
@@ -1486,9 +1505,28 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
               ),
           ],
         ),
-        trailing: isSelected
-            ? const Icon(Icons.check_rounded, color: accent, size: 18)
-            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              const Icon(Icons.check_rounded, color: accent, size: 18),
+            GestureDetector(
+              onTap: () => _toggleFavourite(e.identifier),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  _favourites.contains(e.identifier)
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  color: _favourites.contains(e.identifier)
+                      ? Colors.amber
+                      : Colors.grey.shade400,
+                  size: 22,
+                ),
+              ),
+            ),
+          ],
+        ),
         onTap: !isAvailableForCurrentSurah
             ? null
             : () async {
@@ -1561,6 +1599,14 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
+                    // ── المفضلة ──────────────────────────────────────
+                    if (favList.isNotEmpty) ...[
+                      buildSectionHeader(
+                        widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
+                        Icons.star_rounded,
+                      ),
+                      ...favList.map(buildTile),
+                    ],
                     // ── القراءات العشر (آية بآية ✦) ─────────────────
                     if (timedQiraatList.isNotEmpty) ...[
                       buildSectionHeader(

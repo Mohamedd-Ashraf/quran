@@ -37,6 +37,7 @@ import 'ayah_share_card.dart';
 import 'islamic_audio_player.dart';
 import 'hizb_banner.dart';
 import '../../../../core/services/hizb_service.dart';
+import '../../../../core/services/favourite_reciters_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Verse long-press options sheet
@@ -2308,6 +2309,8 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   String _langFilter = 'all';
+  late final FavouriteRecitersService _favService;
+  late Set<String> _favourites;
 
   /// Returns true for ALL alternative Qira'at readings (both surah-level and per-ayah).
   /// Used for the "القراءات العشر" tab filter.
@@ -2335,21 +2338,51 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
     } else {
       list = src;
     }
-    if (_query.isEmpty) return list;
+    if (_query.isEmpty) {
+      list.sort((a, b) {
+        final aFav = _favourites.contains(a.identifier);
+        final bFav = _favourites.contains(b.identifier);
+        if (aFav && !bFav) return -1;
+        if (!aFav && bFav) return 1;
+        return 0;
+      });
+      return list;
+    }
     final q = _query;
-    return list
+    final filtered = list
         .where((e) =>
             e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
                 .toLowerCase()
                 .contains(q) ||
             e.identifier.toLowerCase().contains(q))
         .toList();
+    filtered.sort((a, b) {
+      final aFav = _favourites.contains(a.identifier);
+      final bFav = _favourites.contains(b.identifier);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return 0;
+    });
+    return filtered;
+  }
+
+  Future<void> _toggleFavourite(String identifier) async {
+    await _favService.toggleFavourite(identifier);
+    setState(() {
+      if (_favourites.contains(identifier)) {
+        _favourites.remove(identifier);
+      } else {
+        _favourites.add(identifier);
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
     _selected = widget.currentEdition;
+    _favService = di.sl<FavouriteRecitersService>();
+    _favourites = _favService.getFavourites().toSet();
     // Open the Qira'at tab if the currently-selected edition is a Qira'at.
     final sel = widget.all
         .where((e) => e.identifier == widget.currentEdition)
@@ -2856,7 +2889,46 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                             color: Colors.white,
                                             size: 14,
                                           ),
+                                        )
+                                      else
+                                        const SizedBox(width: 22),
+                                      const SizedBox(width: 2),
+                                      GestureDetector(
+                                        onTap: () => _toggleFavourite(e.identifier),
+                                        child: Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: _favourites.contains(e.identifier)
+                                                ? Colors.amber.withValues(alpha: 0.20)
+                                                : (isDark
+                                                      ? Colors.white.withValues(alpha: 0.10)
+                                                      : Colors.grey.shade200),
+                                            borderRadius: BorderRadius.circular(22),
+                                            border: Border.all(
+                                              color: _favourites.contains(e.identifier)
+                                                  ? Colors.amber
+                                                  : (isDark
+                                                        ? Colors.white.withValues(alpha: 0.20)
+                                                        : Colors.grey.shade300),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Icon(
+                                              _favourites.contains(e.identifier)
+                                                  ? Icons.star_rounded
+                                                  : Icons.star_border_rounded,
+                                              color: _favourites.contains(e.identifier)
+                                                  ? Colors.amber
+                                                  : (isDark
+                                                        ? Colors.white60
+                                                        : Colors.grey.shade600),
+                                              size: 26,
+                                            ),
+                                          ),
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -2894,9 +2966,19 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                         if (showCategorized) {
                           final qiratList = filtered.where(_isQiraat).toList();
                           final regularList = filtered.where((e) => !_isQiraat(e)).toList();
+                          final favList = filtered
+                              .where((e) => _favourites.contains(e.identifier))
+                              .toList();
                           return ListView(
                             padding: const EdgeInsets.only(top: 4, bottom: 8),
                             children: [
+                              if (favList.isNotEmpty) ...[  
+                                buildSectionHeader(
+                                  widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
+                                  Icons.star_rounded,
+                                ),
+                                ...favList.map(buildTile),
+                              ],
                               if (regularList.isNotEmpty) ...[
                                 buildSectionHeader(
                                   widget.isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',

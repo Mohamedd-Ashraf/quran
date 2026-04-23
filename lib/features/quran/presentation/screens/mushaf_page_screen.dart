@@ -14,6 +14,7 @@ import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/bookmark_service.dart';
+import '../../../../core/services/favourite_reciters_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/services/settings_service.dart';
@@ -68,7 +69,9 @@ void _showVerseOptionsSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  isAr ? '$surahName — آية $verse' : '$surahName — Verse $verse',
+                  isAr
+                      ? '$surahName — آية $verse'
+                      : '$surahName — Verse $verse',
                   style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -88,7 +91,9 @@ void _showVerseOptionsSheet(
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      isBookmarked ? (isAr ? 'إزالة الإشارة' : 'Remove Bookmark') : (isAr ? 'إضافة إشارة' : 'Add Bookmark'),
+                      isBookmarked
+                          ? (isAr ? 'إزالة الإشارة' : 'Remove Bookmark')
+                          : (isAr ? 'إضافة إشارة' : 'Add Bookmark'),
                       style: const TextStyle(fontSize: 15),
                     ),
                     onTap: () async {
@@ -139,7 +144,10 @@ void _showVerseOptionsSheet(
                   Icons.menu_book_rounded,
                   color: AppColors.primary,
                 ),
-                title: Text(isAr ? 'التفسير' : 'Tafsir', style: const TextStyle(fontSize: 15)),
+                title: Text(
+                  isAr ? 'التفسير' : 'Tafsir',
+                  style: const TextStyle(fontSize: 15),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   onTafsir();
@@ -892,7 +900,6 @@ class _MushafTopBar extends StatelessWidget {
               onToggle: onToggleTajweed,
             ),
             _buildTextWithAmiriNumbers(
-
               isAr ? ' ${_juzName(true)}' : _juzName(false),
               baseStyle: labelStyle,
               amiriStyle: GoogleFonts.amiri(
@@ -1499,7 +1506,7 @@ class _RsReciterRowState extends State<_RsReciterRow> {
     final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
 
     // Pre-compute which editions already have audio downloaded.
-    final otherInfo     = await _offlineAudio.getOtherDownloadedEditionsInfo();
+    final otherInfo = await _offlineAudio.getOtherDownloadedEditionsInfo();
     final currentSurahs = await _offlineAudio.getDownloadedSurahs();
     final downloadedEditions = <String>{
       if (currentSurahs.isNotEmpty) _offlineAudio.edition,
@@ -1540,7 +1547,8 @@ class _RsReciterRowState extends State<_RsReciterRow> {
         final currentId = _offlineAudio.edition;
         // Prefer resolved list; fall back to synchronous cache so the name
         // is always visible even while the future is loading.
-        final edition = snap.data
+        final edition =
+            snap.data
                 ?.where((e) => e.identifier == currentId)
                 .cast<AudioEdition?>()
                 .firstOrNull ??
@@ -1548,16 +1556,22 @@ class _RsReciterRowState extends State<_RsReciterRow> {
         final settings = ctx.read<AppSettingsCubit>().state;
         final isAr = settings.appLanguageCode.toLowerCase().startsWith('ar');
         final name =
-            edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ??
-                currentId;
+            edition?.displayNameForAppLanguage(isAr ? 'ar' : 'en') ?? currentId;
         // Determine playback type badge.
         const timedIds = {
-          'ar.qiraat.husary.qalon', 'ar.qiraat.husary.warsh',
-          'ar.qiraat.husary.duri', 'ar.qiraat.sosi.abuamr',
-          'ar.qiraat.huthifi.qalon', 'ar.qiraat.koshi.warsh',
-          'ar.qiraat.yasseen.warsh', 'ar.qiraat.qazabri.warsh',
-          'ar.qiraat.dokali.qalon', 'ar.qiraat.okasha.bazi',
-          'ar.khaledjleel', 'ar.raadialkurdi', 'ar.abdulaziahahmad',
+          'ar.qiraat.husary.qalon',
+          'ar.qiraat.husary.warsh',
+          'ar.qiraat.husary.duri',
+          'ar.qiraat.sosi.abuamr',
+          'ar.qiraat.huthifi.qalon',
+          'ar.qiraat.koshi.warsh',
+          'ar.qiraat.yasseen.warsh',
+          'ar.qiraat.qazabri.warsh',
+          'ar.qiraat.dokali.qalon',
+          'ar.qiraat.okasha.bazi',
+          'ar.khaledjleel',
+          'ar.raadialkurdi',
+          'ar.abdulaziahahmad',
         };
         const warshIds = {
           'ar.warsh.ibrahimdosary',
@@ -1566,9 +1580,8 @@ class _RsReciterRowState extends State<_RsReciterRow> {
         };
         final isTimedQiraat = timedIds.contains(currentId);
         final isWarsh = warshIds.contains(currentId);
-        final isSurahLevelQiraat = !isTimedQiraat &&
-            !isWarsh &&
-            currentId.startsWith('ar.qiraat.');
+        final isSurahLevelQiraat =
+            !isTimedQiraat && !isWarsh && currentId.startsWith('ar.qiraat.');
         return Row(
           children: [
             Expanded(
@@ -1591,11 +1604,14 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
-                              color:
-                                  AppColors.primaryLight.withValues(alpha: 0.12),
+                              color: AppColors.primaryLight.withValues(
+                                alpha: 0.12,
+                              ),
                             ),
                             child: Text(
                               isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
@@ -1608,7 +1624,9 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
                               color: Colors.blueAccent.withValues(alpha: 0.12),
@@ -1630,11 +1648,12 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                       padding: const EdgeInsets.only(top: 2),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
-                          color:
-                              AppColors.primaryLight.withValues(alpha: 0.12),
+                          color: AppColors.primaryLight.withValues(alpha: 0.12),
                         ),
                         child: Text(
                           isAr ? 'آية بآية' : 'Per-ayah',
@@ -1651,7 +1670,9 @@ class _RsReciterRowState extends State<_RsReciterRow> {
                       padding: const EdgeInsets.only(top: 2),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
                           color: AppColors.secondary.withValues(alpha: 0.12),
@@ -1715,13 +1736,14 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   String _langFilter = 'all';
+  late final FavouriteRecitersService _favService;
+  late Set<String> _favourites;
 
-  static bool _isQiraat(AudioEdition e) =>
-      RecitationCatalog.isQiraatEdition(
-        identifier: e.identifier,
-        name: e.name,
-        englishName: e.englishName,
-      );
+  static bool _isQiraat(AudioEdition e) => RecitationCatalog.isQiraatEdition(
+    identifier: e.identifier,
+    name: e.name,
+    englishName: e.englishName,
+  );
 
   static bool _isSurahLevelOnly(AudioEdition e) =>
       RecitationCatalog.isSurahLevelOnlyEdition(e.identifier);
@@ -1730,6 +1752,8 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   void initState() {
     super.initState();
     _selected = widget.currentEdition;
+    _favService = di.sl<FavouriteRecitersService>();
+    _favourites = _favService.getFavourites().toSet();
     // Auto-open Qira'at tab if currently selected edition is a Qira'at.
     final sel = widget.all
         .where((e) => e.identifier == widget.currentEdition)
@@ -1738,6 +1762,17 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
     if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
+    });
+  }
+
+  Future<void> _toggleFavourite(String identifier) async {
+    await _favService.toggleFavourite(identifier);
+    setState(() {
+      if (_favourites.contains(identifier)) {
+        _favourites.remove(identifier);
+      } else {
+        _favourites.add(identifier);
+      }
     });
   }
 
@@ -1758,14 +1793,238 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
     } else {
       list = src;
     }
-    if (_query.isEmpty) return list;
+    if (_query.isEmpty) {
+      list.sort((a, b) {
+        final aFav = _favourites.contains(a.identifier);
+        final bFav = _favourites.contains(b.identifier);
+        if (aFav && !bFav) return -1;
+        if (!aFav && bFav) return 1;
+        return 0;
+      });
+      return list;
+    }
     final q = _query;
-    return list.where((e) {
+    final filtered = list.where((e) {
       final name = e
           .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
           .toLowerCase();
       return name.contains(q) || e.identifier.toLowerCase().contains(q);
     }).toList();
+    filtered.sort((a, b) {
+      final aFav = _favourites.contains(a.identifier);
+      final bFav = _favourites.contains(b.identifier);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return 0;
+    });
+    return filtered;
+  }
+
+  Widget _buildCategorizedListView(List<AudioEdition> filtered) {
+    final qiratList = filtered.where(_isQiraat).toList();
+    final regularList = filtered.where((e) => !_isQiraat(e)).toList();
+    final favList = filtered
+        .where((e) => _favourites.contains(e.identifier))
+        .toList();
+    return ListView(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      children: [
+        if (favList.isNotEmpty) ...[
+          _buildSectionHeader(
+            widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
+            Icons.star_rounded,
+          ),
+          ...favList.map((e) => _buildReciterTile(e)),
+        ],
+        if (regularList.isNotEmpty) ...[
+          _buildSectionHeader(
+            widget.isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',
+            Icons.record_voice_over_rounded,
+          ),
+          ...regularList.map((e) => _buildReciterTile(e)),
+        ],
+        if (qiratList.isNotEmpty) ...[
+          _buildSectionHeader(
+            widget.isAr ? 'القراءات والروايات ✦' : "Qira'at & Recitations ✦",
+            Icons.auto_stories_rounded,
+          ),
+          ...qiratList.map((e) => _buildReciterTile(e)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFlatListView(List<AudioEdition> filtered) {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: filtered.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      itemBuilder: (ctx, i) => _buildReciterTile(filtered[i]),
+    );
+  }
+
+  Widget _buildSectionHeader(String label, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: const Color(0xFF666666)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.cairo(
+              fontSize: 11,
+              color: const Color(0xFF666666),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReciterTile(AudioEdition e) {
+    final name = e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en');
+    final isSelected = e.identifier == _selected;
+    final isAvailableForCurrentSurah =
+        widget.currentSurahNumber == null ||
+        RecitationCatalog.isSurahAvailableForEdition(
+          e.identifier,
+          widget.currentSurahNumber!,
+        );
+    final qiraahLabel = RecitationCatalog.majorQiraahLabelForEditionId(
+      e.identifier,
+      isArabic: widget.isAr,
+    );
+    final qiraahColor = RecitationCatalog.majorQiraahColorForEditionId(
+      e.identifier,
+    );
+    final isFav = _favourites.contains(e.identifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final surfaceColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFF5F5F5);
+    const accent = AppColors.secondary;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+
+    final badges = <Widget>[];
+    if (qiraahLabel != null) badges.add(_badge(qiraahLabel, qiraahColor));
+    if (!isAvailableForCurrentSurah) {
+      badges.add(
+        _badge(
+          widget.isAr ? 'غير متاح لهذه السورة' : 'Unavailable for this surah',
+          Colors.red,
+        ),
+      );
+    }
+    if (RecitationCatalog.isTimedEdition(e.identifier)) {
+      badges.add(
+        _badge(
+          widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
+          AppColors.primaryLight,
+        ),
+      );
+      badges.add(
+        _badge(widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱', Colors.blueAccent),
+      );
+    } else if (_isSurahLevelOnly(e)) {
+      badges.add(_badge(widget.isAr ? 'سورة كاملة' : 'Full surah', accent));
+    } else if (RecitationCatalog.isWarshEdition(e.identifier)) {
+      badges.add(
+        _badge(widget.isAr ? 'آية بآية' : 'Per-ayah', AppColors.primaryLight),
+      );
+    }
+    if (widget.downloadedEditions.contains(e.identifier)) {
+      badges.add(
+        _badge(widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓', Colors.green),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: isSelected ? accent.withValues(alpha: 0.10) : surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: !isAvailableForCurrentSurah
+              ? null
+              : () async {
+                  setState(() => _selected = e.identifier);
+                  await widget.onSelected(e.identifier);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        style: GoogleFonts.cairo(
+                          fontSize: 13.5,
+                          color: isSelected ? accent : textColor,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                      if (badges.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: badges,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      color: accent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 22),
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: () => _toggleFavourite(e.identifier),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                      color: isFav
+                          ? Colors.amber
+                          : (isDark ? Colors.white54 : Colors.grey),
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1911,7 +2170,10 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
               SizedBox(
                 height: 36,
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   scrollDirection: Axis.horizontal,
                   children: [
                     _buildFilterChip(
@@ -1964,7 +2226,10 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
               if (_langFilter == 'qiraat')
                 Container(
                   margin: const EdgeInsets.fromLTRB(12, 8, 12, 2),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     color: accent.withValues(alpha: 0.08),
@@ -2008,213 +2273,10 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : Builder(builder: (context) {
-                        // Reusable tile builder
-                        Widget buildTile(AudioEdition e) {
-                          final name = e.displayNameForAppLanguage(
-                            widget.isAr ? 'ar' : 'en',
-                          );
-                          final isSelected = e.identifier == _selected;
-                          final isAvailableForCurrentSurah =
-                              widget.currentSurahNumber == null ||
-                              RecitationCatalog.isSurahAvailableForEdition(
-                                e.identifier,
-                                widget.currentSurahNumber!,
-                              );
-                          final qiraahLabel =
-                              RecitationCatalog.majorQiraahLabelForEditionId(
-                            e.identifier,
-                            isArabic: widget.isAr,
-                          );
-                          final qiraahColor =
-                              RecitationCatalog.majorQiraahColorForEditionId(
-                            e.identifier,
-                          );
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 2,
-                            ),
-                            child: Material(
-                              color: isSelected
-                                  ? accent.withValues(alpha: 0.10)
-                                  : surfaceColor,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: !isAvailableForCurrentSurah
-                                    ? null
-                                    : () async {
-                                        setState(() => _selected = e.identifier);
-                                        await widget.onSelected(e.identifier);
-                                        if (context.mounted) {
-                                          Navigator.of(context).pop();
-                                        }
-                                      },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 11,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              name,
-                                              style: GoogleFonts.cairo(
-                                                fontSize: 13.5,
-                                                color: isSelected ? accent : textColor,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
-                                              ),
-                                            ),
-                                            if (qiraahLabel != null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: _badge(qiraahLabel, qiraahColor),
-                                              ),
-                                            if (!isAvailableForCurrentSurah)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: _badge(
-                                                  widget.isAr
-                                                      ? 'غير متاح لهذه السورة'
-                                                      : 'Unavailable for this surah',
-                                                  Colors.red,
-                                                ),
-                                              ),
-                                            if (RecitationCatalog.isTimedEdition(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    _badge(widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
-                                                        AppColors.primaryLight),
-                                                    const SizedBox(width: 4),
-                                                    _badge(widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
-                                                        Colors.blueAccent),
-                                                  ],
-                                                ),
-                                              )
-                                            else if (_isSurahLevelOnly(e))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: _badge(
-                                                  widget.isAr ? 'سورة كاملة' : 'Full surah',
-                                                  accent,
-                                                ),
-                                              )
-                                            else if (RecitationCatalog.isWarshEdition(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: _badge(
-                                                  widget.isAr ? 'آية بآية' : 'Per-ayah',
-                                                  AppColors.primaryLight,
-                                                ),
-                                              ),
-                                            if (widget.downloadedEditions.contains(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: _badge(
-                                                  widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓',
-                                                  Colors.green,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (isSelected)
-                                        Container(
-                                          width: 22,
-                                          height: 22,
-                                          decoration: const BoxDecoration(
-                                            color: accent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check_rounded,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-
-                        // Section header helper
-                        Widget buildSectionHeader(String label, IconData icon) {
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-                            child: Row(
-                              children: [
-                                Icon(icon, size: 13, color: subtleColor),
-                                const SizedBox(width: 6),
-                                Text(
-                                  label,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 11,
-                                    color: subtleColor,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        // Categorized view for All/Arabic tabs; flat list for search/Qira'at tab
-                        final showCategorized = _query.isEmpty &&
-                            (_langFilter == 'all' || _langFilter == 'ar');
-
-                        if (showCategorized) {
-                          final qiratList = filtered.where(_isQiraat).toList();
-                          final regularList = filtered.where((e) => !_isQiraat(e)).toList();
-                          return ListView(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
-                            children: [
-                              if (regularList.isNotEmpty) ...[
-                                buildSectionHeader(
-                                  widget.isAr
-                                      ? 'القراء (حفص عن عاصم)'
-                                      : 'Reciters (Hafs)',
-                                  Icons.record_voice_over_rounded,
-                                ),
-                                ...regularList.map(buildTile),
-                              ],
-                              if (qiratList.isNotEmpty) ...[
-                                buildSectionHeader(
-                                  widget.isAr
-                                      ? 'القراءات والروايات ✦'
-                                      : "Qira'at & Recitations ✦",
-                                  Icons.auto_stories_rounded,
-                                ),
-                                ...qiratList.map(buildTile),
-                              ],
-                            ],
-                          );
-                        }
-
-                        return ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 4),
-                          itemBuilder: (ctx, i) => buildTile(filtered[i]),
-                        );
-                      }),
+                    : (_query.isEmpty &&
+                              (_langFilter == 'all' || _langFilter == 'ar')
+                          ? _buildCategorizedListView(filtered)
+                          : _buildFlatListView(filtered)),
               ),
               const SizedBox(height: 8),
             ],
@@ -2283,7 +2345,7 @@ class _MushafFooter extends StatelessWidget {
   const _MushafFooter({super.key, required this.page, required this.isDark});
 
   static const _tealL = Color(0xFF2A7F6B);
-  static const _tealD    = Color(0xFF1F6F5E);
+  static const _tealD = Color(0xFF1F6F5E);
   static const _tealBot = Color(0xFF3C9A80);
   static const _darkL = Color(0xFF1A5244);
   static const _darkD = Color(0xFF133D31);
@@ -2373,9 +2435,9 @@ class _MushafFooterShapePainter extends CustomPainter {
     required this.borderColor,
   });
 
-  static const double _cR = 16.0;  // corner radius
-  static const double _dW = 94.0;  // dome width at bar level
-  static const double _dH = 28.0;  // dome height above bar
+  static const double _cR = 16.0; // corner radius
+  static const double _dW = 94.0; // dome width at bar level
+  static const double _dH = 28.0; // dome height above bar
 
   Path _footerPath(Size s) {
     final cx = s.width / 2;
@@ -2385,14 +2447,15 @@ class _MushafFooterShapePainter extends CustomPainter {
       ..lineTo(0, barTop + _cR)
       ..quadraticBezierTo(0, barTop, _cR, barTop)
       ..lineTo(cx - _dW / 2, barTop)
+      ..cubicTo(cx - _dW * 0.28, barTop, cx - _dW * 0.18, 1.5, cx, 1.5)
       ..cubicTo(
-          cx - _dW * 0.28, barTop,
-          cx - _dW * 0.18, 1.5,
-          cx, 1.5)
-      ..cubicTo(
-          cx + _dW * 0.18, 1.5,
-          cx + _dW * 0.28, barTop,
-          cx + _dW / 2, barTop)
+        cx + _dW * 0.18,
+        1.5,
+        cx + _dW * 0.28,
+        barTop,
+        cx + _dW / 2,
+        barTop,
+      )
       ..lineTo(s.width - _cR, barTop)
       ..quadraticBezierTo(s.width, barTop, s.width, barTop + _cR)
       ..lineTo(s.width, s.height)
@@ -2531,7 +2594,12 @@ class _PageTextState extends State<_PageText> {
       arabicText: v.text,
       bookmarkId: bookmarkId,
       bookmarkService: di.sl<BookmarkService>(),
-      isAr: context.read<AppSettingsCubit>().state.appLanguageCode.toLowerCase().startsWith('ar'),
+      isAr: context
+          .read<AppSettingsCubit>()
+          .state
+          .appLanguageCode
+          .toLowerCase()
+          .startsWith('ar'),
       onTafsir: () {
         if (!mounted) return;
         Navigator.of(context).push(
@@ -2982,10 +3050,7 @@ class _Basmala extends StatelessWidget {
                 : '\ufad8\ufad7\ufad6\ufad5',
             textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
-            style: QuranTextStyles.basmallahStyle(
-              fontSize: 20,
-              color: color,
-            ),
+            style: QuranTextStyles.basmallahStyle(fontSize: 20, color: color),
           ),
         ),
       ),
@@ -3068,16 +3133,14 @@ Widget _buildTextWithAmiriNumbers(
   TextOverflow overflow = TextOverflow.clip,
 }) {
   final finalAmiriStyle = amiriStyle ?? baseStyle.copyWith(fontFamily: 'Amiri');
-  
+
   final spans = <InlineSpan>[];
   for (final char in text.split('')) {
     // Check if character is Arabic-Indic digit (٠-٩)
-    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    final isArabicDigit =
+        char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
     spans.add(
-      TextSpan(
-        text: char,
-        style: isArabicDigit ? finalAmiriStyle : baseStyle,
-      ),
+      TextSpan(text: char, style: isArabicDigit ? finalAmiriStyle : baseStyle),
     );
   }
 

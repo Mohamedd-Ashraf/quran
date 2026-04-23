@@ -34,6 +34,7 @@ import '../audio/ayah_audio_cubit.dart';
 import '../network/network_info.dart';
 import '../services/settings_service.dart';
 import '../services/bookmark_service.dart';
+import '../services/favourite_reciters_service.dart';
 import '../services/offline_audio_service.dart';
 import '../services/ayah_audio_service.dart';
 import '../services/audio_edition_service.dart';
@@ -101,30 +102,16 @@ Future<void> init() async {
   //! Features - Quran
   // Bloc
   sl.registerFactory(
-    () => SurahBloc(
-      getAllSurahs: sl(),
-      getSurah: sl(),
-      getInstantSurah: sl(),
-    ),
+    () => SurahBloc(getAllSurahs: sl(), getSurah: sl(), getInstantSurah: sl()),
   );
 
-  sl.registerFactory(
-    () => AyahBloc(
-      getAyah: sl(),
-    ),
-  );
+  sl.registerFactory(() => AyahBloc(getAyah: sl()));
 
-  sl.registerFactory(
-    () => AyahAudioCubit(sl(), sl()),
-  );
+  sl.registerFactory(() => AyahAudioCubit(sl(), sl()));
 
-  sl.registerFactory(
-    () => TafsirCubit(sl(), sl(), sl()),
-  );
+  sl.registerFactory(() => TafsirCubit(sl(), sl(), sl()));
 
-  sl.registerFactory(
-    () => TafsirDownloadCubit(sl(), sl(), sl(), sl()),
-  );
+  sl.registerFactory(() => TafsirDownloadCubit(sl(), sl(), sl(), sl()));
 
   // Use cases
   sl.registerLazySingleton(() => GetAllSurahs(sl()));
@@ -156,9 +143,7 @@ Future<void> init() async {
     () => QuranBundledDataSourceImpl(),
   );
 
-  sl.registerLazySingleton(
-    () => IbnKathirRemoteDataSource(client: sl()),
-  );
+  sl.registerLazySingleton(() => IbnKathirRemoteDataSource(client: sl()));
 
   sl.registerLazySingleton<QuranLocalTafsirDataSource>(
     () => QuranLocalTafsirDataSourceImpl(),
@@ -180,8 +165,11 @@ Future<void> init() async {
   sl.registerLazySingleton(() => const LocationService());
   sl.registerLazySingleton(() => FlutterLocalNotificationsPlugin());
   sl.registerLazySingleton(() => PrayerTimesCacheService(sl()));
-  sl.registerLazySingleton(() => AdhanNotificationService(sl(), sl(), sl(), sl()));
+  sl.registerLazySingleton(
+    () => AdhanNotificationService(sl(), sl(), sl(), sl()),
+  );
   sl.registerLazySingleton(() => BookmarkService(sl()));
+  sl.registerLazySingleton(() => FavouriteRecitersService(sl()));
   sl.registerLazySingleton(() => OfflineAudioService(sl(), sl()));
   sl.registerLazySingleton(() => AyahAudioService(sl(), sl(), sl()));
   sl.registerLazySingleton(() => AudioEditionService(sl(), sl(), sl()));
@@ -195,9 +183,7 @@ Future<void> init() async {
   sl.registerFactory(() => AdhkarProgressCubit(sl()));
   sl.registerLazySingleton(() => AudioDownloadStateService(sl()));
   sl.registerLazySingleton(() => TafsirDownloadStateService(sl()));
-  sl.registerLazySingleton(
-    () => AudioDownloadNotificationService(sl(), sl()),
-  );
+  sl.registerLazySingleton(() => AudioDownloadNotificationService(sl(), sl()));
   sl.registerFactory(
     () => DownloadManagerCubit(
       audioService: sl(),
@@ -210,7 +196,8 @@ Future<void> init() async {
 
   //! Features - Quiz
   sl.registerLazySingleton(
-    () => QuizRepository(FirebaseFirestore.instance, FirebaseAuth.instance, sl()),
+    () =>
+        QuizRepository(FirebaseFirestore.instance, FirebaseAuth.instance, sl()),
   );
   sl.registerLazySingleton(() => QuizNotificationService(sl(), sl()));
   sl.registerFactory(() => QuizCubit(sl(), sl()));
@@ -219,12 +206,7 @@ Future<void> init() async {
   //! Auth
   sl.registerLazySingleton(() => AuthService());
   sl.registerLazySingleton(
-    () => CloudSyncService(
-      FirebaseFirestore.instance,
-      sl(),
-      sl(),
-      sl(),
-    ),
+    () => CloudSyncService(FirebaseFirestore.instance, sl(), sl(), sl()),
   );
   sl.registerFactory(() => AuthCubit(sl(), sl()));
 
