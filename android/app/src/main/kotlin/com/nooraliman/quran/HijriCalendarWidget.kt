@@ -9,8 +9,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.RemoteViews
+import android.util.TypedValue
 import java.util.Calendar
 
 private const val PREFS_NAME         = "FlutterSharedPreferences"
@@ -240,6 +245,50 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         R.id.hijri_row4, R.id.hijri_row5, R.id.hijri_row6,
     )
 
+    private fun applyMonthlyTypography(views: RemoteViews, minWidthDp: Int) {
+        val monthSizeSp = if (minWidthDp >= 250) 14f else 13f
+        val gregSizeSp = if (minWidthDp >= 250) 10f else 9f
+        val headerSizeSp = if (minWidthDp >= 250) 8f else 9f
+        val cellSizeSp = when {
+            minWidthDp >= 250 -> 13f
+            minWidthDp >= 180 -> 12.5f
+            else -> 11.5f
+        }
+        views.setViewPadding(R.id.hijri_widget_root, 3, 2, 3, 3)
+        views.setViewPadding(R.id.hijri_month_year, 0, 0, 0, 0)
+        views.setViewPadding(R.id.hijri_gregorian, 0, 0, 0, 1)
+        views.setTextViewTextSize(R.id.hijri_month_year, TypedValue.COMPLEX_UNIT_SP, monthSizeSp)
+        views.setTextViewTextSize(R.id.hijri_gregorian, TypedValue.COMPLEX_UNIT_SP, gregSizeSp)
+        views.setTextViewTextSize(R.id.hijri_event, TypedValue.COMPLEX_UNIT_SP, 9f)
+        for (headerId in headerIds) {
+            views.setTextViewTextSize(headerId, TypedValue.COMPLEX_UNIT_SP, headerSizeSp)
+        }
+        for (rowArr in cellIds) {
+            for (cellId in rowArr) {
+                views.setTextViewTextSize(cellId, TypedValue.COMPLEX_UNIT_SP, cellSizeSp)
+            }
+        }
+    }
+
+    /** Build cell text: hijri day + optional smaller gregorian day below. */
+    private fun buildCellText(hijriDay: Int, gregDay: Int, showGreg: Boolean, gregScale: Float): CharSequence {
+        val hijriStr = toArabicNumerals(hijriDay.toString())
+        if (!showGreg) return hijriStr
+        val gregStr  = toArabicNumerals(gregDay.toString())
+        val full     = "$hijriStr\n$gregStr"
+        return SpannableString(full).apply {
+            setSpan(RelativeSizeSpan(gregScale),  hijriStr.length + 1, full.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(ForegroundColorSpan(0x88FFFFFF.toInt()), hijriStr.length + 1, full.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    /** Gregorian day-of-month for hijri grid day [d], given today's calendar and today's hijri day. */
+    private fun gregDayForHijriDay(d: Int, todayHijriDay: Int): Int {
+        val c = Calendar.getInstance()
+        c.add(Calendar.DAY_OF_YEAR, d - todayHijriDay)
+        return c.get(Calendar.DAY_OF_MONTH)
+    }
+
     /** Build a day→(row,col) mapping from startCol and daysInMonth */
     private fun dayGrid(startCol: Int, daysInMonth: Int): Array<IntArray> {
         // grid[day-1] = intArrayOf(row, col)
@@ -260,6 +309,8 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
     private fun buildMonthlyViews(context: Context, widgetId: Int, minWidthDp: Int = 0): RemoteViews {
         val views = RemoteViews(context.packageName, layoutResId)
         val g     = computeGrid(context)
+
+        applyMonthlyTypography(views, minWidthDp)
 
         views.setTextViewText(R.id.hijri_month_year, "${g.hijriMonthName}  ${g.hijriYear} هـ")
         views.setTextViewText(R.id.hijri_gregorian,  g.gregLabel)
@@ -283,10 +334,18 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         }
 
         // Fill day numbers + set per-cell click → zoom to week
+        val showGreg = true
+        val gregScale = when {
+            minWidthDp >= 250 -> 0.82f
+            minWidthDp >= 210 -> 0.74f
+            minWidthDp >= 180 -> 0.66f
+            else -> 0.58f
+        }
         for (d in 1..g.daysInMonth) {
             val (r, c) = grid[d - 1]
             val cid = cellIds[r][c]
-            views.setTextViewText(cid, toArabicNumerals(d.toString()))
+            val gregDay = gregDayForHijriDay(d, g.today.day)
+            views.setTextViewText(cid, buildCellText(d, gregDay, showGreg, gregScale))
 
             if (d == g.today.day) {
                 views.setInt(cid, "setBackgroundColor", todayHighlightColor)
@@ -328,6 +387,8 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         val g     = computeGrid(context)
         val grid  = dayGrid(g.startCol, g.daysInMonth)
 
+        applyMonthlyTypography(views, minWidthDp)
+
         views.setTextViewText(R.id.hijri_month_year, "${g.hijriMonthName}  ${g.hijriYear} هـ")
         views.setTextViewText(R.id.hijri_gregorian,  "◀  اضغط على يوم لتفاصيله")
         applyHeaders(views, minWidthDp)
@@ -353,10 +414,18 @@ abstract class BaseHijriCalendarWidget : AppWidgetProvider() {
         }
 
         // Fill ALL day numbers — active row bright, others dimmed
+        val showGreg = true
+        val gregScale = when {
+            minWidthDp >= 250 -> 0.82f
+            minWidthDp >= 210 -> 0.74f
+            minWidthDp >= 180 -> 0.66f
+            else -> 0.58f
+        }
         for (d in 1..g.daysInMonth) {
             val (r, c) = grid[d - 1]
             val cid = cellIds[r][c]
-            views.setTextViewText(cid, toArabicNumerals(d.toString()))
+            val gregDay = gregDayForHijriDay(d, g.today.day)
+            views.setTextViewText(cid, buildCellText(d, gregDay, showGreg, gregScale))
 
             if (r == activeRow) {
                 // Active row: normal brightness, tap → daily detail

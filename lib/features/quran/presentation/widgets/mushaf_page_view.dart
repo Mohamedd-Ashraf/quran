@@ -2659,53 +2659,58 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                         ),
                       )
                     : Builder(builder: (context) {
+                        // Badge helper
+                        Widget badge(String label, Color color) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: color.withValues(alpha: 0.12),
+                          ),
+                          child: Text(label, style: GoogleFonts.cairo(fontSize: 9.5, color: color, fontWeight: FontWeight.w700)),
+                        );
+
                         // Build a reusable reciter tile.
                         Widget buildTile(AudioEdition e) {
-                          final name = e.displayNameForAppLanguage(
-                            widget.isAr ? 'ar' : 'en',
-                          );
+                          final name = e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en');
                           final isSelected = e.identifier == _selected;
+                          final isFav = _favourites.contains(e.identifier);
                           final isAvailableForCurrentSurah =
                               widget.currentSurahNumber == null ||
-                              RecitationCatalog.isSurahAvailableForEdition(
-                                e.identifier,
-                                widget.currentSurahNumber!,
-                              );
-                          final qiraahLabel =
-                              RecitationCatalog.majorQiraahLabelForEditionId(
-                            e.identifier,
-                            isArabic: widget.isAr,
-                          );
-                          final qiraahColor =
-                              RecitationCatalog.majorQiraahColorForEditionId(
-                            e.identifier,
-                          );
+                              RecitationCatalog.isSurahAvailableForEdition(e.identifier, widget.currentSurahNumber!);
+                          final qiraahLabel = RecitationCatalog.majorQiraahLabelForEditionId(e.identifier, isArabic: widget.isAr);
+                          final qiraahColor = RecitationCatalog.majorQiraahColorForEditionId(e.identifier);
+
+                          final badges = <Widget>[];
+                          if (qiraahLabel != null) { badges.add(badge(qiraahLabel, qiraahColor)); badges.add(const SizedBox(width: 4)); }
+                          if (!isAvailableForCurrentSurah) { badges.add(badge(widget.isAr ? 'غير متاح لهذه السورة' : 'Unavailable', Colors.red)); badges.add(const SizedBox(width: 4)); }
+                          if (RecitationCatalog.isTimedEdition(e.identifier)) {
+                            badges.add(badge(widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦', AppColors.primaryLight));
+                            badges.add(const SizedBox(width: 4));
+                            badges.add(badge(widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱', Colors.blueAccent));
+                            badges.add(const SizedBox(width: 4));
+                          } else if (_isSurahLevelOnly(e)) {
+                            badges.add(badge(widget.isAr ? 'سورة كاملة' : 'Full surah', accent));
+                            badges.add(const SizedBox(width: 4));
+                          } else if (RecitationCatalog.isWarshEdition(e.identifier)) {
+                            badges.add(badge(widget.isAr ? 'آية بآية' : 'Per-ayah', AppColors.primaryLight));
+                            badges.add(const SizedBox(width: 4));
+                          }
+                          if (widget.downloadedEditions.contains(e.identifier)) { badges.add(badge(widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓', Colors.green)); }
+
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                             child: Material(
-                              color: isSelected
-                                  ? accent.withValues(alpha: 0.10)
-                                  : surfaceColor,
+                              color: isSelected ? accent.withValues(alpha: 0.10) : surfaceColor,
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: !isAvailableForCurrentSurah
-                                    ? null
-                                    : () async {
-                                        setState(() => _selected = e.identifier);
-                                        await widget.onSelected(e.identifier);
-                                        if (context.mounted) {
-                                          Navigator.of(context).pop();
-                                        }
-                                      },
+                                onTap: !isAvailableForCurrentSurah ? null : () async {
+                                  setState(() => _selected = e.identifier);
+                                  await widget.onSelected(e.identifier);
+                                  if (context.mounted) Navigator.of(context).pop();
+                                },
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 11,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -2713,219 +2718,32 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(
-                                              name,
-                                              style: GoogleFonts.cairo(
-                                                fontSize: 13.5,
-                                                color: isSelected
-                                                    ? accent
-                                                    : textColor,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
-                                              ),
-                                            ),
-                                            if (qiraahLabel != null)
+                                            Text(name, style: GoogleFonts.cairo(fontSize: 13.5, color: isSelected ? accent : textColor, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+                                            if (badges.isNotEmpty)
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 3),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    color: qiraahColor.withValues(alpha: 0.12),
-                                                  ),
-                                                  child: Text(
-                                                    qiraahLabel,
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 9.5,
-                                                      color: qiraahColor,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            if (!isAvailableForCurrentSurah)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    color: Colors.red.withValues(alpha: 0.12),
-                                                  ),
-                                                  child: Text(
-                                                    widget.isAr
-                                                        ? 'غير متاح لهذه السورة'
-                                                        : 'Unavailable for this surah',
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 9.5,
-                                                      color: Colors.red,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            if (RecitationCatalog.isTimedEdition(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                          horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        color: AppColors.primaryLight.withValues(alpha: 0.12),
-                                                      ),
-                                                      child: Text(
-                                                        widget.isAr ? 'آية بآية ✦' : 'Per-ayah ✦',
-                                                        style: GoogleFonts.cairo(
-                                                          fontSize: 9.5,
-                                                          color: AppColors.primaryLight,
-                                                          fontWeight: FontWeight.w700,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                          horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        color: Colors.blueAccent.withValues(alpha: 0.12),
-                                                      ),
-                                                      child: Text(
-                                                        widget.isAr ? 'توقيتات ⏱' : 'Timed ⏱',
-                                                        style: GoogleFonts.cairo(
-                                                          fontSize: 9.5,
-                                                          color: Colors.blueAccent,
-                                                          fontWeight: FontWeight.w700,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              )
-                                            else if (_isSurahLevelOnly(e))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    color: accent.withValues(alpha: 0.12),
-                                                  ),
-                                                  child: Text(
-                                                    widget.isAr ? 'سورة كاملة' : 'Full surah',
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 9.5,
-                                                      color: accent,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                            else if (RecitationCatalog.isWarshEdition(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    color: AppColors.primaryLight.withValues(alpha: 0.12),
-                                                  ),
-                                                  child: Text(
-                                                    widget.isAr ? 'آية بآية' : 'Per-ayah',
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 9.5,
-                                                      color: AppColors.primaryLight,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            if (widget.downloadedEditions.contains(e.identifier))
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 3),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    color: Colors.green.withValues(alpha: 0.12),
-                                                  ),
-                                                  child: Text(
-                                                    widget.isAr ? 'مُحَمَّل ↓' : 'Downloaded ↓',
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 9.5,
-                                                      color: Colors.green,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
+                                                child: Row(mainAxisSize: MainAxisSize.min, children: badges),
                                               ),
                                           ],
                                         ),
                                       ),
                                       if (isSelected)
                                         Container(
-                                          width: 22,
-                                          height: 22,
-                                          decoration: const BoxDecoration(
-                                            color: accent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check_rounded,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
+                                          width: 22, height: 22,
+                                          decoration: const BoxDecoration(color: accent, shape: BoxShape.circle),
+                                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
                                         )
                                       else
                                         const SizedBox(width: 22),
                                       const SizedBox(width: 2),
                                       GestureDetector(
                                         onTap: () => _toggleFavourite(e.identifier),
-                                        child: Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            color: _favourites.contains(e.identifier)
-                                                ? Colors.amber.withValues(alpha: 0.20)
-                                                : (isDark
-                                                      ? Colors.white.withValues(alpha: 0.10)
-                                                      : Colors.grey.shade200),
-                                            borderRadius: BorderRadius.circular(22),
-                                            border: Border.all(
-                                              color: _favourites.contains(e.identifier)
-                                                  ? Colors.amber
-                                                  : (isDark
-                                                        ? Colors.white.withValues(alpha: 0.20)
-                                                        : Colors.grey.shade300),
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Icon(
-                                              _favourites.contains(e.identifier)
-                                                  ? Icons.star_rounded
-                                                  : Icons.star_border_rounded,
-                                              color: _favourites.contains(e.identifier)
-                                                  ? Colors.amber
-                                                  : (isDark
-                                                        ? Colors.white60
-                                                        : Colors.grey.shade600),
-                                              size: 26,
-                                            ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(
+                                            isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                                            color: isFav ? Colors.amber : (isDark ? Colors.white54 : Colors.grey),
+                                            size: 22,
                                           ),
                                         ),
                                       ),
@@ -2972,13 +2790,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                           return ListView(
                             padding: const EdgeInsets.only(top: 4, bottom: 8),
                             children: [
-                              if (favList.isNotEmpty) ...[  
-                                buildSectionHeader(
-                                  widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
-                                  Icons.star_rounded,
-                                ),
-                                ...favList.map(buildTile),
-                              ],
+                          
                               if (regularList.isNotEmpty) ...[
                                 buildSectionHeader(
                                   widget.isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',

@@ -1829,13 +1829,7 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
     return ListView(
       padding: const EdgeInsets.only(top: 4, bottom: 8),
       children: [
-        if (favList.isNotEmpty) ...[
-          _buildSectionHeader(
-            widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
-            Icons.star_rounded,
-          ),
-          ...favList.map((e) => _buildReciterTile(e)),
-        ],
+       
         if (regularList.isNotEmpty) ...[
           _buildSectionHeader(
             widget.isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',

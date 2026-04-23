@@ -1599,14 +1599,7 @@ class _FbReciterPickerSheetState extends State<_FbReciterPickerSheet> {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    // ── المفضلة ──────────────────────────────────────
-                    if (favList.isNotEmpty) ...[
-                      buildSectionHeader(
-                        widget.isAr ? 'المفضلة ⭐' : 'Favourites ⭐',
-                        Icons.star_rounded,
-                      ),
-                      ...favList.map(buildTile),
-                    ],
+                 
                     // ── القراءات العشر (آية بآية ✦) ─────────────────
                     if (timedQiraatList.isNotEmpty) ...[
                       buildSectionHeader(
