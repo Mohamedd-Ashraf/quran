@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -43,8 +45,38 @@ class TafsirScreen extends StatefulWidget {
 
 class _TafsirScreenState extends State<TafsirScreen> {
   late final BookmarkService _bookmarkService;
+  late final SharedPreferences _prefs;
   bool _isBookmarked = false;
   bool _isSharing = false;
+  double _tafsirFontDelta = 0;
+
+  static const double _tafsirFontStep = 1;
+  static const double _tafsirFontMaxDelta = 8;
+  static const String _tafsirFontDeltaPrefKey = 'tafsir_font_delta';
+
+  void _loadTafsirFontDelta() {
+    final saved = _prefs.getDouble(_tafsirFontDeltaPrefKey) ?? 0;
+    _tafsirFontDelta = saved.clamp(0, _tafsirFontMaxDelta);
+  }
+
+  void _persistTafsirFontDelta() {
+    unawaited(_prefs.setDouble(_tafsirFontDeltaPrefKey, _tafsirFontDelta));
+  }
+
+  void _increaseTafsirFont() {
+    setState(() {
+      _tafsirFontDelta =
+          (_tafsirFontDelta + _tafsirFontStep).clamp(0, _tafsirFontMaxDelta);
+    });
+    _persistTafsirFontDelta();
+  }
+
+  void _decreaseTafsirFont() {
+    setState(() {
+      _tafsirFontDelta = (_tafsirFontDelta - _tafsirFontStep).clamp(0, _tafsirFontMaxDelta);
+    });
+    _persistTafsirFontDelta();
+  }
 
   Future<void> _showOfflineTafsirSheet(bool isArabicUi) async {
     await Navigator.of(context).push(
@@ -59,6 +91,8 @@ class _TafsirScreenState extends State<TafsirScreen> {
   void initState() {
     super.initState();
     _bookmarkService = di.sl<BookmarkService>();
+    _prefs = di.sl<SharedPreferences>();
+    _loadTafsirFontDelta();
     _isBookmarked = _bookmarkService.isBookmarked(_bookmarkId);
     context.read<TafsirCubit>().init(
           surahNumber: widget.surahNumber,
@@ -906,55 +940,126 @@ class _TafsirScreenState extends State<TafsirScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.menu_book_rounded,
-                        size: 18, color: AppColors.secondary),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        editionLabel,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.secondary,
-                          fontSize: 14,
+                      child: Row(
+                        children: [
+                          Icon(Icons.menu_book_rounded,
+                              size: 18, color: AppColors.secondary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              editionLabel,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.secondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: _tafsirFontDelta > 0
+                                  ? _decreaseTafsirFont
+                                  : null,
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.zoom_out_rounded,
+                                  size: 18,
+                                  color: _tafsirFontDelta > 0
+                                      ? AppColors.secondary
+                                      : AppColors.secondary
+                                          .withValues(alpha: 0.35),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _tafsirFontDelta < _tafsirFontMaxDelta
+                                  ? _increaseTafsirFont
+                                  : null,
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.zoom_in_rounded,
+                                  size: 18,
+                                  color:
+                                      _tafsirFontDelta < _tafsirFontMaxDelta
+                                          ? AppColors.secondary
+                                          : AppColors.secondary
+                                              .withValues(alpha: 0.35),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    if (state.isOfflineContent)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.35),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                        if (state.isOfflineContent)
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Text(
+                              isArabicUi ? 'أوفلاين' : 'Offline',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
+                        // Copy tafsir
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(
+                                ClipboardData(text: state.tafsirText));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(isArabicUi
+                                    ? 'تم نسخ التفسير'
+                                    : 'Tafsir copied'),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Icon(Icons.copy_rounded,
+                              size: 18, color: AppColors.secondary),
                         ),
-                        child: Text(
-                          isArabicUi ? 'أوفلاين' : 'Offline',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        ],
                       ),
-                    // Copy tafsir
-                    GestureDetector(
-                      onTap: () {
-                        Clipboard.setData(
-                            ClipboardData(text: state.tafsirText));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(isArabicUi
-                                ? 'تم نسخ التفسير'
-                                : 'Tafsir copied'),
-                            duration: const Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      child: Icon(Icons.copy_rounded,
-                          size: 18, color: AppColors.secondary),
                     ),
                   ],
                 ),
@@ -969,11 +1074,11 @@ class _TafsirScreenState extends State<TafsirScreen> {
                       isRtl ? TextDirection.rtl : TextDirection.ltr,
                   style: (isRtl
                           ? GoogleFonts.amiri(
-                              fontSize: 17,
+                              fontSize: 17 + _tafsirFontDelta,
                               height: 2.0,
                             )
                           : GoogleFonts.merriweather(
-                              fontSize: 14,
+                              fontSize: 14 + _tafsirFontDelta,
                               height: 1.8,
                             ))
                       .copyWith(
