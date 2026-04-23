@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import '../constants/api_constants.dart';
+import '../constants/recitation_catalog.dart';
 import '../network/network_info.dart';
 import 'offline_audio_service.dart';
 
@@ -290,6 +291,9 @@ class AyahAudioService {
   Uri? _buildMp3QuranUri(int surahNumber, int ayahNumber, String edition) {
     final server = _mp3QuranServers[edition];
     if (server == null) return null;
+    if (!RecitationCatalog.isSurahAvailableForEdition(edition, surahNumber)) {
+      return null;
+    }
     final s = surahNumber.toString().padLeft(3, '0');
     // mp3quran.net stores whole-surah files: 001.mp3 = full Surah 1, etc.
     // Per-ayah files (001001.mp3) do NOT exist on this server.
@@ -507,7 +511,10 @@ class AyahAudioService {
       surahNumber: surahNumber,
       ayahNumber: 1,
     );
-    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition);
+    if (surahUri == null) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
 
     if (localSurah == null && !await _networkInfo.isConnected) {
       throw Exception('No internet connection and audio is not downloaded.');
@@ -563,7 +570,10 @@ class AyahAudioService {
       surahNumber: surahNumber,
       ayahNumber: 1,
     );
-    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, edition);
+    if (surahUri == null) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
 
     List<({int ayah, int startMs, int endMs})> timing;
     try {
@@ -638,6 +648,12 @@ class AyahAudioService {
       _mp3QuranTimingReadIds.containsKey(currentEdition),
       'resolveTimedSurahSource called for non-timed edition "$currentEdition"',
     );
+    if (!RecitationCatalog.isSurahAvailableForEdition(
+      currentEdition,
+      surahNumber,
+    )) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
     final localSurah = await _offlineAudio.getLocalAyahAudioFile(
       surahNumber: surahNumber,
       ayahNumber: 1,
@@ -649,7 +665,10 @@ class AyahAudioService {
       surahNumber: surahNumber,
       edition: currentEdition,
     );
-    final surahUri = _buildMp3QuranUri(surahNumber, 1, currentEdition)!;
+    final surahUri = _buildMp3QuranUri(surahNumber, 1, currentEdition);
+    if (surahUri == null) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
     final source = localSurah != null
         ? AyahAudioSource.local(localSurah.path)
         : AyahAudioSource.remote(surahUri);
@@ -697,6 +716,10 @@ class AyahAudioService {
     required int ayahNumber,
   }) async {
     final edition = _offlineAudio.edition;
+
+    if (!RecitationCatalog.isSurahAvailableForEdition(edition, surahNumber)) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
 
     // ── Timed surah editions (mp3quran.net with timing) ────────────────────────────────
     // These editions store one surah-level file; serve per-ayah clips.
@@ -779,6 +802,10 @@ class AyahAudioService {
   }) async {
     final edition = _offlineAudio.edition;
 
+    if (!RecitationCatalog.isSurahAvailableForEdition(edition, surahNumber)) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
+
     // ── Surah-level editions (mp3quran.net) ──────────────────────────────────
     // These servers store ONE file per surah (001.mp3 = full Surah 1).
     // Return a single-item list so the player plays the surah file once
@@ -803,7 +830,10 @@ class AyahAudioService {
       if (!await _networkInfo.isConnected) {
         throw Exception('No internet connection and surah audio is not downloaded.');
       }
-      final surahUri = _buildMp3QuranUri(surahNumber, 1, edition)!;
+      final surahUri = _buildMp3QuranUri(surahNumber, 1, edition);
+      if (surahUri == null) {
+        throw Exception('Selected reciter is not available for this surah.');
+      }
       return [AyahAudioSource.remote(surahUri)];
     }
 

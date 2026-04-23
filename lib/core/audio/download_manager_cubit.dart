@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../constants/recitation_catalog.dart';
 import '../services/audio_download_notification_service.dart';
 import '../services/audio_download_state_service.dart';
 import '../services/audio_edition_service.dart';
@@ -86,7 +87,9 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
 
   /// Start downloading all 114 surahs.
   Future<void> downloadAll() async {
-    final surahs = List.generate(114, (i) => i + 1);
+    final surahs = RecitationCatalog.effectiveDownloadSurahsForEdition(
+      _audioService.edition,
+    );
     await _startDownload(surahs: surahs, mode: 'all');
   }
 

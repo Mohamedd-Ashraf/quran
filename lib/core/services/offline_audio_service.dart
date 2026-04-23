@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/api_constants.dart';
+import '../constants/recitation_catalog.dart';
 
 class OfflineAudioProgress {
   final int currentSurah;
@@ -85,7 +86,6 @@ class OfflineAudioService {
   final SharedPreferences _prefs;
   final http.Client _client;
 
-  static const int _totalQuranFiles = 6236;
   static const int _minValidAudioBytes = 1 * 1024; // 1 KB – short surahs can be < 8 KB
 
   // Authoritative ayah count per surah (index 0 = Surah 1 = Al-Fatiha).
@@ -191,7 +191,10 @@ class OfflineAudioService {
     final downloaded = <int>[];
     // Surah-level editions store 1 file per surah (ayah_1.mp3 = whole surah).
     final expectedPerSurah = _isSurahLevelEdition ? 1 : -1;
-    for (int i = 1; i <= 114; i++) {
+    final expectedSurahs = RecitationCatalog.effectiveDownloadSurahsForEdition(
+      edition,
+    );
+    for (final i in expectedSurahs) {
       final dir = Directory('$rootPath${sep}surah_$i');
       if (!dir.existsSync()) continue;
       final expected = expectedPerSurah >= 0 ? expectedPerSurah : _surahAyahCounts[i - 1];
@@ -209,6 +212,9 @@ class OfflineAudioService {
   /// For surah-level editions (mp3quran.net Qira'at), expects 1 file per surah.
   /// Never creates directories as a side-effect.
   Future<bool> isSurahFullyDownloaded(int surahNumber) async {
+    if (!RecitationCatalog.isSurahAvailableForEdition(edition, surahNumber)) {
+      return false;
+    }
     final base = await getApplicationDocumentsDirectory();
     final sep = Platform.pathSeparator;
     final dir = Directory(
@@ -228,15 +234,19 @@ class OfflineAudioService {
 
   /// Get download statistics
   Future<Map<String, dynamic>> getDownloadStatistics() async {
-    // Surah-level editions have 114 files (1 per surah); per-ayah editions have 6236.
-    final totalExpectedFiles = _isSurahLevelEdition ? 114 : _totalQuranFiles;
+    final effectiveSurahs = RecitationCatalog.effectiveDownloadSurahsForEdition(
+      edition,
+    );
+    final totalExpectedFiles = _isSurahLevelEdition
+        ? effectiveSurahs.length
+        : effectiveSurahs.fold<int>(0, (sum, s) => sum + _surahAyahCounts[s - 1]);
     final root = await _audioRootDir();
     if (!root.existsSync()) {
       return {
         'downloadedFiles': 0,
         'totalFiles': totalExpectedFiles,
         'downloadedSurahs': 0,
-        'totalSurahs': 114,
+        'totalSurahs': effectiveSurahs.length,
         'totalSizeMB': 0.0,
         'percentage': 0.0,
       };
@@ -256,9 +266,11 @@ class OfflineAudioService {
       'downloadedFiles': fileCount,
       'totalFiles': totalExpectedFiles,
       'downloadedSurahs': downloadedSurahs.length,
-      'totalSurahs': 114,
+      'totalSurahs': effectiveSurahs.length,
       'totalSizeMB': totalSize / 1048576,
-      'percentage': (fileCount / totalExpectedFiles) * 100,
+      'percentage': totalExpectedFiles > 0
+          ? (fileCount / totalExpectedFiles) * 100
+          : 0.0,
     };
   }
 
@@ -728,6 +740,10 @@ class OfflineAudioService {
   }
 
   Future<List<String>> _fetchAyahAudioUrls(int surahNumber) async {
+    if (!RecitationCatalog.isSurahAvailableForEdition(edition, surahNumber)) {
+      throw Exception('Selected reciter is not available for this surah.');
+    }
+
     // ── Surah-level editions (mp3quran.net Qira'at) ───────────────────────
     // These servers store one file per surah (001.mp3).  Download that single
     // file and store it as ayah_1.mp3 to represent the whole surah.
@@ -967,7 +983,8 @@ class OfflineAudioService {
     required bool Function() shouldCancel,
     List<int>? specificSurahs,
   }) async {
-    final downloadSurahs = specificSurahs ?? List.generate(114, (i) => i + 1);
+    final downloadSurahs = specificSurahs ??
+        RecitationCatalog.effectiveDownloadSurahsForEdition(edition);
     final totalSurahs = downloadSurahs.length;
     
     print('🔽 [Verse-by-Verse] Starting verse-by-verse download...');

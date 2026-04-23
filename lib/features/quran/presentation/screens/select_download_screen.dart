@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic;
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/recitation_catalog.dart';
 import '../../../../core/constants/quran_structure.dart';
 import '../../../../core/constants/surah_names.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -23,6 +24,7 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
 
   // ── Downloaded-state tracking ──────────────────────────────────────────
   Set<int> _downloadedSurahs = {};
+  Set<int> _availableSurahs = {};
   bool _loadingDownloaded = true;
 
   /// When true, fully-downloaded surahs are shown as completed and excluded
@@ -40,9 +42,13 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
 
   Future<void> _loadDownloaded() async {
     final downloaded = await _audioService.getDownloadedSurahs();
+    final available = RecitationCatalog.effectiveDownloadSurahsForEdition(
+      _audioService.edition,
+    );
     if (mounted) {
       setState(() {
         _downloadedSurahs = downloaded.toSet();
+        _availableSurahs = available.toSet();
         _loadingDownloaded = false;
       });
     }
@@ -58,6 +64,9 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
 
   bool _isSurahFullyDownloaded(int surahNumber) =>
       _downloadedSurahs.contains(surahNumber);
+
+    bool _isSurahUnavailable(int surahNumber) =>
+      _availableSurahs.isNotEmpty && !_availableSurahs.contains(surahNumber);
 
   bool _areSurahsFullyDownloaded(List<int> surahs) =>
       surahs.isNotEmpty && surahs.every(_downloadedSurahs.contains);
@@ -374,8 +383,9 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
         final surahNumber = index + 1;
         final isFullyDone =
             _skipDownloaded && _isSurahFullyDownloaded(surahNumber);
+        final isUnavailable = _isSurahUnavailable(surahNumber);
         final isSelected =
-            !isFullyDone && _selectedSurahs.contains(surahNumber);
+          !isFullyDone && !isUnavailable && _selectedSurahs.contains(surahNumber);
         final surahInfo = SurahNames.surahs[index];
         final surahName = isArabicUi
             ? surahInfo['arabic']!
@@ -385,6 +395,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           color: isFullyDone
               ? Colors.green.withValues(alpha: isDark ? 0.12 : 0.07)
+              : isUnavailable
+              ? scheme.surfaceContainerLow
               : isSelected
               ? scheme.primary.withValues(alpha: isDark ? 0.22 : 0.10)
               : scheme.surface,
@@ -394,6 +406,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
             side: BorderSide(
               color: isFullyDone
                   ? Colors.green.shade400
+                  : isUnavailable
+                  ? scheme.outline.withValues(alpha: 0.6)
                   : isSelected
                   ? scheme.primary
                   : scheme.outline.withValues(alpha: 0.4),
@@ -402,6 +416,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
           ),
           child: InkWell(
             onTap: isFullyDone
+              ? null
+              : isUnavailable
                 ? null
                 : () {
                     setState(() {
@@ -425,6 +441,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                     decoration: BoxDecoration(
                       color: isFullyDone
                           ? Colors.green.withValues(alpha: 0.2)
+                          : isUnavailable
+                          ? scheme.surfaceContainerHighest.withValues(alpha: 0.6)
                           : isSelected
                           ? scheme.primary
                           : scheme.surfaceContainerHighest,
@@ -436,6 +454,12 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                             size: 18,
                             color: Colors.green.shade700,
                           )
+                        : isUnavailable
+                        ? Icon(
+                            Icons.block_rounded,
+                            size: 16,
+                            color: scheme.onSurfaceVariant,
+                          )
                         : Text(
                             surahNumber.toString(),
                             style: TextStyle(
@@ -443,6 +467,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                               fontWeight: FontWeight.bold,
                               color: isSelected
                                   ? scheme.onPrimary
+                                  : isUnavailable
+                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.7)
                                   : scheme.onSurfaceVariant,
                             ),
                           ),
@@ -457,6 +483,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                               fontSize: 22,
                               color: isFullyDone
                                   ? Colors.green.shade700
+                                  : isUnavailable
+                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.7)
                                   : isSelected
                                   ? scheme.primary
                                   : scheme.onSurface,
@@ -473,6 +501,8 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                                   : FontWeight.w500,
                               color: isFullyDone
                                   ? Colors.green.shade700
+                                  : isUnavailable
+                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.7)
                                   : isSelected
                                   ? scheme.primary
                                   : scheme.onSurface,
@@ -485,6 +515,14 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.green.shade600,
+                      ),
+                    )
+                  else if (isUnavailable)
+                    Text(
+                      isArabicUi ? 'غير متاح' : 'Unavailable',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
                       ),
                     )
                   else
@@ -640,6 +678,9 @@ class _SelectDownloadScreenState extends State<SelectDownloadScreen> {
     if (_skipDownloaded) {
       raw = raw.where((s) => !_downloadedSurahs.contains(s)).toList();
     }
+
+    // Never return surahs unavailable for the currently selected reciter.
+    raw = raw.where((s) => !_isSurahUnavailable(s)).toList();
 
     return raw;
   }

@@ -16,6 +16,7 @@ import 'qcf_fallback_page.dart';
 
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/recitation_catalog.dart';
 import '../../../../core/constants/surah_names.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/audio_edition_service.dart';
@@ -694,8 +695,25 @@ class _MushafPageViewState extends State<MushafPageView>
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
-      child: BlocListener<AyahAudioCubit, AyahAudioState>(
-        listener: (_, state) => _syncAudioHighlights(state),
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<AyahAudioCubit, AyahAudioState>(
+            listener: (_, state) => _syncAudioHighlights(state),
+          ),
+          BlocListener<AyahAudioCubit, AyahAudioState>(
+            listenWhen: (previous, current) =>
+                current.status == AyahAudioStatus.error &&
+                current.errorMessage != null &&
+                current.errorMessage != previous.errorMessage,
+            listener: (context, state) {
+              final msg = state.errorMessage;
+              if (msg == null || msg.isEmpty) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(msg)),
+              );
+            },
+          ),
+        ],
         child: Scaffold(
           key: _scaffoldKey,
           body: SafeArea(
@@ -1010,7 +1028,10 @@ class _MushafPageViewState extends State<MushafPageView>
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
         value: ctx.read<AppSettingsCubit>(),
-        child: _MushafQcfRecitationSheet(isAr: widget.isArabicUi),
+        child: _MushafQcfRecitationSheet(
+          isAr: widget.isArabicUi,
+          currentSurahNumber: widget.surahNumber,
+        ),
       ),
     );
   }
@@ -1835,7 +1856,11 @@ class _TajweedLinkRow extends StatelessWidget {
 
 class _MushafQcfRecitationSheet extends StatefulWidget {
   final bool isAr;
-  const _MushafQcfRecitationSheet({required this.isAr});
+  final int? currentSurahNumber;
+  const _MushafQcfRecitationSheet({
+    required this.isAr,
+    this.currentSurahNumber,
+  });
 
   @override
   State<_MushafQcfRecitationSheet> createState() =>
@@ -1876,6 +1901,7 @@ class _MushafQcfRecitationSheetState extends State<_MushafQcfRecitationSheet> {
         all: all,
         currentEdition: currentEdition,
         isAr: widget.isAr,
+        currentSurahNumber: widget.currentSurahNumber,
         downloadedEditions: downloadedEditions,
         onSelected: (identifier) async {
           await _offlineAudio.setEdition(identifier);
@@ -2260,6 +2286,7 @@ class _QcfReciterPickerSheet extends StatefulWidget {
   final List<AudioEdition> all;
   final String currentEdition;
   final bool isAr;
+  final int? currentSurahNumber;
   final Future<void> Function(String identifier) onSelected;
   final Set<String> downloadedEditions;
 
@@ -2267,6 +2294,7 @@ class _QcfReciterPickerSheet extends StatefulWidget {
     required this.all,
     required this.currentEdition,
     required this.isAr,
+    this.currentSurahNumber,
     required this.onSelected,
     required this.downloadedEditions,
   });
@@ -2281,47 +2309,20 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
   String _query = '';
   String _langFilter = 'all';
 
-  static const _warshIds = {
-    'ar.warsh.ibrahimdosary',
-    'ar.warsh.yassinjazaery',
-    'ar.warsh.abdulbasit',
-  };
-
   /// Returns true for ALL alternative Qira'at readings (both surah-level and per-ayah).
   /// Used for the "القراءات العشر" tab filter.
   static bool _isQiraat(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.') ||
-      _warshIds.contains(e.identifier) ||
-      (e.name ?? '').contains('ورش') ||
-      (e.englishName ?? '').toLowerCase().contains('warsh');
-
-  /// Edition IDs that use mp3quran.net timing for per-ayah playback.
-  static const Set<String> _timedQiraatIds = {
-    // ── الحصري (3 روايات)
-    'ar.qiraat.husary.qalon',
-    'ar.qiraat.husary.warsh',
-    'ar.qiraat.husary.duri',
-    // ── الصوفي
-    'ar.qiraat.sosi.abuamr',
-    // ── قراءات ورش وقالون إضافية
-    'ar.qiraat.huthifi.qalon',
-    'ar.qiraat.koshi.warsh',
-    'ar.qiraat.yasseen.warsh',
-    'ar.qiraat.qazabri.warsh',
-    'ar.qiraat.dokali.qalon',
-    'ar.qiraat.okasha.bazi',
-    // ── حفص — mp3quran.net مع توقيتات
-    'ar.khaledjleel',
-    'ar.raadialkurdi',
-    'ar.abdulaziahahmad',
-  };
+      RecitationCatalog.isQiraatEdition(
+        identifier: e.identifier,
+        name: e.name,
+        englishName: e.englishName,
+      );
 
   /// Returns true ONLY for pure surah-level editions (no timing data).
   /// ar.warsh.* and timed Qira’at reciters are per-ayah — NOT surah-level.
   /// Used for the "سورة كاملة" badge.
   static bool _isSurahLevelOnly(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.') &&
-      !_timedQiraatIds.contains(e.identifier);
+      RecitationCatalog.isSurahLevelOnlyEdition(e.identifier);
 
   List<AudioEdition> _applyFilter(List<AudioEdition> src) {
     List<AudioEdition> list;
@@ -2631,6 +2632,21 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                             widget.isAr ? 'ar' : 'en',
                           );
                           final isSelected = e.identifier == _selected;
+                          final isAvailableForCurrentSurah =
+                              widget.currentSurahNumber == null ||
+                              RecitationCatalog.isSurahAvailableForEdition(
+                                e.identifier,
+                                widget.currentSurahNumber!,
+                              );
+                          final qiraahLabel =
+                              RecitationCatalog.majorQiraahLabelForEditionId(
+                            e.identifier,
+                            isArabic: widget.isAr,
+                          );
+                          final qiraahColor =
+                              RecitationCatalog.majorQiraahColorForEditionId(
+                            e.identifier,
+                          );
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -2643,13 +2659,15 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () async {
-                                  setState(() => _selected = e.identifier);
-                                  await widget.onSelected(e.identifier);
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
-                                  }
-                                },
+                                onTap: !isAvailableForCurrentSurah
+                                    ? null
+                                    : () async {
+                                        setState(() => _selected = e.identifier);
+                                        await widget.onSelected(e.identifier);
+                                        if (context.mounted) {
+                                          Navigator.of(context).pop();
+                                        }
+                                      },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 14,
@@ -2674,7 +2692,53 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                                     : FontWeight.w500,
                                               ),
                                             ),
-                                            if (_timedQiraatIds.contains(e.identifier))
+                                            if (qiraahLabel != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: qiraahColor.withValues(alpha: 0.12),
+                                                  ),
+                                                  child: Text(
+                                                    qiraahLabel,
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 9.5,
+                                                      color: qiraahColor,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            if (!isAvailableForCurrentSurah)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: Colors.red.withValues(alpha: 0.12),
+                                                  ),
+                                                  child: Text(
+                                                    widget.isAr
+                                                        ? 'غير متاح لهذه السورة'
+                                                        : 'Unavailable for this surah',
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 9.5,
+                                                      color: Colors.red,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            if (RecitationCatalog.isTimedEdition(e.identifier))
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 3),
                                                 child: Row(
@@ -2736,7 +2800,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                                                   ),
                                                 ),
                                               )
-                                            else if (_warshIds.contains(e.identifier))
+                                            else if (RecitationCatalog.isWarshEdition(e.identifier))
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 3),
                                                 child: Container(

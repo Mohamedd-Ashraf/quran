@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/constants/mushaf_page_map.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/recitation_catalog.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/audio_edition_service.dart';
@@ -1514,6 +1515,7 @@ class _RsReciterRowState extends State<_RsReciterRow> {
         all: editions,
         currentEdition: currentEdition,
         isAr: isAr,
+        currentSurahNumber: context.read<AyahAudioCubit>().state.surahNumber,
         downloadedEditions: downloadedEditions,
         onSelected: (identifier) async {
           await _offlineAudio.setEdition(identifier);
@@ -1690,6 +1692,7 @@ class _MushafReciterPickerSheet extends StatefulWidget {
   final List<AudioEdition> all;
   final String currentEdition;
   final bool isAr;
+  final int? currentSurahNumber;
   final Future<void> Function(String identifier) onSelected;
   final Set<String> downloadedEditions;
 
@@ -1697,6 +1700,7 @@ class _MushafReciterPickerSheet extends StatefulWidget {
     required this.all,
     required this.currentEdition,
     required this.isAr,
+    this.currentSurahNumber,
     required this.onSelected,
     required this.downloadedEditions,
   });
@@ -1712,37 +1716,15 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
   String _query = '';
   String _langFilter = 'all';
 
-  static const _warshIds = {
-    'ar.warsh.ibrahimdosary',
-    'ar.warsh.yassinjazaery',
-    'ar.warsh.abdulbasit',
-  };
-
   static bool _isQiraat(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.') ||
-      _warshIds.contains(e.identifier) ||
-      (e.name ?? '').contains('ورش') ||
-      (e.englishName ?? '').toLowerCase().contains('warsh');
-
-  static const Set<String> _timedQiraatIds = {
-    'ar.qiraat.husary.qalon',
-    'ar.qiraat.husary.warsh',
-    'ar.qiraat.husary.duri',
-    'ar.qiraat.sosi.abuamr',
-    'ar.qiraat.huthifi.qalon',
-    'ar.qiraat.koshi.warsh',
-    'ar.qiraat.yasseen.warsh',
-    'ar.qiraat.qazabri.warsh',
-    'ar.qiraat.dokali.qalon',
-    'ar.qiraat.okasha.bazi',
-    'ar.khaledjleel',
-    'ar.raadialkurdi',
-    'ar.abdulaziahahmad',
-  };
+      RecitationCatalog.isQiraatEdition(
+        identifier: e.identifier,
+        name: e.name,
+        englishName: e.englishName,
+      );
 
   static bool _isSurahLevelOnly(AudioEdition e) =>
-      e.identifier.startsWith('ar.qiraat.') &&
-      !_timedQiraatIds.contains(e.identifier);
+      RecitationCatalog.isSurahLevelOnlyEdition(e.identifier);
 
   @override
   void initState() {
@@ -2033,6 +2015,21 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                             widget.isAr ? 'ar' : 'en',
                           );
                           final isSelected = e.identifier == _selected;
+                          final isAvailableForCurrentSurah =
+                              widget.currentSurahNumber == null ||
+                              RecitationCatalog.isSurahAvailableForEdition(
+                                e.identifier,
+                                widget.currentSurahNumber!,
+                              );
+                          final qiraahLabel =
+                              RecitationCatalog.majorQiraahLabelForEditionId(
+                            e.identifier,
+                            isArabic: widget.isAr,
+                          );
+                          final qiraahColor =
+                              RecitationCatalog.majorQiraahColorForEditionId(
+                            e.identifier,
+                          );
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -2045,13 +2042,15 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () async {
-                                  setState(() => _selected = e.identifier);
-                                  await widget.onSelected(e.identifier);
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
-                                  }
-                                },
+                                onTap: !isAvailableForCurrentSurah
+                                    ? null
+                                    : () async {
+                                        setState(() => _selected = e.identifier);
+                                        await widget.onSelected(e.identifier);
+                                        if (context.mounted) {
+                                          Navigator.of(context).pop();
+                                        }
+                                      },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 14,
@@ -2074,7 +2073,22 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                                                     : FontWeight.w500,
                                               ),
                                             ),
-                                            if (_timedQiraatIds.contains(e.identifier))
+                                            if (qiraahLabel != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: _badge(qiraahLabel, qiraahColor),
+                                              ),
+                                            if (!isAvailableForCurrentSurah)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 3),
+                                                child: _badge(
+                                                  widget.isAr
+                                                      ? 'غير متاح لهذه السورة'
+                                                      : 'Unavailable for this surah',
+                                                  Colors.red,
+                                                ),
+                                              ),
+                                            if (RecitationCatalog.isTimedEdition(e.identifier))
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 3),
                                                 child: Row(
@@ -2096,7 +2110,7 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
                                                   accent,
                                                 ),
                                               )
-                                            else if (_warshIds.contains(e.identifier))
+                                            else if (RecitationCatalog.isWarshEdition(e.identifier))
                                               Padding(
                                                 padding: const EdgeInsets.only(top: 3),
                                                 child: _badge(

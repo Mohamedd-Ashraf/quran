@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import '../constants/recitation_catalog.dart';
 import '../network/network_info.dart';
 
 class AudioEdition {
@@ -13,6 +14,10 @@ class AudioEdition {
   final String? language;
   final String? format;
   final String? type;
+  final String? sourceKey;
+  final bool isSurahLevelSource;
+  final bool hasTiming;
+  final List<int>? availableSurahs;
 
   const AudioEdition({
     required this.identifier,
@@ -21,7 +26,40 @@ class AudioEdition {
     this.language,
     this.format,
     this.type,
+    this.sourceKey,
+    this.isSurahLevelSource = false,
+    this.hasTiming = false,
+    this.availableSurahs,
   });
+
+  AudioEdition copyWith({
+    String? identifier,
+    String? name,
+    String? englishName,
+    String? language,
+    String? format,
+    String? type,
+    String? sourceKey,
+    bool? isSurahLevelSource,
+    bool? hasTiming,
+    List<int>? availableSurahs,
+    bool clearAvailableSurahs = false,
+  }) {
+    return AudioEdition(
+      identifier: identifier ?? this.identifier,
+      name: name ?? this.name,
+      englishName: englishName ?? this.englishName,
+      language: language ?? this.language,
+      format: format ?? this.format,
+      type: type ?? this.type,
+      sourceKey: sourceKey ?? this.sourceKey,
+      isSurahLevelSource: isSurahLevelSource ?? this.isSurahLevelSource,
+      hasTiming: hasTiming ?? this.hasTiming,
+      availableSurahs: clearAvailableSurahs
+          ? null
+          : (availableSurahs ?? this.availableSurahs),
+    );
+  }
 
   /// Default (legacy) display name.
   ///
@@ -65,6 +103,10 @@ class AudioEdition {
         'language': language,
         'format': format,
         'type': type,
+      'sourceKey': sourceKey,
+      'isSurahLevelSource': isSurahLevelSource,
+      'hasTiming': hasTiming,
+      'availableSurahs': availableSurahs,
       };
 
   factory AudioEdition.fromJson(Map<String, dynamic> json) {
@@ -75,6 +117,13 @@ class AudioEdition {
       language: json['language'] as String?,
       format: json['format'] as String?,
       type: json['type'] as String?,
+      sourceKey: json['sourceKey'] as String?,
+      isSurahLevelSource: json['isSurahLevelSource'] as bool? ?? false,
+      hasTiming: json['hasTiming'] as bool? ?? false,
+      availableSurahs: (json['availableSurahs'] as List<dynamic>?)
+          ?.whereType<num>()
+          .map((e) => e.toInt())
+          .toList(),
     );
   }
 }
@@ -716,6 +765,21 @@ class AudioEditionService {
         .firstOrNull;
   }
 
+  AudioEdition _withMetadata(AudioEdition edition) {
+    final available = RecitationCatalog.availableSurahsForEditionId(
+      edition.identifier,
+    );
+    return edition.copyWith(
+      sourceKey: RecitationCatalog.sourceKeyForEditionId(edition.identifier),
+      isSurahLevelSource: RecitationCatalog.isSurahLevelEdition(
+        edition.identifier,
+      ),
+      hasTiming: RecitationCatalog.isTimedEdition(edition.identifier),
+      availableSurahs: available,
+      clearAvailableSurahs: available == null,
+    );
+  }
+
   List<AudioEdition> _readCache() {
     final raw = _prefs.getString(_cacheKey);
     if (raw == null || raw.isEmpty) return _mergeExtras(const []);
@@ -758,7 +822,9 @@ class AudioEditionService {
         );
       }
     }
-    final merged = existing.values.toList()
+    final merged = existing.values
+      .map(_withMetadata)
+      .toList()
       ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
     return merged;
   }
@@ -808,14 +874,14 @@ class AudioEditionService {
       if (identifier is! String || identifier.trim().isEmpty) continue;
 
       editions.add(
-        AudioEdition(
+        _withMetadata(AudioEdition(
           identifier: identifier,
           name: item['name'] as String?,
           englishName: item['englishName'] as String?,
           language: item['language'] as String?,
           format: item['format'] as String?,
           type: item['type'] as String?,
-        ),
+        )),
       );
     }
 

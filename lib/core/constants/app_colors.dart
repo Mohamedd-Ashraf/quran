@@ -73,5 +73,44 @@ class AppColors {
     end: Alignment.bottomRight,
     colors: [goldGradientStart, goldGradientEnd],
   );
+
+  // ─── Major Qira'ah Badge Palette ─────────────────────────────────────────
+  static const Color qiraahNafi = Color(0xFF0E8D79);
+  static const Color qiraahIbnKathir = Color(0xFFB36A00);
+  static const Color qiraahAbuAmr = Color(0xFF1565C0);
+  static const Color qiraahIbnAmir = Color(0xFF8E24AA);
+  static const Color qiraahAsim = Color(0xFF2E7D32);
+  static const Color qiraahHamza = Color(0xFF6D4C41);
+  static const Color qiraahKisai = Color(0xFF00838F);
+  static const Color qiraahAbuJafar = Color(0xFF5D4037);
+  static const Color qiraahYaqub = Color(0xFF455A64);
+  static const Color qiraahKhalaf = Color(0xFFC62828);
+
+  static Color qiraahColor(String qiraahKey) {
+    switch (qiraahKey) {
+      case 'nafi':
+        return qiraahNafi;
+      case 'ibn_kathir':
+        return qiraahIbnKathir;
+      case 'abu_amr':
+        return qiraahAbuAmr;
+      case 'ibn_amir':
+        return qiraahIbnAmir;
+      case 'asim':
+        return qiraahAsim;
+      case 'hamza':
+        return qiraahHamza;
+      case 'kisai':
+        return qiraahKisai;
+      case 'abu_jafar':
+        return qiraahAbuJafar;
+      case 'yaqub':
+        return qiraahYaqub;
+      case 'khalaf':
+        return qiraahKhalaf;
+      default:
+        return secondary;
+    }
+  }
 }
 
