@@ -1256,50 +1256,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: _showDataSourceDialog,
                 ),
-                const Divider(height: 1, indent: 56),
-                ListTile(
-                  key: SettingsTutorialKeys.replayTutorial,
-                  leading: Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: const Icon(
-                      Icons.school_outlined,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                  ),
-                  title: _TileTitle(
-                    isAr ? 'إعادة الشرح التوضيحي' : 'Replay Tutorial',
-                  ),
-                  subtitle: _TileSubtitle(
-                    isAr
-                        ? 'مشاهدة الجولة التعريفية مرة أخرى'
-                        : 'Watch the app walkthrough again',
-                  ),
-                  trailing: const Icon(
-                    Icons.replay_rounded,
-                    color: AppColors.primary,
-                  ),
-                  onTap: () async {
-                    final tutorialService = di.sl<TutorialService>();
-                    await tutorialService.resetAll();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isAr
-                                ? 'تم إعادة تعيين الشرح التوضيحي — ستظهر الجولة عند فتح كل شاشة'
-                                : 'Tutorial reset — walkthrough will appear when you open each screen',
-                          ),
-                          backgroundColor: AppColors.primary,
-                        ),
-                      );
-                    }
-                  },
-                ),
+                // const Divider(height: 1, indent: 56),
+                // ListTile(
+                //   key: SettingsTutorialKeys.replayTutorial,
+                //   leading: Container(
+                //     padding: const EdgeInsets.all(7),
+                //     decoration: BoxDecoration(
+                //       color: AppColors.primary.withValues(alpha: 0.1),
+                //       borderRadius: BorderRadius.circular(9),
+                //     ),
+                  //   child: const Icon(
+                  //     Icons.school_outlined,
+                  //     color: AppColors.primary,
+                  //     size: 18,
+                  //   ),
+                  // ),
+                  //TODO : get it back after we finish the tutorial for the new UI
+                  // title: _TileTitle(
+                  //   isAr ? 'إعادة الشرح التوضيحي' : 'Replay Tutorial',
+                  // ),
+                  // subtitle: _TileSubtitle(
+                  //   isAr
+                  //       ? 'مشاهدة الجولة التعريفية مرة أخرى'
+                  //       : 'Watch the app walkthrough again',
+                  // ),
+                  // trailing: const Icon(
+                  //   Icons.replay_rounded,
+                  //   color: AppColors.primary,
+                  // ),
+                //   onTap: () async {
+                //     final tutorialService = di.sl<TutorialService>();
+                //     await tutorialService.resetAll();
+                //     if (mounted) {
+                //       ScaffoldMessenger.of(context).showSnackBar(
+                //         SnackBar(
+                //           content: Text(
+                //             isAr
+                //                 ? 'تم إعادة تعيين الشرح التوضيحي — ستظهر الجولة عند فتح كل شاشة'
+                //                 : 'Tutorial reset — walkthrough will appear when you open each screen',
+                //           ),
+                //           backgroundColor: AppColors.primary,
+                //         ),
+                //       );
+                //     }
+                //   },
+                // ),
                 const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: Container(

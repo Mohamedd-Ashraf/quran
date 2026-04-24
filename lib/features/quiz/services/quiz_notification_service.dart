@@ -147,7 +147,8 @@ class QuizNotificationService {
         ),
         payload: 'quiz',
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
+        // NOT using matchDateTimeComponents - we reschedule daily on app foreground
+        // to properly check if user already answered today's quiz
       );
 
       debugPrint(

@@ -336,7 +336,8 @@ class WirdNotificationService {
       payload: NotificationRoute.wird,
       scheduledDate: scheduled,
       details: _buildDetails(isFollowUp: false, isArabic: isArabic),
-      matchDateTimeComponents: DateTimeComponents.time,
+      // NOT using matchDateTimeComponents - we reschedule daily on app foreground
+      // to properly check if user already completed their wird
     );
   }
 

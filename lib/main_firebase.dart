@@ -281,6 +281,8 @@ class _GlobalWirdLifecycleObserverState
     extends State<_GlobalWirdLifecycleObserver>
     with WidgetsBindingObserver {
   bool _requestedInitialAdhanSchedule = false;
+  Timer? _midnightTimer;
+  DateTime? _lastRescheduleDate;
 
   @override
   void initState() {
@@ -294,11 +296,32 @@ class _GlobalWirdLifecycleObserverState
       // screen is dismissed) so dialogs never interrupt the intro flow.
       unawaited(di.sl<AdhanNotificationService>().ensureScheduleFresh());
     });
+    _scheduleMidnightCheck();
+  }
+
+  /// Schedule a timer to refresh notifications at midnight.
+  /// This ensures that wenn the date changes while the app is running,
+  /// notifications are rescheduled with the correct "completed today" state.
+  void _scheduleMidnightCheck() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final durationUntilMidnight = tomorrow.difference(now);
+
+    _midnightTimer = Timer(durationUntilMidnight, () {
+      if (!mounted) return;
+      // Date changed - reschedule notifications for the new day
+      unawaited(di.sl<WirdNotificationService>().scheduleForPlan());
+      unawaited(di.sl<QuizNotificationService>().scheduleDailyReminder());
+      // Schedule next midnight check
+      _scheduleMidnightCheck();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
     super.dispose();
   }
 
@@ -307,13 +330,23 @@ class _GlobalWirdLifecycleObserverState
     if (state == AppLifecycleState.resumed) {
       // Refresh the adhan schedule before the programmed window runs out.
       unawaited(di.sl<AdhanNotificationService>().ensureScheduleFresh());
-      // Re-schedule wird notifications every time the app comes to foreground.
-      // This ensures follow-up reminders are refreshed even when the user is
-      // not on the Wird screen.
-      unawaited(di.sl<WirdNotificationService>().scheduleForPlan());
-      // Re-schedule quiz reminder on foreground so "answered today" state
-      // is re-evaluated with fresh repository data.
-      unawaited(di.sl<QuizNotificationService>().scheduleDailyReminder());
+
+      // Check if date changed while app was in background
+      final today = DateTime.now();
+      final todayDate = DateTime(today.year, today.month, today.day);
+      if (_lastRescheduleDate == null ||
+          !_lastRescheduleDate!.isAtSameMomentAs(todayDate)) {
+        _lastRescheduleDate = todayDate;
+        // Date changed - reschedule notifications for the new day
+        unawaited(di.sl<WirdNotificationService>().scheduleForPlan());
+        unawaited(di.sl<QuizNotificationService>().scheduleDailyReminder());
+        // Reset midnight timer for the new day
+        _scheduleMidnightCheck();
+      } else {
+        // Same day - normal foreground refresh
+        unawaited(di.sl<WirdNotificationService>().scheduleForPlan());
+        unawaited(di.sl<QuizNotificationService>().scheduleDailyReminder());
+      }
     }
   }
 
