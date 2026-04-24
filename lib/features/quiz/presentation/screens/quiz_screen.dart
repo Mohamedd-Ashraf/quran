@@ -339,6 +339,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 state is QuizAlreadyAnswered) {
               _timerController?.stop();
               _uiTimer?.cancel();
+            } else if (state is QuizOfflineUnavailable) {
+              _timerController?.stop();
+              _uiTimer?.cancel();
             } else if (state is QuizSubmitError) {
               _startTimerAnimation(state.question.timerSeconds);
               final isAr = context
@@ -366,6 +369,14 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             }
             if (state is QuizReadyToStart) {
               return _buildLandingView(
+                context,
+                state,
+                isArabic: isArabic,
+                isDark: isDark,
+              );
+            }
+            if (state is QuizOfflineUnavailable) {
+              return _buildOfflineUnavailableView(
                 context,
                 state,
                 isArabic: isArabic,
@@ -500,6 +511,48 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           ),
         ),
         icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildOfflineUnavailableView(
+    BuildContext context,
+    QuizOfflineUnavailable state, {
+    required bool isArabic,
+    required bool isDark,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 72,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isArabic
+                  ? 'لا يمكن فتح سؤال اليوم بدون اتصال.'
+                  : 'Today\'s question needs an internet connection.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              state.message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

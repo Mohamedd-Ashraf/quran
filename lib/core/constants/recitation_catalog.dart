@@ -84,7 +84,27 @@ class RecitationCatalog {
     'ar.khaledjleel': 'https://server10.mp3quran.net/jleel/',
     'ar.raadialkurdi': 'https://server6.mp3quran.net/kurdi/',
     'ar.abdulaziahahmad': 'https://server11.mp3quran.net/a_ahmed/',
+    // ── يعقوب الحضرمي: روايتي رويس وروح (ياسر المزروعي) ─────────
+    'ar.qiraat.mazrouei.yaqub': 'https://server9.mp3quran.net/mzroyee/',
     };
+
+  /// Maps timed edition IDs to their mp3quran.net "read id" for the timing API.
+  /// Only editions in [timedEditionIds] have entries here.
+  static const Map<String, int> mp3QuranTimingReadIds = {
+    'ar.qiraat.husary.qalon': 270,
+    'ar.qiraat.husary.warsh': 120,
+    'ar.qiraat.husary.duri': 269,
+    'ar.qiraat.sosi.abuamr': 65,
+    'ar.qiraat.huthifi.qalon': 75,
+    'ar.qiraat.koshi.warsh': 16,
+    'ar.qiraat.yasseen.warsh': 14,
+    'ar.qiraat.qazabri.warsh': 80,
+    'ar.qiraat.dokali.qalon': 208,
+    'ar.qiraat.okasha.bazi': 296,
+    'ar.khaledjleel': 20,
+    'ar.raadialkurdi': 221,
+    'ar.abdulaziahahmad': 55,
+  };
 
     // Partial coverage map for future-proofing; null means full 114 coverage.
     static const Map<String, List<int>> limitedSurahCoverageByEditionId = {
@@ -130,6 +150,9 @@ class RecitationCatalog {
 
     // Kisai
     'ar.qiraat.duri.kisai': 'kisai',
+
+    // Yaqub
+    'ar.qiraat.mazrouei.yaqub': 'yaqub',
   };
 
   static bool isWarshEdition(String identifier) {

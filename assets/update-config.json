@@ -1,11 +1,11 @@
 {
-  "latestVersion": "1.1.1",
+  "latestVersion": "1.1.2",
   "minimumVersion": "1.0.8",
   "isMandatory": false,
   "downloadUrl": "https://play.google.com/store/apps/details?id=com.nooraliman.quran",
-  "releaseDate": "2026-04-21T00:00:00.000Z",
+  "releaseDate": "2026-04-25T00:00:00.000Z",
   "changelog": {
-    "ar": "✨ الجديد في نور الإيمان 1.1.1:\n• أداة التقويم الهجري الشهرية على الشاشة الرئيسية\n• توسعة مكتبة الأذكار بأقسام جديدة\n• دعم القراءات العشر والروايات في التلاوة\n• تحديد نقطة بداية الورد اليومي\n• التحدي اليومي يحفظ إجابتك بدون إنترنت\n• إشعار الأذان يفتح شاشة مواقيت الصلاة مباشرة\n• إصلاحات وتحسينات عامة",
-    "en": "✨ What's New in Noor Al-Iman 1.1.1:\n• Monthly Hijri Calendar home-screen widget\n• Expanded adhkar library with new sections (Wudu, Istikhara, Qunut & more)\n• Ten Qira'at & recitation variants support\n• Set a custom starting point for your daily Wird\n• Daily Challenge saves answers offline and syncs when connected\n• Adhan notification opens Prayer Times directly\n• Bug fixes and general performance improvements"
+    "ar": "✨ الجديد في نور الإيمان 1.1.2:\n• الخصوصية على لوحة المتصدرين (إخفاء صفحتك)\n• خدمة القراء المفضلين للوصول السريع\n• تحسينات التلاوة الصوتية ومعالجة الأخطاء\n• أدوات تغيير حجم خط التفسير\n• نظام إرسال الملاحظات والمقترحات\n• تحسين اختيار القارئ في صفحة المصحف\n• إصلاحات وتحسينات عامة",
+    "en": "✨ What's New in Noor Al-Iman 1.1.2:\n• Leaderboard privacy (hide your profile)\n• Favorite reciters service for quick access\n• Improved audio recitation and error handling\n• Tafsir font size controls\n• Feedback submission system\n• Improved reciter selection in Mushaf page\n• General fixes and performance improvements"
   }
 }

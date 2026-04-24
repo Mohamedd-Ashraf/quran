@@ -2340,10 +2340,23 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
     }
     if (_query.isEmpty) {
       list.sort((a, b) {
+        // Prioritize favorites first
         final aFav = _favourites.contains(a.identifier);
         final bFav = _favourites.contains(b.identifier);
         if (aFav && !bFav) return -1;
         if (!aFav && bFav) return 1;
+        // Then prioritize per-ayah in Qira'at tab: non-timed first, then timed, then full-surah
+        if (_langFilter == 'qiraat') {
+          final aSurahLevel = RecitationCatalog.isSurahLevelOnlyEdition(a.identifier);
+          final bSurahLevel = RecitationCatalog.isSurahLevelOnlyEdition(b.identifier);
+          final aTimed = RecitationCatalog.isTimedEdition(a.identifier);
+          final bTimed = RecitationCatalog.isTimedEdition(b.identifier);
+          // Priority: per-ayah non-timed > per-ayah timed > full-surah
+          if (!aSurahLevel && bSurahLevel) return -1;
+          if (aSurahLevel && !bSurahLevel) return 1;
+          if (!aSurahLevel && !bSurahLevel && aTimed && !bTimed) return 1;
+          if (!aSurahLevel && !bSurahLevel && !aTimed && bTimed) return -1;
+        }
         return 0;
       });
       return list;
@@ -2357,10 +2370,23 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
             e.identifier.toLowerCase().contains(q))
         .toList();
     filtered.sort((a, b) {
+      // Prioritize favorites first
       final aFav = _favourites.contains(a.identifier);
       final bFav = _favourites.contains(b.identifier);
       if (aFav && !bFav) return -1;
       if (!aFav && bFav) return 1;
+      // Then prioritize per-ayah in Qira'at tab: non-timed first, then timed, then full-surah
+      if (_langFilter == 'qiraat') {
+        final aSurahLevel = RecitationCatalog.isSurahLevelOnlyEdition(a.identifier);
+        final bSurahLevel = RecitationCatalog.isSurahLevelOnlyEdition(b.identifier);
+        final aTimed = RecitationCatalog.isTimedEdition(a.identifier);
+        final bTimed = RecitationCatalog.isTimedEdition(b.identifier);
+        // Priority: per-ayah non-timed > per-ayah timed > full-surah
+        if (!aSurahLevel && bSurahLevel) return -1;
+        if (aSurahLevel && !bSurahLevel) return 1;
+        if (!aSurahLevel && !bSurahLevel && aTimed && !bTimed) return 1;
+        if (!aSurahLevel && !bSurahLevel && !aTimed && bTimed) return -1;
+      }
       return 0;
     });
     return filtered;

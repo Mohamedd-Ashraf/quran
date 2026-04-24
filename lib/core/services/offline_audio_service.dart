@@ -505,39 +505,13 @@ class OfflineAudioService {
   };
 
   /// Maps Qira'at edition identifiers to their mp3quran.net server base URLs.
-  /// mp3quran.net stores ONE mp3 file per surah (001.mp3 = full Surah 1).
-  /// These are *surah-level* sources: download/play one file per surah,
-  /// NOT individual ayah files.
-  static const Map<String, String> _mp3QuranServers = {
-    'ar.qiraat.qalon'       : 'https://server10.mp3quran.net/trablsi/',
-    'ar.qiraat.bazi'        : 'https://server16.mp3quran.net/deban/Rewayat-Albizi-A-n-Ibn-Katheer/',
-    'ar.qiraat.qunbol'      : 'https://server16.mp3quran.net/deban/Rewayat-Qunbol-A-n-Ibn-Katheer/',
-    'ar.qiraat.duri.abuamr' : 'https://server16.mp3quran.net/deban/Rewayat-Aldori-A-n-Abi-Amr/',
-    'ar.qiraat.ibndhakwan'  : 'https://server14.mp3quran.net/muftah_sultany/Rewayat_Ibn-Thakwan-A-n-Ibn-Amer/',
-    'ar.qiraat.shuba'       : 'https://server16.mp3quran.net/deban/Rewayat-Sho-bah-A-n-Asim/',
-    'ar.qiraat.duri.kisai'  : 'https://server14.mp3quran.net/muftah_sultany/Rewayat-AlDorai-A-n-Al-Kisa-ai/',
-    'ar.qiraat.warsh.azraq' : 'https://server16.mp3quran.net/deban/Rewayat-Warsh-A-n-Nafi-Men-Tariq-Alazraq/',
-    'ar.qiraat.sosi.abuamr' : 'https://server16.mp3quran.net/soufi/Rewayat-Assosi-A-n-Abi-Amr/',
-    'ar.qiraat.khalaf.hamza': 'https://server16.mp3quran.net/soufi/Rewayat-Khalaf-A-n-Hamzah/',
-    'ar.qiraat.husary.qalon': 'https://server13.mp3quran.net/husr/Rewayat-Qalon-A-n-Nafi/',
-    'ar.qiraat.husary.warsh': 'https://server13.mp3quran.net/husr/Rewayat-Warsh-A-n-Nafi/',
-    'ar.qiraat.husary.duri' : 'https://server13.mp3quran.net/husr/Rewayat-Aldori-A-n-Abi-Amr/',
-    // ── قراءات ورش وقالون — reciters with timing ───────────────────────────
-    'ar.qiraat.huthifi.qalon': 'https://server9.mp3quran.net/huthifi_qalon/',
-    'ar.qiraat.koshi.warsh'  : 'https://server11.mp3quran.net/koshi/',
-    'ar.qiraat.yasseen.warsh': 'https://server11.mp3quran.net/qari/',
-    'ar.qiraat.qazabri.warsh': 'https://server9.mp3quran.net/omar_warsh/',
-    'ar.qiraat.dokali.qalon' : 'https://server7.mp3quran.net/dokali/',
-    'ar.qiraat.okasha.bazi'  : 'https://server16.mp3quran.net/okasha/Rewayat-Albizi-A-n-Ibn-Katheer/',
-    // ── حفص — قراء mp3quran.net مع توقيتات ──────────────────────────────────
-    'ar.khaledjleel'         : 'https://server10.mp3quran.net/jleel/',
-    'ar.raadialkurdi'        : 'https://server6.mp3quran.net/kurdi/',
-    'ar.abdulaziahahmad'     : 'https://server11.mp3quran.net/a_ahmed/',
-  };
+  /// Delegated to [RecitationCatalog.mp3QuranServersByEditionId].
+  Map<String, String> get _mp3QuranServers =>
+      RecitationCatalog.mp3QuranServersByEditionId;
 
   /// True when the current edition stores one surah file per surah
   /// (mp3quran.net Qira'at editions) rather than individual ayah files.
-  bool get _isSurahLevelEdition => _mp3QuranServers.containsKey(edition);
+  bool get _isSurahLevelEdition => RecitationCatalog.isSurahLevelEdition(edition);
 
   /// Builds a direct everyayah.com URL (no API call needed).
   /// Returns null if the edition is not in [_everyAyahFolders].

@@ -69,10 +69,6 @@ class QuizRepository {
   static const _kReminderHour = 'quiz_reminder_hour';
   static const _kReminderMinute = 'quiz_reminder_minute';
 
-  // ── Pending offline-sync keys ─────────────────────────────────────────────
-  static const _kPendingSync = 'quiz_pending_sync';
-  static const _kPendingSyncDate = 'quiz_pending_sync_date';
-
   // ── Active-timer persistence keys ────────────────────────────────────────
   // These let us resume the correct countdown when the user leaves and returns
   // to the quiz mid-session (back navigation, app kill, etc.).
@@ -112,6 +108,7 @@ class QuizRepository {
 
   User? get _user => _auth.currentUser;
   bool get _isLoggedIn => _user != null && !_user!.isAnonymous;
+  bool get isLoggedIn => _isLoggedIn;
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -123,10 +120,6 @@ class QuizRepository {
     } else {
       _loadFromPrefs();
     }
-    // Always apply any locally-saved pending answer, regardless of whether
-    // Firestore succeeded or fell back to prefs. Without this, an app that
-    // can't reach Firestore shows stale pre-answer score/streak.
-    _applyPendingLocalAnswerIfValid();
   }
 
   void _loadFromPrefs() {
@@ -143,97 +136,63 @@ class QuizRepository {
   }
 
   Future<void> _loadFromFirestore() async {
-    try {
-      final doc = await _firestore
-          .collection(_collection)
-          .doc(_user!.uid)
-          .get();
+    final doc = await _firestore
+        .collection(_collection)
+        .doc(_user!.uid)
+        .get();
 
-      if (doc.exists) {
-        final d = doc.data()!;
-        _userSeed = d['userSeed'] as int? ?? _ensureSeedInPrefs();
-        _totalScore = d['totalScore'] as int? ?? 0;
-        _streak = d['streak'] as int? ?? 0;
-        _correctAnswers = d['correctAnswers'] as int? ?? 0;
-        _totalAnswered = d['totalAnswered'] as int? ?? 0;
-        _answeredIds = _parseIds(d['answeredIdsJson'] as String?);
-        _lastAnswerCorrect = d['lastAnswerCorrect'] as bool?;
-        _lastAnswerPoints = d['lastAnswerPoints'] as int? ?? 0;
-        // Derive _lastAnsweredDate from the SERVER timestamp (UTC).
-        // This is the key anti-cheat: the date string is always based on
-        // what Firestore recorded, never on the device clock at write time.
-        // Even if the user manipulates their device date, the next loadData()
-        // call restores the correct server-sourced date here.
-        final ts = d['lastAnsweredTimestamp'];
-        if (ts is Timestamp) {
-          _lastAnsweredServerTimestamp = ts.toDate().toUtc();
-          final dt = _lastAnsweredServerTimestamp!;
-          _lastAnsweredDate =
-              '${dt.year}-'
-              '${dt.month.toString().padLeft(2, '0')}-'
-              '${dt.day.toString().padLeft(2, '0')}';
-        } else {
-          _lastAnsweredServerTimestamp = null;
-          _lastAnsweredDate = d['lastAnsweredDate'] as String?;
-        }
-        // Fetch authoritative server time so _todayString() is not
-        // influenced by the device clock (guards against clock-advance cheats).
-        // Condition: any user who has answered before (has a lastAnsweredDate),
-        // including old documents that pre-date the lastAnsweredTimestamp field.
-        if (_lastAnsweredDate != null && _lastAnsweredDate!.isNotEmpty) {
-          _serverNowUtc = await _fetchServerNow();
-        }
-        debugPrint('[Quiz] Loaded from Firestore for ${_user!.uid}');
+    if (doc.exists) {
+      final d = doc.data()!;
+      _userSeed = d['userSeed'] as int? ?? _ensureSeedInPrefs();
+      _totalScore = d['totalScore'] as int? ?? 0;
+      _streak = d['streak'] as int? ?? 0;
+      _correctAnswers = d['correctAnswers'] as int? ?? 0;
+      _totalAnswered = d['totalAnswered'] as int? ?? 0;
+      _answeredIds = _parseIds(d['answeredIdsJson'] as String?);
+      _lastAnswerCorrect = d['lastAnswerCorrect'] as bool?;
+      _lastAnswerPoints = d['lastAnswerPoints'] as int? ?? 0;
+      // Derive _lastAnsweredDate from the SERVER timestamp (UTC).
+      // This is the key anti-cheat: the date string is always based on
+      // what Firestore recorded, never on the device clock at write time.
+      // Even if the user manipulates their device date, the next loadData()
+      // call restores the correct server-sourced date here.
+      final ts = d['lastAnsweredTimestamp'];
+      if (ts is Timestamp) {
+        _lastAnsweredServerTimestamp = ts.toDate().toUtc();
+        final dt = _lastAnsweredServerTimestamp!;
+        _lastAnsweredDate =
+            '${dt.year}-'
+            '${dt.month.toString().padLeft(2, '0')}-'
+            '${dt.day.toString().padLeft(2, '0')}';
       } else {
-        // First sign-in: preserve question history and seed from local prefs
-        // so the user continues their question sequence and cannot re-answer
-        // questions. Score counters are intentionally reset to 0 on Firestore
-        // to prevent SharedPrefs manipulation (score inflation attack).
-        _userSeed = _ensureSeedInPrefs();
-        _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
-        _lastAnsweredDate = _prefs.getString(_kLastDate);
-        _totalScore = 0;
-        _streak = 0;
-        _correctAnswers = 0;
-        _totalAnswered = 0;
-        _lastAnswerCorrect = null;
-        _lastAnswerPoints = 0;
-        await _saveToFirestore();
-        debugPrint('[Quiz] Initialized Firestore document for ${_user!.uid}');
+        _lastAnsweredServerTimestamp = null;
+        _lastAnsweredDate = d['lastAnsweredDate'] as String?;
       }
-    } catch (e, st) {
-      debugPrint('[Quiz] Firestore load failed, using local prefs: $e\n$st');
-      _loadFromPrefs();
+      // Fetch authoritative server time so _todayString() is not
+      // influenced by the device clock (guards against clock-advance cheats).
+      // Condition: any user who has answered before (has a lastAnsweredDate),
+      // including old documents that pre-date the lastAnsweredTimestamp field.
+      if (_lastAnsweredDate != null && _lastAnsweredDate!.isNotEmpty) {
+        _serverNowUtc = await _fetchServerNow();
+      }
+      debugPrint('[Quiz] Loaded from Firestore for ${_user!.uid}');
+    } else {
+      // First sign-in: preserve question history and seed from local prefs
+      // so the user continues their question sequence and cannot re-answer
+      // questions. Score counters are intentionally reset to 0 on Firestore
+      // to prevent SharedPrefs manipulation (score inflation attack).
+      _userSeed = _ensureSeedInPrefs();
+      _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
+      _lastAnsweredDate = _prefs.getString(_kLastDate);
+      _totalScore = 0;
+      _streak = 0;
+      _correctAnswers = 0;
+      _totalAnswered = 0;
+      _lastAnswerCorrect = null;
+      _lastAnswerPoints = 0;
+      await _saveToFirestore();
+      debugPrint('[Quiz] Initialized Firestore document for ${_user!.uid}');
     }
-    // Note: _applyPendingLocalAnswerIfValid() is called in loadData() after
-    // this returns, so it runs regardless of Firestore success or fallback.
-  }
-
-  /// Overlays the locally-saved post-answer data when there is a pending sync
-  /// for today AND Firestore doesn't already show an answer for today.
-  void _applyPendingLocalAnswerIfValid() {
-    if (!hasPendingSync) return;
-    final pendingDate = _prefs.getString(_kPendingSyncDate) ?? '';
-    if (pendingDate != _todayString()) {
-      // Pending is stale (different day) — discard.
-      _clearPendingSync();
-      return;
-    }
-    if (hasAnsweredToday) {
-      // Firestore already has today's answer — pending is no longer needed.
-      _clearPendingSync();
-      return;
-    }
-    // Override in-memory state with locally saved post-answer values.
-    _totalScore = _prefs.getInt(_kScore) ?? _totalScore;
-    _streak = _prefs.getInt(_kStreak) ?? _streak;
-    _correctAnswers = _prefs.getInt(_kCorrect) ?? _correctAnswers;
-    _totalAnswered = _prefs.getInt(_kTotal) ?? _totalAnswered;
-    _lastAnsweredDate = pendingDate;
-    _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
-    _lastAnswerCorrect = _prefs.getBool(_kLastCorrect);
-    _lastAnswerPoints = _prefs.getInt(_kLastPoints) ?? 0;
-    debugPrint('[Quiz] Applied pending offline answer to in-memory state');
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -375,6 +334,16 @@ class QuizRepository {
   /// (e.g. security-rule violation), so the UI can show an error instead of
   /// phantom points.
   Future<bool> submitAnswer(int questionId, int selectedIndex) async {
+    final previousTotalScore = _totalScore;
+    final previousStreak = _streak;
+    final previousCorrectAnswers = _correctAnswers;
+    final previousTotalAnswered = _totalAnswered;
+    final previousLastAnsweredDate = _lastAnsweredDate;
+    final previousAnsweredIds = List<int>.from(_answeredIds);
+    final previousLastAnswerCorrect = _lastAnswerCorrect;
+    final previousLastAnswerPoints = _lastAnswerPoints;
+    final previousServerTimestamp = _lastAnsweredServerTimestamp;
+
     // Use the shuffled question (with updated correctIndex) if available;
     // fall back to the pool entry for safety (e.g. admin re-answer flows).
     final question = (_todayShuffledQuestion?.id == questionId)
@@ -406,14 +375,17 @@ class QuizRepository {
     if (_isLoggedIn) {
       final saved = await _saveToFirestore(isAnswer: true);
       if (!saved) {
-        // Firestore write failed (offline or transient error).
-        // Accept the answer locally and schedule a sync for when connectivity
-        // returns. Do NOT revert in-memory state — the user gets the result now.
-        await _saveToPrefs();
-        await _prefs.setBool(_kPendingSync, true);
-        await _prefs.setString(_kPendingSyncDate, _todayString());
-        debugPrint(
-          '[Quiz] Offline: answer saved locally, pending Firestore sync.',
+        _totalScore = previousTotalScore;
+        _streak = previousStreak;
+        _correctAnswers = previousCorrectAnswers;
+        _totalAnswered = previousTotalAnswered;
+        _lastAnsweredDate = previousLastAnsweredDate;
+        _answeredIds = previousAnsweredIds;
+        _lastAnswerCorrect = previousLastAnswerCorrect;
+        _lastAnswerPoints = previousLastAnswerPoints;
+        _lastAnsweredServerTimestamp = previousServerTimestamp;
+        throw Exception(
+          'Could not save answer. Check your connection and try again.',
         );
       }
     } else {
@@ -483,41 +455,6 @@ class QuizRepository {
       elapsedSeconds: elapsed,
       remainingSeconds: remaining,
     );
-  }
-
-  // ── Offline sync ──────────────────────────────────────────────────────────
-
-  bool get hasPendingSync => _prefs.getBool(_kPendingSync) ?? false;
-
-  /// Attempts to push the locally-saved offline answer to Firestore.
-  /// Returns true if the sync succeeded (or was no longer needed).
-  Future<bool> syncPendingAnswer() async {
-    if (!hasPendingSync) return false;
-    if (!_isLoggedIn) {
-      await _clearPendingSync();
-      return false;
-    }
-    // Load fresh Firestore state, which also calls _applyPendingLocalAnswerIfValid
-    // so in-memory state reflects the pending answer.
-    await loadData();
-
-    // If pending was stale or already synced during loadData, we're done.
-    if (!hasPendingSync) return true;
-
-    // In-memory state now has the pending answer applied; write it to Firestore.
-    final saved = await _saveToFirestore(isAnswer: true);
-    if (saved) {
-      await _clearPendingSync();
-      debugPrint('[Quiz] Pending offline answer synced to Firestore.');
-      return true;
-    }
-    debugPrint('[Quiz] Pending sync still failing (still offline?).');
-    return false;
-  }
-
-  Future<void> _clearPendingSync() async {
-    await _prefs.remove(_kPendingSync);
-    await _prefs.remove(_kPendingSyncDate);
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────

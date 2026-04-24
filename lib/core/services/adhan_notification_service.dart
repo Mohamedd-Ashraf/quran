@@ -935,7 +935,9 @@ class AdhanNotificationService {
       lastScheduledDate.month,
       lastScheduledDate.day,
     );
+    // Reschedule if date changed forward (new day) or backward (user adjusted time)
     if (todayDate.isAfter(lastDateOnly)) return true;
+    if (todayDate.isBefore(lastDateOnly)) return true;
 
     // Within the same day, only reschedule when the window is running short.
     final scheduledThrough = lastDateOnly.add(Duration(days: computeDaysAhead() - 1));

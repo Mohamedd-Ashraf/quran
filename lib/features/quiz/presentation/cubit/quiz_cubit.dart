@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/network_info.dart';
 import '../../data/models/quiz_question_model.dart';
 import '../../data/quiz_repository.dart';
 import '../../services/quiz_notification_service.dart';
@@ -12,9 +12,9 @@ import 'quiz_state.dart';
 class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   final QuizRepository _repository;
   final QuizNotificationService _notifService;
+  final NetworkInfo _networkInfo;
 
   Timer? _timer;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   int _remainingSeconds = 0;
   bool _hasSubmitted = false;
 
@@ -34,12 +34,9 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   /// Updated on initial start and again after each app-resume recalculation.
   int _sessionStartRemaining = 0;
 
-  QuizCubit(this._repository, this._notifService) : super(const QuizInitial()) {
+  QuizCubit(this._repository, this._notifService, this._networkInfo)
+      : super(const QuizInitial()) {
     WidgetsBinding.instance.addObserver(this);
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
-      final isOnline = results.any((r) => r != ConnectivityResult.none);
-      if (isOnline) _trySyncPendingAnswer();
-    });
   }
 
   int get remainingSeconds => _remainingSeconds;
@@ -53,10 +50,34 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     _hasSubmitted = false;
     _questionStartTime = null;
     _totalTimerSeconds = 0;
+
+    // Check connectivity BEFORE showing loading indicator — avoids infinite spinner.
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
+      emit(const QuizOfflineUnavailable(
+        message: 'Connect to the internet to answer today\'s question.',
+      ));
+      return;
+    }
+
     emit(const QuizLoading());
 
-    // Load from Firestore (logged-in) or SharedPrefs (guest)
-    await _repository.loadData();
+    if (!_repository.isLoggedIn) {
+      emit(const QuizOfflineUnavailable(
+        message: 'You need to sign in to answer today\'s question.',
+      ));
+      return;
+    }
+
+    // Load from Firestore for signed-in users.
+    try {
+      await _repository.loadData();
+    } catch (e) {
+      emit(QuizOfflineUnavailable(
+        message: 'Could not load today\'s question. Check your connection and try again.',
+      ));
+      return;
+    }
 
     // Admins bypass the daily-answer limit so they can test freely.
     final isAdmin = await _repository.isAdmin;
@@ -199,14 +220,8 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   }
 
   /// Called by Flutter when the app transitions to/from background.
-  /// If the user has backgrounded the app while a question is active and
-  /// the full timer duration has already elapsed, auto-submit as a timeout.
-  /// Also retries any pending offline sync on resume.
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
-    if (lifecycleState == AppLifecycleState.resumed) {
-      _trySyncPendingAnswer();
-    }
     if (lifecycleState == AppLifecycleState.resumed &&
         _questionStartTime != null &&
         !_hasSubmitted) {
@@ -257,12 +272,10 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
     try {
       // selectedIndex = -1 counts as wrong (no matching correctIndex).
-      // submitAnswer already handles offline gracefully via pending-sync.
       await _repository.submitAnswer(question.id, -1);
       await _repository.clearTimerState();
     } catch (e) {
       // QuizTimeUp is already showing — don't revert or re-emit.
-      // The pending-sync mechanism will retry when connectivity returns.
       // Do NOT revert _hasSubmitted: we must not re-show the question.
       debugPrint('[Quiz] Timeout submission failed: $e');
     }
@@ -360,26 +373,11 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
-  // ── Offline sync ──────────────────────────────────────────────────────────
-
-  Future<void> _trySyncPendingAnswer() async {
-    if (!_repository.hasPendingSync) return;
-    try {
-      final synced = await _repository.syncPendingAnswer();
-      if (synced) {
-        debugPrint('[Quiz] Offline answer successfully synced to Firestore');
-      }
-    } catch (e) {
-      debugPrint('[Quiz] Pending sync attempt failed: $e');
-    }
-  }
-
   @override
   Future<void> close() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _sessionStopwatch?.stop();
-    _connectivitySub?.cancel();
     return super.close();
   }
 }

@@ -151,72 +151,15 @@ const Map<String, int> _everyAyahBitratesKbps = {
 };
 
 /// Maps edition identifiers (for the 10 Qira'at) to their mp3quran.net server URLs.
-/// URL format: {server}{surah3}{ayah3}.mp3  — the server string already includes a trailing slash.
-/// Source: https://mp3quran.net/api/v3/reciters
-const Map<String, String> _mp3QuranServers = {
-  // ── نافع المدني: قالون (عبد الرؤوف الترابلسي) ────────────────────────────
-  'ar.qiraat.qalon':        'https://server10.mp3quran.net/trablsi/',
-  // ── ابن كثير المكي: البزي (على دبان) ────────────────────────────────────
-  'ar.qiraat.bazi':         'https://server16.mp3quran.net/deban/Rewayat-Albizi-A-n-Ibn-Katheer/',
-  // ── ابن كثير المكي: قنبل (على دبان) ────────────────────────────────────
-  'ar.qiraat.qunbol':       'https://server16.mp3quran.net/deban/Rewayat-Qunbol-A-n-Ibn-Katheer/',
-  // ── أبو عمرو البصري: الدوري (على دبان) ─────────────────────────────────
-  'ar.qiraat.duri.abuamr':  'https://server16.mp3quran.net/deban/Rewayat-Aldori-A-n-Abi-Amr/',
-  // ── ابن عامر الشامي: ابن ذكوان (مفتاح السلطاني) ─────────────────────────
-  'ar.qiraat.ibndhakwan':   'https://server14.mp3quran.net/muftah_sultany/Rewayat_Ibn-Thakwan-A-n-Ibn-Amer/',
-  // ── عاصم الكوفي: شعبة (على دبان) ────────────────────────────────────────
-  'ar.qiraat.shuba':        'https://server16.mp3quran.net/deban/Rewayat-Sho-bah-A-n-Asim/',
-  // ── الكسائي الكوفي: الدوري (مفتاح السلطاني) ─────────────────────────────
-  'ar.qiraat.duri.kisai':   'https://server14.mp3quran.net/muftah_sultany/Rewayat-AlDorai-A-n-Al-Kisa-ai/',
-  // ── نافع المدني: ورش من طريق الأزرق (على دبان) ──────────────────────────
-  'ar.qiraat.warsh.azraq':  'https://server16.mp3quran.net/deban/Rewayat-Warsh-A-n-Nafi-Men-Tariq-Alazraq/',
-  // ── أبو عمرو البصري: السوسي (عبدالرشيد الصوفي) ──────────────────────────
-  'ar.qiraat.sosi.abuamr':  'https://server16.mp3quran.net/soufi/Rewayat-Assosi-A-n-Abi-Amr/',
-  // ── حمزة الكوفي: خلف (عبدالرشيد الصوفي) ─────────────────────────────────
-  'ar.qiraat.khalaf.hamza': 'https://server16.mp3quran.net/soufi/Rewayat-Khalaf-A-n-Hamzah/',
-  // ── نافع المدني: قالون (محمود خليل الحصري) ──────────────────────────────
-  'ar.qiraat.husary.qalon': 'https://server13.mp3quran.net/husr/Rewayat-Qalon-A-n-Nafi/',
-  // ── نافع المدني: ورش (محمود خليل الحصري) ────────────────────────────────
-  'ar.qiraat.husary.warsh': 'https://server13.mp3quran.net/husr/Rewayat-Warsh-A-n-Nafi/',
-  // ── أبو عمرو البصري: الدوري (محمود خليل الحصري) ─────────────────────────
-  'ar.qiraat.husary.duri':  'https://server13.mp3quran.net/husr/Rewayat-Aldori-A-n-Abi-Amr/',
-  // ── نافع المدني: قالون (علي الحذيفي) ────────────────────────────────────
-  'ar.qiraat.huthifi.qalon': 'https://server9.mp3quran.net/huthifi_qalon/',
-  // ── نافع المدني: ورش (العيون الكوشي) ─────────────────────────────────────
-  'ar.qiraat.koshi.warsh':   'https://server11.mp3quran.net/koshi/',
-  // ── نافع المدني: ورش (القارئ ياسين) ─────────────────────────────────────
-  'ar.qiraat.yasseen.warsh': 'https://server11.mp3quran.net/qari/',
-  // ── نافع المدني: ورش (عمر القزابري) ─────────────────────────────────────
-  'ar.qiraat.qazabri.warsh': 'https://server9.mp3quran.net/omar_warsh/',
-  // ── نافع المدني: قالون (الدوكالي محمد العالم) ────────────────────────────
-  'ar.qiraat.dokali.qalon':  'https://server7.mp3quran.net/dokali/',
-  // ── ابن كثير المكي: البزي (عكاشة كميني) ─────────────────────────────────
-  'ar.qiraat.okasha.bazi':   'https://server16.mp3quran.net/okasha/Rewayat-Albizi-A-n-Ibn-Katheer/',
-  // ── حفص عن عاصم — قراء mp3quran.net (توقيتات) ───────────────────────────
-  'ar.khaledjleel':          'https://server10.mp3quran.net/jleel/',
-  'ar.raadialkurdi':         'https://server6.mp3quran.net/kurdi/',
-  'ar.abdulaziahahmad':      'https://server11.mp3quran.net/a_ahmed/',
-};
+/// Delegated to [RecitationCatalog.mp3QuranServersByEditionId].
+Map<String, String> get _mp3QuranServers =>
+    RecitationCatalog.mp3QuranServersByEditionId;
+
 /// Maps edition IDs (subset of [_mp3QuranServers]) to the mp3quran.net "read id"
 /// that has ayat timing available at `https://mp3quran.net/api/v3/ayat_timing`.
-/// Only these editions support per-ayah playback via [ClippingAudioSource].
-const Map<String, int> _mp3QuranTimingReadIds = {
-  'ar.qiraat.husary.qalon':  270,
-  'ar.qiraat.husary.warsh':  120,
-  'ar.qiraat.husary.duri':   269,
-  'ar.qiraat.sosi.abuamr':    65,
-  // ── قراءات ورش وقالون — reciters with timing ──────────────────────────────
-  'ar.qiraat.huthifi.qalon':  75,
-  'ar.qiraat.koshi.warsh':    16,
-  'ar.qiraat.yasseen.warsh':  14,
-  'ar.qiraat.qazabri.warsh':  80,
-  'ar.qiraat.dokali.qalon':  208,
-  'ar.qiraat.okasha.bazi':   296,
-  // ── حفص — قراء mp3quran.net مع توقيتات ───────────────────────────────────
-  'ar.khaledjleel':           20,
-  'ar.raadialkurdi':         221,
-  'ar.abdulaziahahmad':       55,
-};
+/// Delegated to [RecitationCatalog.mp3QuranTimingReadIds].
+Map<String, int> get _mp3QuranTimingReadIds =>
+    RecitationCatalog.mp3QuranTimingReadIds;
 
 /// Surahs whose Hafs Ayah 1 is a fawatih (opening letter sequence)
 /// e.g. "الم", "الر", "يس" — which is always very short (≤ 5 s to recite).

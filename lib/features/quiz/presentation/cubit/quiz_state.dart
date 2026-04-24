@@ -18,6 +18,16 @@ class QuizLoading extends QuizState {
   const QuizLoading();
 }
 
+/// Quiz requires internet to load and submit today's answer.
+class QuizOfflineUnavailable extends QuizState {
+  final String message;
+
+  const QuizOfflineUnavailable({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
 /// Question loaded — waiting for the user to press "Start".
 /// The countdown timer has NOT started yet.
 class QuizReadyToStart extends QuizState {

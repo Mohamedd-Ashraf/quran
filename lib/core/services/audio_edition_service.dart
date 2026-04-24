@@ -753,6 +753,15 @@ class AudioEditionService {
       format: 'audio',
       type: 'versebyverse',
     ),
+    // ── يعقوب الحضرمي: روايتي رويس وروح (ياسر المزروعي) ──────────────
+    AudioEdition(
+      identifier: 'ar.qiraat.mazrouei.yaqub',
+      name: 'ياسر المزروعي (يعقوب الحضرمي)',
+      englishName: 'Yasser Al-Mazrouei (Yaqub Al-Hadhrami)',
+      language: 'ar',
+      format: 'audio',
+      type: 'versebyverse',
+    ),
   ];
 
   /// Returns an edition by its identifier using only the local cache (no network call).

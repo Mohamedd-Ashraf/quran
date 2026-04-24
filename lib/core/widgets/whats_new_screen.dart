@@ -377,6 +377,80 @@ const Map<String, List<_WhatsNewEntry>> _changelog = {
       color: const Color(0xFF5D4037),
     ),
   ],
+  // --- v1.1.2 -----------------------------------------------------------------
+  '1.1.2': [
+    _WhatsNewEntry(
+      icon: Icons.visibility_off_rounded,
+      titleAr: 'الخصوصية على لوحة المتصدرين',
+      titleEn: 'Leaderboard Privacy',
+      descAr:
+          'اختر إظهار أو إخفاء صفحتك على لوحة المتصدرين.',
+      descEn:
+          'Choose to show or hide your profile on the leaderboard.',
+      color: const Color(0xFF6A1B9A),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.favorite_rounded,
+      titleAr: 'القراء المفضلون',
+      titleEn: 'Favorite Reciters',
+      descAr:
+          'احفظ قراءك المفضلين للوصول السريع.',
+      descEn:
+          'Save your favorite reciters for quick access.',
+      color: const Color(0xFFE91E63),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.record_voice_over_rounded,
+      titleAr: 'تحسينات التلاوة الصوتية',
+      titleEn: 'Improved Audio Recitation',
+      descAr:
+          'تحسين معالجة الأخطاء وعرض إشعارات أفضل.',
+      descEn:
+          'Improved error handling and better notification display.',
+      color: const Color(0xFF1565C0),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.text_fields_rounded,
+      titleAr: 'أدوات تغيير حجم خط التفسير',
+      titleEn: 'Tafsir Font Size Controls',
+      descAr:
+          'أضفنا أيقونات لتكبير وتصغير خط التفسير.',
+      descEn:
+          'Added icons to increase and decrease tafsir font size.',
+      color: const Color(0xFF00695C),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.feedback_rounded,
+      titleAr: 'نظام إرسال الملاحظات',
+      titleEn: 'Feedback Submission System',
+      descAr:
+          'أرسل ملاحظاتك ومقترحاتك مباشرة من التطبيق.',
+      descEn:
+          'Send your feedback and suggestions directly from the app.',
+      color: const Color(0xFF00838F),
+    ),
+    _WhatsNewEntry(
+      icon: Icons.menu_book_rounded,
+      titleAr: 'تحسين اختيار القارئ',
+      titleEn: 'Improved Reciter Selection',
+      descAr:
+          'واجهه محسّنة لقائمة القراء في صفحة المصحف.',
+      descEn:
+          'Improved UI for the reciter list in Mushaf page.',
+      color: AppColors.primary,
+    ),
+    _WhatsNewEntry(
+      icon: Icons.auto_fix_high_rounded,
+      titleAr: 'إصلاحات وتحسينات عامة',
+      titleEn: 'General Fixes & Improvements',
+      descAr:
+          'تحسينات عامة في الأداء وتجربة المستخدم.',
+      descEn:
+          'Structural and performance improvements.',
+      color: const Color(0xFF00695C),
+    ),
+  ],
+
   // --- v1.1.1 -----------------------------------------------------------------
   '1.1.1': [
     _WhatsNewEntry(

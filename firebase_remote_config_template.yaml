@@ -3,7 +3,7 @@
 
 latest_version:
   Type: String
-  Value: "1.1.1"
+  Value: "1.1.2"
   Description: "Latest available version of the app"
 
 minimum_version:

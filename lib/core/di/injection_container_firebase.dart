@@ -227,7 +227,7 @@ Future<void> init() async {
         QuizRepository(FirebaseFirestore.instance, FirebaseAuth.instance, sl()),
   );
   sl.registerLazySingleton(() => QuizNotificationService(sl(), sl()));
-  sl.registerFactory(() => QuizCubit(sl(), sl()));
+  sl.registerFactory(() => QuizCubit(sl(), sl(), sl()));
   sl.registerFactory(() => LeaderboardCubit(sl()));
 
   // Firebase-based update service
