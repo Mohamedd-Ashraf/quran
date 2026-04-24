@@ -1,6 +1,8 @@
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/utf16_sanitizer.dart';
+
 class SettingsService {
   static const String _keyArabicFontSize = 'arabic_font_size';
   static const String _keyTranslationFontSize = 'translation_font_size';
@@ -122,12 +124,26 @@ class SettingsService {
 
   SettingsService(this._prefs);
 
+  String _getSanitizedString(String key, {String fallback = ''}) {
+    return sanitizeUtf16(_prefs.getString(key), fallback: fallback);
+  }
+
+  String? _getSanitizedNullableString(String key) {
+    final raw = _prefs.getString(key);
+    if (raw == null) return null;
+    return sanitizeUtf16(raw);
+  }
+
+  Future<bool> _setSanitizedString(String key, String value) {
+    return _prefs.setString(key, sanitizeUtf16(value));
+  }
+
   // ── Generic accessors for ad-hoc keys ──────────────────────────────────
   bool getBool(String key, {bool defaultValue = false}) =>
       _prefs.getBool(key) ?? defaultValue;
   Future<bool> setBool(String key, bool value) => _prefs.setBool(key, value);
   String getString(String key, {String defaultValue = ''}) =>
-      _prefs.getString(key) ?? defaultValue;
+      _getSanitizedString(key, fallback: defaultValue);
 
   // Arabic Font Size
   Future<bool> setArabicFontSize(double size) async {
@@ -188,7 +204,7 @@ class SettingsService {
 
   // App Language
   Future<bool> setAppLanguage(String languageCode) async {
-    final result = await _prefs.setString(_keyAppLanguage, languageCode);
+    final result = await _setSanitizedString(_keyAppLanguage, languageCode);
     if (result) onDataChanged?.call();
     return result;
   }
@@ -196,7 +212,7 @@ class SettingsService {
   String getAppLanguage() {
     // default to Arabic so that the primary language of the app is Arabic
     // users can still change it via settings if they prefer English.
-    return _prefs.getString(_keyAppLanguage) ?? 'ar';
+    return _getSanitizedString(_keyAppLanguage, fallback: 'ar');
   }
 
   // Use Uthmani Script
@@ -269,13 +285,13 @@ class SettingsService {
   // 'subtle' = diacritics slightly lighter
   // 'different' = diacritics in clearly different color
   Future<bool> setDiacriticsColorMode(String mode) async {
-    final result = await _prefs.setString(_keyDiacriticsColorMode, mode);
+    final result = await _setSanitizedString(_keyDiacriticsColorMode, mode);
     if (result) onDataChanged?.call();
     return result;
   }
 
   String getDiacriticsColorMode() {
-    return _prefs.getString(_keyDiacriticsColorMode) ?? 'different';
+    return _getSanitizedString(_keyDiacriticsColorMode, fallback: 'different');
   }
 
   // Adhan notifications
@@ -344,31 +360,31 @@ class SettingsService {
 
   // Prayer Calculation Method
   Future<bool> setPrayerCalculationMethod(String method) async {
-    return await _prefs.setString(_keyPrayerCalculationMethod, method);
+    return await _setSanitizedString(_keyPrayerCalculationMethod, method);
   }
 
   String getPrayerCalculationMethod() {
     // Default: Egyptian General Authority (most commonly used in Arab world)
-    return _prefs.getString(_keyPrayerCalculationMethod) ?? 'egyptian';
+    return _getSanitizedString(_keyPrayerCalculationMethod, fallback: 'egyptian');
   }
 
   // Prayer Asr Calculation Method
   Future<bool> setPrayerAsrMethod(String method) async {
-    return await _prefs.setString(_keyPrayerAsrMethod, method);
+    return await _setSanitizedString(_keyPrayerAsrMethod, method);
   }
 
   String getPrayerAsrMethod() {
     // Default: Standard (Shafi, Maliki, Hanbali)
-    return _prefs.getString(_keyPrayerAsrMethod) ?? 'standard';
+    return _getSanitizedString(_keyPrayerAsrMethod, fallback: 'standard');
   }
 
   // Selected Adhan Sound
   Future<bool> setSelectedAdhanSound(String soundId) async {
-    return await _prefs.setString(_keySelectedAdhanSound, soundId);
+    return await _setSanitizedString(_keySelectedAdhanSound, soundId);
   }
 
   String getSelectedAdhanSound() {
-    return _prefs.getString(_keySelectedAdhanSound) ?? 'adhan_1';
+    return _getSanitizedString(_keySelectedAdhanSound, fallback: 'adhan_1');
   }
 
   // Whether the prayer method was auto-detected from GPS
@@ -391,12 +407,12 @@ class SettingsService {
 
   // Adhan Audio Stream: 'ringtone' or 'alarm' (default: alarm for audible sound)
   Future<bool> setAdhanAudioStream(String stream) async {
-    return await _prefs.setString(_keyAdhanAudioStream, stream);
+    return await _setSanitizedString(_keyAdhanAudioStream, stream);
   }
 
   String getAdhanAudioStream() {
     // Default to 'alarm' so the adhan plays at alarm volume (louder, bypasses DND).
-    return _prefs.getString(_keyAdhanAudioStream) ?? 'alarm';
+    return _getSanitizedString(_keyAdhanAudioStream, fallback: 'alarm');
   }
 
   /// One-time migration: forces every existing user's adhan stream to 'alarm'.
@@ -430,13 +446,16 @@ class SettingsService {
   /// The API edition identifier used when fetching Quran text.
   /// e.g. 'quran-uthmani', 'quran-simple', 'quran-kids' …
   Future<bool> setQuranEdition(String edition) async {
-    final result = await _prefs.setString(_keyQuranEdition, edition);
+    final result = await _setSanitizedString(_keyQuranEdition, edition);
     if (result) onDataChanged?.call();
     return result;
   }
 
   String getQuranEdition() {
-    return _prefs.getString(_keyQuranEdition) ?? 'quran-uthmani-quran-academy';
+    return _getSanitizedString(
+      _keyQuranEdition,
+      fallback: 'quran-uthmani-quran-academy',
+    );
   }
 
   // ─── Quran Display Font ───────────────────────────────────────────────────
@@ -444,13 +463,13 @@ class SettingsService {
   /// One of: 'amiri_quran', 'amiri', 'scheherazade', 'noto_naskh',
   ///   'lateef', 'markazi', 'noto_kufi', 'reem_kufi', 'tajawal', 'cairo'
   Future<bool> setQuranFont(String font) async {
-    final result = await _prefs.setString(_keyQuranFont, font);
+    final result = await _setSanitizedString(_keyQuranFont, font);
     if (result) onDataChanged?.call();
     return result;
   }
 
   String getQuranFont() {
-    return _prefs.getString(_keyQuranFont) ?? 'amiri_quran';
+    return _getSanitizedString(_keyQuranFont, fallback: 'amiri_quran');
   }
 
   // ── Adhan short mode ───────────────────────────────────────────────────────
@@ -524,20 +543,20 @@ class SettingsService {
 
   /// Scope for continue-recitation: 'page' (default) or 'surah'.
   String getMushafContinueScope() =>
-      _prefs.getString(_keyMushafContinueScope) ?? 'page';
+      _getSanitizedString(_keyMushafContinueScope, fallback: 'page');
   Future<bool> setMushafContinueScope(String v) async {
-    final result = await _prefs.setString(_keyMushafContinueScope, v);
+    final result = await _setSanitizedString(_keyMushafContinueScope, v);
     if (result) onDataChanged?.call();
     return result;
   }
 
   // ── Gemini API key (for tajweed recitation assistant) ────────────────────
   Future<bool> setGeminiApiKey(String key) {
-    return _prefs.setString(_keyGeminiApiKey, key.trim());
+    return _setSanitizedString(_keyGeminiApiKey, key.trim());
   }
 
   String getGeminiApiKey() {
-    return _prefs.getString(_keyGeminiApiKey) ?? '';
+    return _getSanitizedString(_keyGeminiApiKey);
   }
 
   Future<bool> clearGeminiApiKey() {
@@ -545,9 +564,10 @@ class SettingsService {
   }
 
   // ── Salawat sound selection ────────────────────────────────────────────────
-  String getSalawatSound() => _prefs.getString(_keySalawatSound) ?? 'salawat_1';
+  String getSalawatSound() =>
+      _getSanitizedString(_keySalawatSound, fallback: 'salawat_1');
   Future<bool> setSalawatSound(String v) =>
-      _prefs.setString(_keySalawatSound, v);
+      _setSanitizedString(_keySalawatSound, v);
 
   // ── Reminder / notification volumes ──────────────────────────────────────
   double getSalawatVolume() => _prefs.getDouble(_keySalawatVolume) ?? 0.8;
@@ -593,15 +613,17 @@ class SettingsService {
       _prefs.setInt(_keyIqamaMinutesIsha, v);
 
   // ── Native alarm ID caches (Android only — for cancellation) ─────────────
-  String? getApproachingAlarmIds() => _prefs.getString('approaching_alarm_ids');
+  String? getApproachingAlarmIds() =>
+      _getSanitizedNullableString('approaching_alarm_ids');
   Future<bool> setApproachingAlarmIds(String json) =>
-      _prefs.setString('approaching_alarm_ids', json);
-  String? getIqamaAlarmIds() => _prefs.getString('iqama_alarm_ids');
+      _setSanitizedString('approaching_alarm_ids', json);
+  String? getIqamaAlarmIds() => _getSanitizedNullableString('iqama_alarm_ids');
   Future<bool> setIqamaAlarmIds(String json) =>
-      _prefs.setString('iqama_alarm_ids', json);
-  String? getSalawatAlarmIds() => _prefs.getString('salawat_alarm_ids');
+      _setSanitizedString('iqama_alarm_ids', json);
+  String? getSalawatAlarmIds() =>
+      _getSanitizedNullableString('salawat_alarm_ids');
   Future<bool> setSalawatAlarmIds(String json) =>
-      _prefs.setString('salawat_alarm_ids', json);
+      _setSanitizedString('salawat_alarm_ids', json);
 
   // ── Silent mode during prayer ──────────────────────────────────────────────
   bool getSilentDuringPrayer() =>
@@ -687,22 +709,22 @@ class SettingsService {
   // ── Notification mode per reminder type ──────────────────────────────────
   // Values: 'both' (default), 'sound_only', 'text_only'
   String getSalawatNotificationMode() =>
-      _prefs.getString(_keySalawatNotificationMode) ?? 'sound_only';
+      _getSanitizedString(_keySalawatNotificationMode, fallback: 'sound_only');
   Future<bool> setSalawatNotificationMode(String v) =>
-      _prefs.setString(_keySalawatNotificationMode, v);
+      _setSanitizedString(_keySalawatNotificationMode, v);
 
   String getWirdNotificationMode() =>
-      _prefs.getString(_keyWirdNotificationMode) ?? 'both';
+      _getSanitizedString(_keyWirdNotificationMode, fallback: 'both');
   Future<bool> setWirdNotificationMode(String v) =>
-      _prefs.setString(_keyWirdNotificationMode, v);
+      _setSanitizedString(_keyWirdNotificationMode, v);
 
   String getIqamaNotificationMode() =>
-      _prefs.getString(_keyIqamaNotificationMode) ?? 'both';
+      _getSanitizedString(_keyIqamaNotificationMode, fallback: 'both');
   Future<bool> setIqamaNotificationMode(String v) =>
-      _prefs.setString(_keyIqamaNotificationMode, v);
+      _setSanitizedString(_keyIqamaNotificationMode, v);
 
   String getApproachingNotificationMode() =>
-      _prefs.getString(_keyApproachingNotificationMode) ?? 'both';
+      _getSanitizedString(_keyApproachingNotificationMode, fallback: 'both');
   Future<bool> setApproachingNotificationMode(String v) =>
-      _prefs.setString(_keyApproachingNotificationMode, v);
+      _setSanitizedString(_keyApproachingNotificationMode, v);
 }

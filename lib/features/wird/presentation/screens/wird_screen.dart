@@ -18,6 +18,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/wird_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 import 'wird_setup_screen.dart';
 
 // Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
@@ -221,11 +222,12 @@ Widget _digitAwareText(
   int? maxLines,
   TextOverflow overflow = TextOverflow.clip,
 }) {
+  final safeText = sanitizeUtf16(text);
   final effectiveStyle = style ?? const TextStyle();
   
   if (!isAr) {
     return Text(
-      text,
+      safeText,
       style: effectiveStyle,
       textAlign: textAlign,
       textDirection: textDirection,
@@ -235,7 +237,7 @@ Widget _digitAwareText(
   }
 
   return buildRichTextWithAmiriDigits(
-    text: text,
+    text: safeText,
     baseStyle: effectiveStyle,
     amiriStyle: amiriDigitTextStyle(
       effectiveStyle,
@@ -3366,18 +3368,16 @@ class _TodayCard extends StatelessWidget {
   // ── Surah name helper (prefers SurahBloc, falls back to hard-coded map) ───
 
   String _surahName(BuildContext context, int surahNum) {
-    // For Arabic always use the clean map (SurahBloc names include a
-    // "سُورَةُ" prefix that would double up when we prepend "سورة" in the UI).
     if (isAr) {
-      return _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      final raw = _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      return sanitizeUtf16(raw);
     }
-    // For English, prefer the live bloc data, fall back to a generic label.
     final surahState = context.read<SurahBloc>().state;
     if (surahState is SurahListLoaded) {
       final match = surahState.surahs
           .where((s) => s.number == surahNum)
           .toList();
-      if (match.isNotEmpty) return match.first.englishName;
+      if (match.isNotEmpty) return sanitizeUtf16(match.first.englishName);
     }
     return 'Surah $surahNum';
   }
@@ -4373,7 +4373,10 @@ class _MakeupCardState extends State<_MakeupCard> {
   static const _kOrangeBorder = Color(0xFFFF8F00);
 
   String _surahName(BuildContext context, int surahNum) {
-    if (widget.isAr) return _surahArabicNames[surahNum] ?? 'سورة $surahNum';
+    if (widget.isAr) {
+      final raw = _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      return sanitizeUtf16(raw);
+    }
     final surahState = context.read<SurahBloc>().state;
     if (surahState is SurahListLoaded) {
       final match = surahState.surahs

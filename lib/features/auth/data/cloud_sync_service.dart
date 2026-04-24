@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/bookmark_service.dart';
+import '../../../core/utils/utf16_sanitizer.dart';
 import '../../wird/data/wird_service.dart';
 
 /// Syncs local user data (wird, bookmarks, settings) to/from Firestore.
@@ -468,7 +469,7 @@ class CloudSyncService {
       } else if (value is double) {
         await _prefs.setDouble(key, value);
       } else if (value is String) {
-        await _prefs.setString(key, value);
+        await _prefs.setString(key, sanitizeUtf16(value));
       }
     }
   }

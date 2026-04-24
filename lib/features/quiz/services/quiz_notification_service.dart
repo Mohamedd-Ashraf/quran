@@ -33,8 +33,10 @@ class QuizNotificationService {
 
   Future<void> _createChannel() async {
     if (kIsWeb) return;
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (android == null) return;
 
     await android.createNotificationChannel(
@@ -60,11 +62,18 @@ class QuizNotificationService {
     }
     if (!_repository.notificationsEnabled) return;
 
+    try {
+      await _repository.loadData();
+    } catch (e, st) {
+      debugPrint('[Quiz] Failed to refresh data before scheduling: $e\n$st');
+    }
+
     await cancelAll();
 
     final hour = _repository.reminderHour;
     final minute = _repository.reminderMinute;
     final isArabic = _repository.getAppLanguage().startsWith('ar');
+    final answeredToday = _repository.hasAnsweredToday;
 
     final messages = isArabic
         ? [
@@ -106,6 +115,15 @@ class QuizNotificationService {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
+      // If user already answered today, skip today's reminder even when
+      // current time is still before reminder time.
+      if (answeredToday &&
+          scheduledDate.year == now.year &&
+          scheduledDate.month == now.month &&
+          scheduledDate.day == now.day) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
+
       await _plugin.zonedSchedule(
         _idDailyReminder,
         title,
@@ -134,7 +152,8 @@ class QuizNotificationService {
 
       debugPrint(
         '[Quiz] Daily reminder scheduled at '
-        '$hour:${minute.toString().padLeft(2, '0')}',
+        '$hour:${minute.toString().padLeft(2, '0')}'
+        '${answeredToday ? ' (starting tomorrow)' : ''}',
       );
     } catch (e, st) {
       debugPrint('[Quiz] Failed to schedule notification: $e\n$st');

@@ -12,7 +12,7 @@ class WirdCubit extends Cubit<WirdState> {
   final SettingsService _settingsService;
 
   WirdCubit(this._wirdService, this._notifService, this._settingsService)
-      : super(const WirdInitial());
+    : super(const WirdInitial());
 
   // ── Test notification ─────────────────────────────────────────────────
 
@@ -105,8 +105,12 @@ class WirdCubit extends Cubit<WirdState> {
         if (_lastClearedBookmarkPage != null) {
           await _wirdService.saveLastReadPage(_lastClearedBookmarkPage!);
         }
-        if (_lastClearedBookmarkSurah != null && _lastClearedBookmarkAyah != null) {
-          await _wirdService.saveLastRead(_lastClearedBookmarkSurah!, _lastClearedBookmarkAyah!);
+        if (_lastClearedBookmarkSurah != null &&
+            _lastClearedBookmarkAyah != null) {
+          await _wirdService.saveLastRead(
+            _lastClearedBookmarkSurah!,
+            _lastClearedBookmarkAyah!,
+          );
         }
         _lastClearedBookmarkSurah = null;
         _lastClearedBookmarkAyah = null;
@@ -116,7 +120,11 @@ class WirdCubit extends Cubit<WirdState> {
       // Restore makeup bookmark if applicable.
       if (day == _lastClearedMakeupDay) {
         if (_lastClearedMakeupSurah != null && _lastClearedMakeupAyah != null) {
-          await _wirdService.saveMakeupBookmark(day, _lastClearedMakeupSurah!, _lastClearedMakeupAyah!);
+          await _wirdService.saveMakeupBookmark(
+            day,
+            _lastClearedMakeupSurah!,
+            _lastClearedMakeupAyah!,
+          );
         }
         _lastClearedMakeupDay = null;
         _lastClearedMakeupSurah = null;
@@ -127,6 +135,7 @@ class WirdCubit extends Cubit<WirdState> {
       final todayDay = currentState.plan.currentDay;
       if (day == todayDay) {
         await _notifService.refreshFollowUps();
+        await _notifService.refreshMainReminder();
         // Cache bookmark before clearing so undo can restore it.
         _lastClearedBookmarkSurah = _wirdService.lastReadSurah;
         _lastClearedBookmarkAyah = _wirdService.lastReadAyah;
@@ -167,6 +176,7 @@ class WirdCubit extends Cubit<WirdState> {
     }
     if (anyMarked) {
       await _notifService.refreshFollowUps();
+      await _notifService.refreshMainReminder();
       load();
     }
   }
@@ -342,6 +352,7 @@ class WirdCubit extends Cubit<WirdState> {
     }
 
     await _notifService.refreshFollowUps();
+    await _notifService.refreshMainReminder();
     load();
   }
 }

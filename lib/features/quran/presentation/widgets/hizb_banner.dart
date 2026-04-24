@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/hizb_service.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 
 /// Builds RichText with Amiri font on Arabic-Indic digits
 TextSpan _buildArabicTextWithAmiriNumbers(
@@ -9,12 +10,14 @@ TextSpan _buildArabicTextWithAmiriNumbers(
   required TextStyle baseStyle,
   TextStyle? amiriStyle,
 }) {
+  final safeText = sanitizeUtf16(text);
   final finalAmiriStyle = amiriStyle ?? baseStyle.copyWith(fontFamily: 'Amiri');
   
   final spans = <InlineSpan>[];
-  for (final char in text.split('')) {
+  for (final rune in safeText.runes) {
+    final char = String.fromCharCode(rune);
     // Check if character is Arabic-Indic digit (٠-٩)
-    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    final isArabicDigit = rune >= 0x0660 && rune <= 0x0669;
     spans.add(
       TextSpan(
         text: char,

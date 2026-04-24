@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 import '../../data/models/leaderboard_entry.dart';
 import '../cubit/leaderboard_cubit.dart';
 import '../cubit/leaderboard_state.dart';
@@ -84,20 +85,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           const SizedBox(height: 20),
           Text(
             isArabic ? 'لوحة الأدمن' : 'Admin Panel',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
           Text(
             isArabic
                 ? 'أنت الأدمن - يمكنك إدارة لوحة المتصدرين'
                 : 'You are the admin - manage the leaderboard',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 32),
           Expanded(
@@ -106,10 +101,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 isArabic
                     ? 'ميزات الأدمن قريباً...'
                     : 'Admin features coming soon...',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[500],
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey[500]),
               ),
             ),
           ),
@@ -137,9 +129,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     int? maxLines,
     TextOverflow overflow = TextOverflow.clip,
   }) {
+    final safeText = sanitizeUtf16(text);
     if (!isArabic) {
       return Text(
-        text,
+        safeText,
         style: style,
         textAlign: textAlign,
         textDirection: textDirection,
@@ -149,7 +142,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
 
     return buildRichTextWithAmiriDigits(
-      text: text,
+      text: safeText,
       baseStyle: style,
       amiriStyle: amiriDigitTextStyle(
         style,
@@ -180,27 +173,35 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           title: Text(isArabic ? 'لوحة المتصدرين' : 'Leaderboard'),
           centerTitle: true,
           flexibleSpace: Container(
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
           ),
           actions: [
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 16),
-              child: Builder(builder: (context) {
-                final user = FirebaseAuth.instance.currentUser;
-                return GestureDetector(
-                  onLongPress: _onLeaderboardAvatarLongPress,
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white24,
-                    backgroundImage: user?.photoURL != null
-                        ? NetworkImage(user!.photoURL!)
-                        : null,
-                    child: user?.photoURL == null
-                        ? const Icon(Icons.person, color: Colors.white, size: 20)
-                        : null,
-                  ),
-                );
-              }),
+              child: Builder(
+                builder: (context) {
+                  final user = FirebaseAuth.instance.currentUser;
+                  return GestureDetector(
+                    onLongPress: _onLeaderboardAvatarLongPress,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white24,
+                      backgroundImage: user?.photoURL != null
+                          ? NetworkImage(user!.photoURL!)
+                          : null,
+                      child: user?.photoURL == null
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 20,
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -238,8 +239,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             }
             if (state is LeaderboardLoaded) {
               return _buildLeaderboard(
-                context, state,
-                isArabic: isArabic, isDark: isDark,
+                context,
+                state,
+                isArabic: isArabic,
+                isDark: isDark,
               );
             }
             return const SizedBox.shrink();
@@ -277,7 +280,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           gradient: AppColors.primaryGradient,
                           borderRadius: BorderRadius.circular(16),
@@ -285,7 +291,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.format_list_numbered, color: Colors.white, size: 14),
+                            const Icon(
+                              Icons.format_list_numbered,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               isArabic ? 'ترتيب المتسابقين' : 'Rankings',
@@ -316,9 +326,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     state.currentUserEntry != null &&
                     entry.uid == state.currentUserEntry!.uid;
                 return _buildRankCard(
-                  entry, rank,
+                  entry,
+                  rank,
                   isCurrentUser: isCurrentUser,
-                  isArabic: isArabic, isDark: isDark,
+                  isArabic: isArabic,
+                  isDark: isDark,
                 );
               }),
 
@@ -327,8 +339,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   padding: const EdgeInsets.all(48),
                   child: Column(
                     children: [
-                      Icon(Icons.emoji_events_outlined,
-                          size: 64, color: AppColors.textHint),
+                      Icon(
+                        Icons.emoji_events_outlined,
+                        size: 64,
+                        color: AppColors.textHint,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         isArabic
@@ -380,12 +395,28 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         children: [
           // 2nd place
           if (top3.length > 1)
-            Expanded(child: _podiumItem(top3[1], 2, isDark: isDark, isArabic: isArabic)),
+            Expanded(
+              child: _podiumItem(
+                top3[1],
+                2,
+                isDark: isDark,
+                isArabic: isArabic,
+              ),
+            ),
           // 1st place
-          Expanded(child: _podiumItem(top3[0], 1, isDark: isDark, isArabic: isArabic)),
+          Expanded(
+            child: _podiumItem(top3[0], 1, isDark: isDark, isArabic: isArabic),
+          ),
           // 3rd place
           if (top3.length > 2)
-            Expanded(child: _podiumItem(top3[2], 3, isDark: isDark, isArabic: isArabic)),
+            Expanded(
+              child: _podiumItem(
+                top3[2],
+                3,
+                isDark: isDark,
+                isArabic: isArabic,
+              ),
+            ),
         ],
       ),
     );
@@ -401,18 +432,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final borderColor = rank == 1
         ? AppColors.secondary
         : rank == 2
-            ? const Color(0xFFC0C0C0)
-            : const Color(0xFFCD7F32);
+        ? const Color(0xFFC0C0C0)
+        : const Color(0xFFCD7F32);
     final avatarSize = isFirst ? 76.0 : 58.0;
-    final podiumHeight = isFirst ? 140.0 : rank == 2 ? 96.0 : 72.0;
+    final podiumHeight = isFirst
+        ? 140.0
+        : rank == 2
+        ? 96.0
+        : 72.0;
 
     final podiumColor = isFirst
         ? AppColors.primary
         : rank == 2
-            ? (isDark ? AppColors.darkCard : const Color(0xFFE7E8E9))
-            : (isDark
-                ? AppColors.darkCard.withValues(alpha: 0.7)
-                : const Color(0xFFF3F4F5));
+        ? (isDark ? AppColors.darkCard : const Color(0xFFE7E8E9))
+        : (isDark
+              ? AppColors.darkCard.withValues(alpha: 0.7)
+              : const Color(0xFFF3F4F5));
 
     final textColor = isFirst ? Colors.white : null;
     final scoreColor = isFirst ? AppColors.secondary : AppColors.primary;
@@ -472,8 +507,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               bottom: -4,
               right: 0,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: borderColor,
                   borderRadius: BorderRadius.circular(10),
@@ -525,7 +559,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  entry.displayName,
+                  sanitizeUtf16(entry.displayName, fallback: '?'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -552,10 +586,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.local_fire_department,
-                          color: Colors.orange, size: 11),
+                      Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orange,
+                        size: 11,
+                      ),
                       _digitAwareText(
-                        text: ' ${_localizeInt(entry.streak, isArabic: isArabic)}',
+                        text:
+                            ' ${_localizeInt(entry.streak, isArabic: isArabic)}',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
@@ -595,7 +633,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             : (isDark ? AppColors.darkCard : Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: isCurrentUser
-            ? Border.all(color: AppColors.primary.withValues(alpha: 0.4), width: 1.5)
+            ? Border.all(
+                color: AppColors.primary.withValues(alpha: 0.4),
+                width: 1.5,
+              )
             : null,
         boxShadow: [
           BoxShadow(
@@ -617,7 +658,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 15,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
               isArabic: isArabic,
             ),
@@ -643,7 +686,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry.displayName,
+                  sanitizeUtf16(entry.displayName, fallback: '?'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700),
@@ -652,11 +695,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.local_fire_department,
-                          color: Colors.orange, size: 14),
+                      const Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orange,
+                        size: 14,
+                      ),
                       const SizedBox(width: 3),
                       _digitAwareText(
-                        text: '${_localizeInt(entry.streak, isArabic: isArabic)} ${isArabic ? "يوم متواصل" : "day streak"}',
+                        text:
+                            '${_localizeInt(entry.streak, isArabic: isArabic)} ${isArabic ? "يوم متواصل" : "day streak"}',
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark
@@ -693,7 +740,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -723,9 +772,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             offset: const Offset(0, 8),
           ),
         ],
-        border: Border(
-          left: BorderSide(color: AppColors.secondary, width: 4),
-        ),
+        border: Border(left: BorderSide(color: AppColors.secondary, width: 4)),
       ),
       child: Row(
         children: [
@@ -772,7 +819,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ? Image.network(
                     entry.photoUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _defaultAvatar(entry, light: true),
+                    errorBuilder: (_, _, _) =>
+                        _defaultAvatar(entry, light: true),
                   )
                 : _defaultAvatar(entry, light: true),
           ),
@@ -783,7 +831,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isArabic ? 'أنت (${entry.displayName})' : 'You (${entry.displayName})',
+                  isArabic
+                      ? 'أنت (${sanitizeUtf16(entry.displayName, fallback: "?")})'
+                      : 'You (${sanitizeUtf16(entry.displayName, fallback: "?")})',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -795,8 +845,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.local_fire_department,
-                        color: AppColors.secondary, size: 14),
+                    Icon(
+                      Icons.local_fire_department,
+                      color: AppColors.secondary,
+                      size: 14,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       isArabic ? 'استمر! أنت في تقدم مستمر' : 'Keep going!',
@@ -845,14 +898,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return Container(
       color: light ? Colors.white24 : AppColors.primary.withValues(alpha: 0.15),
       child: Center(
-        child: Text(
-          entry.displayName.isNotEmpty ? entry.displayName[0] : '?',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-            color: light ? Colors.white : AppColors.primary,
-          ),
-        ),
+        child: entry.isAnonymous
+            ? Icon(
+                Icons.person_off,
+                size: 18,
+                color: light ? Colors.white : AppColors.primary,
+              )
+            : Text(
+                sanitizeUtf16(entry.displayName, fallback: '?').characters.first,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: light ? Colors.white : AppColors.primary,
+                ),
+              ),
       ),
     );
   }

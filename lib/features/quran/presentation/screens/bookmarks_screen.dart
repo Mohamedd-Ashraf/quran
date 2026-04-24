@@ -8,6 +8,7 @@ import '../../../../core/services/bookmark_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 import '../bloc/surah/surah_bloc.dart';
 import '../bloc/surah/surah_state.dart';
 import 'package:noor_al_imaan/features/quran/presentation/screens/surah_detail_screen.dart';
@@ -65,8 +66,8 @@ class BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     // Fall back to saved name if it looks meaningful.
-    final trimmed = savedName?.trim();
-    if (trimmed != null && trimmed.isNotEmpty) {
+    final trimmed = _safeString(savedName).trim();
+    if (trimmed.isNotEmpty) {
       return trimmed;
     }
 
@@ -191,6 +192,48 @@ class BookmarksScreenState extends State<BookmarksScreen> {
     final surahs = kMushafPageToSurahs[pageNumber];
     if (surahs == null || surahs.isEmpty) return null;
     return surahs.first;
+  }
+
+  String _safeString(dynamic value, {String fallback = ''}) {
+    final raw = value?.toString() ?? '';
+    if (raw.isEmpty) return fallback;
+
+    final input = raw.codeUnits;
+    final output = <int>[];
+    var i = 0;
+
+    while (i < input.length) {
+      final unit = input[i];
+      final isHighSurrogate = unit >= 0xD800 && unit <= 0xDBFF;
+      final isLowSurrogate = unit >= 0xDC00 && unit <= 0xDFFF;
+
+      if (isHighSurrogate) {
+        if (i + 1 < input.length) {
+          final next = input[i + 1];
+          final nextIsLow = next >= 0xDC00 && next <= 0xDFFF;
+          if (nextIsLow) {
+            output
+              ..add(unit)
+              ..add(next);
+            i += 2;
+            continue;
+          }
+        }
+        i += 1;
+        continue;
+      }
+
+      if (isLowSurrogate) {
+        i += 1;
+        continue;
+      }
+
+      output.add(unit);
+      i += 1;
+    }
+
+    if (output.isEmpty) return fallback;
+    return String.fromCharCodes(output);
   }
 
   @override
@@ -473,7 +516,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                               ),
                               child: isAr
                                   ? buildRichTextWithAmiriDigits(
-                                      text: _formatBookmarkLabel(bookmark),
+                                      text: sanitizeUtf16(_formatBookmarkLabel(bookmark)),
                                       baseStyle: chipStyle,
                                       amiriStyle: amiriDigitTextStyle(
                                         chipStyle,
@@ -484,7 +527,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     )
                                   : Text(
-                                      _formatBookmarkLabel(bookmark),
+                                      sanitizeUtf16(_formatBookmarkLabel(bookmark)),
                                       textDirection: TextDirection.ltr,
                                       style: chipStyle.copyWith(
                                         fontFamily: null,
@@ -520,8 +563,10 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           );
                         }
                         return Text(
-                          bookmark['arabicText'] ??
-                              'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                          _safeString(
+                            bookmark['arabicText'],
+                            fallback: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                          ),
                           textAlign: TextAlign.right,
                           textDirection: TextDirection.rtl,
                           maxLines: 3,
@@ -536,7 +581,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                         );
                       },
                     ),
-                    if (bookmark['note'] != null) ...[
+                    if (_safeString(bookmark['note']).isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity,
@@ -546,7 +591,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          bookmark['note'],
+                          _safeString(bookmark['note']),
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: AppColors.textSecondary,
@@ -688,13 +733,13 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                               );
                               if (!isAr) {
                                 return Text(
-                                  _formatBookmarkLabel(bookmark),
+                                  sanitizeUtf16(_formatBookmarkLabel(bookmark)),
                                   textDirection: TextDirection.ltr,
                                   style: chipStyle.copyWith(fontFamily: null),
                                 );
                               }
                               return buildRichTextWithAmiriDigits(
-                                text: _formatBookmarkLabel(bookmark),
+                                text: sanitizeUtf16(_formatBookmarkLabel(bookmark)),
                                 baseStyle: chipStyle,
                                 amiriStyle: amiriDigitTextStyle(
                                   chipStyle,
@@ -738,8 +783,10 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           );
                         }
                         return Text(
-                          bookmark['arabicText'] ??
-                              'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                          _safeString(
+                            bookmark['arabicText'],
+                            fallback: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                          ),
                           textAlign: TextAlign.right,
                           textDirection: TextDirection.rtl,
                           maxLines: 3,
@@ -754,7 +801,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                         );
                       },
                     ),
-                    if (bookmark['note'] != null) ...[
+                    if (_safeString(bookmark['note']).isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity,
@@ -764,7 +811,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          bookmark['note'],
+                          _safeString(bookmark['note']),
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: AppColors.textSecondary,
@@ -790,7 +837,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
         .appLanguageCode
         .toLowerCase()
         .startsWith('ar');
-    final surahName = bookmark['surahName'] as String?;
+    final surahName = _safeString(bookmark['surahName']);
     final surahNumber = _surahNumberFromBookmark(bookmark);
     final ayahNumber = _ayahNumberFromBookmark(bookmark);
     final pageNumber = _pageNumberFromBookmark(bookmark);
@@ -801,8 +848,8 @@ class BookmarksScreenState extends State<BookmarksScreen> {
             isArabicUi: isArabicUi,
             savedName: surahName,
           )
-        : (surahName?.trim().isNotEmpty ?? false)
-        ? surahName!.trim()
+        : surahName.trim().isNotEmpty
+        ? surahName.trim()
         : (pageNumber != null
               ? (isArabicUi ? 'المصحف' : 'Mushaf')
               : (isArabicUi ? 'السورة' : 'Surah'));
@@ -819,7 +866,7 @@ class BookmarksScreenState extends State<BookmarksScreen> {
         ? '$resolvedSurahName • صفحة $localizedPage'
           : '$resolvedSurahName • Page $pageNumber';
     }
-    final reference = bookmark['reference'] as String?;
-    return reference ?? (isArabicUi ? 'إشارة' : 'Bookmark');
+    final reference = _safeString(bookmark['reference']);
+    return reference.isNotEmpty ? reference : (isArabicUi ? 'إشارة' : 'Bookmark');
   }
 }

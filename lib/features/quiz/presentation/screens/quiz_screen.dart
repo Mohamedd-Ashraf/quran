@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,6 +8,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
+import '../../data/quiz_repository.dart';
 import '../../data/models/quiz_question_model.dart';
 import '../cubit/quiz_cubit.dart';
 import '../cubit/quiz_state.dart';
@@ -28,18 +31,26 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   late final QuizCubit _cubit;
+  late final QuizRepository _quizRepository;
   AnimationController? _timerController;
   Timer? _uiTimer;
+  Timer? _visibilityUiTimer;
+  bool? _isAnonymous;
+  DateTime? _lastVisibilityToggleAt;
+  bool _isUpdatingVisibility = false;
 
   @override
   void initState() {
     super.initState();
     _cubit = di.sl<QuizCubit>();
+    _quizRepository = di.sl<QuizRepository>();
     // Defer load() so the BlocConsumer listener is wired up first,
     // ensuring the QuizLoading → QuizReady transition is caught and
     // _startTimerAnimation() is called correctly.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _cubit.load(skipLanding: !widget.fromNotification);
+      if (!mounted) return;
+      _cubit.load(skipLanding: !widget.fromNotification);
+      _loadVisibilityPreference();
     });
   }
 
@@ -47,8 +58,175 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   void dispose() {
     _timerController?.dispose();
     _uiTimer?.cancel();
+    _visibilityUiTimer?.cancel();
     _cubit.close();
     super.dispose();
+  }
+
+  Future<void> _loadVisibilityPreference() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+
+    final pref = await _quizRepository.getLeaderboardVisibilityPreference(
+      uid: user.uid,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isAnonymous = pref.isAnonymous;
+      _lastVisibilityToggleAt = pref.lastToggleAt?.toUtc();
+    });
+    _ensureVisibilityTicker();
+  }
+
+  bool _visibilityLocked() {
+    final last = _lastVisibilityToggleAt;
+    if (last == null) return false;
+    final until = last.add(const Duration(seconds: 20));
+    return until.isAfter(DateTime.now().toUtc());
+  }
+
+  int _visibilityRemainingSeconds() {
+    final last = _lastVisibilityToggleAt;
+    if (last == null) return 0;
+    final until = last.add(const Duration(seconds: 20));
+    final remaining = until.difference(DateTime.now().toUtc()).inSeconds;
+    return remaining.clamp(0, 20);
+  }
+
+  void _ensureVisibilityTicker() {
+    _visibilityUiTimer?.cancel();
+    if (!_visibilityLocked()) return;
+    _visibilityUiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (!_visibilityLocked()) {
+        timer.cancel();
+      }
+      setState(() {});
+    });
+  }
+
+  Future<void> _toggleVisibility(bool value, {required bool isArabic}) async {
+    if (_isUpdatingVisibility) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+
+    if (_visibilityLocked()) {
+      final seconds = _visibilityRemainingSeconds();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'انتظر ${_localizeInt(seconds, isArabic: true)} ثانية قبل التبديل مرة أخرى.'
+                : 'Please wait $seconds seconds before switching again.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isUpdatingVisibility = true);
+    try {
+      await _quizRepository.updateLeaderboardVisibilityPreference(
+        uid: user.uid,
+        isAnonymous: value,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isAnonymous = value;
+        _lastVisibilityToggleAt = DateTime.now().toUtc();
+      });
+      _ensureVisibilityTicker();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'تم التحديث فوراً. يمكنك التبديل مرة أخرى بعد ٢٠ ثانية.'
+                : 'Updated instantly. You can toggle again in 20 seconds.',
+          ),
+        ),
+      );
+    } on LeaderboardVisibilityCooldownException catch (e) {
+      if (!mounted) return;
+      final seconds = e.remaining.inSeconds.clamp(1, 999);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'انتظر ${_localizeInt(seconds, isArabic: true)} ثانية قبل التبديل مرة أخرى.'
+                : 'Please wait $seconds seconds before switching again.',
+          ),
+        ),
+      );
+      await _loadVisibilityPreference();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'تعذر حفظ الإعداد الآن. حاول مرة أخرى.'
+                : 'Could not save setting now. Please try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingVisibility = false);
+    }
+  }
+
+  Widget _buildInlineVisibilityTile({
+    required bool isArabic,
+    required bool isDark,
+  }) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return const SizedBox.shrink();
+
+    final value = _isAnonymous ?? false;
+
+    final locked = _visibilityLocked();
+    final remaining = _visibilityRemainingSeconds();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: SwitchListTile(
+        value: value,
+        onChanged: (locked || _isUpdatingVisibility)
+            ? null
+            : (v) => _toggleVisibility(v, isArabic: isArabic),
+        activeThumbColor: AppColors.primary,
+        isThreeLine: true,
+        title: Text(
+          isArabic
+              ? 'إخفاء اسمي في لوحة الصدارة'
+              : 'Hide my name on leaderboard',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          isArabic
+              ? (locked
+                    ? 'عند التفعيل سيظهر اسمك كمستخدم مجهول. متاح التبديل بعد ${_localizeInt(remaining, isArabic: true)} ثانية.'
+                    : 'عند التفعيل سيظهر اسمك كمستخدم مجهول')
+              : (locked
+                    ? 'When enabled, your name appears as an anonymous user. Toggle available again in $remaining seconds.'
+                    : 'When enabled, your name appears as an anonymous user.'),
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : AppColors.textSecondary,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
   }
 
   void _startTimerAnimation(int totalSeconds) {
@@ -82,9 +260,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     int? maxLines,
     TextOverflow overflow = TextOverflow.clip,
   }) {
+    final safeText = sanitizeUtf16(text);
     if (!isArabic) {
       return Text(
-        text,
+        safeText,
         style: style,
         textAlign: textAlign,
         textDirection: textDirection,
@@ -94,7 +273,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     }
 
     return buildRichTextWithAmiriDigits(
-      text: text,
+      text: safeText,
       baseStyle: style,
       amiriStyle: amiriDigitTextStyle(
         style,
@@ -125,7 +304,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           title: Text(isArabic ? 'التحدي اليومي' : 'Daily Challenge'),
           centerTitle: true,
           flexibleSpace: Container(
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
           ),
           actions: [
             IconButton(
@@ -184,19 +365,39 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               return const Center(child: CircularProgressIndicator());
             }
             if (state is QuizReadyToStart) {
-              return _buildLandingView(context, state, isArabic: isArabic, isDark: isDark);
+              return _buildLandingView(
+                context,
+                state,
+                isArabic: isArabic,
+                isDark: isDark,
+              );
             }
 
             final question = _getQuestionFromState(state);
             if (question == null) {
               if (state is QuizResult) {
-                return _buildResultView(context, state, isArabic: isArabic, isDark: isDark);
+                return _buildResultView(
+                  context,
+                  state,
+                  isArabic: isArabic,
+                  isDark: isDark,
+                );
               }
               if (state is QuizTimeUp) {
-                return _buildTimeUpView(context, state, isArabic: isArabic, isDark: isDark);
+                return _buildTimeUpView(
+                  context,
+                  state,
+                  isArabic: isArabic,
+                  isDark: isDark,
+                );
               }
               if (state is QuizAlreadyAnswered) {
-                return _buildAlreadyAnsweredView(context, state, isArabic: isArabic, isDark: isDark);
+                return _buildAlreadyAnsweredView(
+                  context,
+                  state,
+                  isArabic: isArabic,
+                  isDark: isDark,
+                );
               }
               return const SizedBox.shrink();
             }
@@ -211,10 +412,13 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             }
 
             return _buildQuestionView(
-              context, question, selectedIndex,
+              context,
+              question,
+              selectedIndex,
               _getStreakFromState(state),
               _getScoreFromState(state),
-              isArabic: isArabic, isDark: isDark,
+              isArabic: isArabic,
+              isDark: isDark,
             );
           },
         ),
@@ -281,8 +485,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 }
               }
             : null,
-        backgroundColor:
-            selectedIndex != null ? AppColors.primary : Colors.grey.shade400,
+        backgroundColor: selectedIndex != null
+            ? AppColors.primary
+            : Colors.grey.shade400,
         elevation: selectedIndex != null ? 8 : 2,
         focusElevation: selectedIndex != null ? 12 : 4,
         heroTag: 'quizSubmit',
@@ -329,7 +534,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 44),
+              child: const Icon(
+                Icons.quiz_rounded,
+                color: Colors.white,
+                size: 44,
+              ),
             ),
 
             const SizedBox(height: 28),
@@ -350,7 +559,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
 
@@ -399,8 +610,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: diffColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -419,13 +632,16 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.secondary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: AppColors.secondary.withValues(alpha: 0.3)),
+                      color: AppColors.secondary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: _digitAwareText(
                     text: isArabic
@@ -454,8 +670,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               height: 60,
               child: ElevatedButton.icon(
                 onPressed: () => _cubit.startQuiz(),
-                icon: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white, size: 28),
+                icon: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
                 label: Text(
                   isArabic ? 'ابدأ التحدي' : 'Start Challenge',
                   style: const TextStyle(
@@ -508,8 +727,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             label,
             style: TextStyle(
               fontSize: 11,
-              color:
-                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ],
@@ -530,7 +750,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   }) {
     final remaining = _cubit.remainingSeconds;
     final totalTime = question.timerSeconds;
-    final progress = totalTime > 0 ? (remaining / totalTime).clamp(0.0, 1.0) : 0.0;
+    final progress = totalTime > 0
+        ? (remaining / totalTime).clamp(0.0, 1.0)
+        : 0.0;
     final optionLabels = isArabic ? ['أ', 'ب', 'ج', 'د'] : ['A', 'B', 'C', 'D'];
 
     return ListView(
@@ -556,11 +778,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.local_fire_department,
-                      color: Colors.deepOrange, size: 16),
+                  const Icon(
+                    Icons.local_fire_department,
+                    color: Colors.deepOrange,
+                    size: 16,
+                  ),
                   const SizedBox(width: 5),
                   _digitAwareText(
-                    text: '${_localizeInt(streak, isArabic: isArabic)} ${isArabic ? "أيام" : "days"}',
+                    text:
+                        '${_localizeInt(streak, isArabic: isArabic)} ${isArabic ? "أيام" : "days"}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -582,7 +808,13 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildCircularTimer(remaining, totalTime, progress, isDark, isArabic),
+            _buildCircularTimer(
+              remaining,
+              totalTime,
+              progress,
+              isDark,
+              isArabic,
+            ),
             const Spacer(),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -600,15 +832,19 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: _difficultyColor(question.difficulty)
-                        .withValues(alpha: 0.12),
+                    color: _difficultyColor(
+                      question.difficulty,
+                    ).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _difficultyColor(question.difficulty)
-                          .withValues(alpha: 0.3),
+                      color: _difficultyColor(
+                        question.difficulty,
+                      ).withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
@@ -651,13 +887,16 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           child: Column(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2)),
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Text(
                   isArabic ? 'التحدي اليومي' : 'Daily Challenge',
@@ -714,7 +953,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.darkCard : Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -722,8 +963,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                       color: isSelected
                           ? AppColors.secondary
                           : (isDark
-                              ? AppColors.darkBorder.withValues(alpha: 0.5)
-                              : Colors.grey.withValues(alpha: 0.15)),
+                                ? AppColors.darkBorder.withValues(alpha: 0.5)
+                                : Colors.grey.withValues(alpha: 0.15)),
                       width: isSelected ? 1.5 : 1,
                     ),
                     boxShadow: [
@@ -758,14 +999,17 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                           color: isSelected
                               ? AppColors.secondary
                               : (isDark
-                                  ? AppColors.darkBorder
-                                  : const Color(0xFFF3F4F5)),
+                                    ? AppColors.darkBorder
+                                    : const Color(0xFFF3F4F5)),
                           shape: BoxShape.circle,
                         ),
                         child: Center(
                           child: isSelected
-                              ? const Icon(Icons.check,
-                                  color: Colors.white, size: 22)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 22,
+                                )
                               : Text(
                                   optionLabels[i],
                                   style: TextStyle(
@@ -806,12 +1050,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   // ── Circular Timer ──────────────────────────────────────────────────────
 
-  Widget _buildCircularTimer(int remaining, int total, double progress, bool isDark, bool isArabic) {
+  Widget _buildCircularTimer(
+    int remaining,
+    int total,
+    double progress,
+    bool isDark,
+    bool isArabic,
+  ) {
     final color = remaining <= 5
         ? AppColors.error
         : remaining <= 10
-            ? AppColors.warning
-            : AppColors.secondary;
+        ? AppColors.warning
+        : AppColors.secondary;
 
     final remainingText = _localizeInt(remaining, isArabic: isArabic);
 
@@ -851,7 +1101,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -889,7 +1141,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              state.isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              state.isCorrect
+                  ? Icons.check_circle_rounded
+                  : Icons.cancel_rounded,
               color: resultColor,
               size: 60,
             ),
@@ -962,34 +1216,41 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: bgColor,
                     borderRadius: BorderRadius.circular(12),
                     border: isCorrectOption
                         ? Border.all(color: correctColor, width: 1.5)
                         : (isUserChoice && !state.isCorrect)
-                            ? Border.all(color: wrongColor, width: 1.5)
-                            : Border.all(
-                                color: isDark
-                                    ? AppColors.darkBorder.withValues(alpha: 0.6)
-                                    : Colors.grey.withValues(alpha: 0.3),
-                                width: 1,
-                              ),
+                        ? Border.all(color: wrongColor, width: 1.5)
+                        : Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder.withValues(alpha: 0.6)
+                                : Colors.grey.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
                   ),
                   child: Row(
                     children: [
                       if (icon != null) ...[
-                        Icon(icon,
-                            color: isCorrectOption ? correctColor : wrongColor,
-                            size: 20),
+                        Icon(
+                          icon,
+                          color: isCorrectOption ? correctColor : wrongColor,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                       ],
                       Expanded(
                         child: Text(
                           state.question.options[i],
                           style: TextStyle(
-                            fontWeight: isCorrectOption ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: isCorrectOption
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             color: isCorrectOption ? correctColor : null,
                           ),
                         ),
@@ -1006,19 +1267,27 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     color: AppColors.info.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.info.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: AppColors.info.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.lightbulb_outline, color: AppColors.info, size: 18),
+                      Icon(
+                        Icons.lightbulb_outline,
+                        color: AppColors.info,
+                        size: 18,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           state.question.explanation!,
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
                             height: 1.5,
                           ),
                         ),
@@ -1071,6 +1340,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             ),
           ),
         ),
+        _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
         const SizedBox(height: 16),
       ],
     );
@@ -1100,8 +1370,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 color: AppColors.warning.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.timer_off_rounded,
-                  color: AppColors.warning, size: 60),
+              child: Icon(
+                Icons.timer_off_rounded,
+                color: AppColors.warning,
+                size: 60,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
@@ -1131,7 +1404,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1143,7 +1418,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 onPressed: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
                 ),
-                icon: const Icon(Icons.emoji_events_rounded, color: Colors.white),
+                icon: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Colors.white,
+                ),
                 label: Text(
                   isArabic ? 'لوحة المتصدرين' : 'Leaderboard',
                   style: const TextStyle(
@@ -1160,6 +1438,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
+            _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
           ],
         ),
       ),
@@ -1174,12 +1453,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     required bool isArabic,
     required bool isDark,
   }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             Container(
               width: 100,
               height: 100,
@@ -1197,12 +1479,16 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 24),
             Text(
-              isArabic ? 'لقد أجبت على سؤال اليوم' : "You've answered today's question",
+              isArabic
+                  ? 'لقد أجبت على سؤال اليوم'
+                  : "You've answered today's question",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                color: isDark
+                    ? AppColors.darkTextPrimary
+                    : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -1213,7 +1499,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 32),
@@ -1272,7 +1560,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
                 ),
-                icon: const Icon(Icons.emoji_events_rounded, color: Colors.white),
+                icon: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Colors.white,
+                ),
                 label: Text(
                   isArabic ? 'لوحة المتصدرين' : 'Leaderboard',
                   style: const TextStyle(
@@ -1289,9 +1580,12 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
+            _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1330,7 +1624,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   isArabic ? 'مجموع النقاط' : 'Total Score',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -1347,7 +1643,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             ),
             child: Column(
               children: [
-                const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+                const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.orange,
+                  size: 28,
+                ),
                 const SizedBox(height: 6),
                 _digitAwareText(
                   text: _localizeInt(streak, isArabic: isArabic),
@@ -1363,7 +1663,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   isArabic ? 'أيام متواصلة' : 'Day Streak',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -1374,7 +1676,12 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _statItem(String label, String value, bool isDark, {required bool isArabic}) {
+  Widget _statItem(
+    String label,
+    String value,
+    bool isDark, {
+    required bool isArabic,
+  }) {
     return Column(
       children: [
         _digitAwareText(
@@ -1392,7 +1699,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : AppColors.textSecondary,
           ),
         ),
       ],

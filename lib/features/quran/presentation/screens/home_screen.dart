@@ -34,6 +34,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 
 // Cached at file scope — avoids triggering loadFontIfNecessary on every build,
 // which causes unhandled rejections with google_fonts ≥6.2 in Flutter.
@@ -92,6 +93,7 @@ Widget _buildDetailsLineWithAmiriNumbers(
   BuildContext context, {
   bool isRtl = false,
 }) {
+  final safeDetailsLine = sanitizeUtf16(detailsLine);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
     color: isDark ? AppColors.darkTextSecondary : null,
@@ -111,11 +113,10 @@ Widget _buildDetailsLineWithAmiriNumbers(
   );
 
   final spans = <InlineSpan>[];
-  final chars = detailsLine.split('');
-
-  for (final char in chars) {
+  for (final rune in safeDetailsLine.runes) {
+    final char = String.fromCharCode(rune);
     // Check if character is Arabic-Indic digit (٠-٩)
-    final isArabicDigit = char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    final isArabicDigit = rune >= 0x0660 && rune <= 0x0669;
     final isDot = char == '•';
     spans.add(
       TextSpan(

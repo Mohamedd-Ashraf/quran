@@ -20,6 +20,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import '../../../../core/utils/utf16_sanitizer.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
 import 'tafsir_screen.dart';
@@ -3126,13 +3127,14 @@ Widget _buildTextWithAmiriNumbers(
   int? maxLines,
   TextOverflow overflow = TextOverflow.clip,
 }) {
+  final safeText = sanitizeUtf16(text);
   final finalAmiriStyle = amiriStyle ?? baseStyle.copyWith(fontFamily: 'Amiri');
 
   final spans = <InlineSpan>[];
-  for (final char in text.split('')) {
+  for (final rune in safeText.runes) {
+    final char = String.fromCharCode(rune);
     // Check if character is Arabic-Indic digit (٠-٩)
-    final isArabicDigit =
-        char.codeUnitAt(0) >= 0x0660 && char.codeUnitAt(0) <= 0x0669;
+    final isArabicDigit = rune >= 0x0660 && rune <= 0x0669;
     spans.add(
       TextSpan(text: char, style: isArabicDigit ? finalAmiriStyle : baseStyle),
     );

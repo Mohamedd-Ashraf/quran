@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,11 @@ class BookmarkService {
         decoded.cast<Map<String, dynamic>>(),
       );
 
+      final normalizedJson = json.encode(bookmarks);
+      if (normalizedJson != bookmarksJson) {
+        unawaited(_prefs.setString(_keyBookmarks, normalizedJson));
+      }
+
       // Sort by timestamp (newest first)
       bookmarks.sort((a, b) {
         final timestampA = a['timestamp'] as String?;
@@ -76,10 +82,11 @@ class BookmarkService {
     int? pageNumber,
   }) async {
     final bookmarks = getBookmarks();
+    final sanitizedArabicText = _sanitizeArabicText(arabicText);
     final newBookmark = _normalizeBookmark({
       'id': id,
       'reference': reference,
-      'arabicText': arabicText,
+      'arabicText': sanitizedArabicText,
       'surahName': surahName,
       'note': note,
       'surahNumber': surahNumber,
@@ -195,6 +202,25 @@ class BookmarkService {
 
   Map<String, dynamic> _normalizeBookmark(Map<String, dynamic> rawBookmark) {
     final bookmark = Map<String, dynamic>.from(rawBookmark);
+
+    bookmark['id'] = _sanitizeUtf16(bookmark['id']?.toString());
+    bookmark['reference'] = _sanitizeUtf16(bookmark['reference']?.toString());
+    bookmark['arabicText'] = _sanitizeUtf16(bookmark['arabicText']?.toString());
+
+    final sanitizedSurahName = _sanitizeUtf16(bookmark['surahName']?.toString());
+    if (sanitizedSurahName.isEmpty) {
+      bookmark.remove('surahName');
+    } else {
+      bookmark['surahName'] = sanitizedSurahName;
+    }
+
+    final sanitizedNote = _sanitizeUtf16(bookmark['note']?.toString());
+    if (sanitizedNote.isEmpty) {
+      bookmark['note'] = null;
+    } else {
+      bookmark['note'] = sanitizedNote;
+    }
+
     final location = _extractLocation(bookmark);
 
     bookmark['id'] = _canonicalId(bookmark, location);
@@ -354,5 +380,49 @@ class BookmarkService {
 
     if (parsed == null || parsed <= 0) return null;
     return parsed;
+  }
+
+  String _sanitizeArabicText(String? text) {
+    return _sanitizeUtf16(text);
+  }
+
+  String _sanitizeUtf16(String? text) {
+    if (text == null || text.isEmpty) return '';
+
+    final input = text.codeUnits;
+    final output = <int>[];
+    var i = 0;
+
+    while (i < input.length) {
+      final unit = input[i];
+      final isHighSurrogate = unit >= 0xD800 && unit <= 0xDBFF;
+      final isLowSurrogate = unit >= 0xDC00 && unit <= 0xDFFF;
+
+      if (isHighSurrogate) {
+        if (i + 1 < input.length) {
+          final next = input[i + 1];
+          final nextIsLow = next >= 0xDC00 && next <= 0xDFFF;
+          if (nextIsLow) {
+            output
+              ..add(unit)
+              ..add(next);
+            i += 2;
+            continue;
+          }
+        }
+        i += 1;
+        continue;
+      }
+
+      if (isLowSurrogate) {
+        i += 1;
+        continue;
+      }
+
+      output.add(unit);
+      i += 1;
+    }
+
+    return String.fromCharCodes(output);
   }
 }

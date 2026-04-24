@@ -46,6 +46,7 @@ class _MainNavigatorState extends State<MainNavigator>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    setInAppNotificationRouteHandler(_handleNotificationRouteInTabs);
     _screens = [
       HomeScreen(key: _homeKey),
       BookmarksScreen(
@@ -132,9 +133,20 @@ class _MainNavigatorState extends State<MainNavigator>
 
   @override
   void dispose() {
+    setInAppNotificationRouteHandler(null);
     WidgetsBinding.instance.removeObserver(this);
     FontDownloadManager.instance.removeListener(_onFontManagerChanged);
     super.dispose();
+  }
+
+  bool _handleNotificationRouteInTabs(String route) {
+    if (route == NotificationRoute.wird) {
+      if (!mounted) return true;
+      setState(() => _currentIndex = 2);
+      di.sl<TutorialService>().activeTabIndex.value = 2;
+      return true;
+    }
+    return false;
   }
 
   void _onFontManagerChanged() {

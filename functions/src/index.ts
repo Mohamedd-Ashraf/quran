@@ -15,6 +15,86 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+function stableAnonymousNumberFromUid(uid: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < uid.length; i++) {
+    hash ^= uid.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return (hash % 999) + 1;
+}
+
+function anonymousDisplayNameFromUid(uid: string): string {
+  return `مستخدم مجهول #${stableAnonymousNumberFromUid(uid)}`;
+}
+
+function utcDateKey(date = new Date()): string {
+  const yyyy = date.getUTCFullYear().toString().padStart(4, '0');
+  const mm = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const dd = date.getUTCDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function aliasFromUid(uid: string): string {
+  const cleaned = uid.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const tail = cleaned.length >= 4
+    ? cleaned.slice(-4)
+    : cleaned.padStart(4, '0');
+  return `User${tail}`;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+async function upsertDailyLeaderboardEntry(
+  uid: string,
+  payload: {
+    totalScore: number;
+    streak: number;
+    correctAnswers: number;
+    totalAnswered: number;
+  },
+): Promise<void> {
+  const userSnap = await db.collection('users').doc(uid).get();
+  const userData = userSnap.data() || {};
+
+  const showInLeaderboard = userData.showInLeaderboard !== false;
+  const userName = typeof userData.name === 'string' && userData.name.trim().length > 0
+    ? userData.name.trim()
+    : aliasFromUid(uid);
+
+  const cachedDisplayName = showInLeaderboard
+    ? userName
+    : anonymousDisplayNameFromUid(uid);
+  const dateKey = utcDateKey();
+
+  await db
+    .collection('leaderboard_daily')
+    .doc(dateKey)
+    .collection('entries')
+    .doc(uid)
+    .set(
+      {
+        uid,
+        score: payload.totalScore,
+        totalScore: payload.totalScore,
+        streak: payload.streak,
+        correctAnswers: payload.correctAnswers,
+        totalAnswered: payload.totalAnswered,
+        isAnonymous: !showInLeaderboard,
+        cachedDisplayName,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+}
+
 // Configure email transporter (Gmail or Firebase built-in)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -430,4 +510,52 @@ export const processAccountDeletionRequest = functions.firestore
         });
       } catch (_) { /* best-effort */ }
     }
+  });
+
+export const mirrorQuizLeaderboardToDaily = functions.firestore
+  .document('quiz_leaderboard/{uid}')
+  .onWrite(async (change, context) => {
+    const uid = context.params.uid as string;
+    const after = change.after.exists ? change.after.data() : null;
+    if (!after) return;
+
+    await upsertDailyLeaderboardEntry(uid, {
+      totalScore: toNumber(after.totalScore),
+      streak: toNumber(after.streak),
+      correctAnswers: toNumber(after.correctAnswers),
+      totalAnswered: toNumber(after.totalAnswered),
+    });
+  });
+
+export const applyPendingLeaderboardVisibilityDaily = functions.pubsub
+  .schedule('5 0 * * *')
+  .timeZone('UTC')
+  .onRun(async () => {
+    const today = utcDateKey();
+    const users = await db
+      .collection('users')
+      .where('showInLeaderboardPendingFrom', '<=', today)
+      .get();
+
+    if (users.empty) return null;
+
+    const batch = db.batch();
+    for (const doc of users.docs) {
+      const data = doc.data();
+      if (typeof data.showInLeaderboardPending === 'boolean') {
+        batch.set(
+          doc.ref,
+          {
+            showInLeaderboard: data.showInLeaderboardPending,
+            showInLeaderboardPending: admin.firestore.FieldValue.delete(),
+            showInLeaderboardPendingFrom: admin.firestore.FieldValue.delete(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    }
+
+    await batch.commit();
+    return null;
   });

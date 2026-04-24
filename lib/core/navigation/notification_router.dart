@@ -3,16 +3,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/islamic/presentation/screens/prayer_times_screen.dart';
 import '../../features/quiz/presentation/screens/quiz_screen.dart';
 import '../../features/quiz/presentation/widgets/quiz_sign_in_sheet.dart';
+import '../../features/wird/presentation/screens/wird_screen.dart';
 
 /// Global [NavigatorKey] shared across the entire app.
 /// Passed to [MaterialApp.navigatorKey] so every part of the codebase
 /// can push/pop routes without a [BuildContext].
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Optional in-app handler for destinations that belong to MainNavigator tabs.
+/// Returns true when the route is fully handled.
+bool Function(String route)? _inAppNotificationRouteHandler;
+
+void setInAppNotificationRouteHandler(bool Function(String route)? handler) {
+  _inAppNotificationRouteHandler = handler;
+}
+
 /// Route identifiers carried in notification payloads.
 class NotificationRoute {
   static const String quiz = 'quiz';
   static const String prayerTimes = 'prayer_times';
+  static const String wird = 'wird';
 }
 
 /// Pending route for cold-start scenario (app was killed when notification was tapped).
@@ -39,6 +49,11 @@ void consumePendingNotificationRoute() {
 /// Core routing function. Works regardless of current app state —
 /// works when app is in foreground, background, or freshly launched.
 void navigateFromNotification(String route) {
+  // Give MainNavigator first chance to handle tab-based destinations
+  // (prevents pushing duplicate tab screens with duplicate GlobalKeys).
+  final handledInApp = _inAppNotificationRouteHandler?.call(route) ?? false;
+  if (handledInApp) return;
+
   final nav = appNavigatorKey.currentState;
   if (nav == null) {
     // Navigator not yet mounted — store for deferred consumption.
@@ -50,6 +65,8 @@ void navigateFromNotification(String route) {
     _openQuiz(nav);
   } else if (route == NotificationRoute.prayerTimes) {
     _openPrayerTimes(nav);
+  } else if (route == NotificationRoute.wird) {
+    _openWird(nav);
   }
 }
 
@@ -78,4 +95,10 @@ void _openPrayerTimes(NavigatorState nav) {
   // Pop to root first so we don't stack duplicate screens.
   nav.popUntil((route) => route.isFirst);
   nav.push(MaterialPageRoute(builder: (_) => const PrayerTimesScreen()));
+}
+
+void _openWird(NavigatorState nav) {
+  // Pop to root first so we don't stack duplicate screens.
+  nav.popUntil((route) => route.isFirst);
+  nav.push(MaterialPageRoute(builder: (_) => const WirdScreen()));
 }

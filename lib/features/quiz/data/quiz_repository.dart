@@ -8,9 +8,27 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/utils/utf16_sanitizer.dart';
+
 import 'datasources/quiz_questions_data.dart';
 import 'models/leaderboard_entry.dart';
 import 'models/quiz_question_model.dart';
+
+class LeaderboardVisibilityPreference {
+  final bool isAnonymous;
+  final DateTime? lastToggleAt;
+
+  const LeaderboardVisibilityPreference({
+    required this.isAnonymous,
+    this.lastToggleAt,
+  });
+}
+
+class LeaderboardVisibilityCooldownException implements Exception {
+  final Duration remaining;
+
+  const LeaderboardVisibilityCooldownException(this.remaining);
+}
 
 /// Single source of truth for all quiz data.
 ///
@@ -35,6 +53,8 @@ class QuizRepository {
 
   static const String _collection = 'quiz_leaderboard';
 
+  static const Duration _visibilityToggleCooldown = Duration(seconds: 20);
+
   // ── SharedPrefs keys (guests + device-only settings) ─────────────────────
   static const _kSeed = 'quiz_user_seed';
   static const _kScore = 'quiz_total_score';
@@ -56,9 +76,9 @@ class QuizRepository {
   // ── Active-timer persistence keys ────────────────────────────────────────
   // These let us resume the correct countdown when the user leaves and returns
   // to the quiz mid-session (back navigation, app kill, etc.).
-  static const _kTimerQuestionId    = 'quiz_timer_question_id';
-  static const _kTimerStartMs       = 'quiz_timer_start_ms';
-  static const _kTimerTotalSeconds  = 'quiz_timer_total_seconds';
+  static const _kTimerQuestionId = 'quiz_timer_question_id';
+  static const _kTimerStartMs = 'quiz_timer_start_ms';
+  static const _kTimerTotalSeconds = 'quiz_timer_total_seconds';
 
   // ── In-memory session cache ───────────────────────────────────────────────
   int _totalScore = 0;
@@ -148,7 +168,8 @@ class QuizRepository {
         if (ts is Timestamp) {
           _lastAnsweredServerTimestamp = ts.toDate().toUtc();
           final dt = _lastAnsweredServerTimestamp!;
-          _lastAnsweredDate = '${dt.year}-'
+          _lastAnsweredDate =
+              '${dt.year}-'
               '${dt.month.toString().padLeft(2, '0')}-'
               '${dt.day.toString().padLeft(2, '0')}';
         } else {
@@ -228,9 +249,25 @@ class QuizRepository {
     final user = _user;
     if (user == null || user.isAnonymous) return false;
     try {
+      final visibility = await getLeaderboardVisibilityPreference(
+        uid: user.uid,
+      );
+      final isAnonymous = visibility.isAnonymous;
+      final displayName = !isAnonymous
+          ? ((user.displayName == null || user.displayName!.trim().isEmpty)
+                ? aliasFromUid(user.uid)
+                : user.displayName!.trim())
+          : anonymousDisplayNameFromUid(user.uid);
+      final safeDisplayName = sanitizeUtf16(
+        displayName,
+        fallback: anonymousDisplayNameFromUid(user.uid),
+      );
+
       final data = <String, dynamic>{
-        'displayName': user.displayName ?? 'مستخدم',
-        'photoUrl': user.photoURL,
+        'displayName': safeDisplayName,
+        'cachedDisplayName': safeDisplayName,
+        'isAnonymous': isAnonymous,
+        'photoUrl': isAnonymous ? null : user.photoURL,
         'totalScore': _totalScore,
         'streak': _streak,
         'correctAnswers': _correctAnswers,
@@ -245,10 +282,10 @@ class QuizRepository {
       if (isAnswer) {
         data['lastAnsweredTimestamp'] = FieldValue.serverTimestamp();
       }
-      await _firestore.collection(_collection).doc(user.uid).set(
-            data,
-            SetOptions(merge: true),
-          );
+      await _firestore
+          .collection(_collection)
+          .doc(user.uid)
+          .set(data, SetOptions(merge: true));
       debugPrint('[Quiz] Saved to Firestore for ${user.uid}');
       return true;
     } catch (e, st) {
@@ -375,7 +412,9 @@ class QuizRepository {
         await _saveToPrefs();
         await _prefs.setBool(_kPendingSync, true);
         await _prefs.setString(_kPendingSyncDate, _todayString());
-        debugPrint('[Quiz] Offline: answer saved locally, pending Firestore sync.');
+        debugPrint(
+          '[Quiz] Offline: answer saved locally, pending Firestore sync.',
+        );
       }
     } else {
       await _saveToPrefs();
@@ -425,16 +464,17 @@ class QuizRepository {
     int totalSeconds,
     int elapsedSeconds,
     int remainingSeconds,
-  })? getActiveTimerState(int questionId) {
+  })?
+  getActiveTimerState(int questionId) {
     final storedId = _prefs.getInt(_kTimerQuestionId);
     if (storedId != questionId) return null;
 
     final startMs = _prefs.getInt(_kTimerStartMs);
-    final total   = _prefs.getInt(_kTimerTotalSeconds);
+    final total = _prefs.getInt(_kTimerTotalSeconds);
     if (startMs == null || total == null) return null;
 
     final startTime = DateTime.fromMillisecondsSinceEpoch(startMs);
-    final elapsed   = DateTime.now().difference(startTime).inSeconds;
+    final elapsed = DateTime.now().difference(startTime).inSeconds;
     final remaining = (total - elapsed).clamp(0, total);
 
     return (
@@ -490,14 +530,28 @@ class QuizRepository {
         .orderBy('totalScore', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs.map(LeaderboardEntry.fromFirestore).toList();
+    return snapshot.docs.map((doc) {
+      final entry = LeaderboardEntry.fromFirestore(doc);
+      if (entry.displayName.trim().isNotEmpty) return entry;
+      return LeaderboardEntry(
+        uid: entry.uid,
+        displayName: entry.isAnonymous
+            ? anonymousDisplayNameFromUid(entry.uid)
+            : aliasFromUid(entry.uid),
+        photoUrl: entry.photoUrl,
+        isAnonymous: entry.isAnonymous,
+        totalScore: entry.totalScore,
+        streak: entry.streak,
+        correctAnswers: entry.correctAnswers,
+        totalAnswered: entry.totalAnswered,
+      );
+    }).toList();
   }
 
   /// Returns the 1-based rank of [uid], or null if not found.
   Future<int?> getUserRank(String uid) async {
     try {
-      final userDoc =
-          await _firestore.collection(_collection).doc(uid).get();
+      final userDoc = await _firestore.collection(_collection).doc(uid).get();
       if (!userDoc.exists) return null;
       final userScore =
           (userDoc.data() as Map<String, dynamic>)['totalScore'] as int? ?? 0;
@@ -516,14 +570,98 @@ class QuizRepository {
   /// Fetches the leaderboard entry for [uid], or null if not found.
   Future<LeaderboardEntry?> getUserEntry(String uid) async {
     try {
-      final doc =
-          await _firestore.collection(_collection).doc(uid).get();
+      final doc = await _firestore.collection(_collection).doc(uid).get();
       if (!doc.exists) return null;
-      return LeaderboardEntry.fromFirestore(doc);
+      final entry = LeaderboardEntry.fromFirestore(doc);
+      if (entry.displayName.trim().isNotEmpty) return entry;
+      return LeaderboardEntry(
+        uid: entry.uid,
+        displayName: entry.isAnonymous
+            ? anonymousDisplayNameFromUid(entry.uid)
+            : aliasFromUid(entry.uid),
+        photoUrl: entry.photoUrl,
+        isAnonymous: entry.isAnonymous,
+        totalScore: entry.totalScore,
+        streak: entry.streak,
+        correctAnswers: entry.correctAnswers,
+        totalAnswered: entry.totalAnswered,
+      );
     } catch (e, st) {
       debugPrint('[Quiz] getUserEntry failed: $e\n$st');
       return null;
     }
+  }
+
+  Future<LeaderboardVisibilityPreference> getLeaderboardVisibilityPreference({
+    String? uid,
+  }) async {
+    final resolvedUid = uid ?? _user?.uid;
+    if (resolvedUid == null) {
+      return const LeaderboardVisibilityPreference(isAnonymous: false);
+    }
+
+    try {
+      final doc = await _firestore.collection('users').doc(resolvedUid).get();
+      final data = doc.data() ?? const <String, dynamic>{};
+      final isAnonymous = data['isAnonymous'] as bool? ?? false;
+      final lastToggle = data['lastVisibilityToggleAt'];
+      return LeaderboardVisibilityPreference(
+        isAnonymous: isAnonymous,
+        lastToggleAt: lastToggle is Timestamp ? lastToggle.toDate() : null,
+      );
+    } catch (e) {
+      debugPrint('[Quiz] getLeaderboardVisibilityPreference failed: $e');
+      return const LeaderboardVisibilityPreference(isAnonymous: false);
+    }
+  }
+
+  Future<void> updateLeaderboardVisibilityPreference({
+    required String uid,
+    required bool isAnonymous,
+  }) async {
+    final pref = await getLeaderboardVisibilityPreference(uid: uid);
+    if (pref.isAnonymous == isAnonymous) return;
+
+    final now = DateTime.now().toUtc();
+    final lastToggle = pref.lastToggleAt?.toUtc();
+    if (lastToggle != null) {
+      final elapsed = now.difference(lastToggle);
+      if (elapsed < _visibilityToggleCooldown) {
+        throw LeaderboardVisibilityCooldownException(
+          _visibilityToggleCooldown - elapsed,
+        );
+      }
+    }
+
+    final user = _user;
+    final displayName =
+        (user?.displayName == null || user!.displayName!.trim().isEmpty)
+        ? aliasFromUid(uid)
+        : user.displayName!.trim();
+    final cachedName = isAnonymous
+        ? anonymousDisplayNameFromUid(uid)
+        : displayName;
+    final safeCachedName = sanitizeUtf16(
+      cachedName,
+      fallback: anonymousDisplayNameFromUid(uid),
+    );
+
+    final userRef = _firestore.collection('users').doc(uid);
+    final leaderboardRef = _firestore.collection(_collection).doc(uid);
+    final batch = _firestore.batch();
+    batch.set(userRef, {
+      'isAnonymous': isAnonymous,
+      'lastVisibilityToggleAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(leaderboardRef, {
+      'displayName': safeCachedName,
+      'cachedDisplayName': safeCachedName,
+      'isAnonymous': isAnonymous,
+      'photoUrl': isAnonymous ? null : user?.photoURL,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await batch.commit();
   }
 
   // ── Notification settings (always device-local) ───────────────────────────
@@ -537,9 +675,9 @@ class QuizRepository {
   int get reminderMinute => _prefs.getInt(_kReminderMinute) ?? 0;
 
   Future<void> setReminderTime(int hour, int minute) => Future.wait([
-        _prefs.setInt(_kReminderHour, hour),
-        _prefs.setInt(_kReminderMinute, minute),
-      ]);
+    _prefs.setInt(_kReminderHour, hour),
+    _prefs.setInt(_kReminderMinute, minute),
+  ]);
 
   // ── App language ──────────────────────────────────────────────────────────
 
@@ -589,8 +727,9 @@ class QuizRepository {
     if (d == null || d.isEmpty) return false;
     try {
       final last = DateTime.parse(d);
-      final yesterday =
-          (_serverNowUtc ?? DateTime.now().toUtc()).subtract(const Duration(days: 1));
+      final yesterday = (_serverNowUtc ?? DateTime.now().toUtc()).subtract(
+        const Duration(days: 1),
+      );
       return last.year == yesterday.year &&
           last.month == yesterday.month &&
           last.day == yesterday.day;
@@ -607,8 +746,7 @@ class QuizRepository {
   /// are already deployed, avoiding the need for a separate collection.
   Future<DateTime?> _fetchServerNow() async {
     try {
-      final ref =
-          _firestore.doc('users/${_user!.uid}/data/_quiz_ping');
+      final ref = _firestore.doc('users/${_user!.uid}/data/_quiz_ping');
       await ref.set({'ts': FieldValue.serverTimestamp()});
       final snap = await ref.get();
       final ts = snap.get('ts');
@@ -617,5 +755,27 @@ class QuizRepository {
       debugPrint('[Quiz] _fetchServerNow failed (falling back to device): $e');
     }
     return null;
+  }
+
+  String aliasFromUid(String uid) {
+    final sanitized = uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final tail = sanitized.length >= 4
+        ? sanitized.substring(sanitized.length - 4)
+        : sanitized.padLeft(4, '0');
+    return 'User$tail';
+  }
+
+  String anonymousDisplayNameFromUid(String uid) {
+    final n = _stableAnonymousNumberFromUid(uid);
+    return 'مستخدم مجهول #$n';
+  }
+
+  int _stableAnonymousNumberFromUid(String uid) {
+    var hash = 2166136261;
+    for (final unit in uid.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 16777619) & 0x7fffffff;
+    }
+    return (hash % 999) + 1;
   }
 }

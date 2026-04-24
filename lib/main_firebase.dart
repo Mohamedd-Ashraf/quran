@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -20,7 +19,6 @@ import 'core/services/quran_cache_warmup_service.dart';
 import 'core/services/app_update_service_firebase.dart';
 import 'core/services/tafsir_auto_download_service.dart';
 
-import 'core/services/settings_service.dart';
 import 'features/wird/services/wird_notification_service.dart';
 import 'features/quiz/services/quiz_notification_service.dart';
 import 'core/widgets/app_update_dialog_premium.dart';
@@ -42,195 +40,203 @@ void main() {
   // including errors that escape PlatformDispatcher.instance.onError due to the
   // google_fonts 6.3.3 bug where `.then()` without `.catchError()` creates
   // unhandled rejections that bypass the platform error handler.
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-  // Pre-load only the bundled QCF page fonts (9 pages covering key surah openings).
-  // Remaining 595 pages are downloaded on demand via QcfFontDownloadService.
-  // Matches the smart selection in _BundledPages inside qcf_font_download_service.dart.
-  const Set<int> bundledPages = {
-    1, 2, 3, 4,   // Al-Fatiha + Al-Baqarah opening
-    50,           // Al-Imran opening
-    77,           // An-Nisa opening
-    106,          // Al-Maidah opening
-    128,          // Al-An'am opening
-    151,          // Al-A'raf opening
-  };
-  for (final page in bundledPages) {
-    await QcfFontLoader.ensureFontLoaded(page);
-  }
-
-  // If any previously-downloaded (non-bundled) fonts are on disk, register
-  // them in the Flutter font engine now so they render instantly on first view.
-  // This is lightweight – skipped pages have no disk file so nothing happens.
-  final fontsComplete = await QcfFontDownloadService.isFullyDownloaded();
-  if (fontsComplete) {
-    // All fonts on disk — load them all (fast batch since TTFs already cached).
-    await QcfFontLoader.setupFontsAtStartup(onProgress: (_) {});
-  }
-
-  // Fonts are bundled locally in assets/google_fonts/ – no network needed.
-  GoogleFonts.config.allowRuntimeFetching = false;
-
-  // Pre-load all bundled Google Fonts into the engine NOW so that later
-  // widget builds never trigger an async loadFontIfNecessary that can race
-  // with the QCF font downloads and throw unhandled exceptions.
-  // Wrapped in try/catch because this runs before error handlers are installed
-  // – if a font variant is missing from the bundle it would otherwise crash.
-  try {
-    await GoogleFonts.pendingFonts([
-      GoogleFonts.cairo(),
-      GoogleFonts.amiriQuran(),
-      GoogleFonts.arefRuqaa(),
-      GoogleFonts.arefRuqaa(fontWeight: FontWeight.bold),
-      GoogleFonts.amiri(),
-      GoogleFonts.amiri(fontWeight: FontWeight.bold),
-      GoogleFonts.notoNaskhArabic(),
-      GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.w600),
-      GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.bold),
-      GoogleFonts.cinzel(),
-      GoogleFonts.cinzel(fontWeight: FontWeight.bold),
-      GoogleFonts.poppins(),
-      GoogleFonts.poppins(fontWeight: FontWeight.w500),
-      GoogleFonts.poppins(fontWeight: FontWeight.w600),
-      GoogleFonts.poppins(fontWeight: FontWeight.bold),
-      // Only Bold is bundled in assets/google_fonts/ — Regular is not available.
-      GoogleFonts.notoSerif(fontWeight: FontWeight.bold),
-    ]);
-  } catch (_) {
-    // Some font variants may not be in the bundle – silently ignore.
-    // They will fall back to the default font when rendered.
-  }
-
-  bool isGoogleFontsError(Object error) {
-    final msg = error.toString().toLowerCase();
-    return msg.contains('google_fonts') ||
-        msg.contains('googlefonts') ||
-        msg.contains('failed to load font') ||
-        msg.contains('font') ||
-        msg.contains('socketexception') ||
-        msg.contains('network') ||
-        msg.contains('clientexception');
-  }
-
-  FlutterError.onError = (details) {
-    final ex = details.exception;
-    if (isGoogleFontsError(ex)) {
-      debugPrint('Ignored non-fatal network/font error: $ex');
-      return;
-    }
-    FlutterError.presentError(details);
-  };
-
-  PlatformDispatcher.instance.onError = (error, stack) {
-    if (isGoogleFontsError(error)) {
-      debugPrint('Ignored async network/font error: $error');
-      return true; // Return true to prevent the crash
-    }
-    // Return true for any unhandled async error in release to prevent app closure,
-    // but in debug we let it pass.
-    return true; // Prevent all async crashes offline
-  };
-
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // Ensure Firestore is initialized (fixes gray screen in release if tree-shaken)
-  try {
-    FirebaseFirestore.instance.settings;
-  } catch (e) {
-    debugPrint('Firestore init error: $e');
-  }
-
-  // Initialize dependency injection
-  await di.init();
-
-  // Start background Quran cache warm-up so all surahs are available offline
-  // and open instantly on subsequent visits.  Runs fully in background.
-  di.sl<QuranCacheWarmupService>().startInBackground();
-
-  // Start QCF font download immediately — gives maximum head-start before the
-  // user navigates to Quran pages.  Wi-Fi only by default; mobile-data
-  // consent is handled inside FontDownloadManager.  Fully background, no UI.
-  unawaited(FontDownloadManager.instance.startIfNeeded());
-
-  // Chain: when fonts finish downloading, start tafsir auto-download.
-  // Staggering the two heavy operations avoids competing for bandwidth.
-  _scheduleTafsirAfterFonts();
-
-  // Initialize update service (Remote Config defaults + first fetch)
-  final updateService = di.sl<AppUpdateServiceFirebase>();
-  await updateService.initialize();
-
-  // Notifications are used for prayer reminders (adhan). Initialize early.
-  final adhanService = di.sl<AdhanNotificationService>();
-  await adhanService.init(
-    onNotificationTap: (NotificationResponse response) {
-      final payload = response.payload;
-      if (payload != null && payload.isNotEmpty) {
-        navigateFromNotification(payload);
+      // Pre-load only the bundled QCF page fonts (9 pages covering key surah openings).
+      // Remaining 595 pages are downloaded on demand via QcfFontDownloadService.
+      // Matches the smart selection in _BundledPages inside qcf_font_download_service.dart.
+      const Set<int> bundledPages = {
+        1, 2, 3, 4, // Al-Fatiha + Al-Baqarah opening
+        50, // Al-Imran opening
+        77, // An-Nisa opening
+        106, // Al-Maidah opening
+        128, // Al-An'am opening
+        151, // Al-A'raf opening
+      };
+      for (final page in bundledPages) {
+        await QcfFontLoader.ensureFontLoaded(page);
       }
+
+      // If any previously-downloaded (non-bundled) fonts are on disk, register
+      // them in the Flutter font engine now so they render instantly on first view.
+      // This is lightweight – skipped pages have no disk file so nothing happens.
+      final fontsComplete = await QcfFontDownloadService.isFullyDownloaded();
+      if (fontsComplete) {
+        // All fonts on disk — load them all (fast batch since TTFs already cached).
+        await QcfFontLoader.setupFontsAtStartup(onProgress: (_) {});
+      }
+
+      // Fonts are bundled locally in assets/google_fonts/ – no network needed.
+      GoogleFonts.config.allowRuntimeFetching = false;
+
+      // Pre-load all bundled Google Fonts into the engine NOW so that later
+      // widget builds never trigger an async loadFontIfNecessary that can race
+      // with the QCF font downloads and throw unhandled exceptions.
+      // Wrapped in try/catch because this runs before error handlers are installed
+      // – if a font variant is missing from the bundle it would otherwise crash.
+      try {
+        await GoogleFonts.pendingFonts([
+          GoogleFonts.cairo(),
+          GoogleFonts.amiriQuran(),
+          GoogleFonts.arefRuqaa(),
+          GoogleFonts.arefRuqaa(fontWeight: FontWeight.bold),
+          GoogleFonts.amiri(),
+          GoogleFonts.amiri(fontWeight: FontWeight.bold),
+          GoogleFonts.notoNaskhArabic(),
+          GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.w600),
+          GoogleFonts.notoNaskhArabic(fontWeight: FontWeight.bold),
+          GoogleFonts.cinzel(),
+          GoogleFonts.cinzel(fontWeight: FontWeight.bold),
+          GoogleFonts.poppins(),
+          GoogleFonts.poppins(fontWeight: FontWeight.w500),
+          GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          // Only Bold is bundled in assets/google_fonts/ — Regular is not available.
+          GoogleFonts.notoSerif(fontWeight: FontWeight.bold),
+        ]);
+      } catch (_) {
+        // Some font variants may not be in the bundle – silently ignore.
+        // They will fall back to the default font when rendered.
+      }
+
+      bool isGoogleFontsError(Object error) {
+        final msg = error.toString().toLowerCase();
+        return msg.contains('google_fonts') ||
+            msg.contains('googlefonts') ||
+            msg.contains('failed to load font') ||
+            msg.contains('font') ||
+            msg.contains('socketexception') ||
+            msg.contains('network') ||
+            msg.contains('clientexception');
+      }
+
+      FlutterError.onError = (details) {
+        final ex = details.exception;
+        if (isGoogleFontsError(ex)) {
+          debugPrint('Ignored non-fatal network/font error: $ex');
+          return;
+        }
+        FlutterError.presentError(details);
+      };
+
+      PlatformDispatcher.instance.onError = (error, stack) {
+        if (isGoogleFontsError(error)) {
+          debugPrint('Ignored async network/font error: $error');
+          return true; // Return true to prevent the crash
+        }
+        // Return true for any unhandled async error in release to prevent app closure,
+        // but in debug we let it pass.
+        return true; // Prevent all async crashes offline
+      };
+
+      // Initialize Firebase
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      // Ensure Firestore is initialized (fixes gray screen in release if tree-shaken)
+      try {
+        FirebaseFirestore.instance.settings;
+      } catch (e) {
+        debugPrint('Firestore init error: $e');
+      }
+
+      // Initialize dependency injection
+      await di.init();
+
+      // Start background Quran cache warm-up so all surahs are available offline
+      // and open instantly on subsequent visits.  Runs fully in background.
+      di.sl<QuranCacheWarmupService>().startInBackground();
+
+      // Start QCF font download immediately — gives maximum head-start before the
+      // user navigates to Quran pages.  Wi-Fi only by default; mobile-data
+      // consent is handled inside FontDownloadManager.  Fully background, no UI.
+      unawaited(FontDownloadManager.instance.startIfNeeded());
+
+      // Chain: when fonts finish downloading, start tafsir auto-download.
+      // Staggering the two heavy operations avoids competing for bandwidth.
+      _scheduleTafsirAfterFonts();
+
+      // Initialize update service (Remote Config defaults + first fetch)
+      final updateService = di.sl<AppUpdateServiceFirebase>();
+      await updateService.initialize();
+
+      // Notifications are used for prayer reminders (adhan). Initialize early.
+      final adhanService = di.sl<AdhanNotificationService>();
+      await adhanService.init(
+        onNotificationTap: (NotificationResponse response) {
+          final payload = response.payload;
+          if (payload != null && payload.isNotEmpty) {
+            navigateFromNotification(payload);
+          }
+        },
+      );
+
+      // ── Cold-start: check if the app was launched by tapping a notification ──
+      // This covers the case where the app was killed and the user tapped a
+      // flutter_local_notifications notification (quiz reminder).
+      try {
+        final launchDetails = await di
+            .sl<FlutterLocalNotificationsPlugin>()
+            .getNotificationAppLaunchDetails();
+        if (launchDetails != null &&
+            launchDetails.didNotificationLaunchApp &&
+            launchDetails.notificationResponse?.payload != null) {
+          final payload = launchDetails.notificationResponse!.payload!;
+          if (payload.isNotEmpty) {
+            setPendingNotificationRoute(payload);
+            debugPrint(
+              '[Notif] Cold-start from notification: payload=$payload',
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('[Notif] getNotificationAppLaunchDetails failed: $e');
+      }
+
+      // Prime adhan scheduling immediately from cached coordinates or Egypt fallback.
+      // Permissions are requested from the first-frame callback (with a delay)
+      // so they never appear before the UI is visible.
+      // The first foreground frame will retry with a real location permission prompt.
+      unawaited(adhanService.ensureScheduleFresh());
+
+      // If the selected adhan sound is online, cache it silently so it plays at
+      // prayer time even when there is no internet connection.
+      unawaited(adhanService.ensureSelectedSoundCached());
+
+      // Initialize wird (daily recitation) reminder notifications.
+      final wirdNotifService = di.sl<WirdNotificationService>();
+      await wirdNotifService.init();
+      // scheduleForPlan() re-registers BOTH the main daily reminder AND follow-ups
+      // on every app start (covers device reboots that clear scheduled alarms).
+      unawaited(wirdNotifService.scheduleForPlan());
+
+      // Initialize quiz (daily competition) reminder notifications.
+      final quizNotifService = di.sl<QuizNotificationService>();
+      await quizNotifService.init();
+      unawaited(quizNotifService.scheduleDailyReminder());
+
+      // Enable background audio playback (foreground service + lock-screen controls).
+      // Must be called before runApp so AyahAudioCubit's AudioPlayer can connect
+      // to the MediaBrowserServiceCompat when the widget tree is built.
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'com.nooraliman.quran.channel.audio',
+        androidNotificationChannelName: 'تلاوة القرآن الكريم',
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true,
+        notificationColor: const Color(0xFF1B5E20), // Islamic dark green
+        androidNotificationIcon: 'drawable/ic_notification',
+      );
+
+      runApp(const MyApp());
+    },
+    (error, stack) {
+      // Catches all unhandled zone errors — including google_fonts async throws
+      // that escape PlatformDispatcher.instance.onError in google_fonts <8.0.2.
+      debugPrint('[Zone] Ignored unhandled error: $error');
     },
   );
-
-  // ── Cold-start: check if the app was launched by tapping a notification ──
-  // This covers the case where the app was killed and the user tapped a
-  // flutter_local_notifications notification (quiz reminder).
-  try {
-    final launchDetails = await di.sl<FlutterLocalNotificationsPlugin>()
-        .getNotificationAppLaunchDetails();
-    if (launchDetails != null &&
-        launchDetails.didNotificationLaunchApp &&
-        launchDetails.notificationResponse?.payload != null) {
-      final payload = launchDetails.notificationResponse!.payload!;
-      if (payload.isNotEmpty) {
-        setPendingNotificationRoute(payload);
-        debugPrint('[Notif] Cold-start from notification: payload=$payload');
-      }
-    }
-  } catch (e) {
-    debugPrint('[Notif] getNotificationAppLaunchDetails failed: $e');
-  }
-
-  // Prime adhan scheduling immediately from cached coordinates or Egypt fallback.
-  // Permissions are requested from the first-frame callback (with a delay)
-  // so they never appear before the UI is visible.
-  // The first foreground frame will retry with a real location permission prompt.
-  unawaited(adhanService.ensureScheduleFresh());
-
-  // If the selected adhan sound is online, cache it silently so it plays at
-  // prayer time even when there is no internet connection.
-  unawaited(adhanService.ensureSelectedSoundCached());
-
-  // Initialize wird (daily recitation) reminder notifications.
-  final wirdNotifService = di.sl<WirdNotificationService>();
-  await wirdNotifService.init();
-  // scheduleForPlan() re-registers BOTH the main daily reminder AND follow-ups
-  // on every app start (covers device reboots that clear scheduled alarms).
-  unawaited(wirdNotifService.scheduleForPlan());
-
-  // Initialize quiz (daily competition) reminder notifications.
-  final quizNotifService = di.sl<QuizNotificationService>();
-  await quizNotifService.init();
-  unawaited(quizNotifService.scheduleDailyReminder());
-
-  // Enable background audio playback (foreground service + lock-screen controls).
-  // Must be called before runApp so AyahAudioCubit's AudioPlayer can connect
-  // to the MediaBrowserServiceCompat when the widget tree is built.
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.nooraliman.quran.channel.audio',
-    androidNotificationChannelName: 'تلاوة القرآن الكريم',
-    androidNotificationOngoing: true,
-    androidStopForegroundOnPause: true,
-    notificationColor: const Color(0xFF1B5E20), // Islamic dark green
-    androidNotificationIcon: 'drawable/ic_notification',
-  );
-
-    runApp(const MyApp());
-  }, (error, stack) {
-    // Catches all unhandled zone errors — including google_fonts async throws
-    // that escape PlatformDispatcher.instance.onError in google_fonts <8.0.2.
-    debugPrint('[Zone] Ignored unhandled error: $error');
-  });
 }
 
 /// Waits for QCF font download to finish, then triggers the Muyassar tafsir
@@ -305,6 +311,9 @@ class _GlobalWirdLifecycleObserverState
       // This ensures follow-up reminders are refreshed even when the user is
       // not on the Wird screen.
       unawaited(di.sl<WirdNotificationService>().scheduleForPlan());
+      // Re-schedule quiz reminder on foreground so "answered today" state
+      // is re-evaluated with fresh repository data.
+      unawaited(di.sl<QuizNotificationService>().scheduleDailyReminder());
     }
   }
 

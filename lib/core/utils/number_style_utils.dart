@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'utf16_sanitizer.dart';
+
 const List<String> _kArabicIndicDigits = [
   '٠',
   '١',
@@ -21,10 +23,15 @@ bool isArabicLanguageCode(String languageCode) {
 }
 
 String toArabicIndicDigits(String input) {
-  return input.split('').map((char) {
-    final digit = int.tryParse(char);
-    return digit == null ? char : _kArabicIndicDigits[digit];
-  }).join();
+  final buffer = StringBuffer();
+  for (final rune in input.runes) {
+    if (rune >= 0x30 && rune <= 0x39) {
+      buffer.write(_kArabicIndicDigits[rune - 0x30]);
+    } else {
+      buffer.writeCharCode(rune);
+    }
+  }
+  return buffer.toString();
 }
 
 String toArabicIndicNumber(int number) {
@@ -64,13 +71,14 @@ TextSpan buildTextSpanWithAmiriDigits({
   required TextStyle baseStyle,
   TextStyle? amiriStyle,
 }) {
+  final safeText = sanitizeUtf16(text);
   final digitStyle = amiriStyle ??
       amiriDigitTextStyle(baseStyle, fontWeight: FontWeight.w700, height: 1);
   final spans = <InlineSpan>[];
 
-  for (final char in text.split('')) {
-    final unit = char.codeUnitAt(0);
-    final isArabicDigit = unit >= 0x0660 && unit <= 0x0669;
+  for (final rune in safeText.runes) {
+    final char = String.fromCharCode(rune);
+    final isArabicDigit = rune >= 0x0660 && rune <= 0x0669;
     spans.add(
       TextSpan(
         text: char,

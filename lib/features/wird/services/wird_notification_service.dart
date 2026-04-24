@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../../core/navigation/notification_router.dart';
 import '../data/wird_service.dart';
 import '../../../core/services/settings_service.dart';
 
@@ -38,7 +39,11 @@ class WirdNotificationService {
   final WirdService _wirdService;
   final SettingsService _settingsService;
 
-  WirdNotificationService(this._plugin, this._wirdService, this._settingsService);
+  WirdNotificationService(
+    this._plugin,
+    this._wirdService,
+    this._settingsService,
+  );
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -51,7 +56,8 @@ class WirdNotificationService {
     if (kIsWeb) return;
     final android = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (android == null) return;
 
     // Delete old channels to clear any stale sound / importance settings.
@@ -67,7 +73,7 @@ class WirdNotificationService {
         _channelName,
         description: _channelDescription,
         importance: Importance.high,
-        playSound: true,          // uses device default notification sound
+        playSound: true, // uses device default notification sound
         enableVibration: true,
       ),
     );
@@ -80,10 +86,12 @@ class WirdNotificationService {
     if (kIsWeb) return false;
     final android = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final ios = _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
+          IOSFlutterLocalNotificationsPlugin
+        >();
 
     bool ok = true;
     if (android != null) {
@@ -99,7 +107,8 @@ class WirdNotificationService {
       } catch (_) {}
     }
     if (ios != null) {
-      ok = (await ios.requestPermissions(
+      ok =
+          (await ios.requestPermissions(
             alert: true,
             badge: true,
             sound: true,
@@ -134,12 +143,14 @@ class WirdNotificationService {
     final hour = reminderTime['hour']!;
     final minute = reminderTime['minute']!;
 
+    final todayIndex = plan.currentDay;
+    final isTodayComplete = plan.isDayComplete(todayIndex);
+
     await cancelAll();
-    await _scheduleMainReminder(hour, minute);
+    await _scheduleMainReminder(hour, minute, skipToday: isTodayComplete);
 
     // Schedule follow-ups only if interval is not 0 ("Never").
     if (_wirdService.followUpIntervalHours > 0) {
-      final todayIndex = plan.currentDay;
       if (!plan.isDayComplete(todayIndex)) {
         // Today's wird not done — schedule follow-ups for today.
         await _scheduleFollowUps(hour, minute, forNextDay: false);
@@ -175,14 +186,46 @@ class WirdNotificationService {
     if (!plan.isDayComplete(todayIndex)) {
       // Today not done — schedule follow-ups for today.
       await _scheduleFollowUps(
-          reminderTime['hour']!, reminderTime['minute']!, forNextDay: false);
+        reminderTime['hour']!,
+        reminderTime['minute']!,
+        forNextDay: false,
+      );
     } else {
-      // Today done — pre-schedule tomorrow's follow-ups.
+      // Today done — push main reminder + follow-ups to tomorrow.
+      await refreshMainReminder();
       final nextDay = todayIndex + 1;
       if (nextDay <= plan.targetDays && !plan.isDayComplete(nextDay)) {
         await _scheduleFollowUps(
-            reminderTime['hour']!, reminderTime['minute']!, forNextDay: true);
+          reminderTime['hour']!,
+          reminderTime['minute']!,
+          forNextDay: true,
+        );
       }
+    }
+  }
+
+  /// Cancels today's main reminder and re-schedules it for tomorrow if
+  /// the plan still has upcoming days. Call when wird is marked complete.
+  Future<void> refreshMainReminder() async {
+    if (!_wirdService.notificationsEnabled) return;
+    final plan = _wirdService.getPlan();
+    if (plan == null) return;
+    final reminderTime = _wirdService.getReminderTime();
+    if (reminderTime == null) return;
+
+    final todayIndex = plan.currentDay;
+    if (!plan.isDayComplete(todayIndex)) return;
+
+    await _plugin.cancel(_idMainReminder);
+    debugPrint('📿 [Wird] Cancelled main reminder (today complete)');
+
+    final nextDay = todayIndex + 1;
+    if (nextDay <= plan.targetDays && !plan.isDayComplete(nextDay)) {
+      await _scheduleMainReminder(
+        reminderTime['hour']!,
+        reminderTime['minute']!,
+        skipToday: true,
+      );
     }
   }
 
@@ -245,7 +288,11 @@ class WirdNotificationService {
   ];
 
   /// Pick a message from a list using a rotating counter stored in SharedPrefs.
-  String _pickRotating(List<String> arList, List<String> enList, String counterKey) {
+  String _pickRotating(
+    List<String> arList,
+    List<String> enList,
+    String counterKey,
+  ) {
     final isArabic = _wirdService.getAppLanguage() == 'ar';
     final list = isArabic ? arList : enList;
     final counter = _wirdService.getCounter(counterKey);
@@ -254,23 +301,39 @@ class WirdNotificationService {
     return msg;
   }
 
-  Future<void> _scheduleMainReminder(int hour, int minute) async {
+  Future<void> _scheduleMainReminder(
+    int hour,
+    int minute, {
+    required bool skipToday,
+  }) async {
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    if (skipToday || scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
     final body = _pickRotating(
-      _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_main_msg_counter');
+      _mainReminderBodiesAr,
+      _mainReminderBodiesEn,
+      'wird_main_msg_counter',
+    );
     final notifMode = _settingsService.getWirdNotificationMode();
 
     final isArabic = _wirdService.getAppLanguage() == 'ar';
     await _zonedScheduleSafe(
       id: _idMainReminder,
-      title: isArabic ? '📖 حان وقت الورد اليومي' : '📖 Time for Your Daily Wird',
+      title: isArabic
+          ? '📖 حان وقت الورد اليومي'
+          : '📖 Time for Your Daily Wird',
       body: notifMode == 'sound_only' ? '' : body,
+      payload: NotificationRoute.wird,
       scheduledDate: scheduled,
       details: _buildDetails(isFollowUp: false, isArabic: isArabic),
       matchDateTimeComponents: DateTimeComponents.time,
@@ -283,13 +346,22 @@ class WirdNotificationService {
   /// [forNextDay] = true  → follow-ups start after tomorrow's reminder time
   ///                        (pre-schedule for the next plan day so reminders
   ///                         arrive even if the user never reopens the app).
-  Future<void> _scheduleFollowUps(int hour, int minute,
-      {required bool forNextDay}) async {
+  Future<void> _scheduleFollowUps(
+    int hour,
+    int minute, {
+    required bool forNextDay,
+  }) async {
     final now = tz.TZDateTime.now(tz.local);
 
     // Base = the reminder time of the target day (today or tomorrow).
-    var baseDay =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    var baseDay = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
     if (forNextDay) {
       baseDay = baseDay.add(const Duration(days: 1));
     } else {
@@ -315,10 +387,16 @@ class WirdNotificationService {
 
       final hoursToNext = boundaryTime.difference(followUpTime).inHours;
       final body = hoursToNext <= 2
-          ? _pickRotating(_followUpUrgentBodiesAr, _followUpUrgentBodiesEn,
-              'wird_urgent_msg_counter')
-          : _pickRotating(_followUpBodiesAr, _followUpBodiesEn,
-              'wird_followup_msg_counter');
+          ? _pickRotating(
+              _followUpUrgentBodiesAr,
+              _followUpUrgentBodiesEn,
+              'wird_urgent_msg_counter',
+            )
+          : _pickRotating(
+              _followUpBodiesAr,
+              _followUpBodiesEn,
+              'wird_followup_msg_counter',
+            );
       final wirdNotifMode = _settingsService.getWirdNotificationMode();
 
       final isArabic = _wirdService.getAppLanguage() == 'ar';
@@ -326,6 +404,7 @@ class WirdNotificationService {
         id: _followUpIds[i],
         title: isArabic ? '🌙 تذكير: الورد اليومي' : '🌙 Reminder: Daily Wird',
         body: wirdNotifMode == 'sound_only' ? '' : body,
+        payload: NotificationRoute.wird,
         scheduledDate: followUpTime,
         details: _buildDetails(isFollowUp: true, isArabic: isArabic),
       );
@@ -333,8 +412,9 @@ class WirdNotificationService {
     }
 
     debugPrint(
-        '📿 [Wird] Scheduled $scheduledCount follow-up(s) '
-        '(${forNextDay ? "next day" : "today"}, every $intervalHours h)');
+      '📿 [Wird] Scheduled $scheduledCount follow-up(s) '
+      '(${forNextDay ? "next day" : "today"}, every $intervalHours h)',
+    );
   }
 
   // ── Test notification ───────────────────────────────────────────────────────
@@ -344,12 +424,16 @@ class WirdNotificationService {
     if (kIsWeb) return;
     final isArabic = _wirdService.getAppLanguage() == 'ar';
     final body = _pickRotating(
-      _mainReminderBodiesAr, _mainReminderBodiesEn, 'wird_test_msg_counter');
+      _mainReminderBodiesAr,
+      _mainReminderBodiesEn,
+      'wird_test_msg_counter',
+    );
     await _plugin.show(
       5999,
       isArabic ? '📖 حان وقت الورد اليومي' : '📖 Time for Your Daily Wird',
       body,
       _buildDetails(isFollowUp: false, isArabic: isArabic),
+      payload: NotificationRoute.wird,
     );
     debugPrint('📿 [Wird] Test notification sent');
   }
@@ -374,7 +458,10 @@ class WirdNotificationService {
 
   // ── Notification style ────────────────────────────────────────────────────
 
-  NotificationDetails _buildDetails({required bool isFollowUp, bool? isArabic}) {
+  NotificationDetails _buildDetails({
+    required bool isFollowUp,
+    bool? isArabic,
+  }) {
     final ar = isArabic ?? (_wirdService.getAppLanguage() == 'ar');
     final notifMode = _settingsService.getWirdNotificationMode();
     final shouldPlaySound = notifMode != 'text_only';
@@ -412,6 +499,7 @@ class WirdNotificationService {
     required int id,
     required String title,
     required String body,
+    required String payload,
     required tz.TZDateTime scheduledDate,
     required NotificationDetails details,
     DateTimeComponents? matchDateTimeComponents,
@@ -423,6 +511,7 @@ class WirdNotificationService {
         body,
         scheduledDate,
         details,
+        payload: payload,
         androidScheduleMode: AndroidScheduleMode.alarmClock,
         matchDateTimeComponents: matchDateTimeComponents,
       );
@@ -436,10 +525,13 @@ class WirdNotificationService {
           body,
           scheduledDate,
           details,
+          payload: payload,
           androidScheduleMode: AndroidScheduleMode.inexact,
           matchDateTimeComponents: matchDateTimeComponents,
         );
-        debugPrint('📿 [Wird] Exact alarm not permitted, used inexact for id=$id');
+        debugPrint(
+          '📿 [Wird] Exact alarm not permitted, used inexact for id=$id',
+        );
       } else {
         rethrow;
       }

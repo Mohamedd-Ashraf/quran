@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../../core/utils/utf16_sanitizer.dart';
+
 enum AuthStatus {
   /// Initial state before the auth check has completed.
   unknown,
@@ -41,11 +43,14 @@ class AuthState extends Equatable {
     if (status == AuthStatus.offlineGuest) return 'زائر';
     if (user == null) return '';
     if (user!.isAnonymous) return 'زائر';
-    return user!.displayName ?? user!.email?.split('@').first ?? '';
+    return sanitizeUtf16(
+      user!.displayName ?? user!.email?.split('@').first,
+      fallback: '',
+    );
   }
 
   /// Email address (empty for guests).
-  String get email => user?.email ?? '';
+  String get email => sanitizeUtf16(user?.email, fallback: '');
 
   /// Whether user has a real account (not anonymous).
   bool get hasAccount => status == AuthStatus.authenticated;

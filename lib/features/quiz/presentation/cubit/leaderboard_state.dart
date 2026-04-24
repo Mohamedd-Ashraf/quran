@@ -20,15 +20,24 @@ class LeaderboardLoaded extends LeaderboardState {
   final List<LeaderboardEntry> entries;
   final int? currentUserRank;
   final LeaderboardEntry? currentUserEntry;
+  final bool? currentUserShowInLeaderboard;
+  final DateTime? currentUserLastVisibilityToggleAt;
 
   const LeaderboardLoaded({
     required this.entries,
     this.currentUserRank,
     this.currentUserEntry,
+    this.currentUserShowInLeaderboard,
+    this.currentUserLastVisibilityToggleAt,
   });
 
   @override
-  List<Object?> get props => [entries.length, currentUserRank];
+  List<Object?> get props => [
+    entries.length,
+    currentUserRank,
+    currentUserShowInLeaderboard,
+    currentUserLastVisibilityToggleAt,
+  ];
 }
 
 class LeaderboardError extends LeaderboardState {

@@ -20,6 +20,7 @@ import '../bloc/tafsir/tafsir_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
 import '../bloc/tafsir/tafsir_state.dart';
 import 'offline_tafsir_screen.dart';
+import '../../../ruqyah/presentation/widgets/qcf_verses_widget.dart';
 
 /// Screen that displays the tafsir (exegesis / commentary) for a single ayah.
 /// Navigate to this screen by pushing it with the [TafsirScreen.route] method.
@@ -609,21 +610,21 @@ class _TafsirScreenState extends State<TafsirScreen> {
               ],
             ),
           ),
-          // Arabic text
+          // Arabic text - QCF Mushaf rendering
           Padding(
             padding: const EdgeInsets.all(20),
-            child: Text(
-              widget.arabicAyahText,
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
-              style: ArabicTextStyleHelper.quranFontStyle(
-                fontKey: settings.quranFont,
-                fontSize: settings.arabicFontSize + 2,
-                height: 2.1,
-                color: isDark
+            child: Center(
+              child: QcfVersesWidget(
+                surahNumber: widget.surahNumber,
+                firstVerse: widget.ayahNumber,
+                lastVerse: widget.ayahNumber,
+                textColor: isDark
                     ? const Color(0xFFE8E8E8)
                     : AppColors.arabicText,
-                fontWeight: FontWeight.w500,
+                fontSize: settings.arabicFontSize + 2,
+                verseHeight: 2.1,
+                textAlign: TextAlign.right,
+                isDark: isDark,
               ),
             ),
           ),
