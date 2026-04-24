@@ -260,6 +260,11 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (_hasSubmitted) return;
     _hasSubmitted = true;
 
+    // Persist local "answered today" marker BEFORE emitting UI state so that
+    // a re-entry after this point always shows "already answered" — even when
+    // the subsequent Firestore write fails or the app is killed mid-write.
+    await _repository.saveLocalAnsweredDate();
+
     // Emit QuizTimeUp IMMEDIATELY — don't block on the Firestore write.
     // Timeout is always wrong (0 points, streak resets to 0), so the values
     // shown are accurate without waiting for the repository to update.
@@ -326,6 +331,11 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (question == null) return;
 
     try {
+      // Persist local "answered today" marker BEFORE the Firestore write so that
+      // re-entry always shows "already answered" even if the write fails or the
+      // app is killed mid-transaction.
+      await _repository.saveLocalAnsweredDate();
+
       final isCorrect =
           await _repository.submitAnswer(questionId, selectedIndex);
 

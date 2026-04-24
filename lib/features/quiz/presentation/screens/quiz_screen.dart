@@ -1557,6 +1557,19 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                     : AppColors.textSecondary,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              isArabic
+                  ? '(يوم التحدي يعتمد على التوقيت العالمي)'
+                  : '(Challenge day follows UTC)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 32),
 
             // Stats

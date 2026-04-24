@@ -69,12 +69,18 @@ class QuizRepository {
   static const _kReminderHour = 'quiz_reminder_hour';
   static const _kReminderMinute = 'quiz_reminder_minute';
 
-  // ── Active-timer persistence keys ────────────────────────────────────────
+// ── Active-timer persistence keys ────────────────────────────────────────
   // These let us resume the correct countdown when the user leaves and returns
   // to the quiz mid-session (back navigation, app kill, etc.).
   static const _kTimerQuestionId = 'quiz_timer_question_id';
   static const _kTimerStartMs = 'quiz_timer_start_ms';
   static const _kTimerTotalSeconds = 'quiz_timer_total_seconds';
+
+  // ── Local "answered-today" guard key ──────────────────────────────────────
+  // Written BEFORE the Firestore write so that re-entry shows "already answered"
+  // even when Firestore is slow / unreachable.  Per-user to avoid false
+  // positives on shared devices.
+  static const _kLocalAnsweredDate = 'quiz_local_answered_date';
 
   // ── In-memory session cache ───────────────────────────────────────────────
   int _totalScore = 0;
@@ -168,13 +174,11 @@ class QuizRepository {
         _lastAnsweredServerTimestamp = null;
         _lastAnsweredDate = d['lastAnsweredDate'] as String?;
       }
-      // Fetch authoritative server time so _todayString() is not
+// Fetch authoritative server time so _todayString() is not
       // influenced by the device clock (guards against clock-advance cheats).
-      // Condition: any user who has answered before (has a lastAnsweredDate),
-      // including old documents that pre-date the lastAnsweredTimestamp field.
-      if (_lastAnsweredDate != null && _lastAnsweredDate!.isNotEmpty) {
-        _serverNowUtc = await _fetchServerNow();
-      }
+      // Always fetch for every user, not just those who have answered before,
+      // so that hasAnsweredToday comparison is accurate even on first visit.
+      _serverNowUtc = await _fetchServerNow();
       debugPrint('[Quiz] Loaded from Firestore for ${_user!.uid}');
     } else {
       // First sign-in: preserve question history and seed from local prefs
@@ -278,15 +282,27 @@ class QuizRepository {
       _totalAnswered == 0 ? 0.0 : _correctAnswers / _totalAnswered;
 
   bool get hasAnsweredToday {
-    // _lastAnsweredDate is derived from the server timestamp (UTC) for
-    // authenticated users (see _loadFromFirestore). _todayString() also
-    // uses UTC. So this comparison is immune to device-clock manipulation:
-    // even if the user advances their device date, the server-sourced date
-    // is loaded fresh from Firestore on every app open and overrides any
-    // local value. The Firestore security rule (UTC day-number comparison)
-    // is the authoritative hard enforcement.
+    final today = _todayString();
+    // Primary: server-sourced date (UTC, anti-cheat).
     final d = _lastAnsweredDate;
-    return d != null && d.isNotEmpty && d == _todayString();
+    if (d != null && d.isNotEmpty && d == today) return true;
+    // Fallback: local date written BEFORE the Firestore transaction.
+    // Guards against Firestore read failures / stale cache so the user
+    // never sees the same question twice in one day.
+    final localDate = _prefs.getString(_localAnsweredDateKey);
+    if (localDate != null && localDate.isNotEmpty && localDate == today) return true;
+    return false;
+  }
+
+  String get _localAnsweredDateKey {
+    final uid = _user?.uid;
+    return uid != null
+        ? '${_kLocalAnsweredDate}_$uid'
+        : _kLocalAnsweredDate;
+  }
+
+  Future<void> saveLocalAnsweredDate() async {
+    await _prefs.setString(_localAnsweredDateKey, _todayString());
   }
 
   // ── Today's question ──────────────────────────────────────────────────────
