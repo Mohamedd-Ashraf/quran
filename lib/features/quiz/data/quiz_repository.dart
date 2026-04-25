@@ -82,6 +82,12 @@ class QuizRepository {
   // positives on shared devices.
   static const _kLocalAnsweredDate = 'quiz_local_answered_date';
 
+  // ── Pending question ID (offline retry) ──────────────────────────────────
+  // When a submission fails due to no internet, the question ID is saved here
+  // so it is never shown again today, even if Firestore hasn't synced yet.
+  // Per-user key so multiple users on same device don't interfere.
+  static const _kPendingQuestionId = 'quiz_pending_question_id';
+
   // ── In-memory session cache ───────────────────────────────────────────────
   int _totalScore = 0;
   int _streak = 0;
@@ -108,6 +114,11 @@ class QuizRepository {
   /// the user has already answered today.
   DateTime? _serverNowUtc;
 
+  /// Question ID that was attempted but whose answer could not be saved to
+  /// Firestore (no internet).  Saved locally so the same question is never
+  /// shown again today even if Firestore hasn't synced yet.
+  int? _pendingQuestionId;
+
   QuizRepository(this._firestore, this._auth, this._prefs);
 
   // ── Auth helpers ──────────────────────────────────────────────────────────
@@ -118,7 +129,7 @@ class QuizRepository {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  /// Loads quiz data from Firestore (logged-in) or SharedPreferences (guest).
+/// Loads quiz data from Firestore (logged-in) or SharedPreferences (guest).
   /// Always fetches fresh data; safe to call on every screen open.
   Future<void> loadData() async {
     if (_isLoggedIn) {
@@ -126,6 +137,43 @@ class QuizRepository {
     } else {
       _loadFromPrefs();
     }
+
+    // If there is a pending question ID (offline submission failed earlier),
+    // try to sync it to Firestore now.  This silently records the question as
+    // consumed without awarding any score.
+    final pendingId = getPendingQuestionId();
+    if (pendingId != null && _isLoggedIn) {
+      try {
+        await _syncPendingQuestionToFirestore(pendingId);
+        await clearPendingQuestionId();
+        debugPrint('[Quiz] Pending question $pendingId synced to Firestore');
+      } catch (e) {
+        debugPrint('[Quiz] Pending sync failed, will retry on next load: $e');
+      }
+    }
+  }
+
+  /// Writes a question ID to Firestore as "consumed" without score.
+  /// Used when an offline submission could not be synced in real-time.
+  /// Updates answeredIdsJson and lastAnsweredDate only (no score/streak change).
+  Future<void> _syncPendingQuestionToFirestore(int questionId) async {
+    if (!_isLoggedIn) return;
+
+    // Check if already in Firestore (handles race condition)
+    if (_answeredIds.contains(questionId)) return;
+
+    final updatedIds = List<int>.from(_answeredIds)..add(questionId);
+    final now = _todayString();
+
+    await _firestore.collection(_collection).doc(_user!.uid).update({
+      'answeredIdsJson': jsonEncode(updatedIds),
+      'lastAnsweredDate': now,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+
+    // Update in-memory state
+    _answeredIds = updatedIds;
+    _lastAnsweredDate = now;
   }
 
   void _loadFromPrefs() {
@@ -139,6 +187,7 @@ class QuizRepository {
     _answeredIds = _parseIds(_prefs.getString(_kAnsweredIds));
     _lastAnswerCorrect = _prefs.getBool(_kLastCorrect);
     _lastAnswerPoints = _prefs.getInt(_kLastPoints) ?? 0;
+    _loadPendingQuestionId();
   }
 
   Future<void> _loadFromFirestore() async {
@@ -194,9 +243,11 @@ class QuizRepository {
       _totalAnswered = 0;
       _lastAnswerCorrect = null;
       _lastAnswerPoints = 0;
-      await _saveToFirestore();
+await _saveToFirestore();
       debugPrint('[Quiz] Initialized Firestore document for ${_user!.uid}');
     }
+    // Load any pending question ID that failed to sync previously.
+    _loadPendingQuestionId();
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -291,6 +342,9 @@ class QuizRepository {
     // never sees the same question twice in one day.
     final localDate = _prefs.getString(_localAnsweredDateKey);
     if (localDate != null && localDate.isNotEmpty && localDate == today) return true;
+    // If we have a pending question ID from a failed offline submission,
+    // the question has been consumed for today regardless of Firestore state.
+    if (getPendingQuestionId() != null) return true;
     return false;
   }
 
@@ -303,6 +357,45 @@ class QuizRepository {
 
   Future<void> saveLocalAnsweredDate() async {
     await _prefs.setString(_localAnsweredDateKey, _todayString());
+  }
+
+  String get _pendingQuestionIdKey {
+    final uid = _user?.uid;
+    return uid != null ? '${_kPendingQuestionId}_$uid' : _kPendingQuestionId;
+  }
+
+  /// Saves the question ID locally as "attempted" BEFORE any Firestore write.
+  /// This prevents the same question from appearing again today even if the
+  /// Firestore write fails or the app is killed before it completes.
+  Future<void> savePendingQuestionId(int qId) async {
+    _pendingQuestionId = qId;
+    await _prefs.setInt(_pendingQuestionIdKey, qId);
+  }
+
+  /// Returns the pending question ID if one was attempted but not yet saved
+  /// to Firestore, or null if none.
+  int? getPendingQuestionId() {
+    if (_pendingQuestionId != null) return _pendingQuestionId;
+    final stored = _prefs.getInt(_pendingQuestionIdKey);
+    if (stored != null) {
+      _pendingQuestionId = stored;
+      return stored;
+    }
+    return null;
+  }
+
+  /// Clears the pending question ID — called after successful Firestore sync.
+  Future<void> clearPendingQuestionId() async {
+    _pendingQuestionId = null;
+    await _prefs.remove(_pendingQuestionIdKey);
+  }
+
+  /// Loads pending question ID from prefs into memory.  Called at startup
+  /// so [hasAnsweredToday] and [getTodayQuestion] are accurate before the first
+  /// Firestore fetch completes.
+  void _loadPendingQuestionId() {
+    final stored = _prefs.getInt(_pendingQuestionIdKey);
+    if (stored != null) _pendingQuestionId = stored;
   }
 
   // ── Today's question ──────────────────────────────────────────────────────
@@ -327,13 +420,26 @@ class QuizRepository {
   Future<bool> get isAdmin => _isAdmin();
 
   /// Returns today's question, or null if already answered today.
-  /// Admin users bypass the daily answer limit and can answer multiple times.
   Future<QuizQuestion?> getTodayQuestion() async {
-    // Allow admin to bypass the daily limit
-    final isAdmin = await _isAdmin();
-    if (hasAnsweredToday && !isAdmin) return null;
-    final dayIndex = _answeredIds.length % quizQuestionsPool.length;
-    final base = quizQuestionsPool[_getShuffledOrder()[dayIndex]];
+    if (hasAnsweredToday) return null;
+
+    final pendingId = getPendingQuestionId();
+    final shuffledOrder = _getShuffledOrder();
+
+    // Find the next question that is not already answered AND not pending
+    // (pending means user saw it but couldn't sync the answer).
+    int dayIndex = _answeredIds.length % quizQuestionsPool.length;
+    int attempts = 0;
+    while (attempts < quizQuestionsPool.length) {
+      final candidateId = quizQuestionsPool[shuffledOrder[dayIndex]].id;
+      if (candidateId != pendingId && !_answeredIds.contains(candidateId)) {
+        break;
+      }
+      dayIndex = (dayIndex + 1) % quizQuestionsPool.length;
+      attempts++;
+    }
+
+    final base = quizQuestionsPool[shuffledOrder[dayIndex]];
     // Shuffle the four options using a deterministic seed derived from the
     // user's personal seed and the question id, so the order is consistent
     // if the app restarts mid-question but differs per-user and per-question.

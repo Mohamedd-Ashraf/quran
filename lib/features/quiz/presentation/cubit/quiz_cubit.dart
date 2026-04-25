@@ -18,6 +18,9 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   int _remainingSeconds = 0;
   bool _hasSubmitted = false;
 
+  /// Timer for the retry countdown when a submission fails due to no internet.
+  Timer? _retryTimer;
+
   /// Wall-clock time when the question was shown. Used ONLY to compute the
   /// cross-session elapsed time (app kill → reopen). The in-session ticker
   /// uses [_sessionStopwatch] instead, which is monotonic and immune to
@@ -50,6 +53,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     _hasSubmitted = false;
     _questionStartTime = null;
     _totalTimerSeconds = 0;
+    _retryTimer?.cancel();
 
     // Check connectivity BEFORE showing loading indicator — avoids infinite spinner.
     final isConnected = await _networkInfo.isConnected;
@@ -79,9 +83,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
       return;
     }
 
-    // Admins bypass the daily-answer limit so they can test freely.
-    final isAdmin = await _repository.isAdmin;
-    if (_repository.hasAnsweredToday && !isAdmin) {
+    if (_repository.hasAnsweredToday) {
       emit(QuizAlreadyAnswered(
         totalScore: _repository.totalScore,
         streak: _repository.streak,
@@ -260,28 +262,31 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (_hasSubmitted) return;
     _hasSubmitted = true;
 
-    // Persist local "answered today" marker BEFORE emitting UI state so that
-    // a re-entry after this point always shows "already answered" — even when
-    // the subsequent Firestore write fails or the app is killed mid-write.
     await _repository.saveLocalAnsweredDate();
+    await _repository.savePendingQuestionId(question.id);
 
-    // Emit QuizTimeUp IMMEDIATELY — don't block on the Firestore write.
-    // Timeout is always wrong (0 points, streak resets to 0), so the values
-    // shown are accurate without waiting for the repository to update.
-    // The actual submission (and clearTimerState) happen below in the background.
     emit(QuizTimeUp(
       question: question,
       totalScore: _repository.totalScore,
-      streak: 0, // timeout = wrong answer = streak resets
+      streak: 0,
     ));
 
+    // Check connectivity before attempting Firestore — Firestore offline
+    // persistence silently succeeds on local writes, which would bypass our
+    // retry/sync logic and give the user a false positive.
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
+      await _repository.clearTimerState();
+      // Data is saved locally; will be synced on next load() when online.
+      return;
+    }
+
     try {
-      // selectedIndex = -1 counts as wrong (no matching correctIndex).
       await _repository.submitAnswer(question.id, -1);
+      await _repository.clearPendingQuestionId();
       await _repository.clearTimerState();
     } catch (e) {
-      // QuizTimeUp is already showing — don't revert or re-emit.
-      // Do NOT revert _hasSubmitted: we must not re-show the question.
+      await _repository.clearTimerState();
       debugPrint('[Quiz] Timeout submission failed: $e');
     }
   }
@@ -290,7 +295,11 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
 
   void selectAnswer(int index) {
     if (_hasSubmitted) return;
+    // Block answer changes during retry hold — user must wait for countdown.
     final currentState = state;
+    if (currentState is QuizSubmitError && currentState.retryInProgress > 0) {
+      return;
+    }
     final QuizQuestion? question;
     final int streak;
     final int totalScore;
@@ -321,25 +330,40 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
     if (_hasSubmitted) return;
     _hasSubmitted = true;
     _timer?.cancel();
+    _retryTimer?.cancel();
 
     final question = (state is QuizAnswerSelected)
         ? (state as QuizAnswerSelected).question
         : (state is QuizReady)
             ? (state as QuizReady).question
+        : (state is QuizSubmitError)
+            ? (state as QuizSubmitError).question
             : null;
 
     if (question == null) return;
 
-    try {
-      // Persist local "answered today" marker BEFORE the Firestore write so that
-      // re-entry always shows "already answered" even if the write fails or the
-      // app is killed mid-transaction.
-      await _repository.saveLocalAnsweredDate();
+    // Persist locally BEFORE any network attempt so the question is never
+    // shown again today even if the app is killed mid-transaction.
+    await _repository.saveLocalAnsweredDate();
+    await _repository.savePendingQuestionId(questionId);
 
+    // Check connectivity BEFORE attempting Firestore.  Firestore offline
+    // persistence silently completes local writes without throwing, which
+    // would bypass our retry mechanism and give the user a false positive
+    // — the answer appears saved locally but may never reach the server.
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
+      _hasSubmitted = false;
+      _timer?.cancel();
+      _startRetryCountdown(question, selectedIndex, 'No internet connection.');
+      return;
+    }
+
+    try {
       final isCorrect =
           await _repository.submitAnswer(questionId, selectedIndex);
 
-      // Clear the persisted timer — question is now answered.
+      await _repository.clearPendingQuestionId();
       await _repository.clearTimerState();
 
       emit(QuizResult(
@@ -351,21 +375,78 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
         newStreak: _repository.streak,
       ));
     } catch (e) {
-      // Revert submission lock so user can retry after resolving the error
-      // (e.g. network restored). In-memory state was already reverted by
-      // the repository before throwing.
+      // Firestore write failed despite connectivity check (e.g. security rule
+      // rejection, transient server error). Fall through to retry flow.
       _hasSubmitted = false;
       _timer?.cancel();
-      // Resume from the ORIGINAL start time — not from now. The timer state
-      // is still in SharedPrefs (clearTimerState is only called on success),
-      // so passing _questionStartTime avoids resetting the clock.
-      if (_questionStartTime != null) {
-        _startTimer(question.timerSeconds, startTime: _questionStartTime!);
+      _startRetryCountdown(question, selectedIndex, e.toString());
+    }
+  }
+
+  void _startRetryCountdown(QuizQuestion question, int selectedIndex, String error) {
+    int secondsLeft = 5;
+    emit(QuizSubmitError(
+      question: question,
+      selectedIndex: selectedIndex,
+      message: error,
+      retryInProgress: secondsLeft,
+    ));
+
+    _retryTimer?.cancel();
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        timer.cancel();
+        // Countdown done — retry once, then give up if it fails again.
+        _retrySubmit(question.id, selectedIndex);
+      } else {
+        emit(QuizSubmitError(
+          question: question,
+          selectedIndex: selectedIndex,
+          message: error,
+          retryInProgress: secondsLeft,
+        ));
       }
+    });
+  }
+
+  Future<void> _retrySubmit(int questionId, int selectedIndex) async {
+    final question = (state is QuizSubmitError)
+        ? (state as QuizSubmitError).question
+        : null;
+    if (question == null) return;
+
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
       emit(QuizSubmitError(
         question: question,
         selectedIndex: selectedIndex,
-        message: e.toString(),
+        message: 'No internet connection.',
+        retryInProgress: 0,
+      ));
+      return;
+    }
+
+    try {
+      final isCorrect =
+          await _repository.submitAnswer(questionId, selectedIndex);
+      await _repository.clearPendingQuestionId();
+      await _repository.clearTimerState();
+
+      emit(QuizResult(
+        question: question,
+        selectedIndex: selectedIndex,
+        isCorrect: isCorrect,
+        pointsEarned: isCorrect ? question.points : 0,
+        newTotalScore: _repository.totalScore,
+        newStreak: _repository.streak,
+      ));
+    } catch (_) {
+      emit(QuizSubmitError(
+        question: question,
+        selectedIndex: selectedIndex,
+        message: 'Could not save. Please try again later.',
+        retryInProgress: 0,
       ));
     }
   }
@@ -387,6 +468,7 @@ class QuizCubit extends Cubit<QuizState> with WidgetsBindingObserver {
   Future<void> close() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _retryTimer?.cancel();
     _sessionStopwatch?.stop();
     return super.close();
   }

@@ -16,29 +16,7 @@ is_mandatory:
   Value: false
   Description: "Whether this update is mandatory for all users"
 
-download_url:
-  Type: String
-  Value: "https://play.google.com/store/apps/details?id=com.yourcompany.quraan"
-  Description: |
-    Update destination URL.
-    Android production policy: use Google Play listing URL only.
-    iOS: use the App Store listing URL.
-    Non-store direct APK links are blocked by app code on Android.
 
-download_url_arm64_v8a:
-  Type: String
-  Value: ""
-  Description: "Deprecated for Android production. Keep empty."
-
-download_url_armeabi_v7a:
-  Type: String
-  Value: ""
-  Description: "Deprecated for Android production. Keep empty."
-
-download_url_x86_64:
-  Type: String
-  Value: ""
-  Description: "Deprecated for Android production. Keep empty."
 
 changelog_ar:
   Type: String
@@ -70,8 +48,3 @@ release_date:
   Type: String
   Value: "2026-03-14T00:00:00.000Z"
   Description: "Release date in ISO 8601 format"
-
-enable_in_app_update:
-  Type: Boolean
-  Value: true
-  Description: "Enable in-app updates for Android (uses Google Play In-App Updates API)"

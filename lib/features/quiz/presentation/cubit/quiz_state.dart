@@ -154,17 +154,22 @@ class QuizTimeUp extends QuizState {
 }
 
 /// Answer submission failed (network or server-side rule rejection).
+/// [retryInProgress] > 0 means a countdown is running before auto-retry.
+/// When 0, no more retries — user must exit.
 class QuizSubmitError extends QuizState {
   final QuizQuestion question;
   final int selectedIndex;
   final String message;
+  /// Seconds remaining before auto-retry.  0 = countdown finished, manual action needed.
+  final int retryInProgress;
 
   const QuizSubmitError({
     required this.question,
     required this.selectedIndex,
     required this.message,
+    this.retryInProgress = 0,
   });
 
   @override
-  List<Object?> get props => [question.id, selectedIndex, message];
+  List<Object?> get props => [question.id, selectedIndex, message, retryInProgress];
 }

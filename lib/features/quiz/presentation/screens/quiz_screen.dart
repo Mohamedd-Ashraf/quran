@@ -243,7 +243,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     });
   }
 
-  String _localizeInt(int value, {required bool isArabic}) {
+String _localizeInt(int value, {required bool isArabic}) {
     return localizeNumber(value, isArabic: isArabic);
   }
 
@@ -343,7 +343,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               _timerController?.stop();
               _uiTimer?.cancel();
             } else if (state is QuizSubmitError) {
-              _startTimerAnimation(state.question.timerSeconds);
+              _timerController?.stop();
+              _uiTimer?.cancel();
               final isAr = context
                   .read<AppSettingsCubit>()
                   .state
@@ -354,8 +355,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                 SnackBar(
                   content: Text(
                     isAr
-                        ? 'تعذر حفظ إجابتك. تحقق من اتصالك وحاول مجدداً.'
-                        : 'Could not save your answer. Check your connection and try again.',
+                        ? 'فشل إرسال الإجابة. يرجى التحقق من اتصالك بالإنترنت.'
+                        : 'Failed to submit. Please check your internet connection.',
                   ),
                   backgroundColor: Colors.red.shade700,
                   duration: const Duration(seconds: 4),
@@ -414,12 +415,14 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             }
 
             int? selectedIndex;
+            bool retryLocked = false;
             if (state is QuizReady) {
               selectedIndex = null;
             } else if (state is QuizAnswerSelected) {
               selectedIndex = state.selectedIndex;
             } else if (state is QuizSubmitError) {
               selectedIndex = state.selectedIndex;
+              retryLocked = state.retryInProgress > 0;
             }
 
             return _buildQuestionView(
@@ -430,6 +433,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               _getScoreFromState(state),
               isArabic: isArabic,
               isDark: isDark,
+              retryLocked: retryLocked,
             );
           },
         ),
@@ -466,6 +470,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   Widget _buildStickySubmitButton(BuildContext context, QuizState state) {
     int? selectedIndex;
+    bool isRetryHold = false;
+    int retrySecondsLeft = 0;
 
     if (state is QuizReady) {
       selectedIndex = null;
@@ -473,6 +479,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       selectedIndex = state.selectedIndex;
     } else if (state is QuizSubmitError) {
       selectedIndex = state.selectedIndex;
+      isRetryHold = state.retryInProgress > 0;
+      retrySecondsLeft = state.retryInProgress;
     } else {
       return const SizedBox.shrink();
     }
@@ -484,6 +492,59 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         .toLowerCase()
         .startsWith('ar');
 
+    // ── Retry hold state: countdown button, answer locked ───────────────────
+    if (isRetryHold) {
+      return SizedBox(
+        width: MediaQuery.of(context).size.width - 32,
+        height: 56,
+        child: FloatingActionButton.extended(
+          onPressed: null, // locked during hold
+          backgroundColor: Colors.orange.shade700,
+          heroTag: 'quizSubmit',
+          icon: const Icon(Icons.sync, color: Colors.white),
+          label: Text(
+            isArabic
+                ? 'جارٍ إعادة المحاولة خلال ${_localizeInt(retrySecondsLeft, isArabic: true)} ث'
+                : 'Retrying in ${_localizeInt(retrySecondsLeft, isArabic: isArabic)}s',
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── Retry exhausted: show retry button ─────────────────────────────────
+    if (state is QuizSubmitError && state.retryInProgress == 0) {
+      return SizedBox(
+        width: MediaQuery.of(context).size.width - 32,
+        height: 56,
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            final question = _getQuestionFromState(state);
+            final idx = state.selectedIndex;
+            if (question != null) {
+              _cubit.submitAnswer(question.id, idx);
+            }
+          },
+          backgroundColor: AppColors.primary,
+          heroTag: 'quizSubmit',
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          label: Text(
+            isArabic ? 'إعادة المحاولة' : 'Retry',
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── Normal submit button ────────────────────────────────────────────────
     return SizedBox(
       width: MediaQuery.of(context).size.width - 32,
       height: 56,
@@ -800,6 +861,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     int totalScore, {
     required bool isArabic,
     required bool isDark,
+    bool retryLocked = false,
   }) {
     final remaining = _cubit.remainingSeconds;
     final totalTime = question.timerSeconds;
@@ -1002,15 +1064,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => _cubit.selectAnswer(i),
-                child: AnimatedContainer(
+                onTap: retryLocked ? null : () => _cubit.selectAnswer(i),
+                child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkCard : Colors.white,
+                  opacity: retryLocked ? 0.5 : 1.0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkCard : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isSelected
@@ -1079,6 +1144,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+            ),
             ),
           );
         }),
@@ -1560,8 +1626,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             const SizedBox(height: 4),
             Text(
               isArabic
-                  ? '(يوم التحدي يعتمد على التوقيت العالمي)'
-                  : '(Challenge day follows UTC)',
+                  ? '(يوم التحدي يعتمد على التوقيت العالمي - ينتهي بعد منتصف الليل بتوقيتك المحلي)'
+                  : '(Challenge day follows UTC - resets at your local midnight)',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
