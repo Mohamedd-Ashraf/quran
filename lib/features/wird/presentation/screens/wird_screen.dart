@@ -4173,9 +4173,34 @@ class _DaysGrid extends StatelessWidget {
     this.onFocusDay,
   });
 
+  int get _interactiveMaxDay => focusedDay ?? calendarToday;
+
+  void _showLockedFutureHint(BuildContext context, int day) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          content: _digitAwareText(
+            isAr
+                ? 'هذا يوم قادم 🌟 فعّل وضع الأيام القادمة أولاً.'
+                : 'This is an upcoming day 🌟 Enable upcoming-days mode first.',
+            isAr: isAr,
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+            style: const TextStyle(color: Colors.white),
+          ),
+          action: SnackBarAction(
+            label: isAr ? 'عرضه' : 'Show It',
+            onPressed: () => onFocusDay?.call(day),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final today = plan.currentDay;
+    final today = calendarToday;
 
     final completedCount = plan.completedDays.length;
     final pct = (plan.progressPercent * 100).round();
@@ -4263,7 +4288,9 @@ class _DaysGrid extends StatelessWidget {
                     final day = index + 1;
                     final isCompleted = plan.isDayComplete(day);
                     final isToday = day == today;
-                    final isFuture = day > today;
+                    final isFocused = focusedDay != null && day == focusedDay;
+                    final isLockedFuture = day > _interactiveMaxDay;
+                    final isTappable = day <= _interactiveMaxDay;
 
                     Color bgColor;
                     Color textColor;
@@ -4273,11 +4300,15 @@ class _DaysGrid extends StatelessWidget {
                       bgColor = AppColors.success;
                       textColor = Colors.white;
                       borderColor = AppColors.success;
+                    } else if (isFocused) {
+                      bgColor = AppColors.primary.withValues(alpha: 0.14);
+                      textColor = AppColors.primary;
+                      borderColor = AppColors.primary;
                     } else if (isToday) {
                       bgColor = AppColors.secondary.withValues(alpha: 0.2);
                       textColor = AppColors.accent;
                       borderColor = AppColors.secondary;
-                    } else if (isFuture) {
+                    } else if (isLockedFuture) {
                       bgColor = isDark
                           ? AppColors.darkSurface
                           : AppColors.surfaceVariant;
@@ -4292,8 +4323,10 @@ class _DaysGrid extends StatelessWidget {
 
                     return GestureDetector(
                       onTap: () {
-                        if (!isFuture) {
+                        if (isTappable) {
                           context.read<WirdCubit>().toggleDayComplete(day);
+                        } else {
+                          _showLockedFutureHint(context, day);
                         }
                       },
                       child: AnimatedContainer(
@@ -4302,12 +4335,14 @@ class _DaysGrid extends StatelessWidget {
                           color: bgColor,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: borderColor, width: 1.5),
-                          boxShadow: isToday
+                          boxShadow: isToday || isFocused
                               ? [
                                   BoxShadow(
-                                    color: AppColors.secondary.withValues(
-                                      alpha: 0.3,
-                                    ),
+                                    color:
+                                        (isFocused
+                                                ? AppColors.primary
+                                                : AppColors.secondary)
+                                            .withValues(alpha: 0.25),
                                     blurRadius: 6,
                                   ),
                                 ]
@@ -4320,17 +4355,38 @@ class _DaysGrid extends StatelessWidget {
                                   color: Colors.white,
                                   size: 16,
                                 )
-                              : _digitAwareText(
-                                  isAr ? _arabicNumerals(day) : day.toString(),
-                                  isAr: isAr,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isToday
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: textColor,
-                                  ),
+                              : isLockedFuture
+                              ? Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 15,
+                                  color: textColor.withValues(alpha: 0.8),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _digitAwareText(
+                                      isAr
+                                          ? _arabicNumerals(day)
+                                          : day.toString(),
+                                      isAr: isAr,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: (isToday || isFocused)
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                    if (isFocused) ...[
+                                      const SizedBox(width: 2),
+                                      Icon(
+                                        Icons.star_rounded,
+                                        size: 11,
+                                        color: textColor,
+                                      ),
+                                    ],
+                                  ],
                                 ),
                         ),
                       ),
@@ -4352,8 +4408,12 @@ class _DaysGrid extends StatelessWidget {
                       label: isAr ? 'اليوم' : 'Today',
                     ),
                     _LegendItem(
+                      color: AppColors.primary,
+                      label: isAr ? 'اليوم المعروض' : 'Shown Day',
+                    ),
+                    _LegendItem(
                       color: AppColors.textSecondary,
-                      label: isAr ? 'قادم' : 'Upcoming',
+                      label: isAr ? 'مقفول' : 'Locked',
                     ),
                     _LegendItem(
                       color: AppColors.error,

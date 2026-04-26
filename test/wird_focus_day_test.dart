@@ -151,5 +151,27 @@ void main() {
 
       await cubit.close();
     });
+
+    test('focused day stays after toggling another earlier day', () async {
+      SharedPreferences.setMockInitialValues({});
+      final cubit = await createCubit();
+
+      await cubit.setupPlan(
+        type: WirdType.regular,
+        targetDays: 10,
+        startDate: DateTime(2026, 1, 1),
+      );
+
+      await cubit.setFocusedDay(6);
+      expect((cubit.state as WirdPlanLoaded).focusedDay, 6);
+
+      await cubit.toggleDayComplete(2);
+      expect((cubit.state as WirdPlanLoaded).focusedDay, 6);
+
+      await cubit.toggleDayComplete(2);
+      expect((cubit.state as WirdPlanLoaded).focusedDay, 6);
+
+      await cubit.close();
+    });
   });
 }
