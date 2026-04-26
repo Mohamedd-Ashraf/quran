@@ -17,201 +17,24 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/wird_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
-import '../../../../core/utils/number_style_utils.dart';
+import '../../../../core/utils/number_style_utils.dart' show amiriDigitTextStyle, toArabicIndicNumber, buildRichTextWithAmiriDigits;
 import '../../../../core/utils/utf16_sanitizer.dart';
 import 'wird_setup_screen.dart';
+import '../widgets/wird_constants.dart';
 
-// Cached at file scope to avoid loadFontIfNecessary unhandled rejections.
-final _cachedAmiriQuran = GoogleFonts.amiriQuran();
+final _cachedAmiriQuran = cachedAmiriQuran;
+const _kMushafPagesTotal = kMushafPagesTotal;
 
-// ── Surah Arabic-name fallback map (number → Arabic name) ─────────────────
-const Map<int, String> _surahArabicNames = {
-  1: 'الفاتحة',
-  2: 'البقرة',
-  3: 'آل عمران',
-  4: 'النساء',
-  5: 'المائدة',
-  6: 'الأنعام',
-  7: 'الأعراف',
-  8: 'الأنفال',
-  9: 'التوبة',
-  10: 'يونس',
-  11: 'هود',
-  12: 'يوسف',
-  13: 'الرعد',
-  14: 'إبراهيم',
-  15: 'الحجر',
-  16: 'النحل',
-  17: 'الإسراء',
-  18: 'الكهف',
-  19: 'مريم',
-  20: 'طه',
-  21: 'الأنبياء',
-  22: 'الحج',
-  23: 'المؤمنون',
-  24: 'النور',
-  25: 'الفرقان',
-  26: 'الشعراء',
-  27: 'النمل',
-  28: 'القصص',
-  29: 'العنكبوت',
-  30: 'الروم',
-  31: 'لقمان',
-  32: 'السجدة',
-  33: 'الأحزاب',
-  34: 'سبأ',
-  35: 'فاطر',
-  36: 'يس',
-  37: 'الصافات',
-  38: 'ص',
-  39: 'الزمر',
-  40: 'غافر',
-  41: 'فصلت',
-  42: 'الشورى',
-  43: 'الزخرف',
-  44: 'الدخان',
-  45: 'الجاثية',
-  46: 'الأحقاف',
-  47: 'محمد',
-  48: 'الفتح',
-  49: 'الحجرات',
-  50: 'ق',
-  51: 'الذاريات',
-  52: 'الطور',
-  53: 'النجم',
-  54: 'القمر',
-  55: 'الرحمن',
-  56: 'الواقعة',
-  57: 'الحديد',
-  58: 'المجادلة',
-  59: 'الحشر',
-  60: 'الممتحنة',
-  61: 'الصف',
-  62: 'الجمعة',
-  63: 'المنافقون',
-  64: 'التغابن',
-  65: 'الطلاق',
-  66: 'التحريم',
-  67: 'الملك',
-  68: 'القلم',
-  69: 'الحاقة',
-  70: 'المعارج',
-  71: 'نوح',
-  72: 'الجن',
-  73: 'المزمل',
-  74: 'المدثر',
-  75: 'القيامة',
-  76: 'الإنسان',
-  77: 'المرسلات',
-  78: 'النبأ',
-  79: 'النازعات',
-  80: 'عبس',
-  81: 'التكوير',
-  82: 'الانفطار',
-  83: 'المطففين',
-  84: 'الانشقاق',
-  85: 'البروج',
-  86: 'الطارق',
-  87: 'الأعلى',
-  88: 'الغاشية',
-  89: 'الفجر',
-  90: 'البلد',
-  91: 'الشمس',
-  92: 'الليل',
-  93: 'الضحى',
-  94: 'الشرح',
-  95: 'التين',
-  96: 'العلق',
-  97: 'القدر',
-  98: 'البينة',
-  99: 'الزلزلة',
-  100: 'العاديات',
-  101: 'القارعة',
-  102: 'التكاثر',
-  103: 'العصر',
-  104: 'الهمزة',
-  105: 'الفيل',
-  106: 'قريش',
-  107: 'الماعون',
-  108: 'الكوثر',
-  109: 'الكافرون',
-  110: 'النصر',
-  111: 'المسد',
-  112: 'الإخلاص',
-  113: 'الفلق',
-  114: 'الناس',
-};
+String _arabicNum(int n) => toArabicIndicNumber(n);
+String _arabicNumerals(int n) => _arabicNum(n);
 
-// ── Arabic helpers ─────────────────────────────────────────────────────────
-String _arabicNumerals(int n) {
-  return toArabicIndicNumber(n);
-}
+String _formatDateAr(DateTime d) => formatDateAr(d);
+String _formatDateEn(DateTime d) => formatDateEn(d);
 
-const _arabicMonths = [
-  'يناير',
-  'فبراير',
-  'مارس',
-  'أبريل',
-  'مايو',
-  'يونيو',
-  'يوليو',
-  'أغسطس',
-  'سبتمبر',
-  'أكتوبر',
-  'نوفمبر',
-  'ديسمبر',
-];
+String _formatTime12h(TimeOfDay tod, {required bool isAr}) =>
+    formatTime12h(tod, isAr: isAr);
 
-String _formatDateAr(DateTime d) =>
-    '${_arabicNumerals(d.day)} ${_arabicMonths[d.month - 1]} ${_arabicNumerals(d.year)}';
-
-String _formatDateEn(DateTime d) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${d.day} ${months[d.month - 1]} ${d.year}';
-}
-
-const int _kMushafPagesTotal = 604;
-
-PageReadingRange? _pageRangeForPlanDay(WirdPlan plan, int day) {
-  if (!plan.isPagesBased) return null;
-  final pages = plan.pagesPerDay ?? 1;
-  return getPageRangeForDay(day, pages);
-}
-
-ReadingRange _readingRangeForPlanDay(WirdPlan plan, int day) {
-  final pageRange = _pageRangeForPlanDay(plan, day);
-  if (pageRange != null) {
-    return getReadingRangeForPages(pageRange.startPage, pageRange.endPage);
-  }
-  return getReadingRangeForDay(day, plan.targetDays);
-}
-
-// ── Time formatting helper ──────────────────────────────────────────────────
-
-String _formatTime12h(TimeOfDay tod, {required bool isAr}) {
-  final h = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
-  final m = tod.minute.toString().padLeft(2, '0');
-  final suffix = tod.period == DayPeriod.am
-      ? (isAr ? 'ص' : 'AM')
-      : (isAr ? 'م' : 'PM');
-  if (isAr) {
-    return '${_arabicNumerals(h)}:${toArabicIndicDigits(m)} $suffix';
-  }
-  return '$h:$m $suffix';
-}
+String _surahNameArb(int n) => surahArabicNames[n] ?? 'سورة ${_arabicNum(n)}';
 
 Widget _digitAwareText(
   String text, {
@@ -249,6 +72,19 @@ Widget _digitAwareText(
     maxLines: maxLines,
     overflow: overflow,
   );
+}
+
+PageReadingRange? _pageRangeForPlanDay(WirdPlan plan, int day) {
+  if (!plan.isPagesBased) return null;
+  return getPageRangeForDay(day, plan.pagesPerDay ?? 1);
+}
+
+ReadingRange _readingRangeForPlanDay(WirdPlan plan, int day) {
+  final pageRange = _pageRangeForPlanDay(plan, day);
+  if (pageRange != null) {
+    return getReadingRangeForPages(pageRange.startPage, pageRange.endPage);
+  }
+  return getReadingRangeForDay(day, plan.targetDays);
 }
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
@@ -2283,9 +2119,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           surahState.surahs.where((s) => s.number == targetSurah).toList();
       surahName = match.isNotEmpty
           ? (isAr ? match.first.name : match.first.englishName)
-          : (_surahArabicNames[targetSurah] ?? 'سورة $targetSurah');
+          : surahArabicNames[targetSurah] ?? 'سورة $targetSurah';
     } else {
-      surahName = _surahArabicNames[targetSurah] ?? 'سورة $targetSurah';
+      surahName = surahArabicNames[targetSurah] ?? 'سورة $targetSurah';
     }
 
     // Save immediately in case the app is closed.
@@ -2539,8 +2375,8 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                           value: n,
                           child: _digitAwareText(
                             isAr
-                                ? '${_arabicNumerals(n)}. ${_surahArabicNames[n] ?? ""}'
-                                : '$n. ${_surahArabicNames[n] ?? "Surah $n"}',
+                                ? '${_arabicNumerals(n)}. ${surahArabicNames[n] ?? ""}'
+                                : '$n. ${surahArabicNames[n] ?? "Surah $n"}',
                             isAr: isAr,
                             textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                             maxLines: 1,
@@ -3369,7 +3205,7 @@ class _TodayCard extends StatelessWidget {
 
   String _surahName(BuildContext context, int surahNum) {
     if (isAr) {
-      final raw = _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      final raw = surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
       return sanitizeUtf16(raw);
     }
     final surahState = context.read<SurahBloc>().state;
@@ -3764,8 +3600,8 @@ class _TodayCard extends StatelessWidget {
                                 ? 'وصلت إلى: صفحة ${_arabicNumerals(lastReadPage!)}'
                                 : 'Stopped at: Page $lastReadPage')
                             : (isAr
-                                ? 'وصلت إلى: ${_surahArabicNames[lastReadSurah] ?? "سورة $lastReadSurah"} آية ${_arabicNumerals(lastReadAyah!)}'
-                                : 'Stopped at: ${_surahArabicNames[lastReadSurah] ?? "Surah $lastReadSurah"} $lastReadAyah'),
+                                ? 'وصلت إلى: ${surahArabicNames[lastReadSurah] ?? "سورة $lastReadSurah"} آية ${_arabicNumerals(lastReadAyah!)}'
+                                : 'Stopped at: ${surahArabicNames[lastReadSurah] ?? "Surah $lastReadSurah"} $lastReadAyah'),
                         isAr: isAr,
                         textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -4374,7 +4210,7 @@ class _MakeupCardState extends State<_MakeupCard> {
 
   String _surahName(BuildContext context, int surahNum) {
     if (widget.isAr) {
-      final raw = _surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      final raw = surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
       return sanitizeUtf16(raw);
     }
     final surahState = context.read<SurahBloc>().state;
@@ -4712,7 +4548,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                         Expanded(
                           child: _digitAwareText(
                             isAr
-                                ? 'آخر موضع: ${_surahArabicNames[widget.makeupBookmarkSurah!] ?? "سورة ${widget.makeupBookmarkSurah}"} — آية ${_arabicNumerals(widget.makeupBookmarkAyah!)}'
+                                ? 'آخر موضع: ${surahArabicNames[widget.makeupBookmarkSurah!] ?? "سورة ${widget.makeupBookmarkSurah}"} — آية ${_arabicNumerals(widget.makeupBookmarkAyah!)}'
                                 : 'Last position: Surah ${widget.makeupBookmarkSurah} — ayah ${widget.makeupBookmarkAyah}',
                             isAr: isAr,
                             textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
