@@ -66,7 +66,7 @@ class _PlayAllFab extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isArabicUi ? 'يتم الآن تشغيل الرقية الشرعية كاملة ✨' : 'Playing full Ruqyah ✨',
+          isArabicUi ? 'يتم الآن تشغيل الرقية الشرعية كاملة 🌟' : 'Playing full Ruqyah 🌟',
           textDirection: isArabicUi ? TextDirection.rtl : TextDirection.ltr,
         ),
         duration: const Duration(seconds: 3),

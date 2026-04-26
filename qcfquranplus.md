@@ -26,7 +26,7 @@ Surah List Mode Dark Mode
 
 Search Engine Metadata Details
 
-✨ Key Features 
+🌟 Key Features 
 📖 Authentic Mushaf Rendering: Full 604-page Quran with exact Madinah Mushaf layout.
 ⚡ High Performance: Zero network requests, built for 60fps smooth scrolling, with an isolated font-loading engine.
 🎨 Uthmani Tajweed Rules: Native coloring for Tajweed in both Light & Dark modes without performance drops.

@@ -827,7 +827,7 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                                 ),
                                 TextSpan(
                                   text: isAr
-                                      ? '${_toArNum(_targetDays)} يوماً'
+                                      ? '${_toArNum(_targetDays)} يوماً بإذن الله  '
                                       : '$_targetDays days',
                                   style: TextStyle(
                                     color: isDark ? AppColors.primaryLight : const Color(0xFF003527),
@@ -857,7 +857,8 @@ class _WirdSetupScreenState extends State<WirdSetupScreen> {
                     ),
                     const SizedBox(width: 12),
                     Icon(
-                      Icons.auto_awesome_rounded,
+                         Icons.star_rounded,
+
                       size: 48,
                       color: isDark
                           ? AppColors.primary.withValues(alpha: 0.5)

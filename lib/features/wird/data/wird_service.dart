@@ -111,6 +111,7 @@ class WirdService {
   static const String _keyMakeupDay = 'wird_makeup_day';
   static const String _keyMakeupSurah = 'wird_makeup_surah';
   static const String _keyMakeupAyah = 'wird_makeup_ayah';
+  static const String _keyFocusedDay = 'wird_focused_day';
 
   final SharedPreferences _prefs;
 
@@ -197,6 +198,7 @@ class WirdService {
       _keyCompletedDays,
       jsonEncode(completedDays.toList()),
     );
+    await _prefs.remove(_keyFocusedDay);
     if (reminderHour != null) {
       await _prefs.setInt(_keyReminderHour, reminderHour);
     }
@@ -241,6 +243,7 @@ class WirdService {
     await _prefs.remove(_keyMakeupDay);
     await _prefs.remove(_keyMakeupSurah);
     await _prefs.remove(_keyMakeupAyah);
+    await _prefs.remove(_keyFocusedDay);
     onDataChanged?.call();
     // Intentionally keep reminder time — user may want to re-use it.
   }
@@ -352,6 +355,22 @@ class WirdService {
     await _prefs.remove(_keyMakeupDay);
     await _prefs.remove(_keyMakeupSurah);
     await _prefs.remove(_keyMakeupAyah);
+    onDataChanged?.call();
+  }
+
+  // ── Focused daily day (manual forward mode) ──────────────────────────────
+
+  /// Persisted day currently shown in daily card when user advances manually.
+  /// Null means normal behavior (use calendar day).
+  int? get focusedDay => _prefs.getInt(_keyFocusedDay);
+
+  Future<void> setFocusedDay(int day) async {
+    await _prefs.setInt(_keyFocusedDay, day);
+    onDataChanged?.call();
+  }
+
+  Future<void> clearFocusedDay() async {
+    await _prefs.remove(_keyFocusedDay);
     onDataChanged?.call();
   }
 

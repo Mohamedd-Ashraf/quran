@@ -344,8 +344,8 @@ class _SuccessView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               isAr
-                  ? 'تم إرسال رسالتك بنجاح.\nرأيك يُشكّل مستقبل التطبيق ✨'
-                  : 'Your feedback was sent successfully.\nYour input shapes the app\'s future ✨',
+                  ? 'تم إرسال رسالتك بنجاح.\nرأيك يُشكّل مستقبل التطبيق 🌟'
+                  : 'Your feedback was sent successfully.\nYour input shapes the app\'s future 🌟',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -440,8 +440,8 @@ class _BetaBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isAr
-                      ? 'رأيك يُشكّل مستقبل التطبيق — شكرًا لمشاركتك ✨'
-                      : 'Your feedback shapes the app\'s future — thank you ✨',
+                      ? 'رأيك يُشكّل مستقبل التطبيق — شكرًا لمشاركتك 🌟'
+                      : 'Your feedback shapes the app\'s future — thank you 🌟',
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,

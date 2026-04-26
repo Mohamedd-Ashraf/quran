@@ -59,6 +59,9 @@ class WirdPlanLoaded extends WirdState {
   /// Makeup bookmark: ayah position.
   final int? makeupBookmarkAyah;
 
+  /// Persisted focused day for manual forward flow in daily card.
+  final int? focusedDay;
+
   const WirdPlanLoaded(
     this.plan, {
     this.reminderHour,
@@ -71,14 +74,14 @@ class WirdPlanLoaded extends WirdState {
     this.makeupBookmarkDay,
     this.makeupBookmarkSurah,
     this.makeupBookmarkAyah,
+    this.focusedDay,
   });
 
   bool get hasReminder => reminderHour != null && reminderMinute != null;
 
   /// True when the user has a saved reading bookmark (page or surah+ayah).
   bool get hasLastRead =>
-      lastReadPage != null ||
-      (lastReadSurah != null && lastReadAyah != null);
+      lastReadPage != null || (lastReadSurah != null && lastReadAyah != null);
 
   /// True when the user has a saved makeup reading bookmark.
   bool get hasMakeupBookmark =>
@@ -88,19 +91,20 @@ class WirdPlanLoaded extends WirdState {
 
   @override
   List<Object?> get props => [
-        plan.type,
-        plan.startDate,
-        plan.targetDays,
-        plan.completedDays,
-        reminderHour,
-        reminderMinute,
-        notificationsEnabled,
-        followUpIntervalHours,
-        lastReadSurah,
-        lastReadAyah,
-        lastReadPage,
-        makeupBookmarkDay,
-        makeupBookmarkSurah,
-        makeupBookmarkAyah,
-      ];
+    plan.type,
+    plan.startDate,
+    plan.targetDays,
+    plan.completedDays,
+    reminderHour,
+    reminderMinute,
+    notificationsEnabled,
+    followUpIntervalHours,
+    lastReadSurah,
+    lastReadAyah,
+    lastReadPage,
+    makeupBookmarkDay,
+    makeupBookmarkSurah,
+    makeupBookmarkAyah,
+    focusedDay,
+  ];
 }

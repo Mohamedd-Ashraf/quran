@@ -17,7 +17,8 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/wird_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
-import '../../../../core/utils/number_style_utils.dart' show amiriDigitTextStyle, toArabicIndicNumber, buildRichTextWithAmiriDigits;
+import '../../../../core/utils/number_style_utils.dart'
+    show amiriDigitTextStyle, toArabicIndicNumber, buildRichTextWithAmiriDigits;
 import '../../../../core/utils/utf16_sanitizer.dart';
 import 'wird_setup_screen.dart';
 import '../widgets/wird_constants.dart';
@@ -47,7 +48,7 @@ Widget _digitAwareText(
 }) {
   final safeText = sanitizeUtf16(text);
   final effectiveStyle = style ?? const TextStyle();
-  
+
   if (!isAr) {
     return Text(
       safeText,
@@ -154,8 +155,7 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
           // Trigger tutorial after data loads, but ONLY when Wird tab is active.
           listener: (context, state) {
             if (state is WirdPlanLoaded) {
-              final activeTab =
-                  di.sl<TutorialService>().activeTabIndex.value;
+              final activeTab = di.sl<TutorialService>().activeTabIndex.value;
               if (activeTab == 2) {
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) => _showTutorialIfNeeded(),
@@ -182,6 +182,7 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
                 makeupBookmarkDay: state.makeupBookmarkDay,
                 makeupBookmarkSurah: state.makeupBookmarkSurah,
                 makeupBookmarkAyah: state.makeupBookmarkAyah,
+                focusedDay: state.focusedDay,
               );
             }
             return const SizedBox.shrink();
@@ -233,8 +234,7 @@ class _NoPlanView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final offset =
-        context.watch<AppSettingsCubit>().state.hijriDateOffset;
+    final offset = context.watch<AppSettingsCubit>().state.hijriDateOffset;
     final showRamadan = _isRamadanPeriod(offset);
 
     return showRamadan
@@ -329,7 +329,11 @@ class _NoPlanView extends StatelessWidget {
                 : 'Make a daily portion of Allah\'s book for yourself',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary).withValues(alpha: 0.7),
+              color:
+                  (isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary)
+                      .withValues(alpha: 0.7),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -428,7 +432,7 @@ class _NoPlanView extends StatelessWidget {
 
           // ── Bento grid benefits ────────────────────────────────────────
           _BenefitCard(
-            icon: Icons.auto_awesome_rounded,
+            icon: Icons.star_rounded,
             title: isAr ? 'تنظيم التلاوة' : 'Organized Recitation',
             subtitle: isAr
                 ? 'نساعدك على توزيع وردك اليومي بما يتناسب مع وقتك وقدرتك.'
@@ -474,7 +478,9 @@ class _NoPlanView extends StatelessWidget {
             child: Text(
               isAr ? 'تصفح الخطط المقترحة' : 'Browse Suggested Plans',
               style: TextStyle(
-                color: isDark ? AppColors.primaryLight : const Color(0xFF065F46),
+                color: isDark
+                    ? AppColors.primaryLight
+                    : const Color(0xFF065F46),
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -533,8 +539,7 @@ class _VerseHeader extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: AppColors.secondary.withValues(alpha: 0.25)),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
@@ -551,9 +556,9 @@ class _VerseHeader extends StatelessWidget {
           Text(
             isAr ? 'سورة المزمل: ٤' : 'Surah Al-Muzzammil: 4',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -578,17 +583,20 @@ class _InfoFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline,
-              color: AppColors.textSecondary, size: 18),
+          const Icon(
+            Icons.info_outline,
+            color: AppColors.textSecondary,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               isAr
                   ? 'يمكنك تعديل الخطة أو إعادة ضبطها في أي وقت.'
                   : 'You can modify or reset your plan at any time.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -596,8 +604,6 @@ class _InfoFooter extends StatelessWidget {
     );
   }
 }
-
-
 
 // ── Plan Type Selector Card ─────────────────────────────────────────────────
 
@@ -1010,7 +1016,9 @@ class _SetupSheetState extends State<_SetupSheet> {
             color: isDark ? const Color(0xFF2A1F00) : const Color(0xFFFFF3E0),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFFFF8F00).withValues(alpha: isDark ? 0.3 : 0.5),
+              color: const Color(
+                0xFFFF8F00,
+              ).withValues(alpha: isDark ? 0.3 : 0.5),
             ),
           ),
           child: Row(
@@ -1078,9 +1086,10 @@ class _SetupSheetState extends State<_SetupSheet> {
                   isAr ? _formatDateAr(_startDate) : _formatDateEn(_startDate),
                   isAr: isAr,
                   textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                  style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600) ??
+                  style:
+                      Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ) ??
                       const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
@@ -1159,7 +1168,9 @@ class _SetupSheetState extends State<_SetupSheet> {
                             ? '${_arabicNumerals(past)} أيام ستُضاف لتقدمك تلقائيًا'
                             : '$past days will be added to your progress',
                         isAr: isAr,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -1458,9 +1469,10 @@ class _SetupSheetState extends State<_SetupSheet> {
                 isAr ? _formatDateAr(_startDate) : _formatDateEn(_startDate),
                 isAr: isAr,
                 textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600) ??
+                style:
+                    Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ) ??
                     const TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
@@ -1506,7 +1518,9 @@ class _SetupSheetState extends State<_SetupSheet> {
                           ? '${_arabicNumerals(regularPastDays)} ${regularPastDays == 1 ? "يوم" : "أيام"} سابقة لن تظهر في ورد القضاء'
                           : '$regularPastDays past day${regularPastDays == 1 ? "" : "s"} will not appear in makeup',
                       isAr: isAr,
-                      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                      textDirection: isAr
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -1631,8 +1645,8 @@ class _SetupSheetState extends State<_SetupSheet> {
       final juzPerDay = (30 / days).ceil();
       final extra = juzPerDay > 1
           ? (isAr
-              ? ' (${_arabicNumerals(juzPerDay)} أجزاء يوميًا)'
-              : ' ($juzPerDay juz/day)')
+                ? ' (${_arabicNumerals(juzPerDay)} أجزاء يوميًا)'
+                : ' ($juzPerDay juz/day)')
           : (isAr ? ' (جزء واحد يوميًا)' : ' (1 juz/day)');
       return isAr
           ? 'تختم في ${_arabicNumerals(days)} يومًا$extra'
@@ -1667,6 +1681,7 @@ class _ActivePlanView extends StatefulWidget {
   final int? makeupBookmarkDay;
   final int? makeupBookmarkSurah;
   final int? makeupBookmarkAyah;
+  final int? focusedDay;
 
   const _ActivePlanView({
     required this.plan,
@@ -1679,6 +1694,7 @@ class _ActivePlanView extends StatefulWidget {
     this.makeupBookmarkDay,
     this.makeupBookmarkSurah,
     this.makeupBookmarkAyah,
+    this.focusedDay,
   });
 
   @override
@@ -1697,10 +1713,48 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     ];
   }
 
+  int? _firstUncompletedFutureDay(WirdPlan plan, {int? startFrom}) {
+    final today = plan.currentDay;
+    final start = (startFrom ?? (today + 1)).clamp(today + 1, plan.targetDays);
+    for (int d = start; d <= plan.targetDays; d++) {
+      if (!plan.isDayComplete(d)) return d;
+    }
+    return null;
+  }
+
+  int? _effectiveFocusedDay(WirdPlan plan) {
+    final stored = widget.focusedDay;
+    if (stored == null) return null;
+    final today = plan.currentDay;
+
+    if (stored <= today) return null;
+    if (stored > plan.targetDays) return _firstUncompletedFutureDay(plan);
+
+    // Keep user on explicitly chosen upcoming day, even after marking it done.
+    // Advancing to another day should happen only by explicit user action.
+    return stored;
+  }
+
+  void _syncFocusedDayIfNeeded(int? effectiveFocusedDay) {
+    if (effectiveFocusedDay == widget.focusedDay) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<WirdCubit>();
+      if (effectiveFocusedDay == null) {
+        cubit.clearFocusedDay();
+      } else {
+        cubit.setFocusedDay(effectiveFocusedDay);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showWirdOnboardingIfNeeded());
+    _showMakeupMode = _missedDays(widget.plan).isNotEmpty;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showWirdOnboardingIfNeeded(),
+    );
   }
 
   /// One-time smart onboarding: explains starting-point feature.
@@ -1720,12 +1774,17 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
       builder: (ctx) => Directionality(
         textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
           title: Row(
             children: [
-              Icon(Icons.lightbulb_outline_rounded,
-                  color: AppColors.secondary, size: 24),
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: AppColors.secondary,
+                size: 24,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1733,7 +1792,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
-                    color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.primary,
                   ),
                 ),
               ),
@@ -1780,12 +1841,19 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   @override
   void didUpdateWidget(_ActivePlanView old) {
     super.didUpdateWidget(old);
+    final oldMissed = _missedDays(old.plan);
+    final newMissed = _missedDays(widget.plan);
     final today = widget.plan.currentDay;
     final wasDone = old.plan.isDayComplete(today);
     final isDone = widget.plan.isDayComplete(today);
+
+    if (oldMissed.isNotEmpty && newMissed.isEmpty && _showMakeupMode) {
+      setState(() => _showMakeupMode = false);
+      return;
+    }
+
     if (!wasDone && isDone) {
-      final missed = _missedDays(widget.plan);
-      if (missed.isNotEmpty && !_showMakeupMode) {
+      if (newMissed.isNotEmpty && !_showMakeupMode) {
         setState(() => _showMakeupMode = true);
       }
     }
@@ -1796,15 +1864,19 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final plan = widget.plan;
     final isAr = widget.isAr;
-    final today = plan.currentDay;
-    final todayComplete = plan.isDayComplete(today);
-    final range = _readingRangeForPlanDay(plan, today);
-    final pageRange = _pageRangeForPlanDay(plan, today);
+    final calendarToday = plan.currentDay;
+    final focusedDay = _effectiveFocusedDay(plan);
+    _syncFocusedDayIfNeeded(focusedDay);
+    final shownDay = focusedDay ?? calendarToday;
+    final shownDayComplete = plan.isDayComplete(shownDay);
+    final range = _readingRangeForPlanDay(plan, shownDay);
+    final pageRange = _pageRangeForPlanDay(plan, shownDay);
     final missed = _missedDays(plan);
     final hasMissedDays = missed.isNotEmpty;
+    final showMakeup = hasMissedDays && _showMakeupMode;
 
     int daysBehind = 0;
-    for (int d = 1; d < today; d++) {
+    for (int d = 1; d < calendarToday; d++) {
       if (!plan.isDayComplete(d)) daysBehind++;
     }
 
@@ -1838,12 +1910,17 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                   right: isAr ? null : -16,
                   child: Opacity(
                     opacity: 0.1,
-                    child: Icon(Icons.auto_stories, size: 160, color: Colors.white),
+                    child: Icon(
+                      Icons.auto_stories,
+                      size: 160,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 Column(
-                  crossAxisAlignment:
-                      isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: isAr
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
                     Text(
                       'وَرَتِّلِ الْقُرْآنَ تَرْتِيلاً',
@@ -1880,7 +1957,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               isAr: isAr,
               isDark: isDark,
               missedCount: missed.length,
-              isMakeupMode: _showMakeupMode,
+              isMakeupMode: showMakeup,
               onSwitchToMakeup: () => setState(() => _showMakeupMode = true),
               onSwitchToToday: () => setState(() => _showMakeupMode = false),
             ),
@@ -1894,14 +1971,15 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           ],
 
           // ── Today / Makeup card ────────────────────────────────────────
-          if (!_showMakeupMode && !(plan.isComplete && !hasMissedDays))
+          if (!showMakeup && !(plan.isComplete && !hasMissedDays))
             _TodayCard(
               key: WirdTutorialKeys.todayPlan,
               plan: plan,
-              today: today,
+              today: shownDay,
+              calendarToday: calendarToday,
               range: range,
               pageRange: pageRange,
-              isComplete: todayComplete,
+              isComplete: shownDayComplete,
               isAr: isAr,
               isDark: isDark,
               lastReadSurah: widget.lastReadSurah,
@@ -1909,12 +1987,16 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               lastReadPage: widget.lastReadPage,
               daysBehind: daysBehind,
               onShowBookmarkDialog: _showBookmarkDialog,
+              onFocusDay: (d) => context.read<WirdCubit>().setFocusedDay(d),
+              onResetFocus: focusedDay != null
+                  ? () => context.read<WirdCubit>().clearFocusedDay()
+                  : null,
               onSwitchToMakeup: hasMissedDays
                   ? () => setState(() => _showMakeupMode = true)
                   : null,
             ),
 
-          if (_showMakeupMode && hasMissedDays)
+          if (showMakeup)
             _MakeupCard(
               plan: plan,
               isAr: isAr,
@@ -1938,14 +2020,14 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
             reminderMinute: widget.reminderMinute,
             notificationsEnabled:
                 context.watch<WirdCubit>().state is WirdPlanLoaded
-                    ? (context.watch<WirdCubit>().state as WirdPlanLoaded)
-                        .notificationsEnabled
-                    : true,
+                ? (context.watch<WirdCubit>().state as WirdPlanLoaded)
+                      .notificationsEnabled
+                : true,
             followUpIntervalHours:
                 context.watch<WirdCubit>().state is WirdPlanLoaded
-                    ? (context.watch<WirdCubit>().state as WirdPlanLoaded)
-                        .followUpIntervalHours
-                    : 2,
+                ? (context.watch<WirdCubit>().state as WirdPlanLoaded)
+                      .followUpIntervalHours
+                : 2,
           ),
 
           const SizedBox(height: 18),
@@ -1954,10 +2036,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           GestureDetector(
             onTap: () => setState(() => _daysExpanded = !_daysExpanded),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 11,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(14),
@@ -2017,7 +2096,14 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: _DaysGrid(plan: plan, isAr: isAr, isDark: isDark),
+              child: _DaysGrid(
+                plan: plan,
+                isAr: isAr,
+                isDark: isDark,
+                calendarToday: calendarToday,
+                focusedDay: focusedDay,
+                onFocusDay: (d) => context.read<WirdCubit>().setFocusedDay(d),
+              ),
             ),
             crossFadeState: _daysExpanded
                 ? CrossFadeState.showSecond
@@ -2077,9 +2163,15 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   }) {
     final cubit = context.read<WirdCubit>();
     final cubitState = cubit.state;
-    final savedPage = (cubitState is WirdPlanLoaded) ? cubitState.lastReadPage : null;
-    final savedSurah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadSurah : null;
-    final savedAyah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadAyah : null;
+    final savedPage = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadPage
+        : null;
+    final savedSurah = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadSurah
+        : null;
+    final savedAyah = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadAyah
+        : null;
 
     final day = forDay ?? widget.plan.currentDay;
     final dayPageRange = widget.plan.isPagesBased
@@ -2115,8 +2207,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final surahState = context.read<SurahBloc>().state;
     String surahName;
     if (surahState is SurahListLoaded) {
-      final match =
-          surahState.surahs.where((s) => s.number == targetSurah).toList();
+      final match = surahState.surahs
+          .where((s) => s.number == targetSurah)
+          .toList();
       surahName = match.isNotEmpty
           ? (isAr ? match.first.name : match.first.englishName)
           : surahArabicNames[targetSurah] ?? 'سورة $targetSurah';
@@ -2205,14 +2298,18 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final int coveredPages;
     if (plan.isPagesBased && plan.pagesPerDay != null) {
       // Exact: each completed day = pagesPerDay pages.
-      coveredPages = (plan.completedDays.length * plan.pagesPerDay!)
-          .clamp(0, 604);
+      coveredPages = (plan.completedDays.length * plan.pagesPerDay!).clamp(
+        0,
+        604,
+      );
     } else {
       // Approximation for days-based plans: uniform page distribution.
-      final pagesPerDayFallback =
-          (604.0 / plan.targetDays.clamp(1, 604)).ceil();
-      coveredPages =
-          (plan.completedDays.length * pagesPerDayFallback).clamp(0, 604);
+      final pagesPerDayFallback = (604.0 / plan.targetDays.clamp(1, 604))
+          .ceil();
+      coveredPages = (plan.completedDays.length * pagesPerDayFallback).clamp(
+        0,
+        604,
+      );
     }
     final remaining = (604 - coveredPages).clamp(1, 604);
 
@@ -2254,20 +2351,27 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
         builder: (ctx, setSheetState) {
           final pageCtrl = TextEditingController(text: selectedPage.toString());
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: isAr
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
-                      width: 36, height: 4,
+                      width: 36,
+                      height: 4,
                       decoration: BoxDecoration(
                         color: AppColors.divider,
                         borderRadius: BorderRadius.circular(2),
@@ -2277,14 +2381,23 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.pin_drop_rounded, color: AppColors.secondary, size: 22),
+                      const Icon(
+                        Icons.pin_drop_rounded,
+                        color: AppColors.secondary,
+                        size: 22,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          isAr ? 'تحديد نقطة بداية الورد' : 'Set Wird Starting Point',
+                          isAr
+                              ? 'تحديد نقطة بداية الورد'
+                              : 'Set Wird Starting Point',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.primary,
                           ),
                         ),
                       ),
@@ -2297,7 +2410,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                         : 'Choose where you left off — previous days will be marked complete',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2311,10 +2426,14 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: !byPage ? AppColors.primary : Colors.transparent,
+                              color: !byPage
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: !byPage ? AppColors.primary : AppColors.divider,
+                                color: !byPage
+                                    ? AppColors.primary
+                                    : AppColors.divider,
                               ),
                             ),
                             alignment: Alignment.center,
@@ -2322,7 +2441,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                               isAr ? 'بالسورة' : 'By Surah',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: !byPage ? Colors.white : AppColors.textSecondary,
+                                color: !byPage
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
@@ -2335,10 +2456,14 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: byPage ? AppColors.primary : Colors.transparent,
+                              color: byPage
+                                  ? AppColors.primary
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: byPage ? AppColors.primary : AppColors.divider,
+                                color: byPage
+                                    ? AppColors.primary
+                                    : AppColors.divider,
                               ),
                             ),
                             alignment: Alignment.center,
@@ -2346,7 +2471,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                               isAr ? 'بالصفحة' : 'By Page',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: byPage ? Colors.white : AppColors.textSecondary,
+                                color: byPage
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
@@ -2359,15 +2486,23 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                   if (!byPage) ...[
                     Text(
                       isAr ? 'اختر السورة:' : 'Choose Surah:',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<int>(
                       value: selectedSurah,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       items: List.generate(114, (i) {
                         final n = i + 1;
@@ -2378,7 +2513,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                                 ? '${_arabicNumerals(n)}. ${surahArabicNames[n] ?? ""}'
                                 : '$n. ${surahArabicNames[n] ?? "Surah $n"}',
                             isAr: isAr,
-                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                            textDirection: isAr
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style:
@@ -2396,7 +2533,10 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                   if (byPage) ...[
                     Text(
                       isAr ? 'رقم الصفحة (١ – ٦٠٤):' : 'Page number (1–604):',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextFormField(
@@ -2404,8 +2544,13 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         hintText: '1 – 604',
                       ),
                       onChanged: (v) {
@@ -2425,7 +2570,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: Text(isAr ? 'إلغاء' : 'Cancel'),
                         ),
@@ -2438,22 +2585,34 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           icon: const Icon(Icons.check_rounded, size: 18),
                           onPressed: () {
                             if (byPage) {
                               final n = int.tryParse(pageCtrl.text);
-                              final pg = (n != null && n >= 1 && n <= _kMushafPagesTotal) ? n : selectedPage;
+                              final pg =
+                                  (n != null &&
+                                      n >= 1 &&
+                                      n <= _kMushafPagesTotal)
+                                  ? n
+                                  : selectedPage;
                               cubit.setStartingPoint(page: pg);
                             } else {
-                              cubit.setStartingPoint(surah: selectedSurah, ayah: 1);
+                              cubit.setStartingPoint(
+                                surah: selectedSurah,
+                                ayah: 1,
+                              );
                             }
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  isAr ? 'تم تحديد نقطة البداية بنجاح' : 'Starting point set successfully',
+                                  isAr
+                                      ? 'تم تحديد نقطة البداية بنجاح'
+                                      : 'Starting point set successfully',
                                 ),
                                 duration: const Duration(seconds: 2),
                               ),
@@ -2495,7 +2654,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     PageReadingRange? pageRange,
   }) {
     final cubitState = context.read<WirdCubit>().state;
-    final savedPage = (cubitState is WirdPlanLoaded) ? cubitState.lastReadPage : null;
+    final savedPage = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadPage
+        : null;
     final cubit = context.read<WirdCubit>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAr = widget.isAr;
@@ -2507,7 +2668,10 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
       effectivePageRange = pageRange;
     } else {
       // Compute from surah boundaries — works for any plan type.
-      final startP = getPageNumber(targetRange.start.surah, targetRange.start.ayah);
+      final startP = getPageNumber(
+        targetRange.start.surah,
+        targetRange.start.ayah,
+      );
       final endP = getPageNumber(targetRange.end.surah, targetRange.end.ayah);
       effectivePageRange = PageReadingRange(startPage: startP, endPage: endP);
     }
@@ -2518,8 +2682,12 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
       final endP = effectivePageRange.endPage;
       // Resolve default page: saved page → derive from surah/ayah bookmark → day start.
       final cubitStateNow = context.read<WirdCubit>().state;
-      final savedSurahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadSurah : null;
-      final savedAyahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadAyah : null;
+      final savedSurahFallback = (cubitStateNow is WirdPlanLoaded)
+          ? cubitStateNow.lastReadSurah
+          : null;
+      final savedAyahFallback = (cubitStateNow is WirdPlanLoaded)
+          ? cubitStateNow.lastReadAyah
+          : null;
       int enteredPage;
       if (savedPage != null) {
         enteredPage = savedPage;
@@ -2536,22 +2704,31 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
         backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setSheetState) {
-            final pageCtrl = TextEditingController(text: enteredPage.toString());
+            final pageCtrl = TextEditingController(
+              text: enteredPage.toString(),
+            );
             return Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkSurface : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
                 ),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: isAr
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Container(
-                        width: 36, height: 4,
+                        width: 36,
+                        height: 4,
                         decoration: BoxDecoration(
                           color: AppColors.divider,
                           borderRadius: BorderRadius.circular(2),
@@ -2561,14 +2738,20 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Icon(Icons.bookmark_add_rounded,
-                            color: AppColors.primary, size: 20),
+                        const Icon(
+                          Icons.bookmark_add_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           isAr ? 'حتى أين وصلت؟' : 'Where did you stop?',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.primary,
                           ),
                         ),
                       ],
@@ -2579,10 +2762,14 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                           ? 'ورد اليوم: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
                           : "Today's range: Page $startP–$endP",
                       isAr: isAr,
-                      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                      textDirection: isAr
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -2591,15 +2778,21 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         labelText: isAr
                             ? 'رقم الصفحة (١ – ٦٠٤)'
                             : 'Page number (1–604)',
                       ),
                       onChanged: (v) {
                         final n = int.tryParse(v);
-                        if (n != null && n >= 1 && n <= _kMushafPagesTotal) enteredPage = n;
+                        if (n != null && n >= 1 && n <= _kMushafPagesTotal)
+                          enteredPage = n;
                       },
                     ),
                     const SizedBox(height: 20),
@@ -2610,7 +2803,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                             onPressed: () => Navigator.pop(ctx),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: Text(isAr ? 'تخطي' : 'Skip'),
                           ),
@@ -2623,13 +2818,19 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             icon: const Icon(Icons.save_rounded, size: 18),
                             onPressed: () {
                               final n = int.tryParse(pageCtrl.text);
-                              final pg = (n != null && n >= 1 && n <= _kMushafPagesTotal)
-                                  ? n : enteredPage;
+                              final pg =
+                                  (n != null &&
+                                      n >= 1 &&
+                                      n <= _kMushafPagesTotal)
+                                  ? n
+                                  : enteredPage;
                               cubit.saveLastReadPage(pg);
                               // Auto-mark completed days if user read beyond today's range.
                               if (pg >= endP) {
@@ -2639,7 +2840,9 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
                             },
                             label: Text(
                               isAr ? 'حفظ الصفحة' : 'Save Page',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -2693,12 +2896,8 @@ class _MissedDaysBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: isMakeupMode
-                ? (isDark
-                    ? const Color(0xFF0F2416)
-                    : const Color(0xFFECFDF5))
-                : (isDark
-                    ? const Color(0xFF2A1F00)
-                    : const Color(0xFFFFFBEB)),
+                ? (isDark ? const Color(0xFF0F2416) : const Color(0xFFECFDF5))
+                : (isDark ? const Color(0xFF2A1F00) : const Color(0xFFFFFBEB)),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isMakeupMode
@@ -2712,9 +2911,7 @@ class _MissedDaysBanner extends StatelessWidget {
                 isMakeupMode
                     ? Icons.history_edu_rounded
                     : Icons.access_time_rounded,
-                color: isMakeupMode
-                    ? AppColors.success
-                    : Colors.amber.shade700,
+                color: isMakeupMode ? AppColors.success : Colors.amber.shade700,
                 size: 17,
               ),
               const SizedBox(width: 10),
@@ -2722,11 +2919,11 @@ class _MissedDaysBanner extends StatelessWidget {
                 child: _digitAwareText(
                   isMakeupMode
                       ? (isAr
-                          ? 'وضع القضاء نشط — $count $dayWord للتعويض'
-                          : 'Makeup mode — $count $dayWord to catch up')
+                            ? 'وضع القضاء نشط — $count $dayWord للتعويض'
+                            : 'Makeup mode — $count $dayWord to catch up')
                       : (isAr
-                          ? 'متأخر $count $dayWord — لا تُفوِّت الفرصة'
-                          : '$count $dayWord behind — don\'t miss your chance'),
+                            ? 'متأخر $count $dayWord — لا تُفوِّت الفرصة'
+                            : '$count $dayWord behind — don\'t miss your chance'),
                   isAr: isAr,
                   textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: TextStyle(
@@ -2735,8 +2932,8 @@ class _MissedDaysBanner extends StatelessWidget {
                     color: isMakeupMode
                         ? (isDark ? AppColors.primaryLight : AppColors.primary)
                         : (isDark
-                            ? Colors.amber.shade300
-                            : Colors.amber.shade800),
+                              ? Colors.amber.shade300
+                              : Colors.amber.shade800),
                   ),
                 ),
               ),
@@ -2815,9 +3012,7 @@ class _CompletedWithMissedWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F2416) : const Color(0xFFECFDF5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.success.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
       ),
       child: Column(
         children: [
@@ -2835,8 +3030,8 @@ class _CompletedWithMissedWidget extends StatelessWidget {
                 Expanded(
                   child: Text(
                     isAr
-                        ? 'أحسنت! أتممت ورد اليوم ✨'
-                        : "Well done! Today's wird is complete ✨",
+                        ? 'أحسنت! أتممت ورد اليوم 🌟'
+                        : "Well done! Today's wird is complete 🌟",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -2993,8 +3188,9 @@ class _NextDayWidget extends StatelessWidget {
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
-        crossAxisAlignment:
-            isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isAr
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -3008,11 +3204,11 @@ class _NextDayWidget extends StatelessWidget {
                 child: _digitAwareText(
                   isAheadOfSchedule
                       ? (isAr
-                          ? 'ما شاء الله! أنت متقدم عن الجدول 🚀 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)}.'
-                          : "Ma sha'Allah! You're ahead of schedule 🚀 You can start Day $nextDayNumber's wird.")
+                            ? 'ما شاء الله! أنت متقدم عن الجدول 🚀 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)}.'
+                            : "Ma sha'Allah! You're ahead of schedule 🚀 You can start Day $nextDayNumber's wird.")
                       : (isAr
-                          ? 'أتممت ورد اليوم! 🎉 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)} الآن.'
-                          : "Today's wird done! 🎉 You can start Day $nextDayNumber's wird now."),
+                            ? 'أتممت ورد اليوم! 🎉 يمكنك البدء في ورد اليوم ${_arabicNumerals(nextDayNumber)} الآن.'
+                            : "Today's wird done! 🎉 You can start Day $nextDayNumber's wird now."),
                   isAr: isAr,
                   textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   style: TextStyle(
@@ -3168,6 +3364,7 @@ class _ToggleTab extends StatelessWidget {
 class _TodayCard extends StatelessWidget {
   final WirdPlan plan;
   final int today;
+  final int calendarToday;
   final ReadingRange range;
   final PageReadingRange? pageRange;
   final bool isComplete;
@@ -3177,13 +3374,17 @@ class _TodayCard extends StatelessWidget {
   final int? lastReadAyah;
   final int? lastReadPage;
   final int daysBehind;
-  final void Function(BuildContext, ReadingRange, int, PageReadingRange?)? onShowBookmarkDialog;
+  final void Function(BuildContext, ReadingRange, int, PageReadingRange?)?
+  onShowBookmarkDialog;
   final VoidCallback? onSwitchToMakeup;
+  final ValueChanged<int>? onFocusDay;
+  final VoidCallback? onResetFocus;
 
   const _TodayCard({
     super.key,
     required this.plan,
     required this.today,
+    required this.calendarToday,
     required this.range,
     this.pageRange,
     required this.isComplete,
@@ -3195,17 +3396,19 @@ class _TodayCard extends StatelessWidget {
     this.daysBehind = 0,
     this.onShowBookmarkDialog,
     this.onSwitchToMakeup,
+    this.onFocusDay,
+    this.onResetFocus,
   });
 
   bool get _hasBookmark =>
-      lastReadPage != null ||
-      (lastReadSurah != null && lastReadAyah != null);
+      lastReadPage != null || (lastReadSurah != null && lastReadAyah != null);
 
   // ── Surah name helper (prefers SurahBloc, falls back to hard-coded map) ───
 
   String _surahName(BuildContext context, int surahNum) {
     if (isAr) {
-      final raw = surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      final raw =
+          surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
       return sanitizeUtf16(raw);
     }
     final surahState = context.read<SurahBloc>().state;
@@ -3223,11 +3426,7 @@ class _TodayCard extends StatelessWidget {
     final bool isPagesBased = plan.isPagesBased && pageRange != null;
     final pct = (plan.progressPercent * 100).round();
     final completedCount = plan.completedDays.length;
-    final currentDesc = WirdService.getDayDescription(
-      today,
-      plan.targetDays,
-      isArabic: isAr,
-    );
+    final bool isFocusedDay = today != calendarToday;
 
     // ── Identify today's juz (for the big header text) ───────────────────
     final juzList = isPagesBased
@@ -3334,10 +3533,14 @@ class _TodayCard extends StatelessWidget {
                           child: Container(
                             decoration: const BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Color(0xFF0D5E3A), Color(0xFFD4AF37)],
+                                colors: [
+                                  Color.fromARGB(255, 47, 187, 5),
+                                  Color(0xFF0D5E3A),
+                                ],
                               ),
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(6)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(6),
+                              ),
                             ),
                           ),
                         ),
@@ -3378,7 +3581,9 @@ class _TodayCard extends StatelessWidget {
                         ),
                       ),
                       child: _digitAwareText(
-                        isAr ? _arabicNumerals(completedCount) : '$completedCount',
+                        isAr
+                            ? _arabicNumerals(completedCount)
+                            : '$completedCount',
                         isAr: isAr,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
@@ -3413,7 +3618,13 @@ class _TodayCard extends StatelessWidget {
                         ),
                       ),
                       child: _digitAwareText(
-                        isAr ? 'اليوم ${_arabicNumerals(today)}' : 'Day $today',
+                        isAr
+                            ? (isFocusedDay
+                                  ? 'اليوم المعروض ${_arabicNumerals(today)}'
+                                  : 'اليوم ${_arabicNumerals(today)}')
+                            : (isFocusedDay
+                                  ? 'Showing Day $today'
+                                  : 'Day $today'),
                         isAr: isAr,
                         style: const TextStyle(
                           color: AppColors.primary,
@@ -3421,7 +3632,9 @@ class _TodayCard extends StatelessWidget {
                           fontSize: 13,
                         ),
                         textAlign: TextAlign.center,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                       ),
                     ),
                     if (isComplete) ...[
@@ -3464,6 +3677,54 @@ class _TodayCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 24),
+
+            if (isFocusedDay && onResetFocus != null) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.tune_rounded,
+                      color: AppColors.secondary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _digitAwareText(
+                        isAr
+                            ? 'وضع الأيام القادمة مُفعّل 🌟 راجع خطة اليوم ${_arabicNumerals(calendarToday)} في أي وقت.'
+                            : 'Upcoming-days mode is active 🌟 You can return to Day $calendarToday anytime.',
+                        isAr: isAr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: onResetFocus,
+                      child: Text(isAr ? 'ورد اليوم' : 'Today'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // ── Day / pages heading ──────────────────────────────────────
             if (firstJuzInfo != null)
@@ -3539,7 +3800,9 @@ class _TodayCard extends StatelessWidget {
                               textAlign: isAr
                                   ? TextAlign.right
                                   : TextAlign.left,
-                              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                              textDirection: isAr
+                                  ? TextDirection.rtl
+                                  : TextDirection.ltr,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: AppColors.secondary,
@@ -3551,7 +3814,9 @@ class _TodayCard extends StatelessWidget {
                           isAr ? rangeLineAr : rangeLineEn,
                           isAr: isAr,
                           textAlign: isAr ? TextAlign.right : TextAlign.left,
-                          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                          textDirection: isAr
+                              ? TextDirection.rtl
+                              : TextDirection.ltr,
                           style: GoogleFonts.notoNaskhArabic(
                             fontSize: 14,
                             color: AppColors.primary,
@@ -3586,60 +3851,73 @@ class _TodayCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                  children: [
-                    const Icon(
-                      Icons.bookmark_rounded,
-                      color: AppColors.secondary,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _digitAwareText(
-                        lastReadPage != null
-                            ? (isAr
-                                ? 'وصلت إلى: صفحة ${_arabicNumerals(lastReadPage!)}'
-                                : 'Stopped at: Page $lastReadPage')
-                            : (isAr
-                                ? 'وصلت إلى: ${surahArabicNames[lastReadSurah] ?? "سورة $lastReadSurah"} آية ${_arabicNumerals(lastReadAyah!)}'
-                                : 'Stopped at: ${surahArabicNames[lastReadSurah] ?? "Surah $lastReadSurah"} $lastReadAyah'),
-                        isAr: isAr,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w600,
+                      children: [
+                        const Icon(
+                          Icons.bookmark_rounded,
+                          color: AppColors.secondary,
+                          size: 18,
                         ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => context.read<WirdCubit>().clearLastRead(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textSecondary,
-                          size: 16,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _digitAwareText(
+                            lastReadPage != null
+                                ? (isAr
+                                      ? 'وصلت إلى: صفحة ${_arabicNumerals(lastReadPage!)}'
+                                      : 'Stopped at: Page $lastReadPage')
+                                : (isAr
+                                      ? 'وصلت إلى: ${surahArabicNames[lastReadSurah] ?? "سورة $lastReadSurah"} آية ${_arabicNumerals(lastReadAyah!)}'
+                                      : 'Stopped at: ${surahArabicNames[lastReadSurah] ?? "Surah $lastReadSurah"} $lastReadAyah'),
+                            isAr: isAr,
+                            textDirection: isAr
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                        GestureDetector(
+                          onTap: () =>
+                              context.read<WirdCubit>().clearLastRead(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textSecondary,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     // Show "ahead of range" badge when bookmark is beyond today's range.
-                    if (lastReadPage != null && pageRange != null && lastReadPage! > pageRange!.endPage)
+                    if (lastReadPage != null &&
+                        pageRange != null &&
+                        lastReadPage! > pageRange!.endPage)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.success.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: AppColors.success.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: _digitAwareText(
                             isAr
                                 ? '↑ متقدم عن ورد اليوم (الورد ينتهي صفحة ${_arabicNumerals(pageRange!.endPage)})'
                                 : "↑ Ahead of today's range (ends at page ${pageRange!.endPage})",
                             isAr: isAr,
-                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                            textDirection: isAr
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -3694,7 +3972,12 @@ class _TodayCard extends StatelessWidget {
                 // Update bookmark button
                 if (!isComplete)
                   ElevatedButton(
-                    onPressed: () => onShowBookmarkDialog?.call(context, range, today, pageRange),
+                    onPressed: () => onShowBookmarkDialog?.call(
+                      context,
+                      range,
+                      today,
+                      pageRange,
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.secondary.withValues(
                         alpha: 0.12,
@@ -3754,42 +4037,44 @@ class _TodayCard extends StatelessWidget {
             // ── Completion actions ────────────────────────────────────────
             if (isComplete) ...[
               const SizedBox(height: 14),
-              Builder(builder: (context) {
-                // Find next uncompleted future day.
-                int? nextDay;
-                for (int d = today + 1; d <= plan.targetDays; d++) {
-                  if (!plan.isDayComplete(d)) {
-                    nextDay = d;
-                    break;
+              Builder(
+                builder: (context) {
+                  // Find next uncompleted future day.
+                  int? nextDay;
+                  for (int d = today + 1; d <= plan.targetDays; d++) {
+                    if (!plan.isDayComplete(d)) {
+                      nextDay = d;
+                      break;
+                    }
                   }
-                }
-                final hasNextDay = nextDay != null;
+                  final hasNextDay = nextDay != null;
 
-                if (daysBehind > 0) {
-                  return _CompletedWithMissedWidget(
-                    isAr: isAr,
-                    isDark: isDark,
-                    daysBehind: daysBehind,
-                    hasTomorrow: hasNextDay,
-                    nextDayNumber: nextDay,
-                    onMakeup: onSwitchToMakeup,
-                    onTomorrow: hasNextDay
-                        ? () => _navigateToFutureDay(context, nextDay!)
-                        : null,
-                  );
-                }
-                if (hasNextDay) {
-                  return _NextDayWidget(
-                    isAr: isAr,
-                    isDark: isDark,
-                    nextDayNumber: nextDay!,
-                    todayNumber: today,
-                    onTap: () => _navigateToFutureDay(context, nextDay!),
-                  );
-                }
-                // All future days are done.
-                return const SizedBox.shrink();
-              }),
+                  if (daysBehind > 0) {
+                    return _CompletedWithMissedWidget(
+                      isAr: isAr,
+                      isDark: isDark,
+                      daysBehind: daysBehind,
+                      hasTomorrow: hasNextDay,
+                      nextDayNumber: nextDay,
+                      onMakeup: onSwitchToMakeup,
+                      onTomorrow: hasNextDay
+                          ? () => onFocusDay?.call(nextDay!)
+                          : null,
+                    );
+                  }
+                  if (hasNextDay) {
+                    return _NextDayWidget(
+                      isAr: isAr,
+                      isDark: isDark,
+                      nextDayNumber: nextDay!,
+                      todayNumber: calendarToday,
+                      onTap: () => onFocusDay?.call(nextDay!),
+                    );
+                  }
+                  // All future days are done.
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ],
         ),
@@ -3802,9 +4087,15 @@ class _TodayCard extends StatelessWidget {
   void _navigateToRead(BuildContext context) {
     final cubit = context.read<WirdCubit>();
     final cubitState = cubit.state;
-    final savedPage = (cubitState is WirdPlanLoaded) ? cubitState.lastReadPage : null;
-    final savedSurah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadSurah : null;
-    final savedAyah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadAyah : null;
+    final savedPage = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadPage
+        : null;
+    final savedSurah = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadSurah
+        : null;
+    final savedAyah = (cubitState is WirdPlanLoaded)
+        ? cubitState.lastReadAyah
+        : null;
 
     int targetSurah;
     int? targetPage;
@@ -3861,79 +4152,6 @@ class _TodayCard extends StatelessWidget {
       onShowBookmarkDialog?.call(context, range, today, pageRange);
     });
   }
-
-  void _navigateToFutureDay(BuildContext context, int futureDay) {
-    if (futureDay > plan.targetDays) return;
-    final nextRange = _readingRangeForPlanDay(plan, futureDay);
-    final nextPageRange = plan.isPagesBased
-        ? getPageRangeForDay(futureDay, plan.pagesPerDay!)
-        : null;
-    final cubit = context.read<WirdCubit>();
-    final cubitState = cubit.state;
-
-    // Check if a saved page already falls in the target day's range.
-    final savedPage = (cubitState is WirdPlanLoaded) ? cubitState.lastReadPage : null;
-    final savedSurah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadSurah : null;
-    final savedAyah = (cubitState is WirdPlanLoaded) ? cubitState.lastReadAyah : null;
-
-    final pageInRange = savedPage != null &&
-        nextPageRange != null &&
-        savedPage >= nextPageRange.startPage &&
-        savedPage <= nextPageRange.endPage;
-    final surahInRange = !pageInRange &&
-        savedSurah != null &&
-        savedSurah >= nextRange.start.surah &&
-        savedSurah <= nextRange.end.surah;
-
-    int? targetPage;
-    int targetSurah;
-    int targetAyah;
-
-    if (pageInRange) {
-      targetPage = savedPage!;
-      final pos = pageStartPosition(targetPage);
-      targetSurah = pos.surah;
-      targetAyah = pos.ayah;
-    } else if (surahInRange) {
-      targetSurah = savedSurah!;
-      targetAyah = savedAyah ?? nextRange.start.ayah;
-    } else {
-      targetSurah = nextRange.start.surah;
-      targetAyah = nextRange.start.ayah;
-      if (nextPageRange != null) {
-        targetPage = nextPageRange.startPage;
-        final pos = pageStartPosition(targetPage);
-        targetSurah = pos.surah;
-        targetAyah = pos.ayah;
-      }
-    }
-
-    final surahName = _surahName(context, targetSurah);
-
-    // Save immediately in case the app is closed.
-    if (targetPage != null) {
-      cubit.saveLastReadPage(targetPage!);
-    } else {
-      cubit.saveLastRead(targetSurah, targetAyah);
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SurahDetailScreen(
-          surahNumber: targetSurah,
-          surahName: surahName,
-          initialPageNumber: targetPage,
-          initialAyahNumber: targetPage == null ? targetAyah : null,
-          onPositionChanged: (s, a) => cubit.saveLastRead(s, a),
-          onPageChanged: (p) => cubit.saveLastReadPage(p),
-        ),
-      ),
-    ).then((_) {
-      if (!context.mounted) return;
-      onShowBookmarkDialog?.call(context, nextRange, futureDay, nextPageRange);
-    });
-  }
 }
 
 // ── Days Grid ───────────────────────────────────────────────────────────────
@@ -3942,11 +4160,17 @@ class _DaysGrid extends StatelessWidget {
   final WirdPlan plan;
   final bool isAr;
   final bool isDark;
+  final int calendarToday;
+  final int? focusedDay;
+  final ValueChanged<int>? onFocusDay;
 
   const _DaysGrid({
     required this.plan,
     required this.isAr,
     required this.isDark,
+    required this.calendarToday,
+    this.focusedDay,
+    this.onFocusDay,
   });
 
   @override
@@ -4210,7 +4434,8 @@ class _MakeupCardState extends State<_MakeupCard> {
 
   String _surahName(BuildContext context, int surahNum) {
     if (widget.isAr) {
-      final raw = surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
+      final raw =
+          surahArabicNames[surahNum] ?? 'سورة ${_arabicNumerals(surahNum)}';
       return sanitizeUtf16(raw);
     }
     final surahState = context.read<SurahBloc>().state;
@@ -4250,9 +4475,9 @@ class _MakeupCardState extends State<_MakeupCard> {
         ? const <int>[]
         : WirdService.getJuzForDay(day, plan.targetDays);
     final dayDesc = isPagesBased
-      ? (isAr
-          ? 'صفحة ${_arabicNumerals(pageRange.startPage)} – ${_arabicNumerals(pageRange.endPage)}'
-          : 'Page ${pageRange.startPage} – ${pageRange.endPage}')
+        ? (isAr
+              ? 'صفحة ${_arabicNumerals(pageRange.startPage)} – ${_arabicNumerals(pageRange.endPage)}'
+              : 'Page ${pageRange.startPage} – ${pageRange.endPage}')
         : WirdService.getDayDescription(day, plan.targetDays, isArabic: isAr);
 
     final startName = _surahName(context, range.start.surah);
@@ -4339,7 +4564,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                             ? 'تبقى ${_arabicNumerals(missed.length)} ${missed.length == 1 ? "يوم" : "أيام"} لم تُقرأ بعد'
                             : '${missed.length} day${missed.length == 1 ? "" : "s"} not yet made up',
                         isAr: isAr,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                         style: const TextStyle(
                           color: _kOrange,
                           fontSize: 11.5,
@@ -4426,7 +4653,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                       child: _digitAwareText(
                         isAr ? 'اليوم ${_arabicNumerals(day)}' : 'Day $day',
                         isAr: isAr,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                         style: const TextStyle(
                           color: _kOrange,
                           fontWeight: FontWeight.bold,
@@ -4438,7 +4667,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                       _digitAwareText(
                         dayDesc,
                         isAr: isAr,
-                        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                        textDirection: isAr
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                         style: GoogleFonts.notoNaskhArabic(
                           fontSize: 17,
                           color: _kOrange,
@@ -4479,7 +4710,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                                 child: _digitAwareText(
                                   pageLine,
                                   isAr: isAr,
-                                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                                  textDirection: isAr
+                                      ? TextDirection.rtl
+                                      : TextDirection.ltr,
                                   style: const TextStyle(
                                     color: _kOrange,
                                     fontWeight: FontWeight.w700,
@@ -4490,7 +4723,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                             _digitAwareText(
                               rangeLine,
                               isAr: isAr,
-                              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                              textDirection: isAr
+                                  ? TextDirection.rtl
+                                  : TextDirection.ltr,
                               style: const TextStyle(
                                 color: _kOrange,
                                 fontWeight: FontWeight.bold,
@@ -4551,7 +4786,9 @@ class _MakeupCardState extends State<_MakeupCard> {
                                 ? 'آخر موضع: ${surahArabicNames[widget.makeupBookmarkSurah!] ?? "سورة ${widget.makeupBookmarkSurah}"} — آية ${_arabicNumerals(widget.makeupBookmarkAyah!)}'
                                 : 'Last position: Surah ${widget.makeupBookmarkSurah} — ayah ${widget.makeupBookmarkAyah}',
                             isAr: isAr,
-                            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                            textDirection: isAr
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             style: TextStyle(
                               color: _kOrange,
                               fontSize: 11.5,
@@ -4692,7 +4929,10 @@ class _MakeupCardState extends State<_MakeupCard> {
         widget.makeupBookmarkAyah != null;
     int enteredPage;
     if (hasBookmark) {
-      final bp = getPageNumber(widget.makeupBookmarkSurah!, widget.makeupBookmarkAyah!);
+      final bp = getPageNumber(
+        widget.makeupBookmarkSurah!,
+        widget.makeupBookmarkAyah!,
+      );
       enteredPage = (bp >= startP && bp <= endP) ? bp : startP;
     } else {
       enteredPage = startP;
@@ -4706,12 +4946,15 @@ class _MakeupCardState extends State<_MakeupCard> {
         builder: (ctx, setSheetState) {
           final pageCtrl = TextEditingController(text: enteredPage.toString());
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
               child: Column(
@@ -4733,11 +4976,16 @@ class _MakeupCardState extends State<_MakeupCard> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.bookmark_add_rounded,
-                          color: _kOrange, size: 20),
+                      const Icon(
+                        Icons.bookmark_add_rounded,
+                        color: _kOrange,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
-                        isAr ? 'حتى أين وصلت في القضاء؟' : 'Where did you stop in makeup?',
+                        isAr
+                            ? 'حتى أين وصلت في القضاء؟'
+                            : 'Where did you stop in makeup?',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -4767,9 +5015,12 @@ class _MakeupCardState extends State<_MakeupCard> {
                     textAlign: TextAlign.center,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       labelText: isAr
                           ? 'رقم الصفحة (١ – ٦٠٤)'
                           : 'Page number (1–604)',
@@ -4788,8 +5039,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -4804,8 +5054,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _kOrange,
                             foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -4813,15 +5062,13 @@ class _MakeupCardState extends State<_MakeupCard> {
                           icon: const Icon(Icons.save_rounded, size: 18),
                           onPressed: () {
                             final n = int.tryParse(pageCtrl.text);
-                            final pg = (n != null &&
-                                    n >= 1 &&
-                                    n <= _kMushafPagesTotal)
+                            final pg =
+                                (n != null && n >= 1 && n <= _kMushafPagesTotal)
                                 ? n
                                 : enteredPage;
                             // Convert page → surah+ayah for makeup bookmark.
                             final pos = pageStartPosition(pg);
-                            cubit.saveMakeupBookmark(
-                                day, pos.surah, pos.ayah);
+                            cubit.saveMakeupBookmark(day, pos.surah, pos.ayah);
                             // If user reached end of makeup day, auto-complete.
                             if (pg >= endP) {
                               cubit.toggleDayComplete(day);
@@ -5000,7 +5247,11 @@ class _BenefitCard extends StatelessWidget {
               color: isDark ? AppColors.darkSurface : const Color(0xFFF0FDF4),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: isDark ? AppColors.primaryLight : const Color(0xFF059669), size: 22),
+            child: Icon(
+              icon,
+              color: isDark ? AppColors.primaryLight : const Color(0xFF059669),
+              size: 22,
+            ),
           ),
           const SizedBox(height: 14),
           Text(
@@ -5015,7 +5266,9 @@ class _BenefitCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
               fontSize: 12,
               height: 1.5,
             ),
@@ -5076,80 +5329,86 @@ class _QuickReminderCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? AppColors.darkBorder
-              : const Color(0xFFDCFCE7).withValues(alpha: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.notifications_active_rounded,
-              color: AppColors.secondary,
-              size: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.darkBorder
+                  : const Color(0xFFDCFCE7).withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAr ? 'تذكير يومي' : 'Daily Reminder',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
-                    fontSize: 13,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  hasReminder
-                      ? (isAr ? 'تم ضبطه على $timeLabel' : 'Set at $timeLabel')
-                      : timeLabel,
-                  style: TextStyle(
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: AppColors.secondary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAr ? 'تذكير يومي' : 'Daily Reminder',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.primary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasReminder
+                          ? (isAr
+                                ? 'تم ضبطه على $timeLabel'
+                                : 'Set at $timeLabel')
+                          : timeLabel,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _editTime(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 18,
                     color: isDark
                         ? AppColors.darkTextSecondary
                         : AppColors.textSecondary,
-                    fontSize: 11,
                   ),
                 ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _editTime(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(
-                Icons.edit_rounded,
-                size: 18,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
               ),
-            ),
+              const SizedBox(width: 4),
+              Switch(
+                value: notificationsEnabled,
+                activeThumbColor: Colors.white,
+                activeTrackColor: const Color(0xFF003527),
+                onChanged: (v) =>
+                    context.read<WirdCubit>().setNotificationsEnabled(v),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Switch(
-            value: notificationsEnabled,
-            activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFF003527),
-            onChanged: (v) =>
-                context.read<WirdCubit>().setNotificationsEnabled(v),
-          ),
-        ],
-      ),
         ),
         if (notificationsEnabled) ..._buildFollowUpRow(context),
       ],
@@ -5163,7 +5422,10 @@ class _QuickReminderCard extends StatelessWidget {
       if (isAr) return h == 1 ? 'كل ساعة' : 'كل $h ساعات';
       return h == 1 ? 'Every hour' : 'Every $h hours';
     }
-    final current = options.contains(followUpIntervalHours) ? followUpIntervalHours : 2;
+
+    final current = options.contains(followUpIntervalHours)
+        ? followUpIntervalHours
+        : 2;
     return [
       const Divider(height: 1, indent: 16, endIndent: 16),
       Padding(
@@ -5173,7 +5435,9 @@ class _QuickReminderCard extends StatelessWidget {
             Icon(
               Icons.timer_outlined,
               size: 18,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -5181,7 +5445,9 @@ class _QuickReminderCard extends StatelessWidget {
                 isAr ? 'إعادة التذكير' : 'Re-remind every',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -5196,10 +5462,7 @@ class _QuickReminderCard extends StatelessWidget {
                 color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
               ),
               items: options
-                  .map((h) => DropdownMenuItem(
-                        value: h,
-                        child: Text(label(h)),
-                      ))
+                  .map((h) => DropdownMenuItem(value: h, child: Text(label(h))))
                   .toList(),
               onChanged: (v) {
                 if (v != null) {
@@ -5363,7 +5626,9 @@ class _OnboardingTipRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.5,
               height: 1.6,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ),
@@ -5437,7 +5702,9 @@ class _SmartStatsCard extends StatelessWidget {
               Expanded(
                 child: _StatPill(
                   icon: Icons.local_fire_department_rounded,
-                  iconColor: streak > 0 ? const Color(0xFFEF6C00) : AppColors.textSecondary,
+                  iconColor: streak > 0
+                      ? const Color(0xFFEF6C00)
+                      : AppColors.textSecondary,
                   label: isAr ? 'السلسلة' : 'Streak',
                   value: isAr
                       ? (streak == 0 ? '—' : '${_arabicNumerals(streak)} 🔥')
@@ -5485,7 +5752,9 @@ class _SmartStatsCard extends StatelessWidget {
                   Icon(
                     Icons.flag_rounded,
                     size: 14,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
                   ),
                   const SizedBox(width: 6),
                   _digitAwareText(
@@ -5496,7 +5765,9 @@ class _SmartStatsCard extends StatelessWidget {
                     textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -5574,7 +5845,9 @@ class _StatPill extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 10,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ],

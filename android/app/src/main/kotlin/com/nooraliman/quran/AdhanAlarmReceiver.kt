@@ -67,7 +67,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             "بين العبد والكفر ترك الصلاة، فأقمها 🕋",
             "أقرب ما يكون العبد من ربه وهو ساجد 🤲",
             "الصلاة خير موضوع، فأكثر أو أقل 🌙",
-            "من حافظ عليها كانت له نوراً يوم القيامة ✨",
+            "من حافظ عليها كانت له نوراً يوم القيامة 🌟",
             "فاستبقوا الخيرات 🏃"
         )
 
@@ -81,7 +81,7 @@ class AdhanAlarmReceiver : BroadcastReceiver() {
             "The closest a servant is to his Lord is when prostrating 🤲",
             "Race to all that is good 🏃",
             "Prayer is the best deed, so increase in it 🌙",
-            "Whoever guards their prayer, it will be a light for them ✨",
+            "Whoever guards their prayer, it will be a light for them 🌟",
             "Verily, in the remembrance of Allah do hearts find rest 🕋"
         )
 

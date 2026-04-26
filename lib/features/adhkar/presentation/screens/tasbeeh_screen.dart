@@ -304,7 +304,7 @@ class _TasbeehScreenState extends State<TasbeehScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isAr ? '✨ أتممت الذكر — جزاك الله خيراً' : '✨ Dhikr complete — JazakAllah Khayr',
+          isAr ? '🌟 أتممت الذكر — جزاك الله خيراً' : '🌟 Dhikr complete — JazakAllah Khayr',
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
@@ -1120,7 +1120,7 @@ class _StatusLine extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('✨', style: TextStyle(fontSize: 14)),
+                const Text('🌟', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -1135,7 +1135,7 @@ class _StatusLine extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text('✨', style: TextStyle(fontSize: 14)),
+                const Text('🌟', style: TextStyle(fontSize: 14)),
               ],
             ),
           ),

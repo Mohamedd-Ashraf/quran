@@ -8,7 +8,7 @@
 ## العربية (ar) — انسخ النص التالي:
 
 ```
-✨ الجديد في نور الإيمان 1.1.2:
+🌟 الجديد في نور الإيمان 1.1.2:
 • الخصوصية على لوحة المتصدرين (إخفاء صفحتك)
 • خدمة القراء المفضلين للوصول السريع
 • تحسينات التلاوة الصوتية ومعالجة الأخطاء
@@ -24,7 +24,7 @@
 ## English (en-US) — Copy the following:
 
 ```
-✨ What's New in Noor Al-Iman 1.1.2:
+🌟 What's New in Noor Al-Iman 1.1.2:
 • Leaderboard privacy (hide your profile)
 • Favorite reciters service for quick access
 • Improved audio recitation and error handling

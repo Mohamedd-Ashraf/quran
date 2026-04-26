@@ -47,6 +47,7 @@ class WirdCubit extends Cubit<WirdState> {
           makeupBookmarkDay: _wirdService.makeupBookmarkDay,
           makeupBookmarkSurah: _wirdService.makeupBookmarkSurah,
           makeupBookmarkAyah: _wirdService.makeupBookmarkAyah,
+          focusedDay: _wirdService.focusedDay,
         ),
       );
     }
@@ -288,6 +289,21 @@ class WirdCubit extends Cubit<WirdState> {
   /// Saves where the user stopped inside a makeup-wird session.
   Future<void> saveMakeupBookmark(int day, int surah, int ayah) async {
     await _wirdService.saveMakeupBookmark(day, surah, ayah);
+    load();
+  }
+
+  // ── Focused daily day (manual forward mode) ───────────────────────────────
+
+  Future<void> setFocusedDay(int day) async {
+    final currentState = state;
+    if (currentState is! WirdPlanLoaded) return;
+    if (day < 1 || day > currentState.plan.targetDays) return;
+    await _wirdService.setFocusedDay(day);
+    load();
+  }
+
+  Future<void> clearFocusedDay() async {
+    await _wirdService.clearFocusedDay();
     load();
   }
 

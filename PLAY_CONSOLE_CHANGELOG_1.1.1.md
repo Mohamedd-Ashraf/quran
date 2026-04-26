@@ -8,7 +8,7 @@
 ## العربية (ar) — انسخ النص التالي:
 
 ```
-✨ الجديد في نور الإيمان 1.1.1:
+🌟 الجديد في نور الإيمان 1.1.1:
 • أداة التقويم الهجري الشهرية على الشاشة الرئيسية
 • توسعة مكتبة الأذكار بأقسام جديدة (الوضوء، الاستخارة، القنوت والمزيد)
 • دعم القراءات العشر والروايات في التلاوة الصوتية
@@ -23,7 +23,7 @@
 ## English (en-US) — Copy the following:
 
 ```
-✨ What's New in Noor Al-Iman 1.1.1:
+🌟 What's New in Noor Al-Iman 1.1.1:
 • Monthly Hijri Calendar home-screen widget
 • Expanded adhkar library with new sections (Wudu, Istikhara, Qunut & more)
 • Ten Qira'at & recitation variants support in audio playback

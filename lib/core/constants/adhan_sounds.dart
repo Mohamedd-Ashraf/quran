@@ -135,6 +135,20 @@ class AdhanSounds {
       'https://archive.org/download/adhan.notifications/';
 
   static const List<AdhanSoundInfo> online = [
+    // ── أذان خاشع — محمود هلال ────────────────────────────────────────────
+    AdhanSoundInfo(
+      id: 'online_mahmoud_helal',
+      nameAr: 'أذان خاشع – محمود هلال',
+      nameEn: 'Adhan Khash3 — Mahmoud Helal',
+      muezzinAr: 'محمود هلال',
+      muezzinEn: 'Mahmoud Helal',
+      mosqueAr: '',
+      mosqueEn: '',
+      isOnline: true,
+      url: 'https://raw.githubusercontent.com/Mohamedd-Ashraf/Noor-Al-Imaan/main/cloud_resources/%D8%A3%D8%B0%D8%A7%D9%86%20%D8%AE%D8%A7%D8%B4%D8%B9%20%E2%80%93%20%D9%85%D8%AD%D9%85%D9%88%D8%AF%20%D9%87%D9%84%D8%A7%D9%84.mp3',
+      // estimated: silence after 2nd Takbeer at ~6s
+      shortDurationSeconds: 6,
+    ),
     AdhanSoundInfo(
       id: 'online_ahmed_imadi',
       nameAr: 'أذان أحمد العمادي',
