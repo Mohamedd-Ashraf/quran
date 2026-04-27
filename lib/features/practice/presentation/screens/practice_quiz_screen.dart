@@ -153,6 +153,28 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             gradient: AppColors.primaryGradient,
           ),
         ),
+        actions: [
+          BlocBuilder<PracticeCubit, PracticeState>(
+            buildWhen: (prev, curr) =>
+                curr is PracticeReady || prev is PracticeReady,
+            builder: (context, state) {
+              if (state is! PracticeReady) return const SizedBox.shrink();
+              final q = state.currentQuestion;
+              return IconButton(
+                icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                tooltip: isArabic ? 'الإبلاغ عن مشكلة' : 'Report issue',
+                onPressed: () => ReportQuestionSheet.show(
+                  context,
+                  questionId: q.id,
+                  questionSnippet: q.question.length > 80
+                      ? '${q.question.substring(0, 80)}…'
+                      : q.question,
+                  questionText: q.question,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: BlocConsumer<PracticeCubit, PracticeState>(
         listener: (context, state) {
@@ -410,25 +432,6 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Report button
-                GestureDetector(
-                  onTap: () => ReportQuestionSheet.show(
-                    context,
-                    questionId: q.id,
-                    questionSnippet: q.question.length > 80
-                        ? '${q.question.substring(0, 80)}…'
-                        : q.question,
-                    questionText: q.question,
-                  ),
-                  child: Icon(
-                    Icons.flag_outlined,
-                    size: 20,
-                    color: isDark
-                        ? AppColors.darkTextSecondary
-                        : AppColors.textSecondary,
                   ),
                 ),
               ],

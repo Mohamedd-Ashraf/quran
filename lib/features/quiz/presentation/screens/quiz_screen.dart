@@ -614,6 +614,27 @@ String _localizeInt(int value, {required bool isArabic}) {
                     color: isDark ? Colors.white70 : Colors.black54,
                   ),
             ),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const PracticeHomeScreen()),
+              ),
+              icon: const Icon(Icons.school_rounded, color: Colors.white),
+              label: Text(
+                isArabic ? 'انتقل إلى وضع التمرين' : 'Go to Practice Mode',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 14),
+                shape: const StadiumBorder(),
+              ),
+            ),
           ],
         ),
       ),
@@ -1719,7 +1740,7 @@ String _localizeInt(int value, {required bool isArabic}) {
                     : AppColors.textSecondary,
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
 
             // Stats
             _buildScoreSummaryRow(
@@ -1729,7 +1750,7 @@ String _localizeInt(int value, {required bool isArabic}) {
               streak: state.streak,
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Accuracy
             Container(
@@ -1766,7 +1787,7 @@ String _localizeInt(int value, {required bool isArabic}) {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             SizedBox(
               width: double.infinity,
@@ -1795,11 +1816,9 @@ String _localizeInt(int value, {required bool isArabic}) {
                 ),
               ),
             ),
-            _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
-            // ── Practice Mode entry ─────────────────────────────────────────
-            SizedBox(
+               SizedBox(
               width: double.infinity,
               height: 52,
               child: OutlinedButton.icon(
@@ -1836,6 +1855,12 @@ String _localizeInt(int value, {required bool isArabic}) {
                 ),
               ),
             ),
+            const SizedBox(height: 6),
+            _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
+            const SizedBox(height: 6),
+
+            // ── Practice Mode entry ─────────────────────────────────────────
+         
               ],
             ),
           ),

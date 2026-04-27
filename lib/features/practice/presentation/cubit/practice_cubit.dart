@@ -251,7 +251,7 @@ class PracticeCubit extends Cubit<PracticeState> {
 
   // ── Load more ──────────────────────────────────────────────────────────────
 
-  Future<void> downloadMore({required int limit}) async {
+  Future<int> downloadMore({required int limit}) async {
     final prev = state;
     int prevCorrect = 0;
     int prevTotal = 0;
@@ -294,7 +294,7 @@ class PracticeCubit extends Cubit<PracticeState> {
           totalXp: totalXp,
           wrongAnswers: List.from(_wrongAnswers),
         ));
-        return;
+        return 0;
       }
 
       final shuffled = _shuffleAll(fresh);
@@ -305,6 +305,7 @@ class PracticeCubit extends Cubit<PracticeState> {
         streak: _streak,
         bestStreak: _bestStreak,
       ));
+      return fresh.length;
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied' ||
           e.code == 'unavailable' ||
@@ -324,12 +325,20 @@ class PracticeCubit extends Cubit<PracticeState> {
           totalXp: totalXp,
           wrongAnswers: List.from(_wrongAnswers),
         ));
+        return 0;
       } else {
         emit(PracticeError('فشل تحميل المزيد: [${e.code}] ${e.message}'));
+        return -1;
       }
     } catch (e) {
       emit(PracticeError('فشل تحميل المزيد: $e'));
+      return -1;
     }
+  }
+
+  /// Returns number of locally cached questions for current filters.
+  Future<int> getOfflineCount() async {
+    return _repository.getCachedCount(category: _category, difficulty: _difficulty);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

@@ -292,6 +292,7 @@ service cloud.firestore {
     match /question_reports/{reportId} {
       allow create: if request.resource.data.keys().hasOnly([
             'questionId',
+            'questionText',
             'reason',
             'note',
             'createdAt'
