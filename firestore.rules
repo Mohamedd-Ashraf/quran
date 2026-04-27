@@ -220,7 +220,7 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
-    // ── Account deletion requests (delete-account page – full account wipe) ──
+// ── Account deletion requests (delete-account page – full account wipe) ──
     // Create-only endpoint used by /delete-account page.
     // No dataTypes field – always deletes everything including the Auth user.
     match /account_deletion_requests/{requestId} {
@@ -250,6 +250,62 @@ service cloud.firestore {
         && request.resource.data.userAgent is string
         && request.resource.data.userAgent.size() <= 512
         && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
+    }
+
+    // ── Practice questions (public read, admin write only) ────────────────
+    // Read: anyone — practice questions are public learning content.
+    // Write: only allow creation with strict field validation.
+    // Collection is seeded once via admin screen and then read-only.
+    match /questions_practice/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'question',
+          'options',
+          'correctIndex',
+          'category',
+          'difficulty'
+        ])
+        && request.resource.data.question is string
+        && request.resource.data.question.size() >= 10
+        && request.resource.data.question.size() <= 5000
+        && request.resource.data.options is list
+        && request.resource.data.options.size() == 4
+        && request.resource.data.options[0] is string
+        && request.resource.data.options[1] is string
+        && request.resource.data.options[2] is string
+        && request.resource.data.options[3] is string
+        && request.resource.data.correctIndex is int
+        && request.resource.data.correctIndex in [0, 1, 2, 3]
+        && request.resource.data.category is string
+        && request.resource.data.category in ['quran', 'hadith', 'fiqh', 'seerah', 'aqeedah']
+        && request.resource.data.difficulty is string
+        && request.resource.data.difficulty in ['easy', 'medium', 'hard', 'expert'];
+      
+      allow update, delete: if false;  // Immutable after creation
+    }
+
+    // ── Question reports (create-only, no auth required) ─────────────────────
+    // Any user can submit a report; no read/update/delete from clients.
+    match /question_reports/{reportId} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'questionId',
+            'reason',
+            'note',
+            'createdAt'
+          ])
+        && request.resource.data.questionId is string
+        && request.resource.data.questionId.size() >= 1
+        && request.resource.data.questionId.size() <= 200
+        && request.resource.data.reason is string
+        && request.resource.data.reason in [
+            'wrong_answer', 'unclear', 'typo', 'duplicate', 'other'
+          ]
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 300
+        && request.resource.data.createdAt is timestamp;
 
       allow read, update, delete: if false;
     }

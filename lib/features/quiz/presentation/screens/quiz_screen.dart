@@ -15,6 +15,8 @@ import '../cubit/quiz_cubit.dart';
 import '../cubit/quiz_state.dart';
 import 'leaderboard_screen.dart';
 import 'quiz_admin_preview_screen.dart';
+import '../../../practice/presentation/screens/practice_home_screen.dart';
+import '../../../practice/presentation/widgets/report_question_sheet.dart';
 
 class QuizScreen extends StatefulWidget {
   /// When `true`, the landing screen is shown before the timer starts.
@@ -805,6 +807,46 @@ String _localizeInt(int value, {required bool isArabic}) {
                 ),
               ),
             ),
+
+            const SizedBox(height: 14),
+
+            // ── Practice Mode shortcut ──────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PracticeHomeScreen(),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.school_rounded,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.primary,
+                  size: 20,
+                ),
+                label: Text(
+                  isArabic ? 'وضع التمرين' : 'Practice Mode',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.primary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  side: BorderSide(
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.primary.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -978,7 +1020,48 @@ String _localizeInt(int value, {required bool isArabic}) {
           ],
         ),
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 8),
+
+        // ── Report button ─────────────────────────────────────────────────────
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: GestureDetector(
+            onTap: () => ReportQuestionSheet.show(
+              context,
+              questionId: 'daily_${question.id}',
+              questionSnippet: question.question.length > 80
+                  ? '${question.question.substring(0, 80)}…'
+                  : question.question, questionText: question.question,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.flag_outlined,
+                    size: 16,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isArabic ? 'إبلاغ' : 'Report',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
 
         // ── Question card (arch top) ──────────────────────────────────────────
         Container(
@@ -1713,6 +1796,46 @@ String _localizeInt(int value, {required bool isArabic}) {
               ),
             ),
             _buildInlineVisibilityTile(isArabic: isArabic, isDark: isDark),
+            const SizedBox(height: 12),
+
+            // ── Practice Mode entry ─────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PracticeHomeScreen(),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.school_rounded,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.primary,
+                ),
+                label: Text(
+                  isArabic ? 'وضع التمرين' : 'Practice Mode',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.primary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  side: BorderSide(
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.primary.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
               ],
             ),
           ),

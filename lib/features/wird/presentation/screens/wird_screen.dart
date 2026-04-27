@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1843,19 +1844,24 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     super.didUpdateWidget(old);
     final oldMissed = _missedDays(old.plan);
     final newMissed = _missedDays(widget.plan);
-    final today = widget.plan.currentDay;
-    final wasDone = old.plan.isDayComplete(today);
-    final isDone = widget.plan.isDayComplete(today);
 
+    // All qadaa done -> auto-return to daily tab.
     if (oldMissed.isNotEmpty && newMissed.isEmpty && _showMakeupMode) {
       setState(() => _showMakeupMode = false);
       return;
     }
 
-    if (!wasDone && isDone) {
-      if (newMissed.isNotEmpty && !_showMakeupMode) {
-        setState(() => _showMakeupMode = true);
-      }
+    // Only auto-switch to qadaa when today was just marked complete
+    // and missed days still exist. Do NOT force-switch during grid edits
+    // or makeup-day completions (those are deliberate user actions).
+    final today = widget.plan.currentDay;
+    final wasTodayDone = old.plan.isDayComplete(today);
+    final isTodayDone = widget.plan.isDayComplete(today);
+    if (!wasTodayDone &&
+        isTodayDone &&
+        newMissed.isNotEmpty &&
+        !_showMakeupMode) {
+      setState(() => _showMakeupMode = true);
     }
   }
 
@@ -4156,7 +4162,16 @@ class _TodayCard extends StatelessWidget {
 
 // ── Days Grid ───────────────────────────────────────────────────────────────
 
-class _DaysGrid extends StatelessWidget {
+enum _DayTileKind {
+  completed,
+  today,
+  focused,
+  missed,
+  unlockedFuture,
+  lockedFuture,
+}
+
+class _DaysGrid extends StatefulWidget {
   final WirdPlan plan;
   final bool isAr;
   final bool isDark;
@@ -4173,35 +4188,199 @@ class _DaysGrid extends StatelessWidget {
     this.onFocusDay,
   });
 
-  int get _interactiveMaxDay => focusedDay ?? calendarToday;
+  @override
+  State<_DaysGrid> createState() => _DaysGridState();
+}
 
-  void _showLockedFutureHint(BuildContext context, int day) {
+class _DaysGridState extends State<_DaysGrid> {
+  Timer? _snackBarTimer;
+
+  @override
+  void dispose() {
+    _snackBarTimer?.cancel();
+    super.dispose();
+  }
+
+  int get _interactiveMaxDay => widget.focusedDay ?? widget.calendarToday;
+
+  void _showAutoDismissSnackBar(
+    SnackBar snackBar, {
+    Duration duration = const Duration(seconds: 3),
+  }) {
+    _snackBarTimer?.cancel();
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 3),
+      ..showSnackBar(snackBar);
+    _snackBarTimer = Timer(duration, () {
+      if (mounted) messenger.hideCurrentSnackBar();
+    });
+  }
+
+  _DayTileKind _classifyDay(int day) {
+    final plan = widget.plan;
+    final today = widget.calendarToday;
+    final fd = widget.focusedDay;
+    if (plan.isDayComplete(day)) return _DayTileKind.completed;
+    if (fd != null && day == fd) return _DayTileKind.focused;
+    if (day == today) return _DayTileKind.today;
+    if (day > _interactiveMaxDay) return _DayTileKind.lockedFuture;
+    if (day < today && !plan.isDayComplete(day)) return _DayTileKind.missed;
+    return _DayTileKind.unlockedFuture;
+  }
+
+  void _handleTap(int day) {
+    final kind = _classifyDay(day);
+    if (kind == _DayTileKind.lockedFuture) {
+      _showLockedHint(day);
+      return;
+    }
+    final cubit = context.read<WirdCubit>();
+    final wasCompleted = widget.plan.isDayComplete(day);
+    if (wasCompleted) {
+      _confirmUncomplete(day, cubit);
+    } else {
+      cubit.toggleDayComplete(day);
+      _showUndoSnackbar(day, cubit);
+    }
+  }
+
+  void _confirmUncomplete(int day, WirdCubit cubit) {
+    final isAr = widget.isAr;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+          title: Row(
+            children: [
+              Icon(Icons.undo_rounded, color: AppColors.secondary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isAr ? 'إلغاء إنجاز اليوم؟' : 'Mark day incomplete?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
           content: _digitAwareText(
             isAr
-                ? 'هذا يوم قادم 🌟 فعّل وضع الأيام القادمة أولاً.'
-                : 'This is an upcoming day 🌟 Enable upcoming-days mode first.',
+                ? 'هل تريد إلغاء إنجاز اليوم ${_arabicNumerals(day)}؟ سيتم حذف علامة الإكمال.'
+                : 'Remove the completion mark from Day $day?',
             isAr: isAr,
             textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
+            ),
           ),
-          action: SnackBarAction(
-            label: isAr ? 'عرضه' : 'Show It',
-            onPressed: () => onFocusDay?.call(day),
-          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                isAr ? 'تراجع' : 'Cancel',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                cubit.toggleDayComplete(day);
+                _showUndoSnackbar(day, cubit, wasUncomplete: true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                isAr ? 'إلغاء الإنجاز' : 'Uncomplete',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
+
+  void _showUndoSnackbar(
+    int day,
+    WirdCubit cubit, {
+    bool wasUncomplete = false,
+  }) {
+    final isAr = widget.isAr;
+    _showAutoDismissSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        content: _digitAwareText(
+          isAr
+              ? '${wasUncomplete ? "تم إلغاء إنجاز" : "تم إنجاز"} اليوم ${_arabicNumerals(day)}'
+              : '${wasUncomplete ? "Uncompleted" : "Completed"} Day $day',
+          isAr: isAr,
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          style: const TextStyle(color: Colors.white),
+        ),
+        action: SnackBarAction(
+          label: isAr ? 'تراجع' : 'Undo',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            cubit.toggleDayComplete(day);
+          },
+        ),
+      ),
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  void _showLockedHint(int day) {
+    final isAr = widget.isAr;
+    _showAutoDismissSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        content: _digitAwareText(
+          isAr
+              ? 'هذا يوم قادم 🌟 فعّل وضع الأيام القادمة أولاً.'
+              : 'This is an upcoming day 🌟 Enable upcoming-days mode first.',
+          isAr: isAr,
+          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+          style: const TextStyle(color: Colors.white),
+        ),
+        action: SnackBarAction(
+          label: isAr ? 'عرضه' : 'Show It',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            widget.onFocusDay?.call(day);
+          },
+        ),
+      ),
+      duration: const Duration(seconds: 4),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final today = calendarToday;
-
+    final plan = widget.plan;
+    final isAr = widget.isAr;
+    final isDark = widget.isDark;
+    final today = widget.calendarToday;
+    final fd = widget.focusedDay;
     final completedCount = plan.completedDays.length;
     final pct = (plan.progressPercent * 100).round();
 
@@ -4215,7 +4394,6 @@ class _DaysGrid extends StatelessWidget {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          // ── Gradient header strip ─────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -4265,8 +4443,6 @@ class _DaysGrid extends StatelessWidget {
               ],
             ),
           ),
-
-          // ── Grid body ───────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -4286,49 +4462,47 @@ class _DaysGrid extends StatelessWidget {
                   itemCount: plan.targetDays,
                   itemBuilder: (context, index) {
                     final day = index + 1;
-                    final isCompleted = plan.isDayComplete(day);
+                    final kind = _classifyDay(day);
                     final isToday = day == today;
-                    final isFocused = focusedDay != null && day == focusedDay;
-                    final isLockedFuture = day > _interactiveMaxDay;
-                    final isTappable = day <= _interactiveMaxDay;
+                    final isFocused = fd != null && day == fd;
 
                     Color bgColor;
                     Color textColor;
                     Color borderColor;
 
-                    if (isCompleted) {
-                      bgColor = AppColors.success;
-                      textColor = Colors.white;
-                      borderColor = AppColors.success;
-                    } else if (isFocused) {
-                      bgColor = AppColors.primary.withValues(alpha: 0.14);
-                      textColor = AppColors.primary;
-                      borderColor = AppColors.primary;
-                    } else if (isToday) {
-                      bgColor = AppColors.secondary.withValues(alpha: 0.2);
-                      textColor = AppColors.accent;
-                      borderColor = AppColors.secondary;
-                    } else if (isLockedFuture) {
-                      bgColor = isDark
-                          ? AppColors.darkSurface
-                          : AppColors.surfaceVariant;
-                      textColor = AppColors.textSecondary;
-                      borderColor = AppColors.divider;
-                    } else {
-                      // Past and not completed
-                      bgColor = AppColors.error.withValues(alpha: 0.08);
-                      textColor = AppColors.error.withValues(alpha: 0.7);
-                      borderColor = AppColors.error.withValues(alpha: 0.3);
+                    switch (kind) {
+                      case _DayTileKind.completed:
+                        bgColor = AppColors.success;
+                        textColor = Colors.white;
+                        borderColor = AppColors.success;
+                      case _DayTileKind.focused:
+                        bgColor = AppColors.primary.withValues(alpha: 0.14);
+                        textColor = AppColors.primary;
+                        borderColor = AppColors.primary;
+                      case _DayTileKind.today:
+                        bgColor = AppColors.secondary.withValues(alpha: 0.2);
+                        textColor = AppColors.accent;
+                        borderColor = AppColors.secondary;
+                      case _DayTileKind.missed:
+                        bgColor = AppColors.error.withValues(alpha: 0.08);
+                        textColor = AppColors.error.withValues(alpha: 0.7);
+                        borderColor = AppColors.error.withValues(alpha: 0.3);
+                      case _DayTileKind.unlockedFuture:
+                        bgColor = isDark
+                            ? AppColors.darkCard
+                            : const Color(0xFFF0FDF4);
+                        textColor = AppColors.primary.withValues(alpha: 0.7);
+                        borderColor = AppColors.primary.withValues(alpha: 0.2);
+                      case _DayTileKind.lockedFuture:
+                        bgColor = isDark
+                            ? AppColors.darkSurface
+                            : AppColors.surfaceVariant;
+                        textColor = AppColors.textSecondary;
+                        borderColor = AppColors.divider;
                     }
 
                     return GestureDetector(
-                      onTap: () {
-                        if (isTappable) {
-                          context.read<WirdCubit>().toggleDayComplete(day);
-                        } else {
-                          _showLockedFutureHint(context, day);
-                        }
-                      },
+                      onTap: () => _handleTap(day),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
@@ -4349,52 +4523,49 @@ class _DaysGrid extends StatelessWidget {
                               : null,
                         ),
                         child: Center(
-                          child: isCompleted
-                              ? const Icon(
-                                  Icons.check_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                )
-                              : isLockedFuture
-                              ? Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 15,
-                                  color: textColor.withValues(alpha: 0.8),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _digitAwareText(
-                                      isAr
-                                          ? _arabicNumerals(day)
-                                          : day.toString(),
-                                      isAr: isAr,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: (isToday || isFocused)
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: textColor,
-                                      ),
-                                    ),
-                                    if (isFocused) ...[
-                                      const SizedBox(width: 2),
-                                      Icon(
-                                        Icons.star_rounded,
-                                        size: 11,
-                                        color: textColor,
-                                      ),
-                                    ],
-                                  ],
+                          child: switch (kind) {
+                            _DayTileKind.completed => const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            _DayTileKind.lockedFuture => Icon(
+                              Icons.lock_outline_rounded,
+                              size: 15,
+                              color: textColor.withValues(alpha: 0.8),
+                            ),
+                            _ => Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _digitAwareText(
+                                  isAr ? _arabicNumerals(day) : day.toString(),
+                                  isAr: isAr,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: (isToday || isFocused)
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: textColor,
+                                  ),
                                 ),
+                                if (isFocused) ...[
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.star_rounded,
+                                    size: 11,
+                                    color: textColor,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          },
                         ),
                       ),
                     );
                   },
                 ),
                 const SizedBox(height: 12),
-                // Legend
                 Wrap(
                   spacing: 12,
                   runSpacing: 6,

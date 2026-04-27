@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/datasources/quiz_questions_data.dart';
 import '../../data/models/quiz_question_model.dart';
+import '../../../practice/tools/seed_practice_questions.dart';
 
 /// Read-only admin screen for previewing and testing quiz questions.
 ///
@@ -43,6 +44,7 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
   QuizDifficulty? _selectedDifficulty; // null = all
 
   int _index = 0; // index into _filtered
+  bool _isSeedRunning = false;
 
   // Jump-to dialog controller
   final _jumpController = TextEditingController();
@@ -114,6 +116,56 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
     );
   }
 
+  // ── Seed trigger (long-press on seed icon in AppBar) ─────────────────────
+
+  Future<void> _triggerSeed() async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isAr ? 'تأكيد البذر' : 'Confirm Seed'),
+        content: Text(
+          isAr
+              ? 'سيتم رفع ~200 سؤال إلى Firestore (questions_practice).\nهذه العملية غير قابلة للتراجع — لا تشغّلها مرتين.'
+              : 'This will upload ~200 questions to Firestore (questions_practice).\nNot idempotent — do NOT run twice.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(isAr ? 'إلغاء' : 'Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isAr ? 'تأكيد' : 'Seed Now'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isSeedRunning = true);
+    try {
+      await seedPracticeQuestions();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isAr ? 'تم البذر بنجاح ✓' : 'Seed completed ✓'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${isAr ? 'خطأ' : 'Error'}: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSeedRunning = false);
+    }
+  }
+
   // ── UI helpers ────────────────────────────────────────────────────────────
 
   Color _diffColor(QuizDifficulty d) {
@@ -153,6 +205,40 @@ class _QuizAdminPreviewScreenState extends State<QuizAdminPreviewScreen> {
           decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         actions: [
+          // Long-press to trigger seed (single-use, admin only)
+          _isSeedRunning
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  tooltip: isAr
+                      ? 'اضغط مطولاً لبذر الأسئلة'
+                      : 'Long-press to seed questions',
+                  // onPressed must be non-null so the button is enabled
+                  // and onLongPress can fire.
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isAr
+                            ? 'اضغط مطولاً لبدء البذر'
+                            : 'Long-press to start seeding'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  onLongPress: _triggerSeed,
+                ),
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: isAr ? 'انتقل لسؤال' : 'Jump to question',

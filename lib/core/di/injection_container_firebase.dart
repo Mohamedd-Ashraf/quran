@@ -68,6 +68,12 @@ import '../../features/quiz/data/quiz_repository.dart';
 import '../../features/quiz/services/quiz_notification_service.dart';
 import '../../features/quiz/presentation/cubit/quiz_cubit.dart';
 import '../../features/quiz/presentation/cubit/leaderboard_cubit.dart';
+import '../../features/practice/data/datasources/practice_cache_source.dart';
+import '../../features/practice/data/datasources/practice_firestore_source.dart';
+import '../../features/practice/data/practice_repository.dart';
+import '../../features/practice/presentation/cubit/practice_cubit.dart';
+import '../../features/practice/services/answered_questions_service.dart';
+import '../../features/practice/services/xp_service.dart';
 
 final sl = GetIt.instance;
 
@@ -229,6 +235,16 @@ Future<void> init() async {
   sl.registerLazySingleton(() => QuizNotificationService(sl(), sl()));
   sl.registerFactory(() => QuizCubit(sl(), sl(), sl()));
   sl.registerFactory(() => LeaderboardCubit(sl()));
+
+  //! Features - Practice
+  sl.registerLazySingleton(() => PracticeCacheSource());
+  sl.registerLazySingleton(
+    () => PracticeFirestoreSource(FirebaseFirestore.instance),
+  );
+  sl.registerLazySingleton(() => PracticeRepository(sl(), sl()));
+  sl.registerLazySingleton(() => XpService());
+  sl.registerLazySingleton(() => AnsweredQuestionsService());
+  sl.registerFactory(() => PracticeCubit(sl(), sl(), sl()));
 
   // Firebase-based update service
   sl.registerLazySingleton(() => AppUpdateServiceFirebase(sl(), sl()));
