@@ -158,9 +158,9 @@ final class _AyahRangeQueueItem extends AyahAudioQueueItem {
 }
 
 // ── Artwork cache helper ──────────────────────────────────────────────────────
-// audio_service (Java) only loads bitmap from content:// or file:// URIs.
-// We copy the Flutter asset to the app cache dir on first use, then return
-// a file:// URI that the native layer can open directly.
+// audio_service promotes file:// artwork to native `artCacheFile` metadata.
+// We copy Flutter assets to temp files once, then reuse those file URIs so
+// foreground media notifications can load stable local artwork.
 final _artworkUriCache = <String, Uri>{};
 
 Future<Uri?> _resolveArtworkUri(String assetPath) async {
@@ -199,6 +199,9 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
   Future<Uri?> _telawahArt() async =>
       _telawahArtUri ??= await _resolveArtworkUri('assets/logo/files/quraan telawa.jpg');
+
+  Future<Uri?> _radioArt() async =>
+      _radioArtUri ??= await _resolveArtworkUri('assets/logo/files/islam radio.jpg');
 
   // ── Surah queue ───────────────────────────────────────────────────────────
   /// Items waiting to be played.  Each item is a surah + ayah-count pair.
@@ -662,11 +665,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       _isTimedRangeMode  = true;
 
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final artUri = await _telawahArt();
       final firstMediaItem = MediaItem(
         id: '${surahNumber}_$startAyah',
         title: _surahNameFor(surahNumber),
         album: isAr ? 'الآية $startAyah' : 'Verse $startAyah',
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
+        artUri: artUri,
       );
       final src = result.source;
       final innerSource = src.isLocal
@@ -991,7 +996,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     try {
       // Radio mode: load radio artwork from asset cache for notification.
-      final radioArtUri = await _resolveArtworkUri('assets/logo/files/islam radio.jpg');
+      final radioArtUri = await _radioArt();
       final mediaItem = MediaItem(
         id: 'radio_${url.hashCode}',
         title: title,
@@ -1060,11 +1065,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     try {
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final artUri = await _telawahArt();
       final mediaItem = MediaItem(
         id: 'word_${surahNumber}_${ayahNumber}_$wordIndex',
         title: isAr ? 'الآية $ayahNumber - كلمة $wordIndex' : 'Verse $ayahNumber - Word $wordIndex',
         album: _surahNameFor(surahNumber),
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
+        artUri: artUri,
       );
       await _player.setAudioSource(AudioSource.uri(uri, tag: mediaItem));
       await _player.setLoopMode(LoopMode.off);

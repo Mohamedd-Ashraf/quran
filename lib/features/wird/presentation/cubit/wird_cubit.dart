@@ -48,6 +48,8 @@ class WirdCubit extends Cubit<WirdState> {
           makeupBookmarkSurah: _wirdService.makeupBookmarkSurah,
           makeupBookmarkAyah: _wirdService.makeupBookmarkAyah,
           focusedDay: _wirdService.focusedDay,
+          manualDailyBookmark: _wirdService.manualDailyBookmark,
+          manualMakeupBookmark: _wirdService.manualMakeupBookmark,
         ),
       );
     }
@@ -88,9 +90,11 @@ class WirdCubit extends Cubit<WirdState> {
   int? _lastClearedBookmarkSurah;
   int? _lastClearedBookmarkAyah;
   int? _lastClearedBookmarkPage;
+  bool _lastClearedManualDailyFlag = false;
   int? _lastClearedMakeupDay;
   int? _lastClearedMakeupSurah;
   int? _lastClearedMakeupAyah;
+  bool _lastClearedManualMakeupFlag = false;
 
   /// Toggle the completion state of a specific day (1-indexed).
   Future<void> toggleDayComplete(int day) async {
@@ -113,9 +117,13 @@ class WirdCubit extends Cubit<WirdState> {
             _lastClearedBookmarkAyah!,
           );
         }
+        if (_lastClearedManualDailyFlag) {
+          await _wirdService.markDailyBookmarkManual();
+        }
         _lastClearedBookmarkSurah = null;
         _lastClearedBookmarkAyah = null;
         _lastClearedBookmarkPage = null;
+        _lastClearedManualDailyFlag = false;
         await _notifService.refreshFollowUps();
       }
       // Restore makeup bookmark if applicable.
@@ -127,9 +135,13 @@ class WirdCubit extends Cubit<WirdState> {
             _lastClearedMakeupAyah!,
           );
         }
+        if (_lastClearedManualMakeupFlag) {
+          await _wirdService.markMakeupBookmarkManual();
+        }
         _lastClearedMakeupDay = null;
         _lastClearedMakeupSurah = null;
         _lastClearedMakeupAyah = null;
+        _lastClearedManualMakeupFlag = false;
       }
     } else {
       await _wirdService.markDayComplete(day);
@@ -141,6 +153,7 @@ class WirdCubit extends Cubit<WirdState> {
         _lastClearedBookmarkSurah = _wirdService.lastReadSurah;
         _lastClearedBookmarkAyah = _wirdService.lastReadAyah;
         _lastClearedBookmarkPage = _wirdService.lastReadPage;
+        _lastClearedManualDailyFlag = _wirdService.manualDailyBookmark;
         await _wirdService.clearLastRead();
       }
       // If completing a makeup day, cache and clear its bookmark.
@@ -148,6 +161,7 @@ class WirdCubit extends Cubit<WirdState> {
         _lastClearedMakeupDay = day;
         _lastClearedMakeupSurah = _wirdService.makeupBookmarkSurah;
         _lastClearedMakeupAyah = _wirdService.makeupBookmarkAyah;
+        _lastClearedManualMakeupFlag = _wirdService.manualMakeupBookmark;
         await _wirdService.clearMakeupBookmark();
       }
     }
@@ -289,6 +303,38 @@ class WirdCubit extends Cubit<WirdState> {
   /// Saves where the user stopped inside a makeup-wird session.
   Future<void> saveMakeupBookmark(int day, int surah, int ayah) async {
     await _wirdService.saveMakeupBookmark(day, surah, ayah);
+    load();
+  }
+
+  /// Saves a daily bookmark explicitly set by the user via the dialog.
+  /// Also sets the manual flag so the bookmark is visible in the UI.
+  Future<void> saveManualDailyBookmark(int page) async {
+    await _wirdService.saveLastReadPage(page);
+    await _wirdService.markDailyBookmarkManual();
+    // Keep home tracker in sync.
+    final safeP = page.clamp(1, 604);
+    final pos = pageStartPosition(safeP);
+    final surah = pos.surah;
+    final nameAr = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['arabic'] ?? ''
+        : '';
+    final nameEn = surah >= 1 && surah <= 114
+        ? SurahNames.surahs[surah - 1]['english'] ?? ''
+        : '';
+    await _settingsService.updateLastReadProgress(
+      surahNumber: surah,
+      surahNameAr: nameAr.isNotEmpty ? nameAr : null,
+      surahNameEn: nameEn.isNotEmpty ? nameEn : null,
+      page: page,
+    );
+    load();
+  }
+
+  /// Saves a makeup bookmark explicitly set by the user via the dialog.
+  /// Also sets the manual flag so the bookmark is visible in the UI.
+  Future<void> saveManualMakeupBookmark(int day, int surah, int ayah) async {
+    await _wirdService.saveMakeupBookmark(day, surah, ayah);
+    await _wirdService.markMakeupBookmarkManual();
     load();
   }
 

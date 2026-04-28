@@ -28,7 +28,7 @@ import '../../../islamic/presentation/screens/hijri_calendar_screen.dart';
 import '../../../hadith/presentation/screens/hadith_categories_screen.dart';
 import 'search_screen.dart';
 import '../../../quiz/presentation/screens/quiz_screen.dart';
-import '../../../quiz/presentation/widgets/quiz_sign_in_sheet.dart';
+import '../../../quiz/presentation/widgets/quiz_mode_entry_sheet.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/home_tutorial.dart';
@@ -1072,12 +1072,9 @@ class _QuickAccessBar extends StatelessWidget {
                 onTap: () {
                   final user = FirebaseAuth.instance.currentUser;
                   if (user == null || user.isAnonymous) {
-                    showQuizSignInSheet(
+                    showQuizModeEntrySheet(
                       context,
                       isArabic: isArabicUi,
-                      onAuthenticated: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const QuizScreen()),
-                      ),
                     );
                   } else {
                     Navigator.of(context).push(

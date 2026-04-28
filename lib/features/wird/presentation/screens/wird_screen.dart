@@ -38,6 +38,140 @@ String _formatTime12h(TimeOfDay tod, {required bool isAr}) =>
 
 String _surahNameArb(int n) => surahArabicNames[n] ?? 'سورة ${_arabicNum(n)}';
 
+// ── Manual bookmark dialog ───────────────────────────────────────────────────
+/// Generic page-bookmark dialog.
+/// [startPage]/[endPage] bound the valid page range for this wird day.
+/// [onSave] is called with the chosen page; callers decide what to persist.
+void showManualBookmarkDialog(
+  BuildContext ctx, {
+  required bool isAr,
+  required bool isDark,
+  required int startPage,
+  required int endPage,
+  required void Function(int page) onSave,
+}) {
+  int enteredPage = startPage;
+
+  showModalBottomSheet(
+    context: ctx,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) => StatefulBuilder(
+      builder: (sheetCtx, _) {
+        final pageCtrl = TextEditingController(text: enteredPage.toString());
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: isAr
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.divider,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.bookmark_add_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isAr ? 'حفظ مكان القراءة' : 'Save Position',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: pageCtrl,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    labelText: isAr
+                        ? 'رقم الصفحة (١ – ٦٠٤)'
+                        : 'Page number (1–604)',
+                  ),
+                  onChanged: (v) {
+                    final n = int.tryParse(v);
+                    if (n != null && n >= 1 && n <= 604) enteredPage = n;
+                  },
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        child: Text(isAr ? 'إلغاء' : 'Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.save_rounded, size: 18),
+                        onPressed: () {
+                          final n = int.tryParse(pageCtrl.text);
+                          final pg = (n != null && n >= 1 && n <= 604)
+                              ? n
+                              : enteredPage;
+                          onSave(pg);
+                          Navigator.pop(sheetCtx);
+                        },
+                        label: Text(
+                          isAr ? 'حفظ' : 'Save',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
 Widget _digitAwareText(
   String text, {
   required TextStyle? style,
@@ -184,6 +318,8 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
                 makeupBookmarkSurah: state.makeupBookmarkSurah,
                 makeupBookmarkAyah: state.makeupBookmarkAyah,
                 focusedDay: state.focusedDay,
+                manualDailyBookmark: state.manualDailyBookmark,
+                manualMakeupBookmark: state.manualMakeupBookmark,
               );
             }
             return const SizedBox.shrink();
@@ -1683,6 +1819,8 @@ class _ActivePlanView extends StatefulWidget {
   final int? makeupBookmarkSurah;
   final int? makeupBookmarkAyah;
   final int? focusedDay;
+  final bool manualDailyBookmark;
+  final bool manualMakeupBookmark;
 
   const _ActivePlanView({
     required this.plan,
@@ -1696,6 +1834,8 @@ class _ActivePlanView extends StatefulWidget {
     this.makeupBookmarkSurah,
     this.makeupBookmarkAyah,
     this.focusedDay,
+    this.manualDailyBookmark = false,
+    this.manualMakeupBookmark = false,
   });
 
   @override
@@ -1992,7 +2132,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               lastReadAyah: widget.lastReadAyah,
               lastReadPage: widget.lastReadPage,
               daysBehind: daysBehind,
-              onShowBookmarkDialog: null, // DISABLED: bookmark dialog
+              hasManualBookmark: widget.manualDailyBookmark,
               onFocusDay: (d) => context.read<WirdCubit>().setFocusedDay(d),
               onResetFocus: focusedDay != null
                   ? () => context.read<WirdCubit>().clearFocusedDay()
@@ -2010,6 +2150,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               makeupBookmarkDay: widget.makeupBookmarkDay,
               makeupBookmarkSurah: widget.makeupBookmarkSurah,
               makeupBookmarkAyah: widget.makeupBookmarkAyah,
+              manualMakeupBookmark: widget.manualMakeupBookmark,
             ),
 
           const SizedBox(height: 14),
@@ -2198,7 +2339,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     //   targetSurah = savedSurah;
     //   targetAyah = savedAyah;
     // } else {
-    // Start from the beginning of the day's range (always).
+    // Start from the beginning of the day's range (always unless manual bookmark).
     targetSurah = range.start.surah;
     targetAyah = range.start.ayah;
     if (dayPageRange != null) {
@@ -2222,13 +2363,6 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
       surahName = surahArabicNames[targetSurah] ?? 'سورة $targetSurah';
     }
 
-    // Save immediately in case the app is closed.
-    if (targetPage != null) {
-      cubit.saveLastReadPage(targetPage!);
-    } else {
-      cubit.saveLastRead(targetSurah, targetAyah);
-    }
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -2237,8 +2371,6 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           surahName: surahName,
           initialPageNumber: targetPage,
           initialAyahNumber: targetPage == null ? targetAyah : null,
-          onPositionChanged: (s, a) => cubit.saveLastRead(s, a),
-          onPageChanged: (p) => cubit.saveLastReadPage(p),
         ),
       ),
     );
@@ -3219,8 +3351,7 @@ class _TodayCard extends StatelessWidget {
   final int? lastReadAyah;
   final int? lastReadPage;
   final int daysBehind;
-  final void Function(BuildContext, ReadingRange, int, PageReadingRange?)?
-  onShowBookmarkDialog;
+  final bool hasManualBookmark;
   final VoidCallback? onSwitchToMakeup;
   final ValueChanged<int>? onFocusDay;
   final VoidCallback? onResetFocus;
@@ -3239,14 +3370,15 @@ class _TodayCard extends StatelessWidget {
     this.lastReadAyah,
     this.lastReadPage,
     this.daysBehind = 0,
-    this.onShowBookmarkDialog,
+    this.hasManualBookmark = false,
     this.onSwitchToMakeup,
     this.onFocusDay,
     this.onResetFocus,
   });
 
   bool get _hasBookmark =>
-      lastReadPage != null || (lastReadSurah != null && lastReadAyah != null);
+      hasManualBookmark &&
+      (lastReadPage != null || (lastReadSurah != null && lastReadAyah != null));
 
   // ── Surah name helper (prefers SurahBloc, falls back to hard-coded map) ───
 
@@ -3814,45 +3946,59 @@ class _TodayCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
 
-                // DISABLED: Update bookmark button (do not uncomment unless requested)
-                // if (!isComplete)
-                //   ElevatedButton(
-                //     onPressed: () => onShowBookmarkDialog?.call(
-                //       context,
-                //       range,
-                //       today,
-                //       pageRange,
-                //     ),
-                //     style: ElevatedButton.styleFrom(
-                //       backgroundColor: AppColors.secondary.withValues(alpha: 0.12,),
-                //       foregroundColor: AppColors.secondary,
-                //       elevation: 0,
-                //       padding: const EdgeInsets.symmetric(
-                //         horizontal: 12,
-                //         vertical: 13,
-                //       ),
-                //       shape: RoundedRectangleBorder(
-                //         borderRadius: BorderRadius.circular(12),
-                //         side: BorderSide(
-                //           color: AppColors.secondary.withValues(alpha: 0.35),
-                //         ),
-                //       ),
-                //     ),
-                //     child: const Icon(Icons.bookmark_add_rounded, size: 20),
-                //   ),
-                // if (!isComplete) const SizedBox(width: 8),
-
-                // Mark complete toggle
+                // Bookmark icon button
                 ElevatedButton(
+                  onPressed: () {
+                    final isDarkCtx =
+                        Theme.of(context).brightness == Brightness.dark;
+                    final cubit = context.read<WirdCubit>();
+                    final startP = pageRange?.startPage ??
+                        getPageNumber(range.start.surah, range.start.ayah);
+                    final endP = pageRange?.endPage ??
+                        getPageNumber(range.end.surah, range.end.ayah);
+                    showManualBookmarkDialog(
+                      context,
+                      isAr: isAr,
+                      isDark: isDarkCtx,
+                      startPage: startP,
+                      endPage: endP,
+                      onSave: (pg) {
+                        cubit.saveManualDailyBookmark(pg);
+                        if (pg >= endP) cubit.autoCompleteByPage(today, pg);
+                      },
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        AppColors.secondary.withValues(alpha: 0.12),
+                    foregroundColor: AppColors.secondary,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 13,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: AppColors.secondary.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                  child: const Icon(Icons.bookmark_add_rounded, size: 20),
+                ),
+                const SizedBox(width: 8),
+
+                // Mark complete - green text button
+                ElevatedButton.icon(
                   onPressed: () =>
                       context.read<WirdCubit>().toggleDayComplete(today),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isComplete
                         ? AppColors.success.withValues(alpha: 0.15)
-                        : AppColors.secondary.withValues(alpha: 0.15),
+                        : AppColors.primary.withValues(alpha: 0.12),
                     foregroundColor: isComplete
                         ? AppColors.success
-                        : AppColors.accent,
+                        : AppColors.primary,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -3863,15 +4009,17 @@ class _TodayCard extends StatelessWidget {
                       side: BorderSide(
                         color: isComplete
                             ? AppColors.success.withValues(alpha: 0.4)
-                            : AppColors.secondary.withValues(alpha: 0.4),
+                            : AppColors.primary.withValues(alpha: 0.35),
                       ),
                     ),
                   ),
-                  child: Icon(
-                    isComplete
-                        ? Icons.check_box_rounded
-                        : Icons.check_box_outline_blank_rounded,
-                    size: 22,
+                  icon: const Icon(Icons.check_circle_rounded, size: 18),
+                  label: Text(
+                    isAr ? 'أكملته' : 'Done',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
@@ -3944,35 +4092,29 @@ class _TodayCard extends StatelessWidget {
     int? targetPage;
     int targetAyah;
 
-    // DISABLED: auto-bookmark resume — always start from day range
-    // if (savedPage != null) {
-    //   targetPage = savedPage;
-    //   final pos = pageStartPosition(targetPage);
-    //   targetSurah = pos.surah;
-    //   targetAyah = pos.ayah;
-    // } else if (savedSurah != null && savedAyah != null) {
-    //   targetSurah = savedSurah;
-    //   targetAyah = savedAyah;
-    // } else {
-    // Start from today's range start (always).
-    targetSurah = range.start.surah;
-    targetAyah = range.start.ayah;
-    if (pageRange != null) {
-      targetPage = pageRange!.startPage;
+    // Resume from manual bookmark if one exists; otherwise start from day range.
+    if (_hasBookmark && savedPage != null) {
+      targetPage = savedPage;
       final pos = pageStartPosition(targetPage);
       targetSurah = pos.surah;
       targetAyah = pos.ayah;
+    } else if (_hasBookmark && savedSurah != null && savedAyah != null) {
+      targetSurah = savedSurah;
+      targetAyah = savedAyah;
+      targetPage = getPageNumber(savedSurah, savedAyah);
+    } else {
+      // Start from today's range start.
+      targetSurah = range.start.surah;
+      targetAyah = range.start.ayah;
+      if (pageRange != null) {
+        targetPage = pageRange!.startPage;
+        final pos = pageStartPosition(targetPage);
+        targetSurah = pos.surah;
+        targetAyah = pos.ayah;
+      }
     }
-    // }
 
     final surahName = _surahName(context, targetSurah);
-
-    // Save immediately in case the app is closed.
-    if (targetPage != null) {
-      cubit.saveLastReadPage(targetPage!);
-    } else {
-      cubit.saveLastRead(targetSurah, targetAyah);
-    }
 
     Navigator.push(
       context,
@@ -3982,18 +4124,9 @@ class _TodayCard extends StatelessWidget {
           surahName: surahName,
           initialPageNumber: targetPage,
           initialAyahNumber: targetPage == null ? targetAyah : null,
-          // Save on surah navigation.
-          onPositionChanged: (s, a) => cubit.saveLastRead(s, a),
-          // Save on every page swipe (primary tracking).
-          onPageChanged: (p) => cubit.saveLastReadPage(p),
         ),
       ),
     );
-    // DISABLED: "where did you stop?" dialog after reading
-    // .then((_) {
-    //   if (!context.mounted) return;
-    //   onShowBookmarkDialog?.call(context, range, today, pageRange);
-    // });
   }
 }
 
@@ -4478,6 +4611,7 @@ class _MakeupCard extends StatefulWidget {
   final int? makeupBookmarkDay;
   final int? makeupBookmarkSurah;
   final int? makeupBookmarkAyah;
+  final bool manualMakeupBookmark;
 
   const _MakeupCard({
     required this.plan,
@@ -4486,6 +4620,7 @@ class _MakeupCard extends StatefulWidget {
     this.makeupBookmarkDay,
     this.makeupBookmarkSurah,
     this.makeupBookmarkAyah,
+    this.manualMakeupBookmark = false,
   });
 
   @override
@@ -4825,7 +4960,8 @@ class _MakeupCardState extends State<_MakeupCard> {
                 const SizedBox(height: 10),
 
                 // ── Bookmark row ──────────────────────────────────────────
-                if (widget.makeupBookmarkDay == day &&
+                if (widget.manualMakeupBookmark &&
+                    widget.makeupBookmarkDay == day &&
                     widget.makeupBookmarkSurah != null &&
                     widget.makeupBookmarkAyah != null) ...[
                   Container(
@@ -4903,7 +5039,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                           size: 16,
                         ),
                         label: Text(
-                          (widget.makeupBookmarkDay == day)
+                          (widget.manualMakeupBookmark && widget.makeupBookmarkDay == day)
                               ? (isAr ? 'تابع القراءة' : 'Resume Reading')
                               : (isAr ? 'اقرأ القضاء' : 'Read Makeup'),
                           style: const TextStyle(
@@ -4914,22 +5050,43 @@ class _MakeupCardState extends State<_MakeupCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // DISABLED: Update makeup bookmark button (do not uncomment unless requested)
-                    // ElevatedButton(
-                    //   onPressed: () =>
-                    //       _showMakeupBookmarkDialog(context, range, day),
-                    //   style: ElevatedButton.styleFrom(
-                    //     backgroundColor: _kOrange.withValues(alpha: 0.12),
-                    //     foregroundColor: _kOrange,
-                    //     elevation: 0,
-                    //     padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                    //     shape: RoundedRectangleBorder(
-                    //       borderRadius: BorderRadius.circular(12),
-                    //       side: BorderSide(color: _kOrangeBorder.withValues(alpha: 0.4)),
-                    //     ),
-                    //   ),
-                    //   child: const Icon(Icons.bookmark_add_rounded, size: 20),
-                    // ),
+                    // Bookmark icon button
+                    ElevatedButton(
+                      onPressed: () {
+                        final isDarkCtx =
+                            Theme.of(context).brightness == Brightness.dark;
+                        final cubit = context.read<WirdCubit>();
+                        final startP = pageRange?.startPage ??
+                            getPageNumber(range.start.surah, range.start.ayah);
+                        final endP = pageRange?.endPage ??
+                            getPageNumber(range.end.surah, range.end.ayah);
+                        showManualBookmarkDialog(
+                          context,
+                          isAr: isAr,
+                          isDark: isDarkCtx,
+                          startPage: startP,
+                          endPage: endP,
+                          onSave: (pg) {
+                            final pos = pageStartPosition(
+                                pg.clamp(1, _kMushafPagesTotal));
+                            cubit.saveManualMakeupBookmark(day, pos.surah, pos.ayah);
+                          },
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kOrange.withValues(alpha: 0.12),
+                        foregroundColor: _kOrange,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 13, horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                              color: _kOrangeBorder.withValues(alpha: 0.4)),
+                        ),
+                      ),
+                      child: const Icon(Icons.bookmark_add_rounded, size: 20),
+                    ),
                     const SizedBox(width: 8),
                     // Mark done button
                     ElevatedButton.icon(
@@ -4980,6 +5137,7 @@ class _MakeupCardState extends State<_MakeupCard> {
 
   void _navigateToRead(BuildContext context, ReadingRange range, int day) {
     final hasBookmark =
+        widget.manualMakeupBookmark &&
         widget.makeupBookmarkDay == day &&
         widget.makeupBookmarkSurah != null &&
         widget.makeupBookmarkAyah != null;
@@ -5006,16 +5164,6 @@ class _MakeupCardState extends State<_MakeupCard> {
           surahName: _surahName(context, targetSurah),
           initialPageNumber: targetPage,
           initialAyahNumber: targetPage == null ? targetAyah : null,
-          // Save on every surah navigation (non-QCF mode).
-          onPositionChanged: (s, a) => cubit.saveMakeupBookmark(day, s, a),
-          // Save on every page swipe (QCF mode): update BOTH the makeup
-          // bookmark and the home-screen general tracker so the user always
-          // resumes from their actual last page, even if they skip the dialog.
-          onPageChanged: (p) {
-            final pos = pageStartPosition(p.clamp(1, _kMushafPagesTotal));
-            cubit.saveMakeupBookmark(day, pos.surah, pos.ayah);
-            cubit.saveLastReadPage(p);
-          },
         ),
       ),
     );

@@ -62,6 +62,12 @@ class WirdPlanLoaded extends WirdState {
   /// Persisted focused day for manual forward flow in daily card.
   final int? focusedDay;
 
+  /// True only when the user explicitly set a daily bookmark via the dialog.
+  final bool manualDailyBookmark;
+
+  /// True only when the user explicitly set a makeup bookmark via the dialog.
+  final bool manualMakeupBookmark;
+
   const WirdPlanLoaded(
     this.plan, {
     this.reminderHour,
@@ -75,16 +81,22 @@ class WirdPlanLoaded extends WirdState {
     this.makeupBookmarkSurah,
     this.makeupBookmarkAyah,
     this.focusedDay,
+    this.manualDailyBookmark = false,
+    this.manualMakeupBookmark = false,
   });
 
   bool get hasReminder => reminderHour != null && reminderMinute != null;
 
-  /// True when the user has a saved reading bookmark (page or surah+ayah).
+  /// True when the user has a saved reading bookmark (page or surah+ayah)
+  /// AND explicitly set it manually via the dialog.
   bool get hasLastRead =>
-      lastReadPage != null || (lastReadSurah != null && lastReadAyah != null);
+      manualDailyBookmark &&
+      (lastReadPage != null || (lastReadSurah != null && lastReadAyah != null));
 
-  /// True when the user has a saved makeup reading bookmark.
+  /// True when the user has a saved makeup reading bookmark
+  /// AND explicitly set it manually via the dialog.
   bool get hasMakeupBookmark =>
+      manualMakeupBookmark &&
       makeupBookmarkDay != null &&
       makeupBookmarkSurah != null &&
       makeupBookmarkAyah != null;
@@ -106,5 +118,7 @@ class WirdPlanLoaded extends WirdState {
     makeupBookmarkSurah,
     makeupBookmarkAyah,
     focusedDay,
+    manualDailyBookmark,
+    manualMakeupBookmark,
   ];
 }

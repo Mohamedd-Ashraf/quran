@@ -107,6 +107,9 @@ class WirdService {
   static const String _keyLastReadSurah = 'wird_last_read_surah';
   static const String _keyLastReadAyah = 'wird_last_read_ayah';
   static const String _keyLastReadPage = 'wird_last_read_page';
+  // Manual-bookmark flags (only true when user explicitly saved via dialog)
+  static const String _keyManualDailyBm = 'wird_manual_daily_bm';
+  static const String _keyManualMakeupBm = 'wird_manual_makeup_bm';
   // Makeup wird bookmark
   static const String _keyMakeupDay = 'wird_makeup_day';
   static const String _keyMakeupSurah = 'wird_makeup_surah';
@@ -243,6 +246,8 @@ class WirdService {
     await _prefs.remove(_keyMakeupDay);
     await _prefs.remove(_keyMakeupSurah);
     await _prefs.remove(_keyMakeupAyah);
+    await _prefs.remove(_keyManualDailyBm);
+    await _prefs.remove(_keyManualMakeupBm);
     await _prefs.remove(_keyFocusedDay);
     onDataChanged?.call();
     // Intentionally keep reminder time — user may want to re-use it.
@@ -298,6 +303,24 @@ class WirdService {
 
   // ── Last-read position (daily progress bookmark) ───────────────────────────
 
+  /// True only when the user explicitly saved a daily bookmark via the dialog.
+  bool get manualDailyBookmark => _prefs.getBool(_keyManualDailyBm) ?? false;
+
+  /// True only when the user explicitly saved a makeup bookmark via the dialog.
+  bool get manualMakeupBookmark => _prefs.getBool(_keyManualMakeupBm) ?? false;
+
+  /// Marks the current daily bookmark as manually set.
+  Future<void> markDailyBookmarkManual() async {
+    await _prefs.setBool(_keyManualDailyBm, true);
+    onDataChanged?.call();
+  }
+
+  /// Marks the current makeup bookmark as manually set.
+  Future<void> markMakeupBookmarkManual() async {
+    await _prefs.setBool(_keyManualMakeupBm, true);
+    onDataChanged?.call();
+  }
+
   /// Surah number (1–114) where the user last stopped reading today.
   /// Returns null if no bookmark has been saved for the current day.
   int? get lastReadSurah => _prefs.getInt(_keyLastReadSurah);
@@ -327,6 +350,7 @@ class WirdService {
     await _prefs.remove(_keyLastReadSurah);
     await _prefs.remove(_keyLastReadAyah);
     await _prefs.remove(_keyLastReadPage);
+    await _prefs.remove(_keyManualDailyBm);
     onDataChanged?.call();
   }
 
@@ -355,6 +379,7 @@ class WirdService {
     await _prefs.remove(_keyMakeupDay);
     await _prefs.remove(_keyMakeupSurah);
     await _prefs.remove(_keyMakeupAyah);
+    await _prefs.remove(_keyManualMakeupBm);
     onDataChanged?.call();
   }
 

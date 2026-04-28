@@ -20,7 +20,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qcf_quran_plus/qcf_quran_plus.dart' show getSurahNameArabic;
 import '../../../quiz/presentation/screens/quiz_screen.dart';
-import '../../../quiz/presentation/widgets/quiz_sign_in_sheet.dart';
+import '../../../quiz/presentation/widgets/quiz_mode_entry_sheet.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -211,12 +211,9 @@ class _MoreScreenState extends State<MoreScreen> {
               onTap: () {
                 final user = FirebaseAuth.instance.currentUser;
                 if (user == null || user.isAnonymous) {
-                  showQuizSignInSheet(
+                  showQuizModeEntrySheet(
                     context,
                     isArabic: isArabicUi,
-                    onAuthenticated: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const QuizScreen()),
-                    ),
                   );
                 } else {
                   Navigator.of(context).push(
