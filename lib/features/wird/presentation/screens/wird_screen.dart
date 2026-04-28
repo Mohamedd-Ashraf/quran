@@ -1992,7 +1992,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               lastReadAyah: widget.lastReadAyah,
               lastReadPage: widget.lastReadPage,
               daysBehind: daysBehind,
-              onShowBookmarkDialog: _showBookmarkDialog,
+              onShowBookmarkDialog: null, // DISABLED: bookmark dialog
               onFocusDay: (d) => context.read<WirdCubit>().setFocusedDay(d),
               onResetFocus: focusedDay != null
                   ? () => context.read<WirdCubit>().clearFocusedDay()
@@ -2188,27 +2188,26 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     int targetSurah;
     int targetAyah;
 
-    if (savedPage != null) {
-      // Resume from saved page — even if beyond the current day's range.
-      targetPage = savedPage;
+    // DISABLED: auto-bookmark resume (surah-start fallback commented out)
+    // if (savedPage != null) {
+    //   targetPage = savedPage;
+    //   final pos = pageStartPosition(targetPage);
+    //   targetSurah = pos.surah;
+    //   targetAyah = pos.ayah;
+    // } else if (savedSurah != null && savedAyah != null) {
+    //   targetSurah = savedSurah;
+    //   targetAyah = savedAyah;
+    // } else {
+    // Start from the beginning of the day's range (always).
+    targetSurah = range.start.surah;
+    targetAyah = range.start.ayah;
+    if (dayPageRange != null) {
+      targetPage = dayPageRange.startPage;
       final pos = pageStartPosition(targetPage);
       targetSurah = pos.surah;
       targetAyah = pos.ayah;
-    } else if (savedSurah != null && savedAyah != null) {
-      // Fall back to surah+ayah bookmark.
-      targetSurah = savedSurah;
-      targetAyah = savedAyah;
-    } else {
-      // No bookmark — start from the beginning of the day's range.
-      targetSurah = range.start.surah;
-      targetAyah = range.start.ayah;
-      if (dayPageRange != null) {
-        targetPage = dayPageRange.startPage;
-        final pos = pageStartPosition(targetPage);
-        targetSurah = pos.surah;
-        targetAyah = pos.ayah;
-      }
     }
+    // }
 
     final surahState = context.read<SurahBloc>().state;
     String surahName;
@@ -2242,10 +2241,12 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
           onPageChanged: (p) => cubit.saveLastReadPage(p),
         ),
       ),
-    ).then((_) {
-      if (!context.mounted) return;
-      _showRangeBookmarkDialog(context, range, day, pageRange: dayPageRange);
-    });
+    );
+    // DISABLED: "where did you stop?" dialog
+    // .then((_) {
+    //   if (!context.mounted) return;
+    //   _showRangeBookmarkDialog(context, range, day, pageRange: dayPageRange);
+    // });
   }
 
   void _confirmReset(BuildContext context) {
@@ -2641,228 +2642,66 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     );
   }
 
-  void _showBookmarkDialog(
-    BuildContext context,
-    ReadingRange range,
-    int today,
-    PageReadingRange? pageRange,
-  ) {
-    _showRangeBookmarkDialog(context, range, today, pageRange: pageRange);
-  }
+  // DISABLED: bookmark dialog helpers — do not uncomment unless requested
+  // void _showBookmarkDialog(
+  //   BuildContext context,
+  //   ReadingRange range,
+  //   int today,
+  //   PageReadingRange? pageRange,
+  // ) {
+  //   _showRangeBookmarkDialog(context, range, today, pageRange: pageRange);
+  // }
 
-  /// Generic bookmark dialog for any day's range.
-  /// If [pageRange] is provided the dialog asks for page number (mushaf mode).
-  /// Always reads the latest saved position from cubit state.
-  void _showRangeBookmarkDialog(
-    BuildContext context,
-    ReadingRange targetRange,
-    int targetDay, {
-    PageReadingRange? pageRange,
-  }) {
-    final cubitState = context.read<WirdCubit>().state;
-    final savedPage = (cubitState is WirdPlanLoaded)
-        ? cubitState.lastReadPage
-        : null;
-    final cubit = context.read<WirdCubit>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = widget.isAr;
-
-    // Always use page mode: derive the page range from the surah range if not
-    // already provided (covers both page-based and juz/day-based plans).
-    PageReadingRange effectivePageRange;
-    if (pageRange != null) {
-      effectivePageRange = pageRange;
-    } else {
-      // Compute from surah boundaries — works for any plan type.
-      final startP = getPageNumber(
-        targetRange.start.surah,
-        targetRange.start.ayah,
-      );
-      final endP = getPageNumber(targetRange.end.surah, targetRange.end.ayah);
-      effectivePageRange = PageReadingRange(startPage: startP, endPage: endP);
-    }
-
-    // ── Page mode (always) ───────────────────────────────────────────────
-    {
-      final startP = effectivePageRange.startPage;
-      final endP = effectivePageRange.endPage;
-      // Resolve default page: saved page → derive from surah/ayah bookmark → day start.
-      final cubitStateNow = context.read<WirdCubit>().state;
-      final savedSurahFallback = (cubitStateNow is WirdPlanLoaded)
-          ? cubitStateNow.lastReadSurah
-          : null;
-      final savedAyahFallback = (cubitStateNow is WirdPlanLoaded)
-          ? cubitStateNow.lastReadAyah
-          : null;
-      int enteredPage;
-      if (savedPage != null) {
-        enteredPage = savedPage;
-      } else if (savedSurahFallback != null) {
-        final p = getPageNumber(savedSurahFallback, savedAyahFallback ?? 1);
-        enteredPage = (p >= 1 && p <= _kMushafPagesTotal) ? p : startP;
-      } else {
-        enteredPage = startP;
-      }
-
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final pageCtrl = TextEditingController(
-              text: enteredPage.toString(),
-            );
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: isAr
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.divider,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.bookmark_add_rounded,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isAr ? 'حتى أين وصلت؟' : 'Where did you stop?',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    _digitAwareText(
-                      isAr
-                          ? 'ورد اليوم: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
-                          : "Today's range: Page $startP–$endP",
-                      isAr: isAr,
-                      textDirection: isAr
-                          ? TextDirection.rtl
-                          : TextDirection.ltr,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: pageCtrl,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        labelText: isAr
-                            ? 'رقم الصفحة (١ – ٦٠٤)'
-                            : 'Page number (1–604)',
-                      ),
-                      onChanged: (v) {
-                        final n = int.tryParse(v);
-                        if (n != null && n >= 1 && n <= _kMushafPagesTotal)
-                          enteredPage = n;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(isAr ? 'تخطي' : 'Skip'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(Icons.save_rounded, size: 18),
-                            onPressed: () {
-                              final n = int.tryParse(pageCtrl.text);
-                              final pg =
-                                  (n != null &&
-                                      n >= 1 &&
-                                      n <= _kMushafPagesTotal)
-                                  ? n
-                                  : enteredPage;
-                              cubit.saveLastReadPage(pg);
-                              // Auto-mark completed days if user read beyond today's range.
-                              if (pg >= endP) {
-                                cubit.autoCompleteByPage(targetDay, pg);
-                              }
-                              Navigator.pop(ctx);
-                            },
-                            label: Text(
-                              isAr ? 'حفظ الصفحة' : 'Save Page',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-  }
+  // /// Generic bookmark dialog for any day's range.
+  // void _showRangeBookmarkDialog(
+  //   BuildContext context,
+  //   ReadingRange targetRange,
+  //   int targetDay, {
+  //   PageReadingRange? pageRange,
+  // }) {
+  //   final cubitState = context.read<WirdCubit>().state;
+  //   final savedPage = (cubitState is WirdPlanLoaded)
+  //       ? cubitState.lastReadPage
+  //       : null;
+  //   final cubit = context.read<WirdCubit>();
+  //   final isDark = Theme.of(context).brightness == Brightness.dark;
+  //   final isAr = widget.isAr;
+  //   PageReadingRange effectivePageRange;
+  //   if (pageRange != null) {
+  //     effectivePageRange = pageRange;
+  //   } else {
+  //     final startP = getPageNumber(targetRange.start.surah, targetRange.start.ayah);
+  //     final endP = getPageNumber(targetRange.end.surah, targetRange.end.ayah);
+  //     effectivePageRange = PageReadingRange(startPage: startP, endPage: endP);
+  //   }
+  //   {
+  //     final startP = effectivePageRange.startPage;
+  //     final endP = effectivePageRange.endPage;
+  //     final cubitStateNow = context.read<WirdCubit>().state;
+  //     final savedSurahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadSurah : null;
+  //     final savedAyahFallback = (cubitStateNow is WirdPlanLoaded) ? cubitStateNow.lastReadAyah : null;
+  //     int enteredPage;
+  //     if (savedPage != null) {
+  //       enteredPage = savedPage;
+  //     } else if (savedSurahFallback != null) {
+  //       final p = getPageNumber(savedSurahFallback, savedAyahFallback ?? 1);
+  //       enteredPage = (p >= 1 && p <= _kMushafPagesTotal) ? p : startP;
+  //     } else {
+  //       enteredPage = startP;
+  //     }
+  //     showModalBottomSheet(
+  //       context: context,
+  //       isScrollControlled: true,
+  //       backgroundColor: Colors.transparent,
+  //       builder: (ctx) => StatefulBuilder(
+  //         builder: (ctx, setSheetState) {
+  //           // ... dialog content ...
+  //           return const SizedBox.shrink();
+  //         },
+  //       ),
+  //     );
+  //   }
+  // }
 }
 
 // ── Wird Mode Toggle ──────────────────────────────────────────────────────────
@@ -3975,35 +3814,33 @@ class _TodayCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
 
-                // Update bookmark button
-                if (!isComplete)
-                  ElevatedButton(
-                    onPressed: () => onShowBookmarkDialog?.call(
-                      context,
-                      range,
-                      today,
-                      pageRange,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary.withValues(
-                        alpha: 0.12,
-                      ),
-                      foregroundColor: AppColors.secondary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: AppColors.secondary.withValues(alpha: 0.35),
-                        ),
-                      ),
-                    ),
-                    child: const Icon(Icons.bookmark_add_rounded, size: 20),
-                  ),
-                if (!isComplete) const SizedBox(width: 8),
+                // DISABLED: Update bookmark button (do not uncomment unless requested)
+                // if (!isComplete)
+                //   ElevatedButton(
+                //     onPressed: () => onShowBookmarkDialog?.call(
+                //       context,
+                //       range,
+                //       today,
+                //       pageRange,
+                //     ),
+                //     style: ElevatedButton.styleFrom(
+                //       backgroundColor: AppColors.secondary.withValues(alpha: 0.12,),
+                //       foregroundColor: AppColors.secondary,
+                //       elevation: 0,
+                //       padding: const EdgeInsets.symmetric(
+                //         horizontal: 12,
+                //         vertical: 13,
+                //       ),
+                //       shape: RoundedRectangleBorder(
+                //         borderRadius: BorderRadius.circular(12),
+                //         side: BorderSide(
+                //           color: AppColors.secondary.withValues(alpha: 0.35),
+                //         ),
+                //       ),
+                //     ),
+                //     child: const Icon(Icons.bookmark_add_rounded, size: 20),
+                //   ),
+                // if (!isComplete) const SizedBox(width: 8),
 
                 // Mark complete toggle
                 ElevatedButton(
@@ -4107,28 +3944,26 @@ class _TodayCard extends StatelessWidget {
     int? targetPage;
     int targetAyah;
 
-    if (savedPage != null) {
-      // Resume from saved page — even if it's beyond the current day's range
-      // (the user may have read ahead).
-      targetPage = savedPage;
+    // DISABLED: auto-bookmark resume — always start from day range
+    // if (savedPage != null) {
+    //   targetPage = savedPage;
+    //   final pos = pageStartPosition(targetPage);
+    //   targetSurah = pos.surah;
+    //   targetAyah = pos.ayah;
+    // } else if (savedSurah != null && savedAyah != null) {
+    //   targetSurah = savedSurah;
+    //   targetAyah = savedAyah;
+    // } else {
+    // Start from today's range start (always).
+    targetSurah = range.start.surah;
+    targetAyah = range.start.ayah;
+    if (pageRange != null) {
+      targetPage = pageRange!.startPage;
       final pos = pageStartPosition(targetPage);
       targetSurah = pos.surah;
       targetAyah = pos.ayah;
-    } else if (savedSurah != null && savedAyah != null) {
-      // Fall back to surah+ayah bookmark.
-      targetSurah = savedSurah;
-      targetAyah = savedAyah;
-    } else {
-      // No bookmark — start from the beginning of today's range.
-      targetSurah = range.start.surah;
-      targetAyah = range.start.ayah;
-      if (pageRange != null) {
-        targetPage = pageRange!.startPage;
-        final pos = pageStartPosition(targetPage);
-        targetSurah = pos.surah;
-        targetAyah = pos.ayah;
-      }
     }
+    // }
 
     final surahName = _surahName(context, targetSurah);
 
@@ -4153,10 +3988,12 @@ class _TodayCard extends StatelessWidget {
           onPageChanged: (p) => cubit.saveLastReadPage(p),
         ),
       ),
-    ).then((_) {
-      if (!context.mounted) return;
-      onShowBookmarkDialog?.call(context, range, today, pageRange);
-    });
+    );
+    // DISABLED: "where did you stop?" dialog after reading
+    // .then((_) {
+    //   if (!context.mounted) return;
+    //   onShowBookmarkDialog?.call(context, range, today, pageRange);
+    // });
   }
 }
 
@@ -5077,27 +4914,22 @@ class _MakeupCardState extends State<_MakeupCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Update bookmark button
-                    ElevatedButton(
-                      onPressed: () =>
-                          _showMakeupBookmarkDialog(context, range, day),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _kOrange.withValues(alpha: 0.12),
-                        foregroundColor: _kOrange,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 13,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: _kOrangeBorder.withValues(alpha: 0.4),
-                          ),
-                        ),
-                      ),
-                      child: const Icon(Icons.bookmark_add_rounded, size: 20),
-                    ),
+                    // DISABLED: Update makeup bookmark button (do not uncomment unless requested)
+                    // ElevatedButton(
+                    //   onPressed: () =>
+                    //       _showMakeupBookmarkDialog(context, range, day),
+                    //   style: ElevatedButton.styleFrom(
+                    //     backgroundColor: _kOrange.withValues(alpha: 0.12),
+                    //     foregroundColor: _kOrange,
+                    //     elevation: 0,
+                    //     padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(12),
+                    //       side: BorderSide(color: _kOrangeBorder.withValues(alpha: 0.4)),
+                    //     ),
+                    //   ),
+                    //   child: const Icon(Icons.bookmark_add_rounded, size: 20),
+                    // ),
                     const SizedBox(width: 8),
                     // Mark done button
                     ElevatedButton.icon(
@@ -5139,189 +4971,12 @@ class _MakeupCardState extends State<_MakeupCard> {
     );
   }
 
-  void _showMakeupBookmarkDialog(
-    BuildContext context,
-    ReadingRange range,
-    int day,
-  ) {
-    final isAr = widget.isAr;
-    final isDark = widget.isDark;
-    final cubit = context.read<WirdCubit>();
-
-    // Derive the page range for this makeup day from its surah boundaries.
-    final startP = getPageNumber(range.start.surah, range.start.ayah);
-    final endP = getPageNumber(range.end.surah, range.end.ayah);
-
-    // Default: use saved page for this makeup day if it falls in range,
-    // otherwise start of the day's page range.
-    final hasBookmark =
-        widget.makeupBookmarkDay == day &&
-        widget.makeupBookmarkSurah != null &&
-        widget.makeupBookmarkAyah != null;
-    int enteredPage;
-    if (hasBookmark) {
-      final bp = getPageNumber(
-        widget.makeupBookmarkSurah!,
-        widget.makeupBookmarkAyah!,
-      );
-      enteredPage = (bp >= startP && bp <= endP) ? bp : startP;
-    } else {
-      enteredPage = startP;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          final pageCtrl = TextEditingController(text: enteredPage.toString());
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: isAr
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.divider,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.bookmark_add_rounded,
-                        color: _kOrange,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isAr
-                            ? 'حتى أين وصلت في القضاء؟'
-                            : 'Where did you stop in makeup?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isDark ? AppColors.darkTextPrimary : _kOrange,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  _digitAwareText(
-                    isAr
-                        ? 'القضاء: صفحة ${_arabicNumerals(startP)} – ${_arabicNumerals(endP)}'
-                        : 'Makeup range: Page $startP–$endP',
-                    isAr: isAr,
-                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: pageCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      labelText: isAr
-                          ? 'رقم الصفحة (١ – ٦٠٤)'
-                          : 'Page number (1–604)',
-                    ),
-                    onChanged: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= 1 && n <= _kMushafPagesTotal) {
-                        enteredPage = n;
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(isAr ? 'تخطي' : 'Skip'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _kOrange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.save_rounded, size: 18),
-                          onPressed: () {
-                            final n = int.tryParse(pageCtrl.text);
-                            final pg =
-                                (n != null && n >= 1 && n <= _kMushafPagesTotal)
-                                ? n
-                                : enteredPage;
-                            // Convert page → surah+ayah for makeup bookmark.
-                            final pos = pageStartPosition(pg);
-                            cubit.saveMakeupBookmark(day, pos.surah, pos.ayah);
-                            // If user reached end of makeup day, auto-complete.
-                            if (pg >= endP) {
-                              cubit.toggleDayComplete(day);
-                            }
-                            Navigator.pop(ctx);
-                          },
-                          label: Text(
-                            isAr ? 'حفظ الصفحة' : 'Save Page',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  // DISABLED: makeup "where did you stop?" dialog — do not uncomment unless requested
+  // void _showMakeupBookmarkDialog(
+  //   BuildContext context,
+  //   ReadingRange range,
+  //   int day,
+  // ) { ... }
 
   void _navigateToRead(BuildContext context, ReadingRange range, int day) {
     final hasBookmark =
@@ -5363,11 +5018,12 @@ class _MakeupCardState extends State<_MakeupCard> {
           },
         ),
       ),
-    ).then((_) {
-      if (!context.mounted) return;
-      // Show position sheet so the user can confirm/adjust where they stopped.
-      _showMakeupBookmarkDialog(context, range, day);
-    });
+    );
+    // DISABLED: "where did you stop?" dialog after makeup reading
+    // .then((_) {
+    //   if (!context.mounted) return;
+    //   _showMakeupBookmarkDialog(context, range, day);
+    // });
   }
 }
 

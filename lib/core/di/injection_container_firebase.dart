@@ -48,6 +48,7 @@ import '../services/location_service.dart';
 import '../services/adhan_notification_service.dart';
 import '../services/prayer_times_cache_service.dart';
 import '../services/app_update_service_firebase.dart';
+import '../services/tip_service.dart';
 import '../services/whats_new_service.dart';
 import '../services/feedback_service.dart';
 import '../services/tutorial_service.dart';
@@ -248,6 +249,9 @@ Future<void> init() async {
 
   // Firebase-based update service
   sl.registerLazySingleton(() => AppUpdateServiceFirebase(sl(), sl()));
+
+  // Tip / notice service (reads tips_json from Remote Config, tracks seen tips)
+  sl.registerLazySingleton(() => TipService(sl(), sl()));
 
   //! Auth
   sl.registerLazySingleton(() => AuthService());

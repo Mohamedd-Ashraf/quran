@@ -553,13 +553,13 @@ class AyahShareCard extends StatelessWidget {
       isDarkMode ? _darkBgColor : _lightBgColor;
 
   static Color textColor(bool isDarkMode) =>
-      isDarkMode ? _darkTextColor : _lightTextColor;
+      isDarkMode ? const ui.Color.fromARGB(255, 255, 255, 255) : const ui.Color.fromARGB(255, 0, 0, 0);
 
   static Color goldColor(bool isDarkMode) =>
       isDarkMode ? _darkGold : _lightGold;
 
   static Color surahNameColor(bool isDarkMode) =>
-      isDarkMode ? _darkSurahNameColor : _lightSurahNameColor;
+      isDarkMode ? const ui.Color.fromARGB(255, 250, 187, 26) : const ui.Color.fromARGB(255, 0, 0, 0);
 
   @override
   Widget build(BuildContext context) {
@@ -613,23 +613,23 @@ class AyahShareCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Thin gold top rule
-                Container(height: 3, color: goldColor),
+                // Container(height: 3, color: goldColor),
 
                 // Space before surah header ("a bit lower")
-                const SizedBox(height: 22),
+                const SizedBox(height: 12),
 
                 // Surah ornamental banner (header)
                 SurahHeaderWidget(suraNumber: surahNumber),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
 
                 // Ornamental separator
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _OrnamentRow(color: goldColor),
-                ),
+                // Padding(
+                //   padding: const EdgeInsets.symmetric(horizontal: 24),
+                //   child: _OrnamentRow(color: goldColor),
+                // ),
 
-                const SizedBox(height: 18),
+                // const SizedBox(height: 18),
 
                 // Verse content – continuous QCF rendering
                 Padding(
@@ -645,7 +645,7 @@ class AyahShareCard extends StatelessWidget {
                 const SizedBox(height: 26),
 
                 // Thin gold bottom rule
-                Container(height: 3, color: goldColor),
+                // Container(height: 3, color: goldColor),
               ],
             ),
           ],

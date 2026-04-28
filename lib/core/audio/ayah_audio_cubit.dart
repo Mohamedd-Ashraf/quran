@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:path_provider/path_provider.dart';
 
 
 import '../services/ayah_audio_service.dart';
@@ -154,6 +157,32 @@ final class _AyahRangeQueueItem extends AyahAudioQueueItem {
   }) : super._();
 }
 
+// ── Artwork cache helper ──────────────────────────────────────────────────────
+// audio_service (Java) only loads bitmap from content:// or file:// URIs.
+// We copy the Flutter asset to the app cache dir on first use, then return
+// a file:// URI that the native layer can open directly.
+final _artworkUriCache = <String, Uri>{};
+
+Future<Uri?> _resolveArtworkUri(String assetPath) async {
+  if (_artworkUriCache.containsKey(assetPath)) {
+    return _artworkUriCache[assetPath];
+  }
+  try {
+    final cacheDir = await getTemporaryDirectory();
+    final fileName = assetPath.replaceAll('/', '_').replaceAll(' ', '_');
+    final file = File('${cacheDir.path}/$fileName');
+    if (!await file.exists()) {
+      final data = await rootBundle.load(assetPath);
+      await file.writeAsBytes(data.buffer.asUint8List());
+    }
+    final uri = Uri.file(file.path);
+    _artworkUriCache[assetPath] = uri;
+    return uri;
+  } catch (_) {
+    return null;
+  }
+}
+
 class AyahAudioCubit extends Cubit<AyahAudioState> {
   final AyahAudioService _service;
   final AudioPlayer _player;
@@ -163,6 +192,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
   StreamSubscription<int?>? _indexSub;
   StreamSubscription<Duration?>? _durationCacheSub;
   bool _initialized = false;
+
+  /// Cached artwork URIs (resolved from Flutter assets to temp files).
+  Uri? _telawahArtUri;
+  Uri? _radioArtUri;
+
+  Future<Uri?> _telawahArt() async =>
+      _telawahArtUri ??= await _resolveArtworkUri('assets/logo/files/quraan telawa.jpg');
 
   // ── Surah queue ───────────────────────────────────────────────────────────
   /// Items waiting to be played.  Each item is a surah + ayah-count pair.
@@ -593,11 +629,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
         // Timing data incomplete — fall back to full surah without tracking.
         final src  = result.source;
         final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+        final artUri = await _telawahArt();
         final mi   = MediaItem(
           id: '${surahNumber}_$startAyah',
           title: _surahNameFor(surahNumber),
           album: isAr ? 'الآية $startAyah' : 'Verse $startAyah',
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
+          artUri: artUri,
         );
         final fallback = src.isLocal
             ? AudioSource.file(src.localFilePath!, tag: mi)
@@ -886,12 +924,13 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       );
 
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final artUri = await _telawahArt();
       final mediaItem = MediaItem(
         id: '${surahNumber}_$ayahNumber',
         title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
         album: _surahNameFor(surahNumber),
         artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-        artUri: null,
+        artUri: artUri,
       );
       late final AudioSource audioSrc;
       if (source.isTimed) {
@@ -951,13 +990,14 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
     );
 
     try {
-      // Radio mode: use radio artwork in the notification.
+      // Radio mode: load radio artwork from asset cache for notification.
+      final radioArtUri = await _resolveArtworkUri('assets/logo/files/islam radio.jpg');
       final mediaItem = MediaItem(
         id: 'radio_${url.hashCode}',
         title: title,
         album: subtitle,
         artist: subtitle,
-        artUri: null,
+        artUri: radioArtUri,
         extras: const {'isLive': true},
       );
       await _player.setAudioSource(
@@ -1127,6 +1167,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
       }
 
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final artUri = await _telawahArt();
       final children = <AudioSource>[];
       for (var i = 0; i < sources.length; i++) {
         final ayahNumber = i + 1;
@@ -1137,7 +1178,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           title: _surahNameFor(surahNumber),
           album: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-          artUri: null,
+          artUri: artUri,
         );
         if (s.isTimed) {
           final inner = s.isLocal
@@ -1248,6 +1289,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
 
     try {
       final isAr = di.sl<SettingsService>().getAppLanguage() == 'ar';
+      final artUri = await _telawahArt();
       final children = <AudioSource>[];
       for (var ayahNumber = startAyah; ayahNumber <= endAyah; ayahNumber++) {
         final source = await _service.resolveAyahAudio(
@@ -1261,7 +1303,7 @@ class AyahAudioCubit extends Cubit<AyahAudioState> {
           title: isAr ? 'الآية $ayahNumber' : 'Verse $ayahNumber',
           album: _surahNameFor(surahNumber),
           artist: isAr ? 'القرآن الكريم' : 'The Holy Quran',
-          artUri: null,
+          artUri: artUri,
         );
         if (source.isLocal) {
           children.add(

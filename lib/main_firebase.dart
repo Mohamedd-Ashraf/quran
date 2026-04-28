@@ -18,6 +18,8 @@ import 'core/services/adhan_notification_service.dart';
 import 'core/services/quran_cache_warmup_service.dart';
 import 'core/services/app_update_service_firebase.dart';
 import 'core/services/tafsir_auto_download_service.dart';
+import 'core/services/tip_service.dart';
+import 'core/widgets/tip_dialog.dart';
 
 import 'features/wird/services/wird_notification_service.dart';
 import 'features/quiz/services/quiz_notification_service.dart';
@@ -357,6 +359,27 @@ class _GlobalWirdLifecycleObserverState
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  /// Check for unseen tips/notices from Remote Config and show one if pending.
+  Future<void> _checkForTips(
+    BuildContext context,
+    String languageCode,
+  ) async {
+    try {
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!context.mounted) return;
+      final tipService = di.sl<TipService>();
+      final tip = tipService.getNextUnseenTip();
+      if (tip == null || !context.mounted) return;
+      final isAr = languageCode.toLowerCase().startsWith('ar');
+      // Mark seen BEFORE showing so concurrent calls don't double-show.
+      await tipService.markSeen(tip.id);
+      if (!context.mounted) return;
+      await TipDialog.show(context: context, tip: tip, isAr: isAr);
+    } catch (e, stack) {
+      debugPrint('Error in _checkForTips: $e\n$stack');
+    }
+  }
+
   /// Check for app updates in the background
   Future<void> _checkForUpdates(
     BuildContext context,
@@ -430,6 +453,7 @@ class MyApp extends StatelessWidget {
                     // Check for updates after the app loads
                     WidgetsBinding.instance.addPostFrameCallback((_) async {
                       _checkForUpdates(context, settings.appLanguageCode);
+                      _checkForTips(context, settings.appLanguageCode);
                     });
                     return const OnboardingGate();
                   },

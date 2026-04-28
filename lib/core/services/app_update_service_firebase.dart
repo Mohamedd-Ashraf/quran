@@ -68,6 +68,7 @@ class AppUpdateServiceFirebase {
         _keyChangelogAr: '',
         _keyChangelogEn: '',
         _keyReleaseDate: DateTime.now().toIso8601String(),
+        'tips_json': '[]',
       });
       print('✅ Remote Config defaults set');
 
