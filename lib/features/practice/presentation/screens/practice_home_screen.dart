@@ -34,6 +34,9 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
   /// Number of locally cached questions for current filters.
   int _offlineCount = 0;
 
+  /// Total in Firestore for current filters. Null = unknown/offline.
+  int? _remoteTotal;
+
   /// Whether a download is in progress (for overlay).
   bool _downloading = false;
 
@@ -61,18 +64,25 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
   void initState() {
     super.initState();
     _loadXp();
-    _loadOfflineCount();
+    _loadCounts();
   }
 
   Future<void> _loadXp() async {
-    final xp = await di.sl<XpService>().getTotalXp();
-    if (mounted) setState(() => _totalXp = xp);
+    try {
+      final xp = await di.sl<XpService>().getTotalXp();
+      if (mounted) setState(() => _totalXp = xp);
+    } catch (_) {}
   }
 
-  Future<void> _loadOfflineCount() async {
+  Future<void> _loadCounts() async {
     final cubit = di.sl<PracticeCubit>();
-    final count = await cubit.getOfflineCount();
-    if (mounted) setState(() => _offlineCount = count);
+    final offline = await cubit.getOfflineCount();
+    final remote = await cubit.getRemoteTotal();
+    if (!mounted) return;
+    setState(() {
+      _offlineCount = offline;
+      _remoteTotal = remote;
+    });
   }
 
   @override
@@ -218,7 +228,7 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
                         isDark: isDark,
                         onTap: () => setState(() {
             _difficulty = value;
-            _loadOfflineCount();
+            _loadCounts();
           }),
                         color: _difficultyColor(value),
                       );
@@ -413,83 +423,17 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // ── Download Stats ────────────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkCard : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark ? AppColors.darkBorder : AppColors.cardBorder,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _StatItem(
-                          icon: Icons.download_done_rounded,
-                          label: isArabic ? 'المحملة' : 'Downloaded',
-                          value: '$_offlineCount',
-                          color: AppColors.success,
-                          isDark: isDark,
-                        ),
-                        Container(
-                          width: 1,
-                          height: 40,
-                          color: isDark
-                              ? AppColors.darkBorder
-                              : AppColors.cardBorder,
-                        ),
-                        _StatItem(
-                          icon: Icons.cloud_download_rounded,
-                          label: isArabic ? 'متاح للتحميل' : 'Available',
-                          value: _offlineCount > 0 ? '150' : '?',
-                          color: AppColors.primary,
-                          isDark: isDark,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ── Pre-download ──────────────────────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: OutlinedButton.icon(
-                      onPressed: _downloading
-                          ? null
-                          : () => _showDownloadDialog(context,
-                              isArabic: isArabic, isDark: isDark),
-                      icon: Icon(Icons.cloud_download_rounded,
-                          color: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.textSecondary),
-                      label: Text(
-                        isArabic
-                            ? 'تحميل أسئلة ($_offlineCount متاحة)'
-                            : 'Pre-download Questions ($_offlineCount offline)',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        side: BorderSide(
-                          color: isDark
-                              ? AppColors.darkBorder
-                              : AppColors.divider,
-                        ),
-                      ),
-                    ),
+                  // ── Offline cache row ────────────────────────────────────
+                  _OfflineCacheRow(
+                    offlineCount: _offlineCount,
+                    remoteTotal: _remoteTotal,
+                    downloading: _downloading,
+                    isArabic: isArabic,
+                    isDark: isDark,
+                    onDownload: () => _triggerDownload(context,
+                        isArabic: isArabic),
                   ),
 
                   const SizedBox(height: 20),
@@ -498,61 +442,6 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
             ),
           ),
         ),
-
-        // ── Download progress overlay ────────────────────────────────────
-        if (_downloading)
-          Container(
-            color: Colors.black.withValues(alpha: 0.55),
-            child: Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 48),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 28),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCard : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 24,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(
-                        color: AppColors.primary),
-                    const SizedBox(height: 20),
-                    Text(
-                      isArabic
-                          ? 'جارٍ تحميل الأسئلة...'
-                          : 'Downloading questions…',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isArabic
-                          ? 'يرجى الانتظار'
-                          : 'Please wait',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -574,7 +463,7 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
         return GestureDetector(
           onTap: () => setState(() {
             _category = value;
-            _loadOfflineCount();
+            _loadCounts();
           }),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -757,7 +646,10 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
           ),
         ),
       ),
-    ).then((_) => _loadXp());
+    ).then((_) async {
+      // Reload XP after quiz completes to reflect earned XP
+      await _loadXp();
+    });
     cubit.startSession(
       category: _category,
       difficulty: _difficulty,
@@ -765,193 +657,138 @@ class _PracticeHomeScreenState extends State<PracticeHomeScreen> {
     );
   }
 
-  Future<void> _showDownloadDialog(
+  Future<void> _triggerDownload(
     BuildContext context, {
     required bool isArabic,
-    required bool isDark,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
-    final int? chosen = await showDialog<int>(
-      context: context,
-      builder: (ctx) => _DownloadDialog(
-        isArabic: isArabic,
-        isDark: isDark,
-        category: _category,
-        difficulty: _difficulty,
-      ),
-    );
-    if (chosen == null || !mounted) return;
-
     setState(() => _downloading = true);
-
     try {
       final cubit = di.sl<PracticeCubit>();
-      final downloaded = await cubit.downloadMore(limit: chosen);
-
+      // Reset cursor so the user can always force a fresh Firestore check,
+      // even if a previous pass marked the key as exhausted.
+      cubit.resetDownloadCursor();
+      final downloaded = await cubit.downloadMore(limit: 150);
       if (!mounted) return;
-
       if (downloaded > 0) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(isArabic
-                ? 'تم تحميل $downloaded سؤال ✓'
-                : '$downloaded questions downloaded ✓'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        messenger.showSnackBar(SnackBar(
+          content: Text(isArabic ? 'تم تحميل $downloaded سؤال ✓' : '$downloaded questions saved ✓'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
       } else if (downloaded == 0) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(isArabic
-                ? 'لا توجد أسئلة جديدة.'
-                : 'No new questions available.'),
-            backgroundColor: AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        messenger.showSnackBar(SnackBar(
+          content: Text(isArabic ? 'لديك جميع الأسئلة المتاحة' : 'You have all available questions'),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(isArabic
-                ? 'فشل التحميل. تحقق من الاتصال.'
-                : 'Download failed. Check connection.'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-
-      // Refresh offline count after download attempt
-      await _loadOfflineCount();
-    } catch (_) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(isArabic
-              ? 'فشل التحميل. تحقق من الاتصال.'
-              : 'Download failed. Check connection.'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(isArabic ? 'تعذّر الاتصال' : 'Connection failed'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+      await _loadCounts();
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(isArabic ? 'تعذّر الاتصال' : 'Connection failed'),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
   }
 }
 
-// ── Download stats item ───────────────────────────────────────────────────────
+// ── Offline cache row ─────────────────────────────────────────────────────────
 
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final bool isDark;
-
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark
-                ? AppColors.darkTextSecondary
-                : AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Download dialog ──────────────────────────────────────────────────────────
-
-class _DownloadDialog extends StatelessWidget {
+class _OfflineCacheRow extends StatelessWidget {
+  final int offlineCount;
+  final int? remoteTotal;
+  final bool downloading;
   final bool isArabic;
   final bool isDark;
-  final String? category;
-  final String? difficulty;
+  final VoidCallback onDownload;
 
-  const _DownloadDialog({
+  const _OfflineCacheRow({
+    required this.offlineCount,
+    required this.remoteTotal,
+    required this.downloading,
     required this.isArabic,
     required this.isDark,
-    required this.category,
-    required this.difficulty,
+    required this.onDownload,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-      title: Text(
-        isArabic
-            ? 'كم سؤالاً تريد تحميله؟'
-            : 'How many questions to download?',
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _option(context, 50, isArabic ? '٥٠ سؤالاً' : '50 Questions'),
-          const SizedBox(height: 10),
-          _option(context, 100, isArabic ? '١٠٠ سؤالاً' : '100 Questions'),
-          const SizedBox(height: 10),
-          _option(context, 150, isArabic ? '١٥٠ سؤالاً' : '150 Questions'),
-        ],
-      ),
-    );
-  }
+    final secondaryColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final remoteTxt = remoteTotal != null ? '$remoteTotal' : '–';
 
-  Widget _option(BuildContext context, int count, String label) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () => Navigator.of(context).pop(count),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+    return Row(
+      children: [
+        // cached badge
+        Icon(Icons.offline_pin_rounded, size: 15, color: AppColors.success),
+        const SizedBox(width: 4),
+        Text(
+          '$offlineCount',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.success,
+          ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        Text(
+          isArabic ? ' محفوظة' : ' cached',
+          style: TextStyle(fontSize: 12, color: secondaryColor),
         ),
-      ),
+        const SizedBox(width: 8),
+        Text('·', style: TextStyle(color: secondaryColor)),
+        const SizedBox(width: 8),
+        // remote total
+        Icon(Icons.cloud_rounded, size: 15, color: secondaryColor),
+        const SizedBox(width: 4),
+        Text(
+          remoteTxt,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: secondaryColor,
+          ),
+        ),
+        Text(
+          isArabic ? ' في الخادم' : ' on server',
+          style: TextStyle(fontSize: 12, color: secondaryColor),
+        ),
+        const Spacer(),
+        // download button / spinner
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: downloading
+              ? Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.cloud_download_rounded,
+                      size: 22, color: AppColors.primary),
+                  tooltip: isArabic ? 'تحميل للاستخدام بدون إنترنت' : 'Download for offline use',
+                  onPressed: onDownload,
+                ),
+        ),
+      ],
     );
   }
 }

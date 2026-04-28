@@ -85,11 +85,13 @@ class PracticeCubit extends Cubit<PracticeState> {
 
   Future<void> _fetchAndStart(int limit) async {
     try {
-      final fresh = await _repository.fetchAndCache(
+      final result = await _repository.fetchAndCache(
         limit: limit,
         category: _category,
         difficulty: _difficulty,
       );
+
+      final fresh = result.fresh;
 
       if (fresh.isEmpty) {
         emit(const PracticeEmpty());
@@ -251,8 +253,20 @@ class PracticeCubit extends Cubit<PracticeState> {
 
   // ── Load more ──────────────────────────────────────────────────────────────
 
+  /// Downloads up to [limit] questions from Firestore into local cache.
+  ///
+  /// Returns:
+  ///   > 0  — number of genuinely new questions inserted
+  ///   = 0  — no new questions (already have all / server returned nothing)
+  ///   < 0  — network / permission error
+  ///
+  /// Only mutates cubit state when an active quiz session is in progress
+  /// (state is [PracticeNeedsMore] or [PracticeReady]).
   Future<int> downloadMore({required int limit}) async {
     final prev = state;
+    final bool duringSession =
+        prev is PracticeNeedsMore || prev is PracticeReady;
+
     int prevCorrect = 0;
     int prevTotal = 0;
     List<PracticeQuestion> prevQuestions = [];
@@ -265,73 +279,84 @@ class PracticeCubit extends Cubit<PracticeState> {
       prevQuestions = prev.questions;
     }
 
-    emit(PracticeDownloading(
-      questions: prevQuestions,
-      currentIndex: prevQuestions.isEmpty ? 0 : prevQuestions.length - 1,
-      correct: prevCorrect,
-    ));
+    if (duringSession) {
+      emit(PracticeDownloading(
+        questions: prevQuestions,
+        currentIndex: prevQuestions.isEmpty ? 0 : prevQuestions.length - 1,
+        correct: prevCorrect,
+      ));
+    }
 
     try {
-      final fresh = await _repository.fetchAndCache(
+      final result = await _repository.fetchAndCache(
         limit: limit,
         category: _category,
         difficulty: _difficulty,
       );
 
-      if (fresh.isEmpty) {
-        final xpEarned = XpService.sessionXp(
-          correct: prevCorrect,
-          bestStreak: _bestStreak,
-          difficulty: _difficulty ?? 'easy',
-        );
-        final totalXp = await _xpService.addXp(xpEarned);
-        emit(PracticeFinished(
-          correct: prevCorrect,
-          total: prevTotal,
-          streak: _streak,
-          bestStreak: _bestStreak,
-          xpEarned: xpEarned,
-          totalXp: totalXp,
-          wrongAnswers: List.from(_wrongAnswers),
-        ));
-        return 0;
+      final fresh = result.fresh;
+      final wasExhausted = result.wasExhausted;
+
+      if (duringSession) {
+        if (wasExhausted || fresh.isEmpty) {
+          final xpEarned = XpService.sessionXp(
+            correct: prevCorrect,
+            bestStreak: _bestStreak,
+            difficulty: _difficulty ?? 'easy',
+          );
+          final totalXp = await _xpService.addXp(xpEarned);
+          emit(PracticeFinished(
+            correct: prevCorrect,
+            total: prevTotal,
+            streak: _streak,
+            bestStreak: _bestStreak,
+            xpEarned: xpEarned,
+            totalXp: totalXp,
+            wrongAnswers: List.from(_wrongAnswers),
+          ));
+        } else {
+          final shuffled = _shuffleAll(fresh);
+          emit(PracticeReady(
+            questions: shuffled,
+            currentIndex: 0,
+            correct: prevCorrect,
+            streak: _streak,
+            bestStreak: _bestStreak,
+          ));
+        }
       }
 
-      final shuffled = _shuffleAll(fresh);
-      emit(PracticeReady(
-        questions: shuffled,
-        currentIndex: 0,
-        correct: prevCorrect,
-        streak: _streak,
-        bestStreak: _bestStreak,
-      ));
-      return fresh.length;
+      if (wasExhausted) return 0;
+      return fresh.length; // may be 0 if all fetched were already cached
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied' ||
-          e.code == 'unavailable' ||
-          e.code == 'network-request-failed') {
-        final xpEarned = XpService.sessionXp(
-          correct: prevCorrect,
-          bestStreak: _bestStreak,
-          difficulty: _difficulty ?? 'easy',
-        );
-        final totalXp = await _xpService.addXp(xpEarned);
-        emit(PracticeFinished(
-          correct: prevCorrect,
-          total: prevTotal,
-          streak: _streak,
-          bestStreak: _bestStreak,
-          xpEarned: xpEarned,
-          totalXp: totalXp,
-          wrongAnswers: List.from(_wrongAnswers),
-        ));
-        return 0;
-      } else {
-        emit(PracticeError('فشل تحميل المزيد: [${e.code}] ${e.message}'));
-        return -1;
+      if (duringSession) {
+        if (e.code == 'permission-denied' ||
+            e.code == 'unavailable' ||
+            e.code == 'network-request-failed') {
+          final xpEarned = XpService.sessionXp(
+            correct: prevCorrect,
+            bestStreak: _bestStreak,
+            difficulty: _difficulty ?? 'easy',
+          );
+          final totalXp = await _xpService.addXp(xpEarned);
+          emit(PracticeFinished(
+            correct: prevCorrect,
+            total: prevTotal,
+            streak: _streak,
+            bestStreak: _bestStreak,
+            xpEarned: xpEarned,
+            totalXp: totalXp,
+            wrongAnswers: List.from(_wrongAnswers),
+          ));
+        } else {
+          emit(PracticeError('فشل تحميل المزيد: [${e.code}] ${e.message}'));
+        }
       }
-    } catch (e) {
-      emit(PracticeError('فشل تحميل المزيد: $e'));
+      return -1;
+    } catch (_) {
+      if (duringSession) {
+        emit(PracticeError('فشل تحميل المزيد'));
+      }
       return -1;
     }
   }
@@ -339,6 +364,16 @@ class PracticeCubit extends Cubit<PracticeState> {
   /// Returns number of locally cached questions for current filters.
   Future<int> getOfflineCount() async {
     return _repository.getCachedCount(category: _category, difficulty: _difficulty);
+  }
+
+  /// Firestore total for current filters. Null = offline/error.
+  Future<int?> getRemoteTotal() =>
+      _repository.getRemoteTotal(category: _category, difficulty: _difficulty);
+
+  /// Resets the pagination cursor so the next [downloadMore] re-checks
+  /// Firestore from the beginning (allows the user to retry after exhaustion).
+  void resetDownloadCursor() {
+    _repository.resetCursor(category: _category, difficulty: _difficulty);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

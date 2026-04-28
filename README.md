@@ -244,11 +244,26 @@ Change the default Quran edition in `lib/core/constants/api_constants.dart`:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome, but all contributions are submitted under the same
+repository license unless explicitly agreed otherwise in writing by the
+copyright holder.
 
 ## License
 
-This project is licensed under the MIT License.
+This repository is licensed under the `Noor Al-Imaan Source-Available
+License`.
+
+Summary:
+
+- Non-commercial use only
+- Commercial use requires prior written permission
+- Use of the code or repository contents for AI or machine learning training,
+  fine-tuning, evaluation, dataset creation, or model improvement is
+  prohibited without prior written permission
+- Redistribution of the code, whether modified or unmodified, requires prior
+  written permission
+
+See the top-level `LICENSE` file for the full terms.
 
 ## Acknowledgments
 

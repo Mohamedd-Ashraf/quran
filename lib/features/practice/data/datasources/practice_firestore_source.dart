@@ -71,6 +71,19 @@ class PracticeFirestoreSource {
     await _firestore.collection(_collection).add(q.toFirestore());
   }
 
+  /// Total doc count in Firestore for given filters. Returns null on error/offline.
+  Future<int?> countTotal({String? category, String? difficulty}) async {
+    try {
+      Query<Map<String, dynamic>> q = _firestore.collection(_collection);
+      if (category != null) q = q.where('category', isEqualTo: category);
+      if (difficulty != null) q = q.where('difficulty', isEqualTo: difficulty);
+      final snap = await q.count().get();
+      return snap.count;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Batch-upload questions in chunks of 500 (Firestore write limit).
   Future<void> addQuestions(List<PracticeQuestion> questions) async {
     const chunkSize = 500;

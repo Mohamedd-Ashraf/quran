@@ -1,0 +1,119 @@
+Noor Al-Imaan Source-Available License
+
+Version 1.0
+
+Copyright (c) 2026 Noor Al-Imaan Project - Muhammed Ashraf
+
+This license governs use of the software, source code, configuration, assets,
+documentation, and other materials made available in this repository
+(collectively, the "Software"). By using, copying, modifying, distributing, or
+otherwise accessing the Software, you agree to the terms of this license.
+
+1. Grant of Limited Permission
+
+Subject to the terms and conditions of this license, the licensor grants you a
+limited, revocable, non-exclusive, non-transferable, non-sublicensable license
+to:
+
+- view, download, and use the Software;
+- modify the Software; and
+- create derivative works of the Software,
+
+solely for personal, educational, research, evaluation, testing, or other
+non-commercial purposes.
+
+2. Commercial Use Prohibited
+
+You may not use the Software, in whole or in part, for any commercial purpose
+without the licensor's prior written permission.
+
+Commercial purpose includes, without limitation:
+
+- selling, licensing, sublicensing, renting, leasing, or otherwise monetizing
+  the Software or derivative works;
+- using the Software or derivative works to provide paid services, hosted
+  services, subscription services, consulting deliverables, or other revenue-
+  generating offerings;
+- embedding, bundling, or incorporating the Software into a product or service
+  offered for a fee or other commercial advantage; and
+- internal use by or for a business where the use primarily supports
+  commercial operations, product development, or revenue-generating activity.
+
+3. AI and Machine Learning Restrictions
+
+You may not use the Software, any portion of the Software, or any derivative
+works, outputs, structure, code patterns, documentation, or repository content
+for any artificial intelligence or machine learning purpose without the
+licensor's prior written permission.
+
+Prohibited uses include, without limitation:
+
+- training, pretraining, fine-tuning, aligning, or distilling any AI or ML
+  model;
+- using the Software as part of any training, validation, benchmarking, or
+  evaluation dataset for AI or ML systems;
+- extracting, scraping, transforming, or labeling the Software for dataset
+  creation or augmentation for AI or ML purposes;
+- using the Software to improve code-generation, code-completion, embedding,
+  retrieval, multimodal, or similar models or systems; and
+- permitting any third party, automated system, or agent to do any of the
+  foregoing.
+
+4. Redistribution Restrictions
+
+You may not publish, distribute, sublicense, or make the Software available to
+third parties, whether modified or unmodified, without the licensor's prior
+written permission, except that you may share insubstantial excerpts solely for
+discussion, review, or commentary if those excerpts do not enable meaningful
+reuse of the Software and this license notice is preserved.
+
+5. Attribution and Notices
+
+If you retain a copy of the Software for permitted use, you must preserve all
+copyright, attribution, and license notices.
+
+6. No Trademark Rights
+
+This license does not grant any right to use the licensor's names, product
+names, logos, brands, or trademarks, except as necessary to provide accurate
+attribution.
+
+7. Ownership
+
+The Software is licensed, not sold. All rights not expressly granted under this
+license are reserved by the licensor.
+
+8. Termination
+
+This license terminates automatically if you breach any term of this license.
+Upon termination, you must immediately stop using the Software and destroy all
+copies in your possession or control.
+
+9. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+10. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.
+
+11. Written Permission Requests
+
+Requests for commercial use, redistribution, AI or machine learning use, or
+other uses outside this license must be approved in writing by the licensor.
+
+Permission requests and licensing inquiries should be sent to:
+
+mohamed.ashraf.1177s@gmail.com
+
+12. Interpretation
+
+If any provision of this license is held unenforceable, the remaining
+provisions will remain in effect to the maximum extent permitted by law.
+
+This is a source-available license. It is not an open-source license.

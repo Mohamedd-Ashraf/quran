@@ -205,35 +205,13 @@ abstract class BasePrayerTimesWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.isha_time, formatTime(bundle.today.isha))
 
         val state = determinePrayerState(bundle.today, now)
+        val upcomingCard = determineUpcomingCard(bundle, now)
 
         val currentName = state.currentName
-        val currentTime = state.currentTime
-        val nextName: String?
-        val nextTime: Date?
-        val isTomorrow: Boolean
-
-        when {
-            state.nextTime != null -> {
-                nextName = state.nextName
-                nextTime = state.nextTime
-                isTomorrow = false
-            }
-            bundle.tomorrow != null -> {
-                nextName = "الفجر"
-                nextTime = bundle.tomorrow.fajr
-                isTomorrow = true
-            }
-            else -> {
-                nextName = null
-                nextTime = null
-                isTomorrow = false
-            }
-        }
-
-        // Card always shows next prayer
-        val cardName: String? = nextName
-        val cardTime: Date? = nextTime
-        val cardLabel: String = if (isTomorrow) "القادمة غدًا" else "الصلاة القادمة"
+        val nextName = state.nextName
+        val cardName = upcomingCard.name
+        val cardTime = upcomingCard.time
+        val cardLabel = upcomingCard.label
 
         views.setTextViewText(R.id.label_next_prayer, cardLabel)
         views.setTextViewText(R.id.next_prayer_name, cardName ?: "—")
@@ -241,7 +219,7 @@ abstract class BasePrayerTimesWidget : AppWidgetProvider() {
         views.setTextViewText(
             R.id.next_prayer_countdown,
             when {
-                nextTime != null -> formatCountdown(nextTime.time - now.time)
+                cardTime != null -> formatCountdown(cardTime.time - now.time)
                 else -> "—"
             },
         )
@@ -329,6 +307,12 @@ abstract class BasePrayerTimesWidget : AppWidgetProvider() {
         val nextTime: Date?,
     )
 
+    private data class UpcomingCard(
+        val name: String?,
+        val time: Date?,
+        val label: String,
+    )
+
     /**
      * Determine which prayer is currently active and which one comes next.
      *
@@ -351,6 +335,37 @@ abstract class BasePrayerTimesWidget : AppWidgetProvider() {
         val current = if (currentIdx >= 0) prayers[currentIdx] else null
         val next    = if (currentIdx + 1 < prayers.size) prayers[currentIdx + 1] else null
         return PrayerState(current?.first, current?.second, next?.first, next?.second)
+    }
+
+    private fun determineUpcomingCard(bundle: PrayerBundle, now: Date): UpcomingCard {
+        val todayItems = listOf(
+            Triple("الفجر", bundle.today.fajr, "الصلاة القادمة"),
+            Triple("الشروق", bundle.today.sunrise, "الشروق القادم"),
+            Triple("الظهر", bundle.today.dhuhr, "الصلاة القادمة"),
+            Triple("العصر", bundle.today.asr, "الصلاة القادمة"),
+            Triple("المغرب", bundle.today.maghrib, "الصلاة القادمة"),
+            Triple("العشاء", bundle.today.isha, "الصلاة القادمة"),
+        )
+
+        val nextToday = todayItems.firstOrNull { now.before(it.second) }
+        if (nextToday != null) {
+            return UpcomingCard(
+                name = nextToday.first,
+                time = nextToday.second,
+                label = nextToday.third,
+            )
+        }
+
+        val tomorrowFajr = bundle.tomorrow?.fajr
+        return if (tomorrowFajr != null) {
+            UpcomingCard(
+                name = "الفجر",
+                time = tomorrowFajr,
+                label = "الصلاة القادمة غدًا",
+            )
+        } else {
+            UpcomingCard(name = null, time = null, label = "الصلاة القادمة")
+        }
     }
 
     // ─── SharedPreferences / data loading ────────────────────────────────────

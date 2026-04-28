@@ -5,7 +5,7 @@ import 'datasources/practice_firestore_source.dart';
 import 'models/practice_question.dart';
 
 /// Max questions to keep in local cache before trimming oldest.
-const _kMaxCacheSize = 300;
+const _kMaxCacheSize = 600;
 
 class PracticeRepository {
   final PracticeCacheSource _cache;
@@ -30,20 +30,28 @@ class PracticeRepository {
   Future<int> getCachedCount({String? category, String? difficulty}) =>
       _cache.count(category: category, difficulty: difficulty);
 
+  /// Firestore total for given filters. Null = offline/error.
+  Future<int?> getRemoteTotal({String? category, String? difficulty}) =>
+      _remote.countTotal(category: category, difficulty: difficulty);
+
   // ── Fetch from Firestore ───────────────────────────────────────────────────
 
   /// Fetches [limit] questions from Firestore, caches them, returns new list.
   ///
   /// Supports incremental pagination — repeated calls advance the cursor.
   /// When no more questions are available, returns empty list.
-  Future<List<PracticeQuestion>> fetchAndCache({
+  /// Returns the count of genuinely new (not-yet-cached) questions inserted.
+  /// Returns -1 if the key is already exhausted (caller can distinguish).
+  Future<({List<PracticeQuestion> fresh, bool wasExhausted})> fetchAndCache({
     required int limit,
     String? category,
     String? difficulty,
   }) async {
     final key = _cacheKey(category, difficulty);
 
-    if (_exhausted[key] == true) return [];
+    if (_exhausted[key] == true) {
+      return (fresh: <PracticeQuestion>[], wasExhausted: true);
+    }
 
     final result = await _remote.fetchBatch(
       limit: limit,
@@ -54,7 +62,7 @@ class PracticeRepository {
 
     if (result.questions.isEmpty) {
       _exhausted[key] = true;
-      return [];
+      return (fresh: <PracticeQuestion>[], wasExhausted: false);
     }
 
     // Deduplicate — skip IDs already in cache.
@@ -73,7 +81,7 @@ class PracticeRepository {
       _exhausted[key] = true;
     }
 
-    return fresh;
+    return (fresh: fresh, wasExhausted: false);
   }
 
   /// True when no more remote pages available for this filter combination.
