@@ -1931,18 +1931,19 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   bool _daysExpanded = false;
 
   List<int> _missedDays(WirdPlan plan) {
-    // Use progressionMarker: days before the LHW that are not complete = qadaa.
-    final marker = plan.progressionMarker;
+    // Use effectiveFrontier: days before max(LHW, calendarDay) that are not
+    // complete = qadaa. Calendar advancement auto-ages uncompleted days.
+    final frontier = plan.effectiveFrontier;
     return [
-      for (int d = 1; d < marker; d++)
+      for (int d = 1; d < frontier; d++)
         if (!plan.isDayComplete(d)) d,
     ];
   }
 
   int? _firstUncompletedFutureDay(WirdPlan plan, {int? startFrom}) {
-    final logicalCurrent = plan.logicalCurrentDay;
-    final start = (startFrom ?? (logicalCurrent + 1)).clamp(
-      logicalCurrent + 1,
+    final activeDay = plan.activeDailyDay;
+    final start = (startFrom ?? (activeDay + 1)).clamp(
+      activeDay + 1,
       plan.targetDays,
     );
     for (int d = start; d <= plan.targetDays; d++) {
@@ -1954,9 +1955,10 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   int? _effectiveFocusedDay(WirdPlan plan) {
     final stored = widget.focusedDay;
     if (stored == null) return null;
-    final logicalCurrent = plan.logicalCurrentDay;
+    final activeDay = plan.activeDailyDay;
 
-    if (stored <= logicalCurrent) return null;
+    // Stored focus at or before the active day is stale — clear it.
+    if (stored <= activeDay) return null;
     if (stored > plan.targetDays) return _firstUncompletedFutureDay(plan);
 
     // Keep user on explicitly chosen upcoming day.
@@ -2096,12 +2098,15 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final plan = widget.plan;
     final isAr = widget.isAr;
-    // Logical current day is the single source of truth for progression.
+    // Active daily day = first uncomplete ≥ effectiveFrontier (calendar-aware).
+    // This is what the main card and grid highlight as "today's work".
+    final activeDay = plan.activeDailyDay;
+    // logicalCurrentDay kept only for skip-note anchor comparison.
     final logicalToday = plan.logicalCurrentDay;
-    final calendarToday = logicalToday; // alias used by child widgets
+    final calendarToday = activeDay; // alias for TodayCard "return to day X" text
     final focusedDay = _effectiveFocusedDay(plan);
     _syncFocusedDayIfNeeded(focusedDay);
-    final shownDay = focusedDay ?? logicalToday;
+    final shownDay = focusedDay ?? activeDay;
     final shownDayComplete = plan.isDayComplete(shownDay);
     final range = _readingRangeForPlanDay(plan, shownDay);
     final pageRange = _pageRangeForPlanDay(plan, shownDay);
@@ -2110,7 +2115,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final showMakeup = hasMissedDays && _showMakeupMode;
 
     int daysBehind = 0;
-    for (int d = 1; d < plan.progressionMarker; d++) {
+    for (int d = 1; d < plan.effectiveFrontier; d++) {
       if (!plan.isDayComplete(d)) daysBehind++;
     }
 
@@ -4391,14 +4396,17 @@ class _DaysGridState extends State<_DaysGrid> {
 
   _DayTileKind _classifyDay(int day) {
     final plan = widget.plan;
-    final today = plan.logicalCurrentDay;
+    final active = plan.activeDailyDay; // day highlighted as "today" in grid
+    final frontier = plan.effectiveFrontier;
     final fd = widget.focusedDay;
     if (plan.isDayComplete(day)) return _DayTileKind.completed;
     if (fd != null && day == fd) return _DayTileKind.focused;
-    if (day == today) return _DayTileKind.today;
-    final maxInteractive = widget.focusedDay ?? today;
+    if (day == active) return _DayTileKind.today;
+    // Calendar-past days (before effectiveFrontier) are qadaa — interactive.
+    if (day < frontier) return _DayTileKind.missed;
+    // Beyond focusedDay (or activeDailyDay when no focus) → locked.
+    final maxInteractive = fd ?? active;
     if (day > maxInteractive) return _DayTileKind.lockedFuture;
-    if (day < today && !plan.isDayComplete(day)) return _DayTileKind.missed;
     return _DayTileKind.unlockedFuture;
   }
 

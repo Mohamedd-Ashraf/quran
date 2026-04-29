@@ -34,6 +34,24 @@ class WirdProgressionHelper {
     ];
   }
 
+  // ── Active daily day ────────────────────────────────────────
+
+  /// First uncompleted day at or after [effectiveFrontier].
+  ///
+  /// This is the "new work" day to show in the main daily card.
+  /// Qadaa days (before the frontier) are surfaced in makeup mode, not here.
+  /// Returns [targetDays] + 1 when every day is complete.
+  static int activeDailyDay(
+    Set<int> completed,
+    int effectiveFrontier,
+    int targetDays,
+  ) {
+    for (int d = effectiveFrontier; d <= targetDays; d++) {
+      if (!completed.contains(d)) return d;
+    }
+    return targetDays + 1; // all done
+  }
+
   // ── Skip detection ────────────────────────────────────────────────────────
 
   /// Returns the list of days that were automatically bypassed when

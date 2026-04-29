@@ -101,6 +101,19 @@ class WirdCubit extends Cubit<WirdState> {
   int? _lastClearedMakeupAyah;
   bool _lastClearedManualMakeupFlag = false;
 
+  Future<void> _clearFocusedDayIfActiveDayChanged({
+    required int oldActive,
+    required int newActive,
+  }) async {
+    if (oldActive == newActive) return;
+    final stored = _wirdService.focusedDay;
+    if (stored == null) return;
+    // Clear only if the plan has advanced to or past the pinned preview day.
+    if (stored <= newActive) {
+      await _wirdService.clearFocusedDay();
+    }
+  }
+
   /// Toggle the completion state of a specific day (1-indexed).
   Future<void> toggleDayComplete(int day) async {
     final currentState = state;
@@ -108,6 +121,7 @@ class WirdCubit extends Cubit<WirdState> {
 
     final plan = currentState.plan;
     final wasComplete = plan.isDayComplete(day);
+    final oldLogical = plan.logicalCurrentDay;
 
     if (wasComplete) {
       // ── MARK INCOMPLETE ────────────────────────────────────────────────
@@ -115,15 +129,31 @@ class WirdCubit extends Cubit<WirdState> {
 
       if (isSkippedDay) {
         // Skip-undo: remove day from completed + skippedDays, regress marker.
+        final newCompletedSet = plan.completedDays.toSet()
+          ..removeAll(plan.skippedDays);
+        // Compute projected active day BEFORE mutating prefs.
+        final firstSkipped = ([...plan.skippedDays]..sort()).first;
+        final newPM = firstSkipped;
+        final newFrontier = plan.currentDay > newPM ? plan.currentDay : newPM;
+        final oldActive = plan.activeDailyDay;
+        final newActive = WirdProgressionHelper.activeDailyDay(
+          newCompletedSet, newFrontier, plan.targetDays);
         await _applySkipUndo(plan, day);
+        await _clearFocusedDayIfActiveDayChanged(
+          oldActive: oldActive,
+          newActive: newActive,
+        );
       } else {
         // Regular undo: remove from completed, marker stays (day becomes qadaa
         // if it was before the progression marker).
+        final newCompletedSet = plan.completedDays.toSet()..remove(day);
+        final oldActive = plan.activeDailyDay;
+        final newActive = WirdProgressionHelper.activeDailyDay(
+          newCompletedSet, plan.effectiveFrontier, plan.targetDays);
         await _wirdService.markDayIncomplete(day);
 
         // Restore daily bookmark if it was cached when this day was completed.
-        final logicalCurrent = plan.logicalCurrentDay;
-        if (day == logicalCurrent) {
+        if (day == oldLogical) {
           await _restoreDailyBookmark();
           await _notifService.refreshFollowUps();
         }
@@ -131,12 +161,17 @@ class WirdCubit extends Cubit<WirdState> {
         if (day == _lastClearedMakeupDay) {
           await _restoreMakeupBookmark(day);
         }
+        await _clearFocusedDayIfActiveDayChanged(
+          oldActive: oldActive,
+          newActive: newActive,
+        );
       }
       load();
     } else {
       // ── MARK COMPLETE ────────────────────────────────────────────────
       final oldCompletedSet = plan.completedDays.toSet();
       final newCompletedSet = {...oldCompletedSet, day};
+      final oldActive = plan.activeDailyDay;
 
       // Detect which future pre-completed days will be skipped.
       final skipped = WirdProgressionHelper.computeSkippedOnComplete(
@@ -186,6 +221,16 @@ class WirdCubit extends Cubit<WirdState> {
         _lastClearedManualMakeupFlag = _wirdService.manualMakeupBookmark;
         await _wirdService.clearMakeupBookmark();
       }
+
+      // Compute new active day and clear stale focused preview if reached.
+      final newPM = newLogical > plan.progressionMarker ? newLogical : plan.progressionMarker;
+      final newFrontier = plan.currentDay > newPM ? plan.currentDay : newPM;
+      final newActive = WirdProgressionHelper.activeDailyDay(
+          newCompletedSet, newFrontier, plan.targetDays);
+      await _clearFocusedDayIfActiveDayChanged(
+        oldActive: oldActive,
+        newActive: newActive,
+      );
 
       _loadWithSkipDays(skipped);
     }
@@ -273,6 +318,7 @@ class WirdCubit extends Cubit<WirdState> {
     if (currentState is! WirdPlanLoaded) return;
     final plan = currentState.plan;
     if (!plan.isPagesBased || plan.pagesPerDay == null) return;
+    final oldActive = plan.activeDailyDay;
 
     bool anyMarked = false;
     for (int d = fromDay; d <= plan.targetDays; d++) {
@@ -287,6 +333,13 @@ class WirdCubit extends Cubit<WirdState> {
     }
     if (anyMarked) {
       await _syncProgressionMarker();
+      final updatedPlan = _wirdService.getPlan();
+      if (updatedPlan != null) {
+        await _clearFocusedDayIfActiveDayChanged(
+          oldActive: oldActive,
+          newActive: updatedPlan.activeDailyDay,
+        );
+      }
       await _notifService.refreshFollowUps();
       await _notifService.refreshMainReminder();
       load();
@@ -455,6 +508,8 @@ class WirdCubit extends Cubit<WirdState> {
     final currentState = state;
     if (currentState is! WirdPlanLoaded) return;
     if (day < 1 || day > currentState.plan.targetDays) return;
+    // Reject any day at or before the active daily day (current/qadaa territory).
+    if (day <= currentState.plan.activeDailyDay) return;
     await _wirdService.setFocusedDay(day);
     load();
   }
@@ -480,6 +535,7 @@ class WirdCubit extends Cubit<WirdState> {
     final currentState = state;
     if (currentState is! WirdPlanLoaded) return;
     final plan = currentState.plan;
+    final oldActive = plan.activeDailyDay;
 
     if (page != null && plan.isPagesBased && plan.pagesPerDay != null) {
       // Page-based: mark all days whose end page ≤ given page
@@ -527,6 +583,13 @@ class WirdCubit extends Cubit<WirdState> {
     await _notifService.refreshFollowUps();
     await _notifService.refreshMainReminder();
     await _syncProgressionMarker();
+    final updatedPlan = _wirdService.getPlan();
+    if (updatedPlan != null) {
+      await _clearFocusedDayIfActiveDayChanged(
+        oldActive: oldActive,
+        newActive: updatedPlan.activeDailyDay,
+      );
+    }
     load();
   }
 }

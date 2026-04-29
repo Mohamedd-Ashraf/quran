@@ -44,12 +44,34 @@ class WirdPlan {
   /// Logical high-water mark — the furthest point the user has actively
   /// progressed to. Only moves forward (except on explicit skip-undo).
   /// Days before this marker that are incomplete are true qadaa days.
+  ///
+  /// NOTE: intentionally NOT calendar-aware. Skip detection relies on this
+  /// being purely completion-based. Use [effectiveFrontier] for qadaa display.
   int get progressionMarker {
     final logical = logicalCurrentDay;
     return _storedProgressionMarker > logical
         ? _storedProgressionMarker
         : logical;
   }
+
+  /// Calendar-aware qadaa frontier: max([progressionMarker], [currentDay]).
+  ///
+  /// Use this (not [progressionMarker]) when computing qadaa display lists and
+  /// daysBehind counts. Calendar advancement automatically ages missed days
+  /// into qadaa even when no completion event has fired.
+  int get effectiveFrontier {
+    final cal = currentDay;
+    final marker = progressionMarker;
+    return cal > marker ? cal : marker;
+  }
+
+  /// First uncompleted day at or after [effectiveFrontier].
+  ///
+  /// This is the day to show in the main daily card — it skips over calendar-
+  /// past qadaa days (which appear in makeup mode instead).
+  /// Returns [targetDays] + 1 when every day is complete.
+  int get activeDailyDay =>
+      WirdProgressionHelper.activeDailyDay(_completedSet, effectiveFrontier, targetDays);
 
   // ── Calendar day (display / stats only — NOT used for progression) ────────
 
@@ -157,6 +179,7 @@ class WirdService {
   static const String _keyMakeupSurah = 'wird_makeup_surah';
   static const String _keyMakeupAyah = 'wird_makeup_ayah';
   static const String _keyFocusedDay = 'wird_focused_day';
+  static const String _keyFocusedDaySetDate = 'wird_focused_day_set_date';
   // NEW — logical progression
   static const String _keyProgressionMarker = 'wird_progression_marker';
   static const String _keySkippedDays = 'wird_skipped_days';
@@ -266,6 +289,7 @@ class WirdService {
       jsonEncode(completedDays.toList()),
     );
     await _prefs.remove(_keyFocusedDay);
+    await _prefs.remove(_keyFocusedDaySetDate);
     // Reset progression state on new plan
     await _prefs.remove(_keyProgressionMarker);
     await _prefs.remove(_keySkippedDays);
@@ -317,6 +341,7 @@ class WirdService {
     await _prefs.remove(_keyManualDailyBm);
     await _prefs.remove(_keyManualMakeupBm);
     await _prefs.remove(_keyFocusedDay);
+    await _prefs.remove(_keyFocusedDaySetDate);
     await _prefs.remove(_keyProgressionMarker);
     await _prefs.remove(_keySkippedDays);
     await _prefs.remove(_keySkipNoteAnchor);
@@ -456,17 +481,32 @@ class WirdService {
 
   // ── Focused daily day (manual forward mode) ──────────────────────────────
 
-  /// Persisted day currently shown in daily card when user advances manually.
-  /// Null means normal behavior (use calendar day).
-  int? get focusedDay => _prefs.getInt(_keyFocusedDay);
+  /// yyyyMMdd string for today — used to detect stale focusedDay across dates.
+  String _todayStr() {
+    final now = DateTime.now();
+    return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Persisted day shown in daily card when user previews an upcoming day.
+  /// Returns null if no day is stored OR if the stored value is from a prior
+  /// calendar date (focusedDay expires at midnight).
+  int? get focusedDay {
+    final stored = _prefs.getInt(_keyFocusedDay);
+    if (stored == null) return null;
+    final setDate = _prefs.getString(_keyFocusedDaySetDate);
+    if (setDate != _todayStr()) return null;
+    return stored;
+  }
 
   Future<void> setFocusedDay(int day) async {
     await _prefs.setInt(_keyFocusedDay, day);
+    await _prefs.setString(_keyFocusedDaySetDate, _todayStr());
     onDataChanged?.call();
   }
 
   Future<void> clearFocusedDay() async {
     await _prefs.remove(_keyFocusedDay);
+    await _prefs.remove(_keyFocusedDaySetDate);
     onDataChanged?.call();
   }
 
