@@ -338,9 +338,11 @@ class CloudSyncService {
       wirdData['completedDays'] = plan.completedDays;
       wirdData['lastReadSurah'] = _wirdService.lastReadSurah;
       wirdData['lastReadAyah'] = _wirdService.lastReadAyah;
+      wirdData['manualDailyBm'] = _wirdService.manualDailyBookmark;
       wirdData['makeupDay'] = _wirdService.makeupBookmarkDay;
       wirdData['makeupSurah'] = _wirdService.makeupBookmarkSurah;
       wirdData['makeupAyah'] = _wirdService.makeupBookmarkAyah;
+      wirdData['manualMakeupBm'] = _wirdService.manualMakeupBookmark;
       wirdData['notificationsEnabled'] = _wirdService.notificationsEnabled;
       wirdData['followUpIntervalHours'] = _wirdService.followUpIntervalHours;
       if (reminderTime != null) {
@@ -394,6 +396,9 @@ class CloudSyncService {
     final lastReadAyah = data['lastReadAyah'] as int?;
     if (lastReadSurah != null && lastReadAyah != null) {
       await _wirdService.saveLastRead(lastReadSurah, lastReadAyah);
+      if (data['manualDailyBm'] == true) {
+        await _wirdService.markDailyBookmarkManual();
+      }
     }
 
     final makeupDay = data['makeupDay'] as int?;
@@ -401,6 +406,9 @@ class CloudSyncService {
     final makeupAyah = data['makeupAyah'] as int?;
     if (makeupDay != null && makeupSurah != null && makeupAyah != null) {
       await _wirdService.saveMakeupBookmark(makeupDay, makeupSurah, makeupAyah);
+      if (data['manualMakeupBm'] == true) {
+        await _wirdService.markMakeupBookmarkManual();
+      }
     }
 
     if (data['notificationsEnabled'] != null) {

@@ -42,23 +42,38 @@ String _surahNameArb(int n) => surahArabicNames[n] ?? 'سورة ${_arabicNum(n)}
 /// Generic page-bookmark dialog.
 /// [startPage]/[endPage] bound the valid page range for this wird day.
 /// [onSave] is called with the chosen page; callers decide what to persist.
+/// [currentPage] pre-fills the field with the existing bookmark page so the
+/// user doesn't accidentally save the wrong default.
 void showManualBookmarkDialog(
   BuildContext ctx, {
   required bool isAr,
   required bool isDark,
   required int startPage,
   required int endPage,
+  int? currentPage,
   required void Function(int page) onSave,
 }) {
-  int enteredPage = startPage;
+  int enteredPage =
+      (currentPage != null && currentPage >= 1 && currentPage <= 604)
+          ? currentPage
+          : startPage;
+  // Created once outside builder so +/- taps don't reset it.
+  final pageCtrl = TextEditingController(text: enteredPage.toString());
 
   showModalBottomSheet(
     context: ctx,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (sheetCtx) => StatefulBuilder(
-      builder: (sheetCtx, _) {
-        final pageCtrl = TextEditingController(text: enteredPage.toString());
+      builder: (sheetCtx, setSheetState) {
+        void updatePage(int newPage) {
+          enteredPage = newPage.clamp(1, 604);
+          pageCtrl.text = enteredPage.toString();
+          pageCtrl.selection =
+              TextSelection.collapsed(offset: pageCtrl.text.length);
+          setSheetState(() {});
+        }
+
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
@@ -109,22 +124,59 @@ void showManualBookmarkDialog(
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: pageCtrl,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
+                // ── Page stepper: − | field | + ─────────────────────────
+                Row(
+                  children: [
+                    Material(
+                      color: AppColors.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => updatePage(enteredPage - 1),
+                        onLongPress: () => updatePage(enteredPage - 5),
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Icon(Icons.remove_rounded,
+                              size: 22, color: AppColors.secondary),
+                        ),
+                      ),
                     ),
-                    labelText: isAr
-                        ? 'رقم الصفحة (١ – ٦٠٤)'
-                        : 'Page number (1–604)',
-                  ),
-                  onChanged: (v) {
-                    final n = int.tryParse(v);
-                    if (n != null && n >= 1 && n <= 604) enteredPage = n;
-                  },
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: pageCtrl,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          labelText: isAr
+                              ? 'رقم الصفحة (١ – ٦٠٤)'
+                              : 'Page number (1–604)',
+                        ),
+                        onChanged: (v) {
+                          final n = int.tryParse(v);
+                          if (n != null && n >= 1 && n <= 604) enteredPage = n;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Material(
+                      color: AppColors.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => updatePage(enteredPage + 1),
+                        onLongPress: () => updatePage(enteredPage + 5),
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Icon(Icons.add_rounded,
+                              size: 22, color: AppColors.secondary),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -3962,6 +4014,7 @@ class _TodayCard extends StatelessWidget {
                       isDark: isDarkCtx,
                       startPage: startP,
                       endPage: endP,
+                        currentPage: _hasBookmark ? lastReadPage : null,
                       onSave: (pg) {
                         cubit.saveManualDailyBookmark(pg);
                         if (pg >= endP) cubit.autoCompleteByPage(today, pg);
@@ -5056,6 +5109,7 @@ class _MakeupCardState extends State<_MakeupCard> {
                         final isDarkCtx =
                             Theme.of(context).brightness == Brightness.dark;
                         final cubit = context.read<WirdCubit>();
+                        final makeupBookmarkSurah = widget.makeupBookmarkSurah;
                         final startP = pageRange?.startPage ??
                             getPageNumber(range.start.surah, range.start.ayah);
                         final endP = pageRange?.endPage ??
@@ -5066,6 +5120,14 @@ class _MakeupCardState extends State<_MakeupCard> {
                           isDark: isDarkCtx,
                           startPage: startP,
                           endPage: endP,
+                          currentPage: (widget.manualMakeupBookmark &&
+                              widget.makeupBookmarkDay == day &&
+                              makeupBookmarkSurah != null)
+                              ? getPageNumber(
+                                  makeupBookmarkSurah,
+                                  widget.makeupBookmarkAyah ?? 1,
+                                )
+                              : null,
                           onSave: (pg) {
                             final pos = pageStartPosition(
                                 pg.clamp(1, _kMushafPagesTotal));
