@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../domain/wird_progression_helper.dart';
 
 enum WirdType { ramadan, regular }
 
@@ -13,6 +14,11 @@ class WirdPlan {
   final WirdPlanMode planMode;
   final int? pagesPerDay;
   final List<int> completedDays; // 1-indexed day numbers
+  // NEW progression fields
+  final int _storedProgressionMarker; // persisted LHW (0 = not yet set)
+  final List<int> skippedDays; // days auto-skipped by the sequence
+  final int? skipNoteAnchorDay; // logical day at which skip banner shows
+
   late final Set<int> _completedSet = completedDays.toSet();
 
   WirdPlan({
@@ -22,9 +28,34 @@ class WirdPlan {
     this.planMode = WirdPlanMode.days,
     this.pagesPerDay,
     required this.completedDays,
-  });
+    int storedProgressionMarker = 0,
+    this.skippedDays = const [],
+    this.skipNoteAnchorDay,
+  }) : _storedProgressionMarker = storedProgressionMarker;
 
-  /// Current day index (1-indexed), clamped within [1, targetDays].
+  // ── Logical (progression) day ─────────────────────────────────────────────
+
+  /// First day not yet complete in sequential order (1-indexed).
+  /// Returns [targetDays] + 1 when every day is complete.
+  /// This is the single source of truth for "what to read next".
+  int get logicalCurrentDay =>
+      WirdProgressionHelper.logicalCurrentDay(_completedSet, targetDays);
+
+  /// Logical high-water mark — the furthest point the user has actively
+  /// progressed to. Only moves forward (except on explicit skip-undo).
+  /// Days before this marker that are incomplete are true qadaa days.
+  int get progressionMarker {
+    final logical = logicalCurrentDay;
+    return _storedProgressionMarker > logical
+        ? _storedProgressionMarker
+        : logical;
+  }
+
+  // ── Calendar day (display / stats only — NOT used for progression) ────────
+
+  /// Calendar-based day index (1-indexed), clamped within [1, targetDays].
+  /// Use ONLY for display, statistics, and date-relative information.
+  /// All progression logic must use [logicalCurrentDay] or [progressionMarker].
   int get currentDay {
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
@@ -81,13 +112,24 @@ class WirdPlan {
     return best;
   }
 
-  WirdPlan copyWith({List<int>? completedDays}) => WirdPlan(
+  WirdPlan copyWith({
+    List<int>? completedDays,
+    int? storedProgressionMarker,
+    List<int>? skippedDays,
+    int? skipNoteAnchorDay,
+    bool clearSkipNoteAnchor = false,
+  }) => WirdPlan(
     type: type,
     startDate: startDate,
     targetDays: targetDays,
     planMode: planMode,
     pagesPerDay: pagesPerDay,
     completedDays: completedDays ?? this.completedDays,
+    storedProgressionMarker:
+        storedProgressionMarker ?? _storedProgressionMarker,
+    skippedDays: skippedDays ?? this.skippedDays,
+    skipNoteAnchorDay:
+        clearSkipNoteAnchor ? null : (skipNoteAnchorDay ?? this.skipNoteAnchorDay),
   );
 }
 
@@ -115,6 +157,10 @@ class WirdService {
   static const String _keyMakeupSurah = 'wird_makeup_surah';
   static const String _keyMakeupAyah = 'wird_makeup_ayah';
   static const String _keyFocusedDay = 'wird_focused_day';
+  // NEW — logical progression
+  static const String _keyProgressionMarker = 'wird_progression_marker';
+  static const String _keySkippedDays = 'wird_skipped_days';
+  static const String _keySkipNoteAnchor = 'wird_skip_note_anchor';
 
   final SharedPreferences _prefs;
 
@@ -160,6 +206,21 @@ class WirdService {
       } catch (_) {}
     }
 
+    // NEW: progression marker (0 → migration: derived from logicalCurrentDay)
+    final storedMarker = _prefs.getInt(_keyProgressionMarker) ?? 0;
+
+    // NEW: skipped days
+    List<int> skippedDays = [];
+    final skippedJson = _prefs.getString(_keySkippedDays);
+    if (skippedJson != null) {
+      try {
+        skippedDays = (jsonDecode(skippedJson) as List).cast<int>();
+      } catch (_) {}
+    }
+
+    // NEW: skip note anchor
+    final skipNoteAnchor = _prefs.getInt(_keySkipNoteAnchor);
+
     return WirdPlan(
       type: type,
       startDate: startDate,
@@ -167,6 +228,9 @@ class WirdService {
       planMode: planMode,
       pagesPerDay: pagesPerDay,
       completedDays: completedDays,
+      storedProgressionMarker: storedMarker,
+      skippedDays: skippedDays,
+      skipNoteAnchorDay: skipNoteAnchor,
     );
   }
 
@@ -202,6 +266,10 @@ class WirdService {
       jsonEncode(completedDays.toList()),
     );
     await _prefs.remove(_keyFocusedDay);
+    // Reset progression state on new plan
+    await _prefs.remove(_keyProgressionMarker);
+    await _prefs.remove(_keySkippedDays);
+    await _prefs.remove(_keySkipNoteAnchor);
     if (reminderHour != null) {
       await _prefs.setInt(_keyReminderHour, reminderHour);
     }
@@ -249,6 +317,9 @@ class WirdService {
     await _prefs.remove(_keyManualDailyBm);
     await _prefs.remove(_keyManualMakeupBm);
     await _prefs.remove(_keyFocusedDay);
+    await _prefs.remove(_keyProgressionMarker);
+    await _prefs.remove(_keySkippedDays);
+    await _prefs.remove(_keySkipNoteAnchor);
     onDataChanged?.call();
     // Intentionally keep reminder time — user may want to re-use it.
   }
@@ -396,6 +467,54 @@ class WirdService {
 
   Future<void> clearFocusedDay() async {
     await _prefs.remove(_keyFocusedDay);
+    onDataChanged?.call();
+  }
+
+  // ── Progression marker ────────────────────────────────────────────────────
+
+  /// Stored logical high-water mark (0 if not yet written → migration).
+  int get storedProgressionMarker =>
+      _prefs.getInt(_keyProgressionMarker) ?? 0;
+
+  /// Advances (or sets) the progression marker. Never call with a value lower
+  /// than the current stored marker except during skip-undo.
+  Future<void> setProgressionMarker(int marker) async {
+    await _prefs.setInt(_keyProgressionMarker, marker);
+    onDataChanged?.call();
+  }
+
+  // ── Skipped days ──────────────────────────────────────────────────────────
+
+  /// Days that were automatically skipped during the last advance.
+  List<int> get skippedDays {
+    final json = _prefs.getString(_keySkippedDays);
+    if (json == null) return [];
+    try {
+      return (jsonDecode(json) as List).cast<int>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> setSkippedDays(List<int> days) async {
+    await _prefs.setString(_keySkippedDays, jsonEncode(days));
+    onDataChanged?.call();
+  }
+
+  // ── Skip note ─────────────────────────────────────────────────────────────
+
+  /// Logical day at which the skip note banner should be shown.
+  int? get skipNoteAnchorDay => _prefs.getInt(_keySkipNoteAnchor);
+
+  Future<void> setSkipNoteAnchorDay(int day) async {
+    await _prefs.setInt(_keySkipNoteAnchor, day);
+    onDataChanged?.call();
+  }
+
+  /// Clears all skip-note state (both anchor and skipped-days list).
+  Future<void> clearSkipNote() async {
+    await _prefs.remove(_keySkipNoteAnchor);
+    await _prefs.setString(_keySkippedDays, jsonEncode(<int>[])); // keep key, empty list
     onDataChanged?.call();
   }
 

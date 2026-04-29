@@ -68,6 +68,10 @@ class WirdPlanLoaded extends WirdState {
   /// True only when the user explicitly set a makeup bookmark via the dialog.
   final bool manualMakeupBookmark;
 
+  /// Transient list of days auto-skipped during the most recent completion.
+  /// Non-empty only immediately after a skip event; cleared on the next load.
+  final List<int> skipEventDays;
+
   const WirdPlanLoaded(
     this.plan, {
     this.reminderHour,
@@ -83,6 +87,7 @@ class WirdPlanLoaded extends WirdState {
     this.focusedDay,
     this.manualDailyBookmark = false,
     this.manualMakeupBookmark = false,
+    this.skipEventDays = const [],
   });
 
   bool get hasReminder => reminderHour != null && reminderMinute != null;
@@ -120,5 +125,6 @@ class WirdPlanLoaded extends WirdState {
     focusedDay,
     manualDailyBookmark,
     manualMakeupBookmark,
+    skipEventDays,
   ];
 }

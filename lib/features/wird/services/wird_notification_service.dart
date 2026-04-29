@@ -143,7 +143,7 @@ class WirdNotificationService {
     final hour = reminderTime['hour']!;
     final minute = reminderTime['minute']!;
 
-    final todayIndex = plan.currentDay;
+    final todayIndex = plan.logicalCurrentDay;
     final isTodayComplete = plan.isDayComplete(todayIndex);
 
     await cancelAll();
@@ -182,7 +182,7 @@ class WirdNotificationService {
     // Cancel any stale follow-ups.
     await cancelFollowUps();
 
-    final todayIndex = plan.currentDay;
+    final todayIndex = plan.logicalCurrentDay;
     if (!plan.isDayComplete(todayIndex)) {
       // Today not done — schedule follow-ups for today.
       await _scheduleFollowUps(
@@ -213,7 +213,7 @@ class WirdNotificationService {
     final reminderTime = _wirdService.getReminderTime();
     if (reminderTime == null) return;
 
-    final todayIndex = plan.currentDay;
+    final todayIndex = plan.logicalCurrentDay;
     if (!plan.isDayComplete(todayIndex)) return;
 
     await _plugin.cancel(_idMainReminder);

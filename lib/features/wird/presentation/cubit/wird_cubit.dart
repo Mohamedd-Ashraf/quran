@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/wird_service.dart';
 import '../../data/quran_boundaries.dart';
+import '../../domain/wird_progression_helper.dart';
 import '../../services/wird_notification_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/constants/surah_names.dart';
@@ -21,7 +22,10 @@ class WirdCubit extends Cubit<WirdState> {
   // ── Load ────────────────────────────────────────────────────────────
 
   /// Load (or reload) the plan from SharedPreferences.
-  void load() {
+  void load() => _loadWithSkipDays(const []);
+
+  /// Emit a fresh [WirdPlanLoaded] state, optionally with skip-event data.
+  void _loadWithSkipDays(List<int> skipEventDays) {
     final plan = _wirdService.getPlan();
     final notifEnabled = _wirdService.notificationsEnabled;
     final followUpInterval = _wirdService.followUpIntervalHours;
@@ -50,6 +54,7 @@ class WirdCubit extends Cubit<WirdState> {
           focusedDay: _wirdService.focusedDay,
           manualDailyBookmark: _wirdService.manualDailyBookmark,
           manualMakeupBookmark: _wirdService.manualMakeupBookmark,
+          skipEventDays: skipEventDays,
         ),
       );
     }
@@ -101,62 +106,79 @@ class WirdCubit extends Cubit<WirdState> {
     final currentState = state;
     if (currentState is! WirdPlanLoaded) return;
 
-    final wasComplete = currentState.plan.isDayComplete(day);
+    final plan = currentState.plan;
+    final wasComplete = plan.isDayComplete(day);
+
     if (wasComplete) {
-      await _wirdService.markDayIncomplete(day);
-      // If un-completing today, restore bookmark if it was just cleared.
-      final todayDay = currentState.plan.currentDay;
-      if (day == todayDay) {
-        if (_lastClearedBookmarkPage != null) {
-          await _wirdService.saveLastReadPage(_lastClearedBookmarkPage!);
+      // ── MARK INCOMPLETE ────────────────────────────────────────────────
+      final isSkippedDay = plan.skippedDays.contains(day);
+
+      if (isSkippedDay) {
+        // Skip-undo: remove day from completed + skippedDays, regress marker.
+        await _applySkipUndo(plan, day);
+      } else {
+        // Regular undo: remove from completed, marker stays (day becomes qadaa
+        // if it was before the progression marker).
+        await _wirdService.markDayIncomplete(day);
+
+        // Restore daily bookmark if it was cached when this day was completed.
+        final logicalCurrent = plan.logicalCurrentDay;
+        if (day == logicalCurrent) {
+          await _restoreDailyBookmark();
+          await _notifService.refreshFollowUps();
         }
-        if (_lastClearedBookmarkSurah != null &&
-            _lastClearedBookmarkAyah != null) {
-          await _wirdService.saveLastRead(
-            _lastClearedBookmarkSurah!,
-            _lastClearedBookmarkAyah!,
-          );
+        // Restore makeup bookmark if applicable.
+        if (day == _lastClearedMakeupDay) {
+          await _restoreMakeupBookmark(day);
         }
-        if (_lastClearedManualDailyFlag) {
-          await _wirdService.markDailyBookmarkManual();
-        }
-        _lastClearedBookmarkSurah = null;
-        _lastClearedBookmarkAyah = null;
-        _lastClearedBookmarkPage = null;
-        _lastClearedManualDailyFlag = false;
-        await _notifService.refreshFollowUps();
       }
-      // Restore makeup bookmark if applicable.
-      if (day == _lastClearedMakeupDay) {
-        if (_lastClearedMakeupSurah != null && _lastClearedMakeupAyah != null) {
-          await _wirdService.saveMakeupBookmark(
-            day,
-            _lastClearedMakeupSurah!,
-            _lastClearedMakeupAyah!,
-          );
-        }
-        if (_lastClearedManualMakeupFlag) {
-          await _wirdService.markMakeupBookmarkManual();
-        }
-        _lastClearedMakeupDay = null;
-        _lastClearedMakeupSurah = null;
-        _lastClearedMakeupAyah = null;
-        _lastClearedManualMakeupFlag = false;
-      }
+      load();
     } else {
+      // ── MARK COMPLETE ────────────────────────────────────────────────
+      final oldCompletedSet = plan.completedDays.toSet();
+      final newCompletedSet = {...oldCompletedSet, day};
+
+      // Detect which future pre-completed days will be skipped.
+      final skipped = WirdProgressionHelper.computeSkippedOnComplete(
+        justCompletedDay: day,
+        oldCompleted: oldCompletedSet,
+        newCompleted: newCompletedSet,
+        targetDays: plan.targetDays,
+        progressionMarker: plan.progressionMarker,
+      );
+
+      // Persist the day.
       await _wirdService.markDayComplete(day);
-      final todayDay = currentState.plan.currentDay;
-      if (day == todayDay) {
+
+      // Advance progression marker when completing the logical current day.
+      final newLogical = WirdProgressionHelper.logicalCurrentDay(
+        newCompletedSet,
+        plan.targetDays,
+      );
+      if (newLogical > plan.progressionMarker) {
+        await _wirdService.setProgressionMarker(newLogical);
+      }
+
+      // Persist skip metadata if any days were auto-skipped.
+      if (skipped.isNotEmpty) {
+        final allSkipped = [...plan.skippedDays, ...skipped];
+        await _wirdService.setSkippedDays(allSkipped);
+        await _wirdService.setSkipNoteAnchorDay(newLogical);
+      }
+
+      // Cache bookmark before clearing (so undo can restore it).
+      final logicalCurrent = plan.logicalCurrentDay; // BEFORE the new set
+      if (day == logicalCurrent) {
         await _notifService.refreshFollowUps();
         await _notifService.refreshMainReminder();
-        // Cache bookmark before clearing so undo can restore it.
         _lastClearedBookmarkSurah = _wirdService.lastReadSurah;
         _lastClearedBookmarkAyah = _wirdService.lastReadAyah;
         _lastClearedBookmarkPage = _wirdService.lastReadPage;
         _lastClearedManualDailyFlag = _wirdService.manualDailyBookmark;
         await _wirdService.clearLastRead();
       }
-      // If completing a makeup day, cache and clear its bookmark.
+
+      // Cache makeup bookmark if applicable.
       if (_wirdService.makeupBookmarkDay == day) {
         _lastClearedMakeupDay = day;
         _lastClearedMakeupSurah = _wirdService.makeupBookmarkSurah;
@@ -164,8 +186,82 @@ class WirdCubit extends Cubit<WirdState> {
         _lastClearedManualMakeupFlag = _wirdService.manualMakeupBookmark;
         await _wirdService.clearMakeupBookmark();
       }
+
+      _loadWithSkipDays(skipped);
     }
+  }
+
+  /// Undo a skipped day from the skip-note banner.
+  /// Removes the day from completedDays, regresses the progression marker,
+  /// and clears the skip note. The skipped day becomes the new logical current.
+  Future<void> undoSkippedDay(int day) async {
+    final currentState = state;
+    if (currentState is! WirdPlanLoaded) return;
+    if (!currentState.plan.skippedDays.contains(day)) return;
+    await _applySkipUndo(currentState.plan, day);
     load();
+  }
+
+  /// Dismiss the skip-note banner without undoing the skip.
+  Future<void> dismissSkipNote() async {
+    await _wirdService.clearSkipNote();
+    load();
+  }
+
+  // ── Internal skip-undo ─────────────────────────────────────────────────
+
+  /// Remove [day] (a skipped day) from completedDays, remove ALL currently
+  /// stored skipped days from completedDays, regress the progression marker to
+  /// [day] (the first skipped day), and clear the skip note.
+  Future<void> _applySkipUndo(WirdPlan plan, int day) async {
+    // Remove all skipped days from completedDays so the user re-reads them
+    // in natural sequence. The [day] arg is the first skipped day.
+    final allSkipped = plan.skippedDays.toSet();
+    for (final skippedDay in allSkipped) {
+      await _wirdService.markDayIncomplete(skippedDay);
+    }
+    // Regress marker to the first skipped day (the earliest one).
+    final firstSkipped = ([...allSkipped]..sort()).first;
+    await _wirdService.setProgressionMarker(firstSkipped);
+    await _wirdService.clearSkipNote();
+  }
+
+  // ── Internal bookmark restore ───────────────────────────────────────────
+
+  Future<void> _restoreDailyBookmark() async {
+    if (_lastClearedBookmarkPage != null) {
+      await _wirdService.saveLastReadPage(_lastClearedBookmarkPage!);
+    }
+    if (_lastClearedBookmarkSurah != null && _lastClearedBookmarkAyah != null) {
+      await _wirdService.saveLastRead(
+        _lastClearedBookmarkSurah!,
+        _lastClearedBookmarkAyah!,
+      );
+    }
+    if (_lastClearedManualDailyFlag) {
+      await _wirdService.markDailyBookmarkManual();
+    }
+    _lastClearedBookmarkSurah = null;
+    _lastClearedBookmarkAyah = null;
+    _lastClearedBookmarkPage = null;
+    _lastClearedManualDailyFlag = false;
+  }
+
+  Future<void> _restoreMakeupBookmark(int day) async {
+    if (_lastClearedMakeupSurah != null && _lastClearedMakeupAyah != null) {
+      await _wirdService.saveMakeupBookmark(
+        day,
+        _lastClearedMakeupSurah!,
+        _lastClearedMakeupAyah!,
+      );
+    }
+    if (_lastClearedManualMakeupFlag) {
+      await _wirdService.markMakeupBookmarkManual();
+    }
+    _lastClearedMakeupDay = null;
+    _lastClearedMakeupSurah = null;
+    _lastClearedMakeupAyah = null;
+    _lastClearedManualMakeupFlag = false;
   }
 
   // ── Auto-complete days by page (for page-based plans) ──────────────────
@@ -190,9 +286,24 @@ class WirdCubit extends Cubit<WirdState> {
       }
     }
     if (anyMarked) {
+      await _syncProgressionMarker();
       await _notifService.refreshFollowUps();
       await _notifService.refreshMainReminder();
       load();
+    }
+  }
+
+  /// Syncs the progression marker to match the current logicalCurrentDay.
+  /// Call after bulk completions (autoCompleteByPage, setStartingPoint).
+  Future<void> _syncProgressionMarker() async {
+    final plan = _wirdService.getPlan();
+    if (plan == null) return;
+    final logical = WirdProgressionHelper.logicalCurrentDay(
+      plan.completedDays.toSet(),
+      plan.targetDays,
+    );
+    if (logical > _wirdService.storedProgressionMarker) {
+      await _wirdService.setProgressionMarker(logical);
     }
   }
 
@@ -415,6 +526,7 @@ class WirdCubit extends Cubit<WirdState> {
 
     await _notifService.refreshFollowUps();
     await _notifService.refreshMainReminder();
+    await _syncProgressionMarker();
     load();
   }
 }

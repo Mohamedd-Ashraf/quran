@@ -340,6 +340,7 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
         appBar: _buildAppBar(context, isAr),
         body: BlocConsumer<WirdCubit, WirdState>(
           // Trigger tutorial after data loads, but ONLY when Wird tab is active.
+          // Also show skip-event snackbar when days are auto-skipped.
           listener: (context, state) {
             if (state is WirdPlanLoaded) {
               final activeTab = di.sl<TutorialService>().activeTabIndex.value;
@@ -347,6 +348,37 @@ class _WirdScreenState extends State<WirdScreen> with WidgetsBindingObserver {
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) => _showTutorialIfNeeded(),
                 );
+              }
+              // Transient skip-event snackbar.
+              if (state.skipEventDays.isNotEmpty) {
+                final isAr = context
+                    .read<AppSettingsCubit>()
+                    .state
+                    .appLanguageCode
+                    .toLowerCase()
+                    .startsWith('ar');
+                final days = state.skipEventDays;
+                final String snackText;
+                if (days.length == 1) {
+                  snackText = isAr
+                      ? 'تم تجاوز اليوم ${days.first} — أُكمل مسبقاً ✔'
+                      : 'Day ${days.first} already done — skipped ✔';
+                } else {
+                  final joinedAr = days.join('، ');
+                  final joinedEn = days.join(', ');
+                  snackText = isAr
+                      ? 'تم تجاوز الأيام $joinedAr — أُكملت مسبقاً ✔'
+                      : 'Days $joinedEn already done — skipped ✔';
+                }
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(snackText),
+                      duration: const Duration(seconds: 3),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
               }
             }
           },
@@ -1899,16 +1931,20 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   bool _daysExpanded = false;
 
   List<int> _missedDays(WirdPlan plan) {
-    final today = plan.currentDay;
+    // Use progressionMarker: days before the LHW that are not complete = qadaa.
+    final marker = plan.progressionMarker;
     return [
-      for (int d = 1; d < today; d++)
+      for (int d = 1; d < marker; d++)
         if (!plan.isDayComplete(d)) d,
     ];
   }
 
   int? _firstUncompletedFutureDay(WirdPlan plan, {int? startFrom}) {
-    final today = plan.currentDay;
-    final start = (startFrom ?? (today + 1)).clamp(today + 1, plan.targetDays);
+    final logicalCurrent = plan.logicalCurrentDay;
+    final start = (startFrom ?? (logicalCurrent + 1)).clamp(
+      logicalCurrent + 1,
+      plan.targetDays,
+    );
     for (int d = start; d <= plan.targetDays; d++) {
       if (!plan.isDayComplete(d)) return d;
     }
@@ -1918,13 +1954,12 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
   int? _effectiveFocusedDay(WirdPlan plan) {
     final stored = widget.focusedDay;
     if (stored == null) return null;
-    final today = plan.currentDay;
+    final logicalCurrent = plan.logicalCurrentDay;
 
-    if (stored <= today) return null;
+    if (stored <= logicalCurrent) return null;
     if (stored > plan.targetDays) return _firstUncompletedFutureDay(plan);
 
-    // Keep user on explicitly chosen upcoming day, even after marking it done.
-    // Advancing to another day should happen only by explicit user action.
+    // Keep user on explicitly chosen upcoming day.
     return stored;
   }
 
@@ -2043,12 +2078,11 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
       return;
     }
 
-    // Only auto-switch to qadaa when today was just marked complete
-    // and missed days still exist. Do NOT force-switch during grid edits
-    // or makeup-day completions (those are deliberate user actions).
-    final today = widget.plan.currentDay;
-    final wasTodayDone = old.plan.isDayComplete(today);
-    final isTodayDone = widget.plan.isDayComplete(today);
+    // Only auto-switch to qadaa when the OLD logical current day was just
+    // marked complete and missed days still exist.
+    final oldLogical = old.plan.logicalCurrentDay;
+    final wasTodayDone = old.plan.isDayComplete(oldLogical);
+    final isTodayDone = widget.plan.isDayComplete(oldLogical);
     if (!wasTodayDone &&
         isTodayDone &&
         newMissed.isNotEmpty &&
@@ -2062,10 +2096,12 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final plan = widget.plan;
     final isAr = widget.isAr;
-    final calendarToday = plan.currentDay;
+    // Logical current day is the single source of truth for progression.
+    final logicalToday = plan.logicalCurrentDay;
+    final calendarToday = logicalToday; // alias used by child widgets
     final focusedDay = _effectiveFocusedDay(plan);
     _syncFocusedDayIfNeeded(focusedDay);
-    final shownDay = focusedDay ?? calendarToday;
+    final shownDay = focusedDay ?? logicalToday;
     final shownDayComplete = plan.isDayComplete(shownDay);
     final range = _readingRangeForPlanDay(plan, shownDay);
     final pageRange = _pageRangeForPlanDay(plan, shownDay);
@@ -2074,7 +2110,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final showMakeup = hasMissedDays && _showMakeupMode;
 
     int daysBehind = 0;
-    for (int d = 1; d < calendarToday; d++) {
+    for (int d = 1; d < plan.progressionMarker; d++) {
       if (!plan.isDayComplete(d)) daysBehind++;
     }
 
@@ -2148,6 +2184,20 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
             ),
           ),
           const SizedBox(height: 12),
+
+          // ── Skip note banner (auto-skipped future day notification) ───
+          if (plan.skipNoteAnchorDay == logicalToday &&
+              plan.skippedDays.isNotEmpty) ...[
+            _SkipNoteBanner(
+              isAr: isAr,
+              isDark: isDark,
+              skippedDays: plan.skippedDays,
+              onUndo: () =>
+                  context.read<WirdCubit>().undoSkippedDay(plan.skippedDays.first),
+              onDismiss: () => context.read<WirdCubit>().dismissSkipNote(),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // ── Missed days banner + mode toggle ──────────────────────────
           if (hasMissedDays) ...[
@@ -2372,7 +2422,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
         ? cubitState.lastReadAyah
         : null;
 
-    final day = forDay ?? widget.plan.currentDay;
+    final day = forDay ?? widget.plan.logicalCurrentDay;
     final dayPageRange = widget.plan.isPagesBased
         ? getPageRangeForDay(day, widget.plan.pagesPerDay!)
         : null;
@@ -2889,6 +2939,107 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
 }
 
 // ── Wird Mode Toggle ──────────────────────────────────────────────────────────
+
+// ── Skip note banner ─────────────────────────────────────────────────────────
+
+/// Shows when days were auto-skipped because they were pre-completed.
+/// Provides an undo action and a dismiss action.
+class _SkipNoteBanner extends StatelessWidget {
+  final bool isAr;
+  final bool isDark;
+  final List<int> skippedDays;
+  final VoidCallback onUndo;
+  final VoidCallback onDismiss;
+
+  const _SkipNoteBanner({
+    required this.isAr,
+    required this.isDark,
+    required this.skippedDays,
+    required this.onUndo,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final days = skippedDays.toList()..sort();
+    final daysText = days.length == 1
+        ? (isAr
+            ? 'اليوم ${_arabicNumerals(days.first)}'
+            : 'Day ${days.first}')
+        : (isAr
+            ? 'الأيام ${days.map(_arabicNumerals).join('، ')}'
+            : 'Days ${days.join(', ')}');
+
+    final messageAr =
+        'تم تجاوز $daysText تلقائياً لأنه أُكمل مسبقاً. يمكنك التراجع إذا أردت إعادة القراءة.';
+    final messageEn =
+        '$daysText ${days.length == 1 ? 'was' : 'were'} auto-skipped (already completed). Undo to re-read.';
+
+    final color = isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE8F4FD);
+    final borderColor = isDark ? const Color(0xFF2D6A9F) : const Color(0xFF90CAF9);
+    final textColor = isDark ? Colors.white : const Color(0xFF1565C0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Row(
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+            children: [
+              Icon(Icons.info_outline_rounded, color: textColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isAr ? messageAr : messageEn,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                  textAlign: isAr ? TextAlign.right : TextAlign.left,
+                ),
+              ),
+              IconButton(
+                onPressed: onDismiss,
+                icon: Icon(Icons.close_rounded, color: textColor, size: 16),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onUndo,
+                style: TextButton.styleFrom(
+                  foregroundColor: textColor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: Text(isAr ? 'تراجع عن التجاوز' : 'Undo Skip'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ── Missed days banner + mode toggle (combined) ─────────────────────────────
 
@@ -4224,8 +4375,6 @@ class _DaysGridState extends State<_DaysGrid> {
     super.dispose();
   }
 
-  int get _interactiveMaxDay => widget.focusedDay ?? widget.calendarToday;
-
   void _showAutoDismissSnackBar(
     SnackBar snackBar, {
     Duration duration = const Duration(seconds: 3),
@@ -4242,12 +4391,13 @@ class _DaysGridState extends State<_DaysGrid> {
 
   _DayTileKind _classifyDay(int day) {
     final plan = widget.plan;
-    final today = widget.calendarToday;
+    final today = plan.logicalCurrentDay;
     final fd = widget.focusedDay;
     if (plan.isDayComplete(day)) return _DayTileKind.completed;
     if (fd != null && day == fd) return _DayTileKind.focused;
     if (day == today) return _DayTileKind.today;
-    if (day > _interactiveMaxDay) return _DayTileKind.lockedFuture;
+    final maxInteractive = widget.focusedDay ?? today;
+    if (day > maxInteractive) return _DayTileKind.lockedFuture;
     if (day < today && !plan.isDayComplete(day)) return _DayTileKind.missed;
     return _DayTileKind.unlockedFuture;
   }
