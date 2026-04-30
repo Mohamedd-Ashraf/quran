@@ -180,7 +180,12 @@ class _QuranLineState extends State<QuranLine> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4.0),
-                  color: isHighlighted ? highlight?.color.withValues(alpha: 0.4) : null,
+                  color: isHighlighted && highlight != null && highlight.fillHighlight
+                      ? highlight.color.withValues(alpha: 0.4)
+                      : null,
+                  border: isHighlighted && highlight != null && !highlight.fillHighlight
+                      ? Border.all(color: highlight.color, width: 2.0)
+                      : null,
                 ),
                 child: ayahTextWidget,
               ),
@@ -247,7 +252,12 @@ class _QuranLineState extends State<QuranLine> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4.0),
-          color: isHighlighted ? highlight?.color.withValues(alpha: 0.4) : null,
+          color: isHighlighted && highlight != null && highlight.fillHighlight
+              ? highlight.color.withValues(alpha: 0.4)
+              : null,
+          border: isHighlighted && highlight != null && !highlight.fillHighlight
+              ? Border.all(color: highlight.color, width: 2.0)
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

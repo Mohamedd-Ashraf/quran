@@ -474,6 +474,7 @@ class _MushafPageViewState extends State<MushafPageView>
       verseNumber: verse,
       page: page,
       color: AppColors.secondary,
+      fillHighlight: !_tajweedMode,
     );
     _updateHighlightsNotifier();
     _highlightAnimationController.forward(from: 0.0);
@@ -512,6 +513,7 @@ class _MushafPageViewState extends State<MushafPageView>
       verseNumber: state.ayahNumber!,
       page: page,
       color: color,
+      fillHighlight: !_tajweedMode,
     );
     _updateHighlightsNotifier();
   }

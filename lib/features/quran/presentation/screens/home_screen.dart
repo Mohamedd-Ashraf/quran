@@ -35,6 +35,7 @@ import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import '../../../../core/utils/number_style_utils.dart';
 import '../../../../core/utils/utf16_sanitizer.dart';
+import 'package:qcf_quran_plus/qcf_quran_plus.dart' as qcf;
 
 // Cached at file scope — avoids triggering loadFontIfNecessary on every build,
 // which causes unhandled rejections with google_fonts ≥6.2 in Flutter.
@@ -626,41 +627,32 @@ class HomeScreenState extends State<HomeScreen>
                                         ? CrossAxisAlignment.end
                                         : CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        nameDisplay,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: isArabicUi
-                                            ? TextAlign.right
-                                            : TextAlign.left,
-                                        textDirection: isArabicUi
-                                            ? TextDirection.rtl
-                                            : TextDirection.ltr,
-                                        locale: isArabicUi
-                                            ? const Locale('ar')
-                                            : null,
-                                        strutStyle: isArabicUi
-                                            ? const StrutStyle(
-                                                height: 1.6,
-                                                forceStrutHeight: true,
-                                              )
-                                            : null,
-                                        style: isArabicUi
-                                            ? _cachedAmiriQuran.copyWith(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w700,
-                                                height: 1.6050,
-                                                color: Theme.of(
-                                                  context,
-                                                ).textTheme.titleMedium?.color,
-                                              )
-                                            : Theme.of(
+                                      isArabicUi
+                                          ? ExcludeSemantics(
+                                              child: Text(
+                                                '${surah.number}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.right,
+                                                textDirection: TextDirection.rtl,
+                                                style: qcf.QuranTextStyles.surahHeaderStyle(
+                                                  fontSize: 22,
+                                                  color: Theme.of(context).textTheme.titleMedium?.color,
+                                                ),
+                                              ),
+                                            )
+                                          : Text(
+                                              nameDisplay,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.left,
+                                              style: Theme.of(
                                                 context,
                                               ).textTheme.titleMedium?.copyWith(
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 16,
                                               ),
-                                      ),
+                                            ),
                                       const SizedBox(height: 4),
                                       _buildDetailsLineWithAmiriNumbers(
                                         detailsLine,

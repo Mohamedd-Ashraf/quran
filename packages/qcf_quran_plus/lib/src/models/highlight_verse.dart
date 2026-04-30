@@ -17,12 +17,17 @@ class HighlightVerse {
   /// The color used to highlight the verse background or border.
   final Color color;
 
+  /// When `true` (default), the highlight is rendered as a filled background.
+  /// When `false`, only a border is drawn – useful when Tajweed colors are active.
+  final bool fillHighlight;
+
   /// Creates a constant [HighlightVerse] instance.
   const HighlightVerse({
     required this.verseNumber,
     required this.page,
     required this.surah,
     required this.color,
+    this.fillHighlight = true,
   });
 
   /// Creates a copy of this [HighlightVerse] but with the given fields replaced
@@ -35,12 +40,14 @@ class HighlightVerse {
     int? page,
     int? surah,
     Color? color,
+    bool? fillHighlight,
   }) {
     return HighlightVerse(
       surah: surah ?? this.surah,
       verseNumber: verseNumber ?? this.verseNumber,
       page: page ?? this.page,
       color: color ?? this.color,
+      fillHighlight: fillHighlight ?? this.fillHighlight,
     );
   }
 
@@ -54,6 +61,7 @@ class HighlightVerse {
       'surah': surah,
       'page': page,
       'color': color.value,
+      'fillHighlight': fillHighlight,
     };
   }
 
@@ -66,13 +74,14 @@ class HighlightVerse {
       page: map['page'] as int,
       surah: map['surah'] as int,
       color: Color(map['color'] as int),
+      fillHighlight: map['fillHighlight'] as bool? ?? true,
     );
   }
 
   /// Returns a string representation of the [HighlightVerse] for debugging.
   @override
   String toString() =>
-      'HighlightVerse(surah: $surah, verseNumber: $verseNumber, page: $page, color: ${color.value})';
+      'HighlightVerse(surah: $surah, verseNumber: $verseNumber, page: $page, color: ${color.value}, fillHighlight: $fillHighlight)';
 
   /// Compares this object to another for equality.
   ///
@@ -85,11 +94,12 @@ class HighlightVerse {
         other.verseNumber == verseNumber &&
         other.surah == surah &&
         other.page == page &&
-        other.color.value == color.value;
+        other.color.value == color.value &&
+        other.fillHighlight == fillHighlight;
   }
 
   /// Generates a hash code for the [HighlightVerse] instance.
   @override
   int get hashCode =>
-      verseNumber.hashCode ^ surah.hashCode ^ page.hashCode ^ color.value.hashCode;
+      verseNumber.hashCode ^ surah.hashCode ^ page.hashCode ^ color.value.hashCode ^ fillHighlight.hashCode;
 }

@@ -1929,6 +1929,9 @@ class _ActivePlanView extends StatefulWidget {
 class _ActivePlanViewState extends State<_ActivePlanView> {
   bool _showMakeupMode = false;
   bool _daysExpanded = false;
+  // Pins the card to the just-completed day until the user decides whether to
+  // advance.  Cleared when the user navigates away or the plan advances.
+  int? _pinnedDay;
 
   List<int> _missedDays(WirdPlan plan) {
     // Use effectiveFrontier: days before max(LHW, calendarDay) that are not
@@ -2068,9 +2071,120 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     );
   }
 
+  /// Called when the user taps "أكملته" on the active daily day.
+  /// If the day is incomplete: marks it complete, pins it, then shows dialog.
+  /// If the day is already complete: just shows the dialog asking to move to next.
+  Future<void> _handleMarkComplete(
+    BuildContext context,
+    int day,
+    WirdPlan plan,
+  ) async {
+    final cubit = context.read<WirdCubit>();
+    final isAr = widget.isAr;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // If the day is not complete yet, mark it complete and pin the card.
+    final wasComplete = plan.isDayComplete(day);
+    if (!wasComplete) {
+      cubit.toggleDayComplete(day);
+      // Pin the card to the just-completed day.
+      if (mounted) setState(() => _pinnedDay = day);
+    } else {
+      // Day is already complete but pinned. User clicked again to decide
+      // whether to move to the next day.
+      if (mounted && _pinnedDay != day) {
+        setState(() => _pinnedDay = day);
+      }
+    }
+
+    // Find the next uncompleted day for the dialog text.
+    final nextDay = _firstUncompletedFutureDay(plan, startFrom: day + 1);
+
+    if (!mounted) return;
+
+    final advance = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E2530) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            isAr ? 'أحسنت! 🎉' : 'Well done! 🎉',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+            ),
+            textAlign: isAr ? TextAlign.right : TextAlign.left,
+          ),
+          content: Text(
+            isAr
+                ? (nextDay != null
+                    ? 'هل تريد الانتقال إلى ورد اليوم ${_arabicNumerals(nextDay)}؟'
+                    : 'هل تريد متابعة الأوراد؟')
+                : (nextDay != null
+                    ? 'Would you like to move to day $nextDay\'s wird?'
+                    : 'Would you like to continue?'),
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+            textAlign: isAr ? TextAlign.right : TextAlign.left,
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              style: TextButton.styleFrom(
+                foregroundColor: isDark ? Colors.white54 : Colors.black54,
+              ),
+              child: Text(isAr ? 'ابقَ هنا' : 'Stay here'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(isAr ? 'انتقل للتالي' : 'Next day'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (advance == true && nextDay != null) {
+      // Clear pin → card will show nextDay naturally (activeDailyDay).
+      setState(() => _pinnedDay = null);
+      // If nextDay is ahead of new activeDailyDay, pin it as a preview.
+      final newCubitState = cubit.state;
+      if (newCubitState is WirdPlanLoaded) {
+        final newActive = newCubitState.plan.activeDailyDay;
+        if (nextDay > newActive) {
+          cubit.setFocusedDay(nextDay);
+        }
+      }
+    }
+    // If advance == false: keep _pinnedDay so card stays on completed day.
+  }
+
   @override
   void didUpdateWidget(_ActivePlanView old) {
     super.didUpdateWidget(old);
+    // Only clear the pin if the calendar has advanced past it.
+    // Don't clear just because activeDailyDay advanced (normal day completion).
+    final pinned = _pinnedDay;
+    if (pinned != null && widget.plan.currentDay > pinned) {
+      _pinnedDay = null;
+    }
     final oldMissed = _missedDays(old.plan);
     final newMissed = _missedDays(widget.plan);
 
@@ -2106,7 +2220,7 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
     final calendarToday = activeDay; // alias for TodayCard "return to day X" text
     final focusedDay = _effectiveFocusedDay(plan);
     _syncFocusedDayIfNeeded(focusedDay);
-    final shownDay = focusedDay ?? activeDay;
+    final shownDay = _pinnedDay ?? focusedDay ?? activeDay;
     final shownDayComplete = plan.isDayComplete(shownDay);
     final range = _readingRangeForPlanDay(plan, shownDay);
     final pageRange = _pageRangeForPlanDay(plan, shownDay);
@@ -2240,9 +2354,18 @@ class _ActivePlanViewState extends State<_ActivePlanView> {
               lastReadPage: widget.lastReadPage,
               daysBehind: daysBehind,
               hasManualBookmark: widget.manualDailyBookmark,
-              onFocusDay: (d) => context.read<WirdCubit>().setFocusedDay(d),
-              onResetFocus: focusedDay != null
-                  ? () => context.read<WirdCubit>().clearFocusedDay()
+              onFocusDay: (d) {
+                setState(() => _pinnedDay = null);
+                context.read<WirdCubit>().setFocusedDay(d);
+              },
+              onResetFocus: (focusedDay != null || _pinnedDay != null)
+                  ? () {
+                      setState(() => _pinnedDay = null);
+                      context.read<WirdCubit>().clearFocusedDay();
+                    }
+                  : null,
+              onMarkComplete: (shownDay == activeDay || _pinnedDay != null)
+                  ? () => _handleMarkComplete(context, shownDay, plan)
                   : null,
               onSwitchToMakeup: hasMissedDays
                   ? () => setState(() => _showMakeupMode = true)
@@ -3328,7 +3451,8 @@ class _CompletedWithMissedWidget extends StatelessWidget {
                         : 'Or start Day ${nextDayNumber ?? "next"}\'s wird',
                     isAr: isAr,
                     textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -3563,6 +3687,10 @@ class _TodayCard extends StatelessWidget {
   final VoidCallback? onSwitchToMakeup;
   final ValueChanged<int>? onFocusDay;
   final VoidCallback? onResetFocus;
+  /// Called instead of the default toggleDayComplete when set.
+  /// Used to intercept completion of the active daily day and show a
+  /// "go to next day?" dialog before auto-advancing.
+  final VoidCallback? onMarkComplete;
 
   const _TodayCard({
     super.key,
@@ -3582,6 +3710,7 @@ class _TodayCard extends StatelessWidget {
     this.onSwitchToMakeup,
     this.onFocusDay,
     this.onResetFocus,
+    this.onMarkComplete,
   });
 
   bool get _hasBookmark =>
@@ -3796,30 +3925,48 @@ class _TodayCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: isComplete
+                            ? AppColors.success.withValues(alpha: 0.1)
+                            : AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.3),
+                          color: isComplete
+                              ? AppColors.success.withValues(alpha: 0.4)
+                              : AppColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
-                      child: _digitAwareText(
-                        isAr
-                            ? (isFocusedDay
-                                  ? 'اليوم المعروض ${_arabicNumerals(today)}'
-                                  : 'اليوم ${_arabicNumerals(today)}')
-                            : (isFocusedDay
-                                  ? 'Showing Day $today'
-                                  : 'Day $today'),
-                        isAr: isAr,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                        textDirection: isAr
-                            ? TextDirection.rtl
-                            : TextDirection.ltr,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isComplete)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: Icon(
+                                Icons.check_box_rounded,
+                                color: AppColors.success,
+                                size: 14,
+                              ),
+                            ),
+                          _digitAwareText(
+                            isAr
+                                ? (isFocusedDay
+                                      ? 'اليوم المعروض ${_arabicNumerals(today)}'
+                                      : 'اليوم ${_arabicNumerals(today)}')
+                                : (isFocusedDay
+                                      ? 'Showing Day $today'
+                                      : 'Day $today'),
+                            isAr: isAr,
+                            style: TextStyle(
+                              color: isComplete ? AppColors.success : AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                            textDirection: isAr
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
+                          ),
+                        ],
                       ),
                     ),
                     if (isComplete) ...[
@@ -4198,9 +4345,10 @@ class _TodayCard extends StatelessWidget {
                 const SizedBox(width: 8),
 
                 // Mark complete - green text button
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      context.read<WirdCubit>().toggleDayComplete(today),
+                ElevatedButton(
+                  onPressed: onMarkComplete != null
+                      ? onMarkComplete
+                      : () => context.read<WirdCubit>().toggleDayComplete(today),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isComplete
                         ? AppColors.success.withValues(alpha: 0.15)
@@ -4222,13 +4370,21 @@ class _TodayCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  icon: const Icon(Icons.check_circle_rounded, size: 18),
-                  label: Text(
-                    isAr ? 'أكملته' : 'Done',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isComplete) ...[
+                        const Icon(Icons.check_circle_rounded, size: 18),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        isAr ? 'أكملته' : 'Done',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
