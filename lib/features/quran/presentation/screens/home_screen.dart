@@ -35,7 +35,6 @@ import '../tutorials/home_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
 import '../../../../core/utils/number_style_utils.dart';
 import '../../../../core/utils/utf16_sanitizer.dart';
-import 'package:qcf_quran_plus/qcf_quran_plus.dart' as qcf;
 
 // Cached at file scope — avoids triggering loadFontIfNecessary on every build,
 // which causes unhandled rejections with google_fonts ≥6.2 in Flutter.
@@ -628,18 +627,10 @@ class HomeScreenState extends State<HomeScreen>
                                         : CrossAxisAlignment.start,
                                     children: [
                                       isArabicUi
-                                          ? ExcludeSemantics(
-                                              child: Text(
-                                                '${surah.number}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                textAlign: TextAlign.right,
-                                                textDirection: TextDirection.rtl,
-                                                style: qcf.QuranTextStyles.surahHeaderStyle(
-                                                  fontSize: 22,
-                                                  color: Theme.of(context).textTheme.titleMedium?.color,
-                                                ),
-                                              ),
+                                          ? _MushafSurahName(
+                                              name: nameDisplay,
+                                              color: Theme.of(context).textTheme.titleMedium?.color,
+                                              accentColor: Theme.of(context).colorScheme.primary,
                                             )
                                           : Text(
                                               nameDisplay,

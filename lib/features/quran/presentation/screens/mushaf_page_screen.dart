@@ -20,6 +20,7 @@ import '../../../../core/services/tutorial_service.dart';
 import '../../../../core/services/settings_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import '../../../../core/utils/reciter_search_utils.dart';
 import '../../../../core/utils/utf16_sanitizer.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
@@ -1762,7 +1763,7 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
         .firstOrNull;
     if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
+      setState(() => _query = _searchController.text.trim());
     });
   }
 
@@ -1804,13 +1805,9 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
       });
       return list;
     }
-    final q = _query;
-    final filtered = list.where((e) {
-      final name = e
-          .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
-          .toLowerCase();
-      return name.contains(q) || e.identifier.toLowerCase().contains(q);
-    }).toList();
+    final filtered = list
+      .where((e) => ReciterSearchUtils.matchesReciterQuery(e, _query))
+      .toList();
     filtered.sort((a, b) {
       final aFav = _favourites.contains(a.identifier);
       final bFav = _favourites.contains(b.identifier);
@@ -2254,18 +2251,21 @@ class _MushafReciterPickerSheetState extends State<_MushafReciterPickerSheet> {
               // ── List ─────────────────────────────────────────────────
               ConstrainedBox(
                 constraints: BoxConstraints(
+                  minHeight: 120,
                   maxHeight: MediaQuery.of(context).size.height * 0.45,
                 ),
                 child: filtered.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          widget.isAr ? 'لا توجد نتائج' : 'No results',
-                          style: GoogleFonts.cairo(
-                            fontSize: 13,
-                            color: subtleColor,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(
+                            widget.isAr ? 'لا توجد نتائج' : 'No results',
+                            style: GoogleFonts.cairo(
+                              fontSize: 13,
+                              color: subtleColor,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       )
                     : (_query.isEmpty &&

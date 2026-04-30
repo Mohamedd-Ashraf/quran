@@ -9,6 +9,7 @@ import '../../../../core/constants/recitation_catalog.dart';
 import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
+import '../../../../core/utils/reciter_search_utils.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/islamic_logo.dart';
 import '../../../quran/domain/entities/surah.dart';
@@ -648,6 +649,22 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
   static bool _isSurahLevelOnly(AudioEdition e) =>
       RecitationCatalog.isSurahLevelOnlyEdition(e.identifier);
 
+  static bool _isHusaryEdition(AudioEdition e) =>
+      e.identifier.contains('husary');
+
+  String? _husaryVariantLabel(AudioEdition ed) {
+    if (!_isHusaryEdition(ed)) return null;
+    final source = (widget.isAr ? (ed.name ?? '') : (ed.englishName ?? ''))
+        .trim();
+    if (source.isEmpty) return widget.isAr ? 'نسخة مختلفة' : 'Variant';
+    final m = RegExp(r'\(([^)]+)\)').firstMatch(source);
+    if (m != null) {
+      final inside = (m.group(1) ?? '').trim();
+      if (inside.isNotEmpty) return inside;
+    }
+    return widget.isAr ? 'نسخة مختلفة' : 'Variant';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -658,7 +675,7 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
         .firstOrNull;
     if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
+      setState(() => _query = _searchController.text.trim());
     });
   }
 
@@ -680,13 +697,9 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
       list = src;
     }
     if (_query.isEmpty) return list;
-    final q = _query;
-    return list.where((e) {
-      final name = e
-          .displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
-          .toLowerCase();
-      return name.contains(q) || e.identifier.toLowerCase().contains(q);
-    }).toList();
+    return list
+        .where((e) => ReciterSearchUtils.matchesReciterQuery(e, _query))
+        .toList();
   }
 
   Widget _badge(String label, Color color) => Container(
@@ -739,6 +752,7 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
       final qiraahColor = RecitationCatalog.majorQiraahColorForEditionId(
         e.identifier,
       );
+      final husaryVariant = _husaryVariantLabel(e);
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Material(
@@ -773,6 +787,11 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
                                 : FontWeight.w500,
                           ),
                         ),
+                        if (husaryVariant != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: _badge(husaryVariant, Colors.deepOrange),
+                          ),
                         if (qiraahLabel != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 3),
@@ -895,6 +914,25 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
 
     final showCategorized = _query.isEmpty &&
         (_langFilter == 'all' || _langFilter == 'ar');
+
+    List<Widget> buildTilesWithHusaryGroup(List<AudioEdition> editions) {
+      final nonHusary = editions.where((e) => !_isHusaryEdition(e)).toList();
+      final husary = editions.where(_isHusaryEdition).toList();
+      final out = <Widget>[];
+      out.addAll(nonHusary.map(buildTile));
+      if (husary.isNotEmpty) {
+        out.add(
+          buildSectionHeader(
+            widget.isAr
+                ? 'محمود خليل الحصري — نسخ مختلفة'
+                : 'Mahmoud Khalil Al-Husary — Variants',
+            Icons.layers_rounded,
+          ),
+        );
+        out.addAll(husary.map(buildTile));
+      }
+      return out;
+    }
 
     return SafeArea(
       child: Directionality(
@@ -1080,9 +1118,9 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
                                       : 'Reciters (Hafs)',
                                   Icons.record_voice_over_rounded,
                                 ),
-                                ...filtered
-                                    .where((e) => !_isQiraat(e))
-                                    .map(buildTile),
+                                ...buildTilesWithHusaryGroup(
+                                  filtered.where((e) => !_isQiraat(e)).toList(),
+                                ),
                               ],
                               if (filtered
                                   .where(_isQiraat)
@@ -1093,9 +1131,9 @@ class _MoreReciterPickerSheetState extends State<_MoreReciterPickerSheet> {
                                       : "Qira'at & Recitations ✦",
                                   Icons.auto_stories_rounded,
                                 ),
-                                ...filtered
-                                    .where(_isQiraat)
-                                    .map(buildTile),
+                                ...buildTilesWithHusaryGroup(
+                                  filtered.where(_isQiraat).toList(),
+                                ),
                               ],
                             ],
                           )

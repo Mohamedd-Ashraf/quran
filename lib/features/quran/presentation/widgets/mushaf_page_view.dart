@@ -28,6 +28,7 @@ import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../wird/data/quran_boundaries.dart' show kSurahAyahCounts;
 import '../../domain/entities/surah.dart';
 import '../../../../core/utils/arabic_text_style_helper.dart';
+import '../../../../core/utils/reciter_search_utils.dart';
 import '../../../../core/utils/number_style_utils.dart';
 import '../../../../core/utils/tajweed_parser.dart';
 import '../bloc/tafsir/tafsir_cubit.dart';
@@ -2363,13 +2364,8 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
       });
       return list;
     }
-    final q = _query;
     final filtered = list
-        .where((e) =>
-            e.displayNameForAppLanguage(widget.isAr ? 'ar' : 'en')
-                .toLowerCase()
-                .contains(q) ||
-            e.identifier.toLowerCase().contains(q))
+      .where((e) => ReciterSearchUtils.matchesReciterQuery(e, _query))
         .toList();
     filtered.sort((a, b) {
       // Prioritize favorites first
@@ -2418,7 +2414,7 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
         .firstOrNull;
     if (sel != null && _isQiraat(sel)) _langFilter = 'qiraat';
     _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
+      setState(() => _query = _searchController.text.trim());
     });
   }
 
@@ -2672,18 +2668,21 @@ class _QcfReciterPickerSheetState extends State<_QcfReciterPickerSheet> {
                 ),
               ConstrainedBox(
                 constraints: BoxConstraints(
+                  minHeight: 120,
                   maxHeight: MediaQuery.of(context).size.height * 0.50,
                 ),
                 child: filtered.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          widget.isAr ? 'لا توجد نتائج' : 'No results',
-                          style: GoogleFonts.cairo(
-                            fontSize: 13,
-                            color: subtleColor,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(
+                            widget.isAr ? 'لا توجد نتائج' : 'No results',
+                            style: GoogleFonts.cairo(
+                              fontSize: 13,
+                              color: subtleColor,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       )
                     : Builder(builder: (context) {

@@ -25,6 +25,7 @@ import 'offline_audio_screen.dart';
 import '../../../../core/services/tutorial_service.dart';
 import '../tutorials/settings_tutorial.dart';
 import '../../../../core/utils/hijri_utils.dart' as hijri;
+import '../../../../core/utils/reciter_search_utils.dart';
 import 'privacy_policy_screen.dart';
 import '../../../../core/services/settings_service.dart';
 
@@ -1985,14 +1986,8 @@ class _ReciterPickerSheetState extends State<_ReciterPickerSheet> {
       list = list.where((e) => e.language == _langFilter).toList();
     }
     if (_query.isNotEmpty) {
-      final q = _query.toLowerCase();
       list = list
-          .where(
-            (e) =>
-                (e.englishName ?? '').toLowerCase().contains(q) ||
-                (e.name ?? '').toLowerCase().contains(q) ||
-                e.identifier.toLowerCase().contains(q),
-          )
+          .where((e) => ReciterSearchUtils.matchesReciterQuery(e, _query))
           .toList();
     }
     // Ensure current selection always appears

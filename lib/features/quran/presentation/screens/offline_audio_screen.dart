@@ -10,6 +10,7 @@ import '../../../../core/services/audio_edition_service.dart';
 import '../../../../core/services/offline_audio_service.dart';
 import '../../../../core/settings/app_settings_cubit.dart';
 import '../../../../core/audio/ayah_audio_cubit.dart';
+import '../../../../core/utils/reciter_search_utils.dart';
 import 'select_download_screen.dart';
 
 // ── Timed/Qira'at classification helpers (shared across this file) ──────────
@@ -2159,14 +2160,8 @@ class _OfflineReciterPickerSheetState
       list = list.where((e) => e.language == _langFilter).toList();
     }
     if (_query.isNotEmpty) {
-      final q = _query.toLowerCase();
       list = list
-          .where(
-            (e) =>
-                (e.englishName ?? '').toLowerCase().contains(q) ||
-                (e.name ?? '').toLowerCase().contains(q) ||
-                e.identifier.toLowerCase().contains(q),
-          )
+          .where((e) => ReciterSearchUtils.matchesReciterQuery(e, _query))
           .toList();
     }
     if (!list.any((e) => e.identifier == _currentSelected)) {
@@ -2197,27 +2192,41 @@ class _OfflineReciterPickerSheetState
         ),
       );
 
+  static bool _isHusaryEdition(AudioEdition ed) =>
+      ed.identifier.contains('husary');
+
+  String? _husaryVariantLabel(AudioEdition ed, bool isAr) {
+    if (!_isHusaryEdition(ed)) return null;
+    final source = (isAr ? (ed.name ?? '') : (ed.englishName ?? '')).trim();
+    if (source.isEmpty) return isAr ? 'نسخة مختلفة' : 'Variant';
+    final m = RegExp(r'\(([^)]+)\)').firstMatch(source);
+    if (m != null) {
+      final inside = (m.group(1) ?? '').trim();
+      if (inside.isNotEmpty) return inside;
+    }
+    return isAr ? 'نسخة مختلفة' : 'Variant';
+  }
+
   Widget _buildEditionBadges(AudioEdition ed, bool isAr) {
+    final badges = <Widget>[];
+    final husaryVariant = _husaryVariantLabel(ed, isAr);
+    if (husaryVariant != null) {
+      badges.add(_badge(husaryVariant, Colors.deepOrange));
+    }
+
     if (_kTimedEditionIds.contains(ed.identifier)) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _badge(isAr ? 'آية بآية ✦' : 'Per-ayah ✦', AppColors.primaryLight),
-          const SizedBox(width: 4),
-          _badge(isAr ? 'توقيتات ⏱' : 'Timed ⏱', Colors.blueAccent),
-        ],
+      badges.add(
+        _badge(isAr ? 'آية بآية ✦' : 'Per-ayah ✦', AppColors.primaryLight),
       );
+      badges.add(_badge(isAr ? 'توقيتات ⏱' : 'Timed ⏱', Colors.blueAccent));
+    } else if (_kIsSurahLevelOnly(ed)) {
+      badges.add(_badge(isAr ? 'سورة كاملة' : 'Full surah', AppColors.secondary));
+    } else if (_kWarshIds.contains(ed.identifier)) {
+      badges.add(_badge(isAr ? 'آية بآية' : 'Per-ayah', AppColors.primaryLight));
     }
-    if (_kIsSurahLevelOnly(ed)) {
-      return _badge(
-        isAr ? 'سورة كاملة' : 'Full surah',
-        AppColors.secondary,
-      );
-    }
-    if (_kWarshIds.contains(ed.identifier)) {
-      return _badge(isAr ? 'آية بآية' : 'Per-ayah', AppColors.primaryLight);
-    }
-    return const SizedBox.shrink();
+
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 4, runSpacing: 2, children: badges);
   }
 
   // ── Reciter tile ───────────────────────────────────────────────────────────
@@ -2333,16 +2342,37 @@ class _OfflineReciterPickerSheetState
 
     final items = <Widget>[];
 
-    if (regularList.isNotEmpty) {
-      items.add(_buildSectionHeader(
-        isAr ? 'القراء (آية بآية)' : 'Reciters (per-ayah)',
-        Icons.record_voice_over_rounded,
-        subtleColor,
-      ));
-      for (final ed in regularList) {
+    void addTilesWithHusaryGroup(List<AudioEdition> editions) {
+      final nonHusary = editions.where((e) => !_isHusaryEdition(e)).toList();
+      final husary = editions.where(_isHusaryEdition).toList();
+
+      for (final ed in nonHusary) {
         items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
         items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
       }
+
+      if (husary.isNotEmpty) {
+        items.add(_buildSectionHeader(
+          isAr
+              ? 'محمود خليل الحصري — نسخ مختلفة'
+              : 'Mahmoud Khalil Al-Husary — Variants',
+          Icons.layers_rounded,
+          subtleColor,
+        ));
+        for (final ed in husary) {
+          items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
+          items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
+        }
+      }
+    }
+
+    if (regularList.isNotEmpty) {
+      items.add(_buildSectionHeader(
+        isAr ? 'القراء (حفص عن عاصم)' : 'Reciters (Hafs)',
+        Icons.record_voice_over_rounded,
+        subtleColor,
+      ));
+      addTilesWithHusaryGroup(regularList);
     }
 
     if (qiratList.isNotEmpty) {
@@ -2351,10 +2381,7 @@ class _OfflineReciterPickerSheetState
         Icons.auto_stories_rounded,
         subtleColor,
       ));
-      for (final ed in qiratList) {
-        items.add(_buildTile(context, ed, isAr, nameColor, dividerItemColor));
-        items.add(Divider(height: 1, indent: 70, color: dividerItemColor));
-      }
+      addTilesWithHusaryGroup(qiratList);
     }
 
     return ListView(
@@ -2503,6 +2530,8 @@ class _OfflineReciterPickerSheetState
     final subtleColor = isDark ? Colors.white38 : Colors.black45;
     final emptyIconColor = isDark ? Colors.white24 : Colors.grey.shade300;
     final emptyTextColor = isDark ? Colors.white38 : Colors.grey.shade500;
+    final showCategorized =
+      _query.isEmpty && (_langFilter == 'all' || _langFilter == 'ar');
 
     return Container(
       decoration: BoxDecoration(
@@ -2647,57 +2676,85 @@ class _OfflineReciterPickerSheetState
           const SizedBox(height: 6),
           Divider(height: 1, color: dividerColor),
 
+          if (_langFilter == 'qiraat')
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: AppColors.primary.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 15,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      isAr
+                          ? 'التلاوات المعلَّمة بـ ⏱ تشتغل آية بآية. التلاوات المعلَّمة بـ "سورة كاملة" تتطلب تحميل الملف أولاً.'
+                          : 'Recitations marked ⏱ play per-ayah. Those marked "Full surah" require downloading first.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary.withValues(alpha: 0.90),
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ── Reciter list ──────────────────────────────────────
           Flexible(
-            child: _langFilter == 'qiraat' && _query.isEmpty
-                ? _buildQiraatSections(
-                    context,
-                    isAr,
-                    nameColor,
-                    subtleColor,
-                    dividerItemColor,
-                  )
-                : filtered.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.search_off_rounded,
-                              size: 48,
-                              color: emptyIconColor,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              isAr ? 'لا توجد نتائج' : 'No results',
-                              style: TextStyle(color: emptyTextColor),
-                            ),
-                          ],
+            child: filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48,
+                          color: emptyIconColor,
                         ),
+                        const SizedBox(height: 12),
+                        Text(
+                          isAr ? 'لا توجد نتائج' : 'No results',
+                          style: TextStyle(color: emptyTextColor),
+                        ),
+                      ],
+                    ),
+                  )
+                : showCategorized
+                    ? _buildCategorizedList(
+                        context,
+                        filtered,
+                        isAr,
+                        nameColor,
+                        subtleColor,
+                        dividerItemColor,
                       )
-                    : _query.isEmpty
-                        ? _buildCategorizedList(
-                            context,
-                            filtered,
-                            isAr,
-                            nameColor,
-                            subtleColor,
-                            dividerItemColor,
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
-                                Divider(height: 1, indent: 70, color: dividerItemColor),
-                            itemBuilder: (context, i) => _buildTile(
-                              context,
-                              filtered[i],
-                              isAr,
-                              nameColor,
-                              dividerItemColor,
-                            ),
-                          ),
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(height: 1, indent: 70, color: dividerItemColor),
+                        itemBuilder: (context, i) => _buildTile(
+                          context,
+                          filtered[i],
+                          isAr,
+                          nameColor,
+                          dividerItemColor,
+                        ),
+                      ),
           ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
